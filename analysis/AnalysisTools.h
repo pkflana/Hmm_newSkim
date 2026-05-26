@@ -1,0 +1,262 @@
+#pragma once
+#include <cmath>
+#include <fstream>
+#include <iostream>
+#include <string>
+
+using LorentzVectorXYZ = ROOT::Math::LorentzVector<ROOT::Math::PxPyPzE4D<double>>;
+using LorentzVectorM = ROOT::Math::LorentzVector<ROOT::Math::PtEtaPhiM4D<double>>;
+using LorentzVectorE = ROOT::Math::LorentzVector<ROOT::Math::PtEtaPhiE4D<double>>;
+using RVecI = ROOT::VecOps::RVec<int>;
+using RVecS = ROOT::VecOps::RVec<size_t>;
+using RVecUC = ROOT::VecOps::RVec<UChar_t>;
+using RVecF = ROOT::VecOps::RVec<float>;
+using RVecB = ROOT::VecOps::RVec<bool>;
+using RVecVecI = ROOT::VecOps::RVec<RVecI>;
+using RVecLV = ROOT::VecOps::RVec<LorentzVectorM>;
+using RVecSetInt = ROOT::VecOps::RVec<std::set<int>>;
+
+enum class GenLeptonMatch : int { Electron = 1, Muon = 2, TauElectron = 3, TauMuon = 4, Tau = 5, NoMatch = 6 };
+
+RVecS CreateIndexes(size_t vecSize) {
+    RVecS i(vecSize);
+    std::iota(i.begin(), i.end(), 0);
+    return i;
+}
+
+template <typename V>
+RVecI ReorderObjects(const V &varToOrder, const RVecI &indices, size_t nMax = std::numeric_limits<size_t>::max()) {
+    RVecI ordered_indices = indices;
+    std::sort(ordered_indices.begin(), ordered_indices.end(), [&](int a, int b) {
+        return varToOrder.at(a) > varToOrder.at(b);
+    });
+    const size_t n = std::min(ordered_indices.size(), nMax);
+    ordered_indices.resize(n);
+    return ordered_indices;
+}
+
+
+inline LorentzVectorM GetP4(const RVecF &pt, const RVecF &eta, const RVecF &phi, const RVecF &mass, int idx) {
+    return LorentzVectorM(pt[idx], eta[idx], phi[idx], mass[idx]);
+}
+
+inline LorentzVectorM GetP4(const RVecF &pt, const RVecF &eta, const RVecF &phi, double mass, int idx) {
+    return LorentzVectorM(pt[idx], eta[idx], phi[idx], mass);
+}
+
+RVecLV GetP4(const RVecF &pt, const RVecF &eta, const RVecF &phi, const RVecF &mass) {
+    RVecLV p4;
+    p4.reserve(pt.size());
+    for (size_t idx = 0; idx < pt.size(); idx++)
+        p4.emplace_back(pt[idx], eta[idx], phi[idx], mass[idx]);
+    return p4;
+}
+
+RVecLV GetP4(const RVecF &pt, const RVecF &eta, const RVecF &phi, const RVecF &mass, const RVecS &indices) {
+    RVecLV p4;
+    p4.reserve(indices.size());
+    for (auto &idx : indices)
+        p4.emplace_back(pt[idx], eta[idx], phi[idx], mass[idx]);
+    return p4;
+}
+
+RVecB RemoveOverlaps(const RVecLV &obj_p4,
+                     const RVecB &pre_sel,
+                     const std::vector<RVecLV> &other_objects,
+                     size_t min_number_of_non_overlaps,
+                     double min_deltaR) {
+    RVecB result(pre_sel);
+    const double min_deltaR2 = std::pow(min_deltaR, 2);
+
+    const auto hasMinNumberOfNonOverlaps = [&](const LorentzVectorM &p4) {
+        size_t cnt = 0;
+        for (const auto &other_obj_col : other_objects) {
+            for (const auto &other_obj_p4 : other_obj_col) {
+                const double dR2 = ROOT::Math::VectorUtil::DeltaR2(p4, other_obj_p4);
+                if (dR2 > min_deltaR2) {
+                    ++cnt;
+                    if (cnt >= min_number_of_non_overlaps)
+                        return true;
+                }
+            }
+        }
+        return false;
+    };
+
+    for (size_t obj_idx = 0; obj_idx < obj_p4.size(); ++obj_idx) {
+        result[obj_idx] = pre_sel[obj_idx] && hasMinNumberOfNonOverlaps(obj_p4.at(obj_idx));
+    }
+    return result;
+}
+
+RVecB RemoveOverlaps(const RVecLV &obj_p4, const RVecB &pre_sel, const RVecLV &other_objects, double min_deltaR) {
+    RVecB result(pre_sel);
+    const double min_deltaR2 = std::pow(min_deltaR, 2);
+
+    const auto hasOverlaps = [&](const LorentzVectorM &p4) {
+        for (const auto &other_obj_p4 : other_objects) {
+            const double dR2 = ROOT::Math::VectorUtil::DeltaR2(p4, other_obj_p4);
+            if (dR2 <= min_deltaR2)
+                return true;
+        }
+        return false;
+    };
+
+    for (size_t obj_idx = 0; obj_idx < obj_p4.size(); ++obj_idx) {
+        result[obj_idx] = pre_sel[obj_idx] && !hasOverlaps(obj_p4.at(obj_idx));
+    }
+    return result;
+}
+
+template <typename LVec, typename LVecCollection>
+double MinDeltaR(const LVec &obj_p4, const LVecCollection &other_objects) {
+    double min_dR = std::numeric_limits<double>::infinity();
+    for (const auto &other_obj_p4 : other_objects) {
+        const double dR = ROOT::Math::VectorUtil::DeltaR(obj_p4, other_obj_p4);
+        if (dR < min_dR) {
+            min_dR = dR;
+        }
+    }
+    return min_dR;
+}
+
+int FindMatching(const LorentzVectorM &target_p4, const RVecLV &ref_p4, const float deltaR_thr) {
+    double deltaR_min = deltaR_thr;
+    int current_idx = -1;
+    for (int refIdx = 0; refIdx < ref_p4.size(); refIdx++) {
+        auto dR_targetRef = ROOT::Math::VectorUtil::DeltaR(target_p4, ref_p4.at(refIdx));
+        if (dR_targetRef < deltaR_min) {
+            deltaR_min = dR_targetRef;
+            current_idx = refIdx;
+        }
+    }
+    return current_idx;
+}
+
+RVecI FindMatching(const RVecLV &target_p4, const RVecLV &ref_p4, const float deltaR_thr) {
+    RVecI targetIndices(target_p4.size(), -1);
+    for (int targetIdx = 0; targetIdx < target_p4.size(); targetIdx++) {
+        int refIdxFound = FindMatching(target_p4[targetIdx], ref_p4, deltaR_thr);
+        targetIndices[targetIdx] = refIdxFound;
+    }
+    return targetIndices;
+}
+
+int FindMatching(const bool pre_sel_target,
+                 const RVecB &pre_sel_ref,
+                 const LorentzVectorM &target_p4,
+                 const RVecLV &ref_p4,
+                 const float dR_thr) {
+    // RVecI matched(1,-1); // Only one target, so size is 1 and initialized with
+    // false
+    int current_idx = -1;
+    float deltaR_min = dR_thr;
+    if (pre_sel_target) {
+        for (size_t ref_idx = 0; ref_idx < pre_sel_ref.size(); ref_idx++) {
+            if (pre_sel_ref[ref_idx] == 0)
+                continue;
+            auto dR_targetRef = ROOT::Math::VectorUtil::DeltaR(target_p4, ref_p4[ref_idx]);
+            if (dR_targetRef < deltaR_min) {
+                current_idx = ref_idx;
+                deltaR_min = dR_targetRef;
+            }
+        }
+    }
+    return current_idx;
+}
+
+RVecI FindMatching(const RVecB &pre_sel_target,
+                   const RVecB &pre_sel_ref,
+                   const RVecLV &target_p4,
+                   const RVecLV &ref_p4,
+                   const float deltaR_thr) {
+    RVecI targetIndices(target_p4.size(), -1);
+    for (int targetIdx = 0; targetIdx < target_p4.size(); targetIdx++) {
+        targetIndices[targetIdx] =
+            FindMatching(pre_sel_target[targetIdx], pre_sel_ref, target_p4[targetIdx], ref_p4, deltaR_thr);
+    }
+    return targetIndices;
+}
+
+RVecSetInt FindMatchingSet(const RVecB &pre_sel_target,
+                           const RVecB &pre_sel_ref,
+                           const RVecLV &target_p4,
+                           const RVecLV &ref_p4,
+                           const float dR_thr) {
+    RVecSetInt findMatching(pre_sel_target.size());
+    for (size_t ref_idx = 0; ref_idx < pre_sel_ref.size(); ref_idx++) {
+        if (pre_sel_ref[ref_idx] == 0)
+            continue;
+        for (size_t target_idx = 0; target_idx < pre_sel_target.size(); target_idx++) {
+            if (pre_sel_target[target_idx] == 0)
+                continue;
+            auto dR_current = ROOT::Math::VectorUtil::DeltaR(target_p4[target_idx], ref_p4[ref_idx]);
+            if (dR_current < dR_thr) {
+                findMatching[target_idx].insert(ref_idx);
+            }
+        }
+    }
+    return findMatching;
+}
+
+namespace ROOT {
+    namespace VecOps {
+        template <typename TIn, typename TOut>
+        RVec<TOut> TakeAndCast(const RVec<TIn> &v,
+                               const RVec<typename RVec<TIn>::size_type> &i,
+                               const TOut default_val) {
+            RVec<TOut> result(i.size());
+            for (typename RVec<TIn>::size_type pos = 0; pos < i.size(); ++pos) {
+                const auto idx = i[pos];
+                result[pos] = idx >= 0 && idx < v.size() ? static_cast<TOut>(v[idx]) : default_val;
+            }
+            return result;
+        }
+    }  // namespace VecOps
+}  // namespace ROOT
+
+namespace v_ops {
+    template <typename VecIn, typename OutT, auto MemPtr>
+    ROOT::VecOps::RVec<OutT> extract(const VecIn &p4) {
+        return ROOT::VecOps::Map(p4, [](const auto &v) -> OutT { return static_cast<OutT>((v.*MemPtr)()); });
+    }
+
+#define DEFINE_EXTRACTOR(fn_name, method_name)                      \
+    template <typename LV, typename OutT = float>                   \
+    ROOT::VecOps::RVec<OutT> fn_name(const LV &p4) {                \
+        return extract<LV, OutT, &LV::value_type::method_name>(p4); \
+    }
+
+    DEFINE_EXTRACTOR(pt, pt)
+    DEFINE_EXTRACTOR(eta, eta)
+    DEFINE_EXTRACTOR(phi, phi)
+    DEFINE_EXTRACTOR(mass, mass)
+    DEFINE_EXTRACTOR(energy, energy)
+    DEFINE_EXTRACTOR(Et, Et)
+    DEFINE_EXTRACTOR(rapidity, Rapidity)
+
+#undef DEFINE_EXTRACTOR
+}  // namespace v_ops
+
+namespace eventId {
+
+    ULong64_t encodeFullEventId(ULong64_t sample_name_crc, ULong64_t infile_crc, ULong64_t rdfentry) {
+        if (sample_name_crc >> 16)
+            throw std::runtime_error("sample_name_crc overflows 16 bits");
+        if (infile_crc >> 16)
+            throw std::runtime_error("infile_crc overflows 16 bits");
+        if (rdfentry >> 32)
+            throw std::runtime_error("rdfentry overflows 32 bits");
+
+        return (sample_name_crc << 48) | (infile_crc << 32) | rdfentry;
+    }
+
+    std::tuple<ULong64_t, ULong64_t, ULong64_t> decodeFullEventId(ULong64_t fullEventId) {
+        ULong64_t sample_name_crc = (fullEventId >> 48) & 0xFFFF;
+        ULong64_t infile_crc = (fullEventId >> 32) & 0xFFFF;
+        ULong64_t rdfentry = fullEventId & 0xFFFFFFFF;
+
+        return std::make_tuple(sample_name_crc, infile_crc, rdfentry);
+    }
+
+}  // namespace eventId
