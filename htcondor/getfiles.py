@@ -1,11 +1,18 @@
 import yaml
 import os
-samples_config = open("/afs/cern.ch/user/p/pflanaga/Hmm_newSkim/config/samples_2024.yaml",'r')
+base_path = "/afs/cern.ch/user/p/pflanaga/"
+samples_config = open(base_path+"Hmm_newSkim/config/samples_2024.yaml",'r')
 data = yaml.safe_load(samples_config)
+process_names = open(base_path+"Hmm_newSkim/config/process_names.yaml",'r')
+processes = yaml.safe_load(process_names)
+datasetlist = []
+for key in processes.keys():
+    for dataset in processes[key]['datasets']:
+        datasetlist.append(dataset)
 nanoaod = 'nanoAOD'
 for key in data.keys():
-    print(key)
-    print(data[key][nanoaod])
+    if key not in datasetlist:
+        continue
     filelist = os.popen(f'dasgoclient --query "file dataset={data[key][nanoaod]}"').read().split('\n')[:-1]
     for i in range(len(filelist)):
         if os.path.exists("/eos/cms/"+filelist[i]):
