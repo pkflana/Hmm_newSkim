@@ -147,13 +147,14 @@ def define_base_weights(df,config,dataset_name,xs_cfg,use_genWeight_sign_only=Tr
 def apply_corrections(df, config, dataset_cfg, dataset_name):
     # golden json only if it's data, else pu weights
     is_data = dataset_cfg.get("is_data", False)
+    pu_branches = []
     if is_data:
         from .lumi import apply_lumi_filter
         lumiFile_path = config["lumiFile"]
         df = apply_lumi_filter(df, lumiFile_path)
     else:
         from .pu import apply_pu_weights
-        df = apply_pu_weights(df, config)
+        df,pu_branches = apply_pu_weights(df, config)
     # muons ScaRe
     from .muon_scare import apply_muon_scare
     df = apply_muon_scare(df, config, dataset_cfg)
@@ -164,7 +165,7 @@ def apply_corrections(df, config, dataset_cfg, dataset_name):
     from .jets import apply_jet_corrections
     df = apply_jet_corrections(df, config, dataset_cfg, dataset_name)
 
-    return df
+    return df,pu_branches
 # def getBTagValues():
 
 

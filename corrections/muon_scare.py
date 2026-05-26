@@ -42,6 +42,7 @@ def apply_muon_scare(
 
         '''
     )
+    
 
     # CENTRAL - Resol (only MC) on top of Scale
 

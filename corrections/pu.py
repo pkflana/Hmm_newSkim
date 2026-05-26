@@ -28,9 +28,9 @@ def apply_pu_weights(
     config,
     pileup_column="Pileup_nTrueInt",
     return_variations=True,
-    return_list_of_branches=False,
+    return_list_of_branches=True,
 ):
-    debug = False
+
 
     import ROOT
 
@@ -45,14 +45,9 @@ def apply_pu_weights(
     import correctionlib
 
     cs = correctionlib.CorrectionSet.from_file(str(pu_path))
-    if debug:
-        print("correction keys:", list(cs.keys()))
 
     json_key = golden_json_dict.get(period_unc)
-    corr = cs[json_key]
-    if debug:
-        print("using correction key:", json_key)
-        print("correction object:", corr)
+    corr = cs[json_key] 
     # sample pileup values (0..max_pu) to create lookup arrays
     max_pu = 200
     central_arr = []

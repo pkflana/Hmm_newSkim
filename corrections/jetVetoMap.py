@@ -43,27 +43,31 @@ def GetJetVetoMap(df, config):
 
 def ApplyJetVetoMap(df, config, apply_filter=True, defineElectronCleaning=False, isV12=False):
     df = GetJetVetoMap(df, config)
+    cols_to_store = []
     function_for_jetId = (
         "JetIdNewDef::RedefineJet_passJetIdTight_v12(Jet_p4, Jet_neHEF, Jet_neEmEF, Jet_jetId)"
         if isV12
         else "JetIdNewDef::RedefineJet_passJetIdTight_v13(Jet_p4, Jet_neHEF, Jet_neEmEF, Jet_chHEF, Jet_chMultiplicity, Jet_neMultiplicity )"
     )
     df = df.Define(f"Jet_passJetIdTight", function_for_jetId)
+    cols_to_store.append("Jet_passJetIdTight")
     df = df.Define(
         f"Jet_passJetIdTightLepVeto",
         "JetIdNewDef::Redefine_Jet_passJetIdTightLepVeto(Jet_p4, Jet_passJetIdTight, Jet_muEF, Jet_chEmEF)",
     )
+    cols_to_store.append("Jet_passJetIdTightLepVeto")
     df = df.Define(
         f"Jet_vetoMapLooseRegion_presel",
         "Jet_pt > 15 && ( Jet_passJetIdTightLepVeto ) && (Jet_chEmEF + Jet_neEmEF < 0.9) && Jet_isInsideVetoRegion",  # here goes the new Jet ID
     )  #  (Jet_puId > 0 || Jet_pt >50) &&  for CHS jets
-
+    cols_to_store.append("Jet_vetoMapLooseRegion_presel")
 
     df = df.Define(
         f"Jet_vetoMap",
         " RemoveOverlaps(Jet_p4, Jet_vetoMapLooseRegion_presel, Muon_p4_ScaRe_FSR[Muon_isPFcand], 0.2)",
     )
     jet_veto_map_string = "Jet_vetoMap"
+    cols_to_store.append(jet_veto_map_string)
 
     if defineElectronCleaning:
         df = df.Define(
@@ -71,7 +75,8 @@ def ApplyJetVetoMap(df, config, apply_filter=True, defineElectronCleaning=False,
             " RemoveOverlaps(Jet_p4, Jet_vetoMap, Electron_p4[Electron_isPFcand], 0.2)",
         )
         jet_veto_map_string+="Ele"
+        cols_to_store.append(jet_veto_map_string)
 
     if apply_filter:
         return df.Filter(f"Jet_p4[{jet_veto_map_string}].size()==0", "Jet Veto Map filter")
-    return df
+    return df,cols_to_store
