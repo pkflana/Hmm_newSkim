@@ -1,5 +1,8 @@
 import os
 import sys
+import ast
+import fnmatch
+import zlib
 from pathlib import Path
 import ROOT
 import utilities
@@ -8,12 +11,112 @@ import utilities
 ROOT_DIR = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT_DIR))
 
-# 1. open dataframe and apply selection
+headers_dir = os.path.dirname(os.path.abspath(__file__))
+header_path = os.path.join(headers_dir, "AnalysisTools.h")
+ROOT.gInterpreter.Declare(f'#include "{header_path}"')
 
+
+def _load_col_to_save_config(col_to_save_file):
+    config_text = Path(col_to_save_file).read_text()
+    columns_literal = config_text.split("\ndef GetObservablesCols", 1)[0].strip()
+    return ast.literal_eval(columns_literal)
+
+
+def _get_observables_cols(obs_name, is_data, nano_version, col_to_save_config):
+    if obs_name not in col_to_save_config:
+        raise RuntimeError(f"Invalid observable name, not found in keys {obs_name}")
+
+    obs_dict = col_to_save_config[obs_name]
+    obs_to_store = list(obs_dict.get("base", []))
+    obs_to_store.extend(obs_dict.get(nano_version, []))
+
+    if not is_data:
+        obs_to_store.extend(obs_dict.get("MC", []))
+
+    obs_to_store.extend(obs_dict.get("additional", []))
+    return obs_to_store
+
+
+def _column_name(column):
+    if isinstance(column, (tuple, list)):
+        return column[0]
+    return column
+
+
+def _add_existing_columns(columns, requested_columns, available_columns):
+    for requested_column in requested_columns:
+        column = _column_name(requested_column)
+        if any(wildcard in column for wildcard in "*?["):
+            matches = sorted(fnmatch.filter(available_columns, column))
+        else:
+            matches = [column] if column in available_columns else []
+
+        for match in matches:
+            if match not in columns:
+                columns.append(match)
+
+
+def _make_root_string_vector(columns):
+    root_columns = ROOT.std.vector("string")()
+    for column in columns:
+        root_columns.push_back(column)
+    return root_columns
+
+
+def _get_new_muon_cols(df):
+    available_columns = {str(column) for column in df.GetColumnNames()}
+    muon_patterns = [
+        "Muon_pt_noCorr*",
+        "Muon_pt_scale*",
+        "Muon_pt_ScaRe*",
+        "Muon_pt_resol*",
+        "good_muons*",
+        "good_muon_idx*",
+        "sorted_good_muon_idx*",
+        "mu1_idx*",
+        "mu2_idx*",
+        "mu1_pt*",
+        "mu2_pt*",
+        "mu1_eta*",
+        "mu2_eta*",
+        "mu1_phi*",
+        "mu2_phi*",
+        "mu1_mass*",
+        "mu2_mass*",
+        "mu1_charge*",
+        "mu2_charge*",
+        "mu1_bsConstrainedChi2*",
+        "mu2_bsConstrainedChi2*",
+        "mu1_dxy*",
+        "mu2_dxy*",
+        "mu1_dz*",
+        "mu2_dz*",
+        "mu1_pfIsoId*",
+        "mu2_pfIsoId*",
+        "mu1_mediumId*",
+        "mu2_mediumId*",
+        "mu1_p4*",
+        "mu2_p4*",
+        "m_mumu*",
+        "pt_mumu*",
+        "eta_mumu*",
+        "phi_mumu*",
+        "y_mumu*",
+        "dR_mumu*",
+    ]
+
+    muon_cols = []
+    _add_existing_columns(muon_cols, muon_patterns, available_columns)
+    return muon_cols
+
+
+
+# 1. open dataframe and apply selection
 config_file = "/afs/cern.ch/work/v/vdamante/Hmm_newSkim/config/maincfg_2024.yaml"
+col_to_save_file = "/afs/cern.ch/work/v/vdamante/Hmm_newSkim/config/col_to_save.yaml"
 input_file = "root://cms-xrd-global.cern.ch//store/mc/RunIII2024Summer24NanoAODv15/VBFH-Hto2Mu_Par-M-125_TuneCP5_13p6TeV_powheg-pythia8/NANOAODSIM/150X_mcRun3_2024_realistic_v2-v2/100000/f05fbcb1-50b6-4d4e-9923-19678675ee4a.root"
 dataset_name = "VBFHto2Mu_M125_powheg"
-# output_file = ""
+output_file = None
 
 # input_file = "root://cms-xrd-global.cern.ch//store/data/Run2024F/Muon1/NANOAOD/MINIv6NANOv15-v1/2530000/8fb5af30-f050-4468-a224-c9527356dc4d.root"
 # dataset_name = "Muon1_Run2024F"
@@ -43,54 +146,61 @@ if "MET_flags" in config:
 
 is_data_str = "true" if is_data else "false"
 df = df.Define(f"is_data", is_data_str)
+df = df.Define(f"period", f'"{period}"')
 is_data_int = "1" if is_data else "0"
 df = df.Define(f"is_data_int", is_data_int)
 # print(f"before there were {df.Count().GetValue()} entries")
 df = define_base_weights(df,config,dataset_name,xs_cfg)
 df = apply_corrections(df, config, dataset_cfg, dataset_name)
 
-### now define the muon selection
+### now define the muon selection and dimuon observables
+from analysis.muons import ApplyMuonSelection
 
-ROOT.gInterpreter.ProcessLine("""
-                    using RVecF = ROOT::VecOps::RVec<float>;
-                    RVecF Muon_pt_sel(const RVecF& Muon_nano_pt, const RVecF& Muon_bsc_pt, const RVecF& Muon_bsc_chi2){{
-                        RVecF Muon_pt_sel(Muon_nano_pt.size());
-                        for(size_t muon_idx = 0 ; muon_idx < Muon_pt_sel.size(); muon_idx++){{
-                            Muon_pt_sel[muon_idx] = Muon_bsc_chi2[muon_idx] < 30 ? Muon_bsc_pt[muon_idx] : Muon_nano_pt[muon_idx];
-                        }}
-                        return Muon_pt_sel;
-                    }}
-                    """)
+df = ApplyMuonSelection(df, is_data, dimuon_mass_cut=50.0)
 
-muon_sel_dict = {
-    "Muon_pt_noCorr": ['Muon_pt', 'Muon_bsConstrainedPt'],
-    "Muon_pt_scale": ['Muon_pt_scale_corr','Muon_bsc_pt_scale_corr'],
-    "Muon_pt_ScaRe": ['Muon_pt_corr', 'Muon_bsc_pt_corr'],
-    "Muon_pt_noCorr_FSR": ['Muon_pt_nano_FSR','Muon_pt_bsc_FSR'],
-    "Muon_pt_scale_FSR":['Muon_pt_nano_scale_corr_FSR',"Muon_bsc_pt_nano_scale_corr_FSR"]
-    "Muon_pt_ScaRe_FSR":["Muon_pt_nano_scare_FSR",'Muon_bsc_pt_nano_scare_FSR']
-}
-muon_sel_dict_shifted = {
-    "Muon_pt_scale_up": ['Muon_pt_scale_corr_up', 'Muon_bsc_pt_scale_corr_up'],
-    "Muon_pt_scale_down": ['Muon_pt_scale_corr_down', 'Muon_bsc_pt_scale_corr_down'],
-    "Muon_pt_resol_up": ['Muon_pt_corr_resol_up', 'Muon_bsc_pt_corr_resol_up'],
-    "Muon_pt_resol_down": ['Muon_pt_corr_resol_down', 'Muon_bsc_pt_corr_resol_down'],
-    "Muon_pt_scale_FSR_up": ['Muon_pt_nano_scale_corr_FSR_up', 'Muon_bsc_pt_nano_scale_corr_FSR_up'],
-    "Muon_pt_scale_FSR_down": ['Muon_pt_nano_scale_corr_FSR_down', 'Muon_bsc_pt_nano_scale_corr_FSR_down'],
-    "Muon_pt_resol_FSR_up": ['Muon_pt_nano_corr_resol_FSR_up', 'Muon_bsc_pt_nano_corr_resol_FSR_up'],
-    "Muon_pt_resol_FSR_down": ['Muon_pt_nano_corr_resol_FSR_down', 'Muon_bsc_pt_nano_corr_resol_FSR_down'],
-}
-if not is_data:
-    muon_sel_dict.extend(muon_sel_dict_shifted)
-for mu_pt_final_name,muons_pt_orig in muon_sel_dict.items():
-    df = df.Define(mu_pt_final_name, f"Muon_pt_sel({muons_pt_orig[0]},{muons_pt_orig[1]},Muon_bsConstrainedChi2)")
+fullEventIdColumn = "FullEventId"
+dataset_name_crc = zlib.crc32(dataset_name.encode()) & 0xFFFF
+input_file_crc = zlib.crc32(input_file.encode()) & 0xFFFF
 
+df = df.Define(
+    fullEventIdColumn,
+    f"""eventId::encodeFullEventId({dataset_name_crc}, {input_file_crc}, rdfentry_)""",
+)
 
-muon_pt_for_sel = ["Muon_pt_ScaRe_FSR"]
-if not is_data:
-    muon_pt_for_sel.extend(["Muon_pt_scale_FSR_up","Muon_pt_scale_FSR_down","Muon_pt_resol_FSR_up","Muon_pt_resol_FSR_down"])
-muon_presel = "{} > 15 && abs(Muon_eta) < 2.4 && Muon_mediumId && Muon_pfIsoId >= 2 "
-# df = LeptonsSelection(df)
+col_to_save_config = _load_col_to_save_config(col_to_save_file)
+nano_version = config.get("nano_version", "v15")
+available_columns = {str(column) for column in df.GetColumnNames()}
+
+default_col_to_store = _get_observables_cols(
+    "default",
+    is_data,
+    nano_version,
+    col_to_save_config,
+)
+jet_cols = _get_observables_cols(
+    "Jet",
+    is_data,
+    nano_version,
+    col_to_save_config,
+)
+muon_cols = _get_observables_cols(
+    "Muon",
+    is_data,
+    nano_version,
+    col_to_save_config,
+)
+muon_cols.extend(_get_new_muon_cols(df))
+
+vars_to_save_list = []
+_add_existing_columns(
+    vars_to_save_list,
+    default_col_to_store + jet_cols + muon_cols,
+    available_columns,
+)
+vars_to_save = _make_root_string_vector(vars_to_save_list)
+
+if output_file:
+    df.Snapshot("Events", output_file, vars_to_save)
 
 # # 3. HLT matching def
 # gen_weight_name = "weight_gen"

@@ -107,7 +107,7 @@ def apply_muon_fsr(df, is_data):
         'Muon_bsc_pt_corr_resol_down':['Muon_bsc_p4_nano_corr_resol_FSR_down','Muon_bsc_pt_nano_corr_resol_FSR_down'],
     }
     if not is_data:
-        branches_map.extend(branches_map_varied)
+        branches_map.update(branches_map_varied)
         
     for muon_pt_branch,muon_pt_fsr_branch in branches_map.items():
         if muon_pt_branch not in df.GetColumnNames(): continue
