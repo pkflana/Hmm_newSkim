@@ -161,9 +161,9 @@ def apply_corrections(df, config, dataset_cfg, dataset_name):
     df = apply_jet_corrections(df, config, dataset_cfg, dataset_name)
 
     # Jet Veto Map:
-    from .jetVetoMap import apply_jet_veto_map
-    df = apply_jet_veto_map(df,config,apply_filter=False,define_electron_cleaning=False)
-    
+    # from .jetVetoMap import apply_jet_veto_map
+    # df = apply_jet_veto_map(df,config,apply_filter=False,define_electron_cleaning=False)
+
     return df
 # def getBTagValues():
 

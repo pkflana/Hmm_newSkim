@@ -18,6 +18,19 @@ using RVecSetInt = ROOT::VecOps::RVec<std::set<int>>;
 
 enum class GenLeptonMatch : int { Electron = 1, Muon = 2, TauElectron = 3, TauMuon = 4, Tau = 5, NoMatch = 6 };
 
+enum class Period : int {
+    Run2_2016_HIPM = 1,
+    Run2_2016 = 2,
+    Run2_2017 = 3,
+    Run2_2018 = 4,
+    Run3_2022 = 5,
+    Run3_2022EE = 6,
+    Run3_2023 = 7,
+    Run3_2023BPix = 8,
+    Run3_2024 = 9,
+    Run3_2025 = 10
+};
+
 RVecS CreateIndexes(size_t vecSize) {
     RVecS i(vecSize);
     std::iota(i.begin(), i.end(), 0);

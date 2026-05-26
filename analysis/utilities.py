@@ -1,11 +1,30 @@
+import ast
+from pathlib import Path
+
+import ROOT
 import yaml
+
+
+def _resolve_config_path(yaml_file):
+    path = Path(yaml_file)
+    if path.exists() or path.is_absolute():
+        return path
+    return Path(__file__).resolve().parents[1] / path
+
+
 def get_config(yaml_file):
-    with open(yaml_file, "r") as f:
+    yaml_path = _resolve_config_path(yaml_file)
+    with open(yaml_path, "r") as f:
         config = yaml.safe_load(f)
     return config
 
 
 def GetObservablesCols(obs_name, is_data, nano_version="v12"):
+    col_to_save_path = _resolve_config_path("config/col_to_save.yaml")
+    with open(col_to_save_path, "r") as f:
+        config_text = f.read()
+    columns_literal = config_text.split("\ndef GetObservablesCols", 1)[0].strip()
+    observables = ast.literal_eval(columns_literal)
     obs_to_store = []
     if obs_name not in observables.keys():
         raise RuntimeError(f"Invalid observable name, not found in keys {obs_name}")

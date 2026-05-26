@@ -1,4 +1,6 @@
 #!/usr/bin/env python3
+import gzip
+import json
 import re
 
 import ROOT
@@ -28,11 +30,40 @@ jetvetomap_names = {
 _initialized = set()
 
 
+def _get_jet_id_correction_names(jet_id_file, jet_algorithm="AK4PUPPI"):
+    with gzip.open(jet_id_file, "rt") as f:
+        payload = json.load(f)
+
+    correction_names = {corr["name"] for corr in payload["corrections"]}
+    tight_name = f"{jet_algorithm}_Tight"
+    tight_lep_veto_name = f"{jet_algorithm}_TightLeptonVeto"
+
+    missing_names = [
+        name
+        for name in [tight_name, tight_lep_veto_name]
+        if name not in correction_names
+    ]
+    if missing_names:
+        raise RuntimeError(
+            f"Missing JetID correction(s) {missing_names} in {jet_id_file}. "
+            f"Available corrections: {sorted(correction_names)}"
+        )
+
+    return tight_name, tight_lep_veto_name
+
+
 def _sanitize_cpp_name(value):
     return re.sub(r"[^A-Za-z0-9_]", "_", value)
 
 
-def _declare_correction_helpers(period, veto_map_file, jet_id_file, veto_map_name):
+def _declare_correction_helpers(
+    period,
+    veto_map_file,
+    jet_id_file,
+    veto_map_name,
+    tight_jet_id_name,
+    tight_lep_veto_jet_id_name,
+):
     suffix = _sanitize_cpp_name(period)
     if suffix in _initialized:
         return suffix
@@ -47,10 +78,10 @@ def _declare_correction_helpers(period, veto_map_file, jet_id_file, veto_map_nam
         f'auto HMM_jetveto_corr_{suffix} = HMM_jetveto_cset_{suffix}->at("{veto_map_name}");'
     )
     ROOT.gROOT.ProcessLine(
-        f'auto HMM_jetid_tight_corr_{suffix} = HMM_jetid_cset_{suffix}->at("AK4PUPPI_Tight");'
+        f'auto HMM_jetid_tight_corr_{suffix} = HMM_jetid_cset_{suffix}->at("{tight_jet_id_name}");'
     )
     ROOT.gROOT.ProcessLine(
-        f'auto HMM_jetid_tight_lep_veto_corr_{suffix} = HMM_jetid_cset_{suffix}->at("AK4PUPPI_TightLeptonVeto");'
+        f'auto HMM_jetid_tight_lep_veto_corr_{suffix} = HMM_jetid_cset_{suffix}->at("{tight_lep_veto_jet_id_name}");'
     )
 
     ROOT.gInterpreter.Declare(
@@ -72,7 +103,7 @@ def _declare_correction_helpers(period, veto_map_file, jet_id_file, veto_map_nam
         }}
 
         template <typename ChMultiplicityT, typename NeMultiplicityT, typename MultiplicityT>
-        ROOT::VecOps::RVec<bool> HMM_Jet_passJetId_{suffix}(
+        ROOT::VecOps::RVec<bool> HMM_Jet_passJetIdFromCorrection_{suffix}(
             const ROOT::VecOps::RVec<float>& Jet_eta,
             const ROOT::VecOps::RVec<float>& Jet_chHEF,
             const ROOT::VecOps::RVec<float>& Jet_neHEF,
@@ -127,8 +158,18 @@ def apply_jet_veto_map(
     veto_map_file = JME_vetoMap_JsonPath.format(folder_name)
     jet_id_file = JME_jetId_JsonPath.format(folder_name)
     veto_map_name = jetvetomap_names[period]
+    tight_jet_id_name, tight_lep_veto_jet_id_name = _get_jet_id_correction_names(
+        jet_id_file
+    )
 
-    suffix = _declare_correction_helpers(period, veto_map_file, jet_id_file, veto_map_name)
+    suffix = _declare_correction_helpers(
+        period,
+        veto_map_file,
+        jet_id_file,
+        veto_map_name,
+        tight_jet_id_name,
+        tight_lep_veto_jet_id_name,
+    )
     available_columns = {str(column) for column in df.GetColumnNames()}
     jet_pt_column = "Jet_pt_corr" if "Jet_pt_corr" in available_columns else "Jet_pt"
 
@@ -138,20 +179,39 @@ def apply_jet_veto_map(
     )
     df = df.Define(
         "Jet_passJetIdTight",
-        f"HMM_Jet_passJetId_{suffix}(Jet_eta, Jet_chHEF, Jet_neHEF, Jet_chEmEF, Jet_neEmEF, Jet_muEF, Jet_chMultiplicity, Jet_neMultiplicity, Jet_nConstituents, false)",
+        f"HMM_Jet_passJetIdFromCorrection_{suffix}(Jet_eta, Jet_chHEF, Jet_neHEF, Jet_chEmEF, Jet_neEmEF, Jet_muEF, Jet_chMultiplicity, Jet_neMultiplicity, Jet_nConstituents, false)",
     )
     df = df.Define(
         "Jet_passJetIdTightLepVeto",
-        f"HMM_Jet_passJetId_{suffix}(Jet_eta, Jet_chHEF, Jet_neHEF, Jet_chEmEF, Jet_neEmEF, Jet_muEF, Jet_chMultiplicity, Jet_neMultiplicity, Jet_nConstituents, true)",
+        f"HMM_Jet_passJetIdFromCorrection_{suffix}(Jet_eta, Jet_chHEF, Jet_neHEF, Jet_chEmEF, Jet_neEmEF, Jet_muEF, Jet_chMultiplicity, Jet_neMultiplicity, Jet_nConstituents, true)",
     )
     df = df.Define(
         "Jet_vetoMapLooseRegion_presel",
         f"{jet_pt_column} > 15 && Jet_passJetIdTightLepVeto && (Jet_chEmEF + Jet_neEmEF < 0.9) && Jet_isInsideVetoRegion",
     )
-    if "Jet_p4" in available_columns and "Muon_p4" in available_columns:
+    if (
+        "Muon_p4_ScaRe_FSR" not in available_columns
+        and "Muon_p4_nano_scare_FSR" in available_columns
+        and "Muon_bsc_p4_nano_scare_FSR" in available_columns
+    ):
+        df = df.Define(
+            "Muon_p4_ScaRe_FSR",
+            """
+            RVecLV muon_p4(Muon_p4_nano_scare_FSR.size());
+            for (size_t i = 0; i < muon_p4.size(); ++i) {
+                muon_p4[i] = Muon_bsConstrainedChi2[i] < 30 ?
+                    Muon_bsc_p4_nano_scare_FSR[i] :
+                    Muon_p4_nano_scare_FSR[i];
+            }
+            return muon_p4;
+            """,
+        )
+        available_columns.add("Muon_p4_ScaRe_FSR")
+
+    if "Jet_p4" in available_columns and "Muon_p4_ScaRe_FSR" in available_columns:
         df = df.Define(
             "Jet_vetoMap",
-            "RemoveOverlaps(Jet_p4, Jet_vetoMapLooseRegion_presel, Muon_p4[Muon_isPFcand], 0.2)",
+            "RemoveOverlaps(Jet_p4, Jet_vetoMapLooseRegion_presel, Muon_p4_ScaRe_FSR[Muon_isPFcand], 0.2)",
         )
     else:
         df = df.Define("Jet_vetoMap", "Jet_vetoMapLooseRegion_presel")
