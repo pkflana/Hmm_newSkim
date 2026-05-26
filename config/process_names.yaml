@@ -1,0 +1,403 @@
+############## DY ##############
+DY:
+  name: "DY"
+  color: "kAzure+7"
+  color_mplhep: dodgerblue
+  datasets:
+    - DYto2E_M_10to50_amcatnloFXFX
+    - DYto2Mu_M_10to50_amcatnloFXFX
+    - DYto2Tau_M_10to50_amcatnloFXFX
+    - DYto2E_M_50_amcatnloFXFX
+    - DYto2E_M_50_0J_amcatnloFXFX
+    - DYto2E_M_50_1J_amcatnloFXFX
+    - DYto2E_M_50_2J_amcatnloFXFX
+    - DYto2Mu_M_50_amcatnloFXFX
+    - DYto2Mu_M_50_0J_amcatnloFXFX
+    - DYto2Mu_M_50_1J_amcatnloFXFX
+    - DYto2Mu_M_50_2J_amcatnloFXFX
+    - DYto2Tau_M_50_0J_amcatnloFXFX
+    - DYto2Tau_M_50_1J_amcatnloFXFX
+    - DYto2Tau_M_50_2J_amcatnloFXFX
+
+DYto2Mu_MLL105To160:
+  name: "DY"
+  color: "kAzure+7"
+  color_mplhep: dodgerblue
+  datasets:
+    - DYto2Mu_MLL_105to160_amcatnloFXFX
+
+DYto2Mu_MLL105To160_FlashSim:
+  name: "DY"
+  color: "kAzure+7"
+  color_mplhep: dodgerblue
+  datasets:
+    - DYto2Mu_MLL_105to160_amcatnloFXFX_Flashsim
+
+############## TT ##############
+TT:
+  name: "t $\\bar{t}$"
+  color: "kGreen-3"  # eliminates need for plot.yaml
+  color_mplhep: darkblue  # turquoise
+  datasets:
+    - TTto2L2Nu
+    - TTtoLNu2Q
+    - TTto4Q
+
+############## WJetsToLNu ##############
+W:
+  name: "W"
+  color: "kGreen"  # eliminates need for plot.yaml
+  color_mplhep: yellow
+  datasets:
+    - WtoENu_amcatnloFXFX
+    - WtoMuNu_amcatnloFXFX
+    - WtoTauNu_amcatnloFXFX
+W_NJets:
+  name: "W $\\rightarrow \\ell \\nu$+ jets"
+  color: "kGreen"  # eliminates need for plot.yaml
+  color_mplhep: yellow
+  datasets:
+    - WtoLNu_1J_madgraphMLM
+    - WtoLNu_2J_madgraphMLM
+    - WtoLNu_3J_madgraphMLM
+    - WtoLNu_4J_madgraphMLM
+
+############## EWK ############## 
+
+EWK:
+  name: "EWK"
+  color: kMagenta+3
+  color_mplhep: lavender
+  datasets:
+    - EWK_2L2J_madgraph_herwig
+
+EWK_2Mu2J_MLL_105to160_herwig:
+  name: "EWK"
+  color: kMagenta+3
+  color_mplhep: lavender
+  datasets:
+    - EWK_2Mu2J_MLL_105to160_herwig
+
+EWK_2Mu2J_MLL_105to160_pythia:
+  name: "EWK"
+  color: kMagenta+3
+  color_mplhep: lavender
+  datasets:
+    - EWK_2Mu2J_MLL_105to160_pythia
+
+EWK_2Mu2J_MLL_105to160_pythia_Flashsim:
+  name: "EWK"
+  color: kMagenta+3
+  color_mplhep: lavender
+  datasets:
+    - EWK_2Mu2J_MLL_105to160_pythia_Flashsim
+############## Other single H  ##############
+H_mainBckg:
+  name: "Single H"
+  color: kPink
+  color_mplhep: aqua
+  datasets:
+    - GluGluHto2Tau_UncorrelatedDecay_UnFiltered
+    - GluGluHto2B_M125
+    - VBFHto2B_M125
+    - VBFHto2Tau_UncorrelatedDecay_UnFiltered
+    - GluGluHto2Wto2L2Nu_M125
+
+############## VV ##############
+VV_Inclusive:
+  name: "VV Inclusive"
+  color: kPink+2
+  color_mplhep: tomato
+  datasets:
+    - WW
+    - WZ
+    - ZZ
+
+VV:
+  name: "VV"
+  color: kPink+2
+  color_mplhep: tomato
+  datasets:
+    - WWto2L2Nu_powheg
+    - WWto4Q_powheg
+    - WWtoLNu2Q_powheg
+    - WZto3LNu_powheg
+    - WZto2L2Q_powheg
+    - WZtoLNu2Q_powheg
+    - ZZto2L2Nu_powheg
+    - ZZto2L2Q_powheg
+    - ZZto2Nu2Q_powheg
+    - ZZto4L_powheg
+
+############## VH non-inclusive ##############
+VH_inclusive:
+  name: "VH"
+  color: kPink+2
+  color_mplhep: slateblue
+  datasets:
+    - ZH_Hto2B_Zto2L
+    - ZH_Hto2B_Zto2Q
+    - ggZH_Hto2B_Zto2L
+    - ggZH_Hto2B_Zto2Q
+    # - WminusH_Hto2B_Wto2Q
+    - WminusH_Hto2B_WtoLNu
+    # - WplusH_Hto2B_Wto2Q
+    - WplusH_Hto2B_WtoLNu
+
+############## VVV inclusive ##############
+VVV:
+  name: "VVV"
+  color: kOrange-4
+  color_mplhep: plum
+  datasets:
+    - WWW_4F
+    - WWZ_4F
+    - WZZ
+    - ZZZ
+
+############## ST ##############
+ST:
+  name: "ST"
+  color: kCyan-1
+  color_mplhep: cyan
+  datasets:
+    - TbarBtoLminusNuB_s_channel_4FS
+    - TBbartoLplusNuBbar_s_channel_4FS
+    - TbarBQtoLNu_t_channel_4FS
+    - TbarBQto2Q_t_channel_4FS
+    - TBbarQtoLNu_t_channel_4FS
+    - TBbarQto2Q_t_channel_4FS
+
+
+############## TW ##############
+TW:
+  name: "TW"
+  color: kCyan-1
+  color_mplhep: green
+  datasets:
+    - TbarWplusto2L2Nu
+    - TbarWplusto4Q
+    - TbarWplustoLNu2Q
+    - TWminusto2L2Nu
+    - TWminusto4Q
+    - TWminustoLNu2Q
+
+############## TTX ##############
+TTX:
+  name: "TT+X"
+  color: kBlue-10
+  color_mplhep: pink
+  datasets:
+    - TTWH
+    - TTWW
+    - TTZH_ZHto4B
+    # - TTZZ_ZZto4B
+    - TTZ_Zto2Q
+
+
+############## VBF signal ##############
+VBFHto2Mu_m125_amcatnlo:
+  name: "VBFHto2Mu"
+  color: "kPink"
+  color_mplhep: fuchsia
+  datasets:
+    - VBFHto2Mu_m125_amcatnlo
+
+VBFHto2Mu_M125_powheg:
+  name: "VBFHto2Mu"
+  color: "kPink"
+  color_mplhep: fuchsia
+  datasets:
+    - VBFHto2Mu_M125_powheg
+
+VBFHto2Mu_m125_powheg:
+  name: "VBFHto2Mu"
+  color: "kPink"
+  color_mplhep: fuchsia
+  datasets:
+    - VBFHto2Mu_m125_powheg
+
+VBFHto2Mu_m120:
+  name: "VBFHto2Mu"
+  color: "kPink"
+  color_mplhep: fuchsia
+  datasets:
+    - VBFHto2Mu_M120_amcatnlo
+
+VBFHto2Mu_m130:
+  name: "VBFHto2Mu"
+  color: "kPink"
+  color_mplhep: fuchsia
+  datasets:
+    - VBFHto2Mu_M130_amcatnlo
+
+VBFHto2Mu_m125_tuneDown:
+  name: "VBFHto2Mu"
+  color: "kPink"
+  color_mplhep: fuchsia
+  datasets:
+    - VBFHto2Mu_m125_tuneCP5Down_amcatnlo
+
+VBFHto2Mu_m125_tuneUp:
+  name: "VBFHto2Mu"
+  color: "kPink"
+  color_mplhep: fuchsia
+  datasets:
+    - VBFHto2Mu_m125_tuneCP5Up_amcatnlo
+
+VBFHto2Mu_Herwig:
+  name: "VBFHto2Mu_Herwig"
+  color: "kPink"
+  color_mplhep: fuchsia
+  datasets: [ ]
+#     - VBFHto2Mu_M-125_13p6TeV_powheg-herwig7
+#     # - VBFHto2Mu_M-125_13p6TeV_powheg-herwig7_ext1
+#     # - VBFHto2Mu_M-125_13p6TeV_powheg-herwig7_ext2
+
+############## ggH signal ##############
+
+GluGluHto2Mu_MiNNLO:
+  name: "GluGluHto2Mu"
+  color: "kCyan"
+  color_mplhep: cyan
+  datasets: [ ]
+
+GluGluHto2Mu:
+  name: "GluGluHto2Mu"
+  color: "kCyan"
+  color_mplhep: cyan
+  datasets:
+    - GluGluHto2Mu
+
+############## VH signal ##############
+
+VHto2Mu:
+  name: "VHto2Mu"
+  color: "kPink"
+  color_mplhep: red
+  datasets:
+    - WminusH_Hto2Mu
+    - WplusH_Hto2Mu
+    - ZH_Hto2Mu
+
+############## TTH signal ##############
+
+TTHto2Mu:
+  name: "TTHto2Mu"
+  color: "kPink"
+  color_mplhep: red
+  datasets:
+    - TTH_Hto2Mu
+
+TTH_inclusive:
+  name: "ttH"
+  color: "kpink"
+  color_mplhep: red
+  datasets:
+    - TTHtoNon2B_M125
+    - TTHto2B_M125
+
+############### Data ##############
+Data_Full:
+  name: "Data"
+  datasets:
+    - Muon0_Run2024C
+    - Muon0_Run2024D
+    - Muon0_Run2024E
+    - Muon0_Run2024F
+    - Muon0_Run2024G
+    - Muon0_Run2024H
+    - Muon0_Run2024I_v1
+    - Muon0_Run2024I_v2
+    - Muon1_Run2024C
+    - Muon1_Run2024D
+    - Muon1_Run2024E
+    - Muon1_Run2024F
+    - Muon1_Run2024G
+    - Muon1_Run2024H
+    - Muon1_Run2024I_v1
+    - Muon1_Run2024I_v2
+    - MuonEG_Run2024C
+    - MuonEG_Run2024D
+    - MuonEG_Run2024E
+    - MuonEG_Run2024F
+    - MuonEG_Run2024G
+    - MuonEG_Run2024H
+    - MuonEG_Run2024I_v1
+    - MuonEG_Run2024I_v2
+
+Data_EGamma:
+  name: "Data EGamma"
+  datasets:
+    - EGamma0_Run2024C
+    - EGamma0_Run2024D
+    - EGamma0_Run2024E
+    - EGamma0_Run2024F
+    - EGamma0_Run2024G
+    - EGamma0_Run2024H
+    - EGamma0_Run2024I_v1
+    - EGamma0_Run2024I_v2
+    - EGamma1_Run2024C
+    - EGamma1_Run2024D
+    - EGamma1_Run2024E
+    - EGamma1_Run2024F
+    - EGamma1_Run2024G
+    - EGamma1_Run2024H
+    - EGamma1_Run2024I_v1
+    - EGamma1_Run2024I_v2
+
+Data_Muon:
+  name: "Data Muon"
+  datasets:
+    - Muon0_Run2024C
+    - Muon0_Run2024D
+    - Muon0_Run2024E
+    - Muon0_Run2024F
+    - Muon0_Run2024G
+    - Muon0_Run2024H
+    - Muon0_Run2024I_v1
+    - Muon0_Run2024I_v2
+    - Muon1_Run2024C
+    - Muon1_Run2024D
+    - Muon1_Run2024E
+    - Muon1_Run2024F
+    - Muon1_Run2024G
+    - Muon1_Run2024H
+    - Muon1_Run2024I_v1
+    - Muon1_Run2024I_v2
+
+Data_MuonEG:
+  name: "Data MuonEG"
+  datasets:
+    - MuonEG_Run2024C
+    - MuonEG_Run2024D
+    - MuonEG_Run2024E
+    - MuonEG_Run2024F
+    - MuonEG_Run2024G
+    - MuonEG_Run2024H
+    - MuonEG_Run2024I_v1
+    - MuonEG_Run2024I_v2
+
+Other:
+  name: "Other"
+  color: kGray+1
+  color_mplhep: slateblue
+  datasets: [ ]
+
+custom_CI_background:
+  name: "CI -- Background"
+  color: "kGreen-3"
+  datasets:
+    - EWK_2Mu2J_MLL_105to160_herwig
+
+custom_CI_signal:
+  name: "CI -- signals"
+  color: "kAzure+10"
+  datasets:
+    - VBFHto2Mu_m125_powheg
+
+custom_CI_data:
+  name: "CI -- data"
+  color: "kAzure+10"
+  datasets:
+    - Muon1_Run2024C
