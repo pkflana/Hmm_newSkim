@@ -1,9 +1,19 @@
 import ast
 from pathlib import Path
-
 import ROOT
 import yaml
 
+
+def _column_names(df):
+    return {str(col) for col in df.GetColumnNames()}
+
+def _has_column(df, column):
+    return column in _column_names(df)
+
+def _define_if_missing(df, name, expression):
+    if _has_column(df, name):
+        return df
+    return df.Define(name, expression)
 
 def _resolve_config_path(yaml_file):
     path = Path(yaml_file)

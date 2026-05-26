@@ -1,6 +1,23 @@
 import ROOT
+import sys
+from pathlib import Path
+ROOT_DIR = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(ROOT_DIR))
+from .utilities import *
 
 
+
+def _column_names(df):
+    return {str(col) for col in df.GetColumnNames()}
+
+def _has_column(df, column):
+    return column in _column_names(df)
+
+def _define_if_missing(df, name, expression):
+    if _has_column(df, name):
+        return df
+    return df.Define(name, expression)
+    
 MUON_PT_VARIATIONS = {
     "Muon_pt_noCorr": ("Muon_pt", "Muon_bsConstrainedPt"),
     "Muon_pt_scale": ("Muon_pt_scale_corr", "Muon_bsc_pt_scale_corr"),
@@ -46,27 +63,13 @@ MUON_PT_VARIATIONS_SHIFTED = {
 }
 
 
-def _column_names(df):
-    return {str(col) for col in df.GetColumnNames()}
+def _muon_variation_suffix(muon_pt_name): # "" if muon_pt_name == "Muon_pt_ScaRe_FSR" else
+    return "_" + muon_pt_name.replace("Muon_pt_", "")
 
 
-def _has_column(df, column):
-    return column in _column_names(df)
-
-
-def _define_if_missing(df, name, expression):
-    if _has_column(df, name):
-        return df
-    return df.Define(name, expression)
-
-
-def _muon_variation_suffix(muon_pt_name):
-    return "" if muon_pt_name == "Muon_pt_ScaRe_FSR" else "_" + muon_pt_name.replace("Muon_pt_", "")
-
-
-def _get_muon_pt_variations(is_data):
+def _get_muon_pt_variations(is_data, want_variations):
     variations = dict(MUON_PT_VARIATIONS)
-    if not is_data:
+    if not is_data and want_variations:
         variations.update(MUON_PT_VARIATIONS_SHIFTED)
     return variations
 
@@ -74,17 +77,17 @@ def _get_muon_pt_variations(is_data):
 def _declare_muon_helpers():
     ROOT.gInterpreter.Declare(
         """
-        #ifndef HMM_NEW_SKIM_MUON_ANALYSIS_HELPERS
-        #define HMM_NEW_SKIM_MUON_ANALYSIS_HELPERS
+        #ifndef NEW_SKIM_MUON_ANALYSIS_HELPERS
+        #define NEW_SKIM_MUON_ANALYSIS_HELPERS
 
-        using HmmRVecF = ROOT::VecOps::RVec<float>;
+        using RVecF = ROOT::VecOps::RVec<float>;
 
-        HmmRVecF HMM_Muon_pt_sel(
-            const HmmRVecF& Muon_nano_pt,
-            const HmmRVecF& Muon_bsc_pt,
-            const HmmRVecF& Muon_bsc_chi2
+        RVecF Muon_pt_sel(
+            const RVecF& Muon_nano_pt,
+            const RVecF& Muon_bsc_pt,
+            const RVecF& Muon_bsc_chi2
         ) {
-            HmmRVecF Muon_pt_sel(Muon_nano_pt.size());
+            RVecF Muon_pt_sel(Muon_nano_pt.size());
             for (size_t muon_idx = 0; muon_idx < Muon_pt_sel.size(); ++muon_idx) {
                 Muon_pt_sel[muon_idx] =
                     Muon_bsc_chi2[muon_idx] < 30 ? Muon_bsc_pt[muon_idx] : Muon_nano_pt[muon_idx];
@@ -97,27 +100,28 @@ def _declare_muon_helpers():
     )
 
 
-def DefineMuonPtVariations(df, is_data):
+def DefineMuonPtVariations(df, is_data, want_variations):
     _declare_muon_helpers()
     available_columns = _column_names(df)
-    for mu_pt_final_name, muons_pt_orig in _get_muon_pt_variations(is_data).items():
+    for mu_pt_final_name, muons_pt_orig in _get_muon_pt_variations(is_data,want_variations).items():
         if mu_pt_final_name in available_columns:
             continue
         if not all(branch in available_columns for branch in muons_pt_orig):
             continue
         df = df.Define(
             mu_pt_final_name,
-            f"HMM_Muon_pt_sel({muons_pt_orig[0]}, {muons_pt_orig[1]}, Muon_bsConstrainedChi2)",
+            f"Muon_pt_sel({muons_pt_orig[0]}, {muons_pt_orig[1]}, Muon_bsConstrainedChi2)",
         )
         available_columns.add(mu_pt_final_name)
+        df = df.Define(mu_pt_final_name.replace("pt","p4"), f"GetP4({mu_pt_final_name}, Muon_eta, Muon_phi, Muon_mass) ")
     return df
 
 
-def SelectMuonsForVariations(df, is_data, pt_min=15.0):
-    df = DefineMuonPtVariations(df, is_data)
+def SelectMuonsForVariations(df, is_data, want_variations, pt_min=15.0):
+    df = DefineMuonPtVariations(df, is_data, want_variations)
     available_columns = _column_names(df)
 
-    for mu_pt in _get_muon_pt_variations(is_data):
+    for mu_pt in _get_muon_pt_variations(is_data, want_variations):
         if mu_pt not in available_columns:
             continue
 
@@ -162,8 +166,8 @@ def SelectMuonsForVariations(df, is_data, pt_min=15.0):
     return df
 
 
-def DefineMuonPairObservables(df, is_data):
-    df = SelectMuonsForVariations(df, is_data)
+def DefineMuonPairObservables(df, is_data, want_variations):
+    df = SelectMuonsForVariations(df, is_data, want_variations)
     available_columns = _column_names(df)
 
     muon_scalar_branches = {
@@ -179,13 +183,17 @@ def DefineMuonPairObservables(df, is_data):
         "mediumId": "Muon_mediumId[{idx}]",
     }
 
-    for mu_pt in _get_muon_pt_variations(is_data):
+    for mu_pt in _get_muon_pt_variations(is_data, want_variations):
         suffix = _muon_variation_suffix(mu_pt)
+        # print(f"suffix is {suffix}")
         if (
             mu_pt not in available_columns
             or f"mu1_idx{suffix}" not in available_columns
             or f"mu2_idx{suffix}" not in available_columns
         ):
+            # print(f"{mu_pt} in availabel columns? {mu_pt in available_columns}")
+            # print(f"mu1_idx{suffix} in availabel columns?", f"mu1_idx{suffix}" not in available_columns)
+            # print(f"mu2_idx{suffix} in availabel columns?", f"mu2_idx{suffix}" not in available_columns)
             continue
 
         for mu_num in [1, 2]:
@@ -224,12 +232,12 @@ def DefineMuonPairObservables(df, is_data):
     return df
 
 
-def ApplyDimuonMassCut(df, is_data, cut_value=50.0, require_all_variations=False):
-    df = DefineMuonPairObservables(df, is_data)
+def ApplyDimuonMassCut(df, is_data, want_variations, cut_value=50.0, require_all_variations=False):
+    df = DefineMuonPairObservables(df, is_data, want_variations)
     available_columns = _column_names(df)
 
     mass_columns = []
-    for mu_pt in _get_muon_pt_variations(is_data):
+    for mu_pt in _get_muon_pt_variations(is_data, want_variations):
         suffix = _muon_variation_suffix(mu_pt)
         mass_column = f"m_mumu{suffix}"
         if mass_column in available_columns:
@@ -244,6 +252,7 @@ def ApplyDimuonMassCut(df, is_data, cut_value=50.0, require_all_variations=False
 
 
 def ApplyElectronVeto(df):
+    df = df.Define(f"Electron_p4", f"GetP4(Electron_pt, Electron_eta, Electron_phi, Electron_mass) ")
     df = _define_if_missing(
         df,
         "Electron_veto",
@@ -252,10 +261,10 @@ def ApplyElectronVeto(df):
     return df.Filter("ROOT::VecOps::Nonzero(Electron_veto).size() == 0", "No extra electrons")
 
 
-def ApplyMuonSelection(df, is_data, dimuon_mass_cut=50.0):
-    df = DefineMuonPairObservables(df, is_data)
+def ApplyMuonSelection(df, is_data,want_variations, dimuon_mass_cut=50.0):
+    df = DefineMuonPairObservables(df, is_data, want_variations)
     df = ApplyElectronVeto(df)
-    df = ApplyDimuonMassCut(df, is_data, dimuon_mass_cut)
+    df = ApplyDimuonMassCut(df, is_data, want_variations, dimuon_mass_cut)
     return df
 
 

@@ -105,8 +105,8 @@ def _get_new_muon_cols(df):
         "mu2_pfIsoId*",
         "mu1_mediumId*",
         "mu2_mediumId*",
-        "mu1_p4*",
-        "mu2_p4*",
+        # "mu1_p4*",
+        # "mu2_p4*",
         "m_mumu*",
         "pt_mumu*",
         "eta_mumu*",
@@ -160,22 +160,26 @@ df = df.Define("period", f"static_cast<int>(Period::{period})")
 is_data_int = "1" if is_data else "0"
 df = df.Define(f"is_data_int", is_data_int)
 # print(f"before there were {df.Count().GetValue()} entries")
-df = define_base_weights(df,config,dataset_name,xs_cfg)
+df,base_weights_to_store = define_base_weights(df,config,dataset_name,xs_cfg)
 df = apply_corrections(df, config, dataset_cfg, dataset_name)
 
 ### now define the muon selection and dimuon observables
 from analysis.muons import ApplyMuonSelection
 
-df = ApplyMuonSelection(df, is_data, dimuon_mass_cut=50.0)
+df = ApplyMuonSelection(df, is_data, want_variations=True, dimuon_mass_cut=50.0)
 
-# fullEventIdColumn = "FullEventId"
-# dataset_name_crc = zlib.crc32(dataset_name.encode()) & 0xFFFF
-# input_file_crc = zlib.crc32(input_file.encode()) & 0xFFFF
 
-# df = df.Define(
-#     fullEventIdColumn,
-#     f"""eventId::encodeFullEventId({dataset_name_crc}, {input_file_crc}, rdfentry_)""",
-# )
+from corrections.jetVetoMap import ApplyJetVetoMap
+df = ApplyJetVetoMap(df, config, apply_filter=False, defineElectronCleaning=False, isV12=False)
+
+fullEventIdColumn = "FullEventId"
+dataset_name_crc = zlib.crc32(dataset_name.encode()) & 0xFFFF
+input_file_crc = zlib.crc32(input_file.encode()) & 0xFFFF
+
+df = df.Define(
+    fullEventIdColumn,
+    f"""eventId::encodeFullEventId({dataset_name_crc}, {input_file_crc}, rdfentry_)""",
+)
 
 nano_version = config.get("nano_version", "v15")
 available_columns = {str(column) for column in df.GetColumnNames()}
@@ -197,14 +201,26 @@ muon_cols = utilities.GetObservablesCols(
 )
 muon_cols.extend(_get_new_muon_cols(df))
 
+LHE_weight_cols = utilities.GetObservablesCols(
+    "LHEWeight", is_data, nano_version
+)
+SoftActivityJet_cols = utilities.GetObservablesCols(
+    "SoftActivityJet", is_data, nano_version
+)
+FsrPhoton_cols = utilities.GetObservablesCols(
+    "FsrPhoton", is_data, nano_version
+)
+
+# if not is_data
+
 vars_to_save_list = []
 _add_existing_columns(
     vars_to_save_list,
-    default_col_to_store + jet_cols + muon_cols,
+    default_col_to_store + jet_cols + muon_cols + base_weights_to_store,
     available_columns,
 )
 vars_to_save = utilities.ListToVector(vars_to_save_list)
-print(vars_to_save)
+
 if output_file:
     df.Snapshot("Events", output_file, vars_to_save)
 

@@ -121,9 +121,11 @@ periods = {
 }
 
 def define_base_weights(df,config,dataset_name,xs_cfg,use_genWeight_sign_only=True):
+    base_weights_to_store = []
     lumi_weight_name = "weight_lumi"
     lumi = config["luminosity"]
     df = df.Define(lumi_weight_name, f"float({lumi})")
+    base_weights_to_store.append(lumi_weight_name)
     gen_weight_name = "weight_gen"
     genWeight_def = (
         "std::copysign<float>(1.f, genWeight)"
@@ -131,14 +133,16 @@ def define_base_weights(df,config,dataset_name,xs_cfg,use_genWeight_sign_only=Tr
         else "genWeight"
     )
     df = df.Define(gen_weight_name, genWeight_def)
+    base_weights_to_store.append(gen_weight_name)
     ### tmp --> need to implement MC stitching
     weight_xs_name = "weight_xs"
     xs_value = xs_cfg[dataset_name]['crossSec']
     df = df.Define("weight_xs", xs_value)
+    base_weights_to_store.append(weight_xs_name)
 
     ### to add --> 2024/2025/2026 --> weight 0 or 1 to decide what MC use for what prod
 
-    return df
+    return df,base_weights_to_store
 
 def apply_corrections(df, config, dataset_cfg, dataset_name):
     # golden json only if it's data, else pu weights
@@ -159,10 +163,6 @@ def apply_corrections(df, config, dataset_cfg, dataset_name):
     # JEC / JER / JES
     from .jets import apply_jet_corrections
     df = apply_jet_corrections(df, config, dataset_cfg, dataset_name)
-
-    # Jet Veto Map:
-    # from .jetVetoMap import apply_jet_veto_map
-    # df = apply_jet_veto_map(df,config,apply_filter=False,define_electron_cleaning=False)
 
     return df
 # def getBTagValues():
