@@ -13,6 +13,8 @@ sys.path.insert(0, str(ROOT_DIR))
 config_file = "/afs/cern.ch/work/v/vdamante/Hmm_newSkim/config/maincfg_2024.yaml"
 input_file = "root://cms-xrd-global.cern.ch//store/mc/RunIII2024Summer24NanoAODv15/VBFH-Hto2Mu_Par-M-125_TuneCP5_13p6TeV_powheg-pythia8/NANOAODSIM/150X_mcRun3_2024_realistic_v2-v2/100000/f05fbcb1-50b6-4d4e-9923-19678675ee4a.root"
 dataset_name = "VBFHto2Mu_M125_powheg"
+# output_file = ""
+
 # input_file = "root://cms-xrd-global.cern.ch//store/data/Run2024F/Muon1/NANOAOD/MINIv6NANOv15-v1/2530000/8fb5af30-f050-4468-a224-c9527356dc4d.root"
 # dataset_name = "Muon1_Run2024F"
 
@@ -87,7 +89,7 @@ for mu_pt_final_name,muons_pt_orig in muon_sel_dict.items():
 muon_pt_for_sel = ["Muon_pt_ScaRe_FSR"]
 if not is_data:
     muon_pt_for_sel.extend(["Muon_pt_scale_FSR_up","Muon_pt_scale_FSR_down","Muon_pt_resol_FSR_up","Muon_pt_resol_FSR_down"])
-muon_presel = "{} > 15 && abs(Muon_eta) < 2.4 && Muon_mediumId && "
+muon_presel = "{} > 15 && abs(Muon_eta) < 2.4 && Muon_mediumId && Muon_pfIsoId >= 2 "
 # df = LeptonsSelection(df)
 
 # # 3. HLT matching def
