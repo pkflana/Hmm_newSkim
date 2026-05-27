@@ -5,9 +5,9 @@ final_skim_folder:
 
 crossSectionsFile: config/crossSections13p6TeV.yaml
 samplesFile: config/samples_2024.yaml
-lumiFile: /afs/cern.ch/user/v/vdamante/H_mumu/Corrections/data/golden_json/Cert_Collisions2024_378981_386951_Golden.json
-triggerFile: /afs/cern.ch/work/v/vdamante/Hmm_newSkim/config/triggers_2024.yaml
-sel_file: /afs/cern.ch/work/v/vdamante/Hmm_newSkim/config/selections_2024.yaml
+lumiFile: corrections/data/golden_json/Cert_Collisions2024_378981_386951_Golden.json
+triggerFile: config/triggers_2024.yaml
+sel_file: config/selections_2024.yaml
 
 nano_version: v15
 ignore_missing_nanoAOD_files:

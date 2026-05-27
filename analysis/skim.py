@@ -7,15 +7,16 @@ from pathlib import Path
 import ROOT
 import utilities
 
+if __name__ == "__main__":
+    sys.path.append(os.environ["ANALYSIS_PATH"])
+
 # Ensure local packages can be imported when running this script directly.
-ROOT_DIR = Path(__file__).resolve().parents[1]
-sys.path.insert(0, str(ROOT_DIR))
+# ROOT_DIR = Path(__file__).resolve().parents[1]
+# sys.path.insert(0, str(ROOT_DIR))
 
 headers_dir = os.path.dirname(os.path.abspath(__file__))
 header_path = os.path.join(headers_dir, "AnalysisTools.h")
 ROOT.gInterpreter.Declare(f'#include "{header_path}"')
-
-
 
 parser = argparse.ArgumentParser(description="Run the Hmumu skim.")
 parser.add_argument(
@@ -162,3 +163,8 @@ cols_to_save= list(set(cols_to_save))
 # print(cols_to_save)
 
 df.Snapshot("Events", output_file, utilities.ListToVector(cols_to_save))
+output_file = ROOT.TFile.Open(output_file, "UPDATE")
+cutflow_report = df.Report()
+hist_rep = utilities.SaveReport(cutflow_report.GetValue(), reportName="Report",verbose=0)
+output_file.WriteTObject(hist_rep, f"Report", "Overwrite")
+output_file.Close()
