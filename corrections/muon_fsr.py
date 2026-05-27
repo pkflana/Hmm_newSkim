@@ -84,7 +84,7 @@ ROOT.gInterpreter.Declare(
         """
 )
 
-def apply_muon_fsr(df, is_data):
+def apply_muon_fsr(df, is_data, has_variations=False):
     branches_map = {
         # non corrected
         'Muon_pt':['Muon_p4_nano_FSR','Muon_pt_nano_FSR'],
@@ -106,9 +106,9 @@ def apply_muon_fsr(df, is_data):
         'Muon_bsc_pt_corr_resol_up':['Muon_bsc_p4_nano_corr_resol_FSR_up','Muon_bsc_pt_nano_corr_resol_FSR_up'],
         'Muon_bsc_pt_corr_resol_down':['Muon_bsc_p4_nano_corr_resol_FSR_down','Muon_bsc_pt_nano_corr_resol_FSR_down'],
     }
-    if not is_data:
+    if not is_data and has_variations:
         branches_map.update(branches_map_varied)
-        
+
     for muon_pt_branch,muon_pt_fsr_branch in branches_map.items():
         if muon_pt_branch not in df.GetColumnNames(): continue
         df = df.Define(muon_pt_fsr_branch[0],f"fsr_corrected_p4({muon_pt_branch},Muon_eta, Muon_phi, Muon_mass, Muon_fsrPhotonIdx, FsrPhoton_pt, FsrPhoton_eta, FsrPhoton_phi, FsrPhoton_dROverEt2, FsrPhoton_relIso03, FsrPhoton_electronIdx)")

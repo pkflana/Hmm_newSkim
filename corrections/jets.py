@@ -212,6 +212,7 @@ def initialize_jet_corrections(
 
 def define_jet_p4_variations(
     df,
+    return_variations,
     apply_JER,
     apply_JES,
     apply_forward_jet_horns_fix=False,
@@ -276,7 +277,7 @@ def define_jet_p4_variations(
     df = df.Define("Jet_p4", p4_from_shifted_map("Central", "Central"))
     df = define_pt_from_p4(df, "Jet_pt_corr", "Jet_p4")
 
-    if not is_data:
+    if not is_data and return_variations:
         variation_sources = []
         if apply_JER:
             variation_sources.append("JER")
@@ -306,7 +307,7 @@ def define_jet_p4_variations(
 #     return df
 
 
-def apply_jet_corrections(df, config, dataset_cfg, dataset_name):
+def apply_jet_corrections(df, config, dataset_cfg, dataset_name, return_variations):
     # Extract configuration parameters
     era = config.get("era")
     period = period_names[era]
@@ -320,6 +321,7 @@ def apply_jet_corrections(df, config, dataset_cfg, dataset_name):
     initialize_jet_corrections(period, is_data, dataset_name, use_regrouped)
     df = define_jet_p4_variations(
         df,
+        return_variations,
         apply_JER,
         apply_JES,
         apply_forward_jet_horns_fix,

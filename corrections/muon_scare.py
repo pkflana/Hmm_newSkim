@@ -10,6 +10,7 @@ def apply_muon_scare(
     df,
     config,
     dataset_cfg,
+    return_variations=True,
 ):
     era = config.get("era")
     period_unc = period_names[era]
@@ -42,7 +43,7 @@ def apply_muon_scare(
 
         '''
     )
-    
+
 
     # CENTRAL - Resol (only MC) on top of Scale
 
@@ -62,7 +63,7 @@ def apply_muon_scare(
         df = df.Define('Muon_pt_corr',"Muon_pt_scale_corr")
 
     # UP/DOWN - Scale, then Resol (only MC)
-    if not dataset_cfg.get("is_data", False):
+    if not dataset_cfg.get("is_data", False) and return_variations:
         df = df.Define(
             'Muon_pt_scale_corr_up',
             f'''

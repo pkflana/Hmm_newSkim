@@ -130,7 +130,9 @@ def ProcessMuonVariables(df, is_data, muon_columns, default_suffix, trigger_conf
             pt_configurations.extend(["Muon_pt_scale_up", "Muon_pt_scale_down", "Muon_pt_resol_up", "Muon_pt_resol_down"])
 
     # Parsing rami scalari esterni
-    muon_scalar_branches = {}
+    muon_scalar_branches = {
+        "pt_noCorr":"Muon_pt_noCorr",
+    }
     for muon_col in muon_columns:
         if "pt" in muon_col.lower(): continue
         col_suffix = "_".join(s for s in muon_col.split("_")[1:])

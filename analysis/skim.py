@@ -92,9 +92,9 @@ from corrections.general import define_base_weights, apply_corrections
 df, base_weights_to_store = define_base_weights(df, config, dataset_name, xs_cfg)
 cols_to_save.extend(base_weights_to_store)
 
-df, pu_branches = apply_corrections(df, config, dataset_cfg, dataset_name)
-if pu_branches:
-    cols_to_save.extend(pu_branches)
+df, weight_branches = apply_corrections(df, config, dataset_cfg, dataset_name)
+if weight_branches:
+    cols_to_save.extend(weight_branches)
 
 from analysis.muons import DefineMuonPtAndP4, ApplyMuonTriggerMatching, ProcessMuonVariables, ApplyElectronVeto,DefineMuonSelection,ProcessExtraMuonVariables
 only_default = config.get("only_default", True)
@@ -118,10 +118,13 @@ df, new_muon_cols = ProcessMuonVariables(
     pt_min=pt_cut,
     mass_cut=m_cut
 )
+
 cols_to_save.extend(new_muon_cols)
 
 df = ApplyElectronVeto(df)
 
+from corrections.mu import apply_muIDIso_weights
+df, mu_weights = apply_muIDIso_weights(df, config, return_variations=want_variations)
 
 df,extra_lep_cols = ProcessExtraMuonVariables(df, is_data, muon_cols_initial, default_suffix, trigger_config, only_default, want_variations, pt_min=pt_cut)
 

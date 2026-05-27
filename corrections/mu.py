@@ -5,9 +5,7 @@ from .general import pog_folder_names,period_names
 
 
 ##### ID + trigger ####
-muIDEff_JsonPath = (
-    "/cvmfs/cms-griddata.cern.ch/cat/metadata/MUO/{}/latest/muon_Z.json.gz"
-)
+
 MediumMu_SF_Sources_dict = {
     # reco SF
     "NUM_TrackerMuons_DEN_genTracks": "Reco",  # --> used in Run 2 - NOT FOR RUN 3!! https://muon-wiki.docs.cern.ch/guidelines/corrections/#medium-pt-30-gev-pt-200-gev "No correction is recommended for Run 3 data. Data/MC scale factors are expected to be 1 and therefore no correction is needed/provided."
@@ -298,220 +296,110 @@ MediumMuIDIso_SF_Sources = {
     ],
 }
 
-def apply_muIDIso_weights(df,config,return_variations=True):
+MediumMuTrg_SF_Sources = {
+    "2022_Summer22": [
+    "NUM_IsoMu24_DEN_CutBasedIdMedium_and_PFIsoMedium", "NUM_IsoMu24_DEN_CutBasedIdTight_and_PFIsoTight"],
+    "2022_Summer22EE": [
+    "NUM_IsoMu24_DEN_CutBasedIdMedium_and_PFIsoMedium", "NUM_IsoMu24_DEN_CutBasedIdTight_and_PFIsoTight"],
+    "2023_Summer23": [
+    "NUM_IsoMu24_DEN_CutBasedIdMedium_and_PFIsoMedium", "NUM_IsoMu24_DEN_CutBasedIdTight_and_PFIsoTight"],
+    "2023_Summer23BPix": [
+    "NUM_IsoMu24_DEN_CutBasedIdMedium_and_PFIsoMedium", "NUM_IsoMu24_DEN_CutBasedIdTight_and_PFIsoTight"],
+    "2024_Summer24": [
+    "NUM_IsoMu24_DEN_CutBasedIdMedium_and_PFIsoMedium", "NUM_IsoMu24_DEN_CutBasedIdTight_and_PFIsoTight"],
+    "2024_Winter24": [
+    "NUM_IsoMu24_DEN_CutBasedIdMedium_and_PFIsoMedium", "NUM_IsoMu24_DEN_CutBasedIdTight_and_PFIsoTight"],
+    "2025_Summer24": [
+    "NUM_IsoMu24_DEN_CutBasedIdMedium_and_PFIsoMedium", "NUM_IsoMu24_DEN_CutBasedIdTight_and_PFIsoTight"],
+    "2025_Winter25": [
+    "NUM_IsoMu24_DEN_CutBasedIdMedium_and_PFIsoMedium", "NUM_IsoMu24_DEN_CutBasedIdTight_and_PFIsoTight"],
+}
+#!/usr/bin/env python3
+import os
+import ROOT
+import correctionlib
+
+correctionlib.register_pyroot_binding()
+
+headers_dir = os.path.dirname(os.path.abspath(__file__))
+header_path = os.path.join(headers_dir, "mu.h")
+ROOT.gInterpreter.Declare(f'#include "{header_path}"')
+
+
+def apply_muIDIso_weights(df, config, return_variations=True):
     era = config.get("era")
+    requested_SFs = config.get("requested_SFs", [])
+
+    # Setup JSON paths using environment and shared functions
     period_unc = period_names[era]
-    period = period_names[era]
-    jsonFile_eff = os.path.join(
+    muIDEff_JsonPath = (
+        "/cvmfs/cms-griddata.cern.ch/cat/metadata/MUO/{}/latest/muon_Z.json.gz"
+    )
+    jsonFile_path = os.path.join(
         os.environ["ANALYSIS_PATH"],
-        MuCorrProducer.muIDEff_JsonPath.format(pog_folder_names["MUO"][period_unc]),
+        muIDEff_JsonPath.format(pog_folder_names["MUO"][period_unc]),
     )
-    headers_dir = os.path.dirname(os.path.abspath(__file__))
-    header_path = os.path.join(headers_dir, "mu.h")
-    ROOT.gInterpreter.Declare(f'#include "{header_path}"')
-    ROOT.gInterpreter.ProcessLine(
-        f'::correction::MuCorrProvider::Initialize("{jsonFile_eff}", "{era}")'
+
+    # Global registration for access in C++ context
+    ROOT.gROOT.ProcessLine(
+        f'auto cset = correction::CorrectionSet::from_file("{jsonFile_path}");'
     )
-    sf_sources = (
-        MuCorrProducer.MediumMuIDIso_SF_Sources[MuCorrProducer.period]
-        + MuCorrProducer.MediumMuReco_SF_sources[MuCorrProducer.period]
+
+    # Gather available keys for this era
+    available_sources = (
+        MediumMuIDIso_SF_Sources.get(period_unc, [])
+        + MediumMuReco_SF_sources.get(period_unc, [])
+        + MediumMuTrg_SF_Sources.get(period_unc, [])
     )
-    sf_scales = ["Central", "Up", "Down"] if return_variations else [central]
-    for source in sf_sources:
-        for scale in sf_scales:
-            source_name = MuCorrProducer.MediumMu_SF_Sources_dict[source]
-            syst_name = source_name + scale
 
-                branch_name = f"weight_MuonID_SF_{syst_name}"
-                gen_kind = f"{leg_name}_{self.columns['gen_kind']}"
-                legType = f'{leg_name}_{self.columns["legType"]}'
-                p4 = f'{leg_name}_{self.columns["p4"]}'
-                # print(f"p4 is {p4}. Computing medium SF: 30 < pT < 200 GeV")
-                pfRelIso04_all = f'{leg_name}_{self.columns["pfRelIso04_all"]}'
-                tightId = f'{leg_name}_{self.columns["tightId"]}'
-                tkRelIso = f'{leg_name}_{self.columns["tkRelIso"]}'
-                highPtId = f'{leg_name}_{self.columns["highPtId"]}'
-                mediumId = f'{leg_name}_{self.columns["mediumId"]}'
-                looseId = f'{leg_name}_{self.columns["looseId"]}'
+    print(available_sources)
+    # Dict mapping python scale terminology to correctionlib JSON parameters
+    scale_map = {"Central": "nominal", "Up": "systup", "Down": "systdown"}
 
-                genMatch_bool = f"{gen_kind} == 2 || {gen_kind} == 4"
-                legType = getLegTypeString(df, legType)
+    SF_branches = []
 
+
+    # Define standard input column strings matching standard NanoAOD layout
+    for leg_idx in [1,2]:
+        p4_pt = f"mu{leg_idx}_pt_noCorr"
+        p4_eta = f"mu{leg_idx}_eta"
+        pfRelIso04_all = f"mu{leg_idx}_pfRelIso04_all"
+        tightId = f"mu{leg_idx}_tightId"
+        tkRelIso = f"mu{leg_idx}_tkRelIso"
+        # highPtId = f"mu{leg_idx}_highPtId"
+        mediumId = f"mu{leg_idx}_mediumId"
+        looseId = f"mu{leg_idx}_looseId"
+        gen_kind = f"mu{leg_idx}_genPartFlav"
+        trg_matching = f"mu{leg_idx}_HasTriggerMatching_singleMu"
+        trg_path = "HLT_IsoMu24"
+
+        genMatch_bool = f"{gen_kind} == 1 || {gen_kind} == 15" # for MC matching to status==1 muons: 1 = prompt muon (including gamma*->mu mu), 15 = muon from prompt tau, 5 = muon from b, 4 = muon from c, 3 = muon from light or unknown, 0 = unmatched
+
+        for source in available_sources:
+            short_name = MediumMu_SF_Sources_dict.get(source)
+
+            # Skip execution entirely if a target list was given and this key isn't in it
+            if requested_SFs and (short_name not in requested_SFs):
+                continue
+
+            # Loop through all scales to ALWAYS define them inside the RDataFrame
+            for scale, cset_syst_string in scale_map.items():
+                branch_name = f"weight_mu{leg_idx}_{short_name}_{scale}"
+
+                # Direct definition inside RDataFrame using your new C++ signature
                 df = df.Define(
-                    f"{branch_name}_double",
-                    f"""{legType} == Leg::mu && ({genMatch_bool})
-                        ? ::correction::MuCorrProvider::getGlobal().getMuonSF(
-                            {p4}, {pfRelIso04_all}, {tightId}, {tkRelIso}, {highPtId}, {mediumId},{looseId},
-                            ::correction::MuCorrProvider::UncSource::{source},
-                            ::correction::UncScale::{scale})
-                        : 1.""",
+                    branch_name,
+                    f"""({genMatch_bool})
+                        ? static_cast<float>(::correction::getMuonSF_simple(
+                            "{source}", "{cset_syst_string}",
+                            {p4_pt}, {p4_eta}, {pfRelIso04_all},
+                            {tightId}, {tkRelIso}, {mediumId}, {looseId},{trg_matching},{trg_path}))
+                        : 1.0f""",
                 )
 
-                # Change to this format
-                # df = df.Define(pair_name, vector<val1,val2>)
-                # df = df.Define(SF_value, pair_name[0]) #Add these to the branch list
-                # df = df.Define(SF_validitiy, pair_name[1]) #Add these to the branch list -- Maybe -1 underflow, 0 within, +1 overflow, -2 notGenMuon
+                # Control what goes to the downstream storing list:
+                # Always keep Central; only add Up/Down to track if return_variations is True
+                if scale == "Central" or return_variations:
+                    SF_branches.append(branch_name)
 
-                # print(f"{branch_name}_double")
-                # if scale==central:
-                #    df.Filter(f"{branch_name}_double!=1.").Display({f"{branch_name}_double"}).Print()
-                if scale != central:
-                    branch_name_final = branch_name + "_rel"
-                    df = df.Define(
-                        branch_name_final,
-                        f"static_cast<float>({branch_name}_double/{branch_central})",
-                    )
-                else:
-                    if source == central:
-                        branch_name_final = (
-                            f"""weight_{leg_name}_MuonID_SF_{central}"""
-                        )
-                    else:
-                        branch_name_final = branch_name
-                    df = df.Define(
-                        branch_name_final,
-                        f"static_cast<float>({branch_name}_double)",
-                    )
-                SF_branches.append(branch_name_final)
     return df, SF_branches
-
-########################################################################################################
-# saving high and low pT SFs for development
-def getHighPtMuonIDSF(self, df, lepton_legs, isCentral, return_variations):
-    highPtMuSF_branches = []
-    sf_sources = (
-        MuCorrProducer.highPtmuReco_SF_sources
-        + MuCorrProducer.highPtmuID_SF_Sources
-        + MuCorrProducer.highPtmuIso_SF_Sources
-    )
-    sf_scales = [up, down] if return_variations else []
-    for source in sf_sources:
-        for scale in [central] + sf_scales:
-            if source == central and scale != central:
-                continue
-            if not isCentral and scale != central:
-                continue
-            source_name = (
-                MuCorrProducer.highPtMu_SF_Sources_dict[source]
-                if source != central
-                else central
-            )
-            syst_name = source_name + scale if source != central else "Central"
-            for leg_idx, leg_name in enumerate(lepton_legs):
-                branch_name = f"weight_{leg_name}_HighPt_MuonID_SF_{syst_name}"
-                branch_central = (
-                    f"""weight_{leg_name}_HighPt_MuonID_SF_{source_name+central}"""
-                )
-
-                gen_kind = f"{leg_name}_{self.columns['gen_kind']}"
-                legType = f'{leg_name}_{self.columns["legType"]}'
-                p4 = f'{leg_name}_{self.columns["p4"]}'
-                # print(f"p4 is {p4}. Computing High Pt SF: pT > 200 GeV")
-                pfRelIso04_all = f'{leg_name}_{self.columns["pfRelIso04_all"]}'
-                tightId = f'{leg_name}_{self.columns["tightId"]}'
-                tkRelIso = f'{leg_name}_{self.columns["tkRelIso"]}'
-                highPtId = f'{leg_name}_{self.columns["highPtId"]}'
-                mediumId = f'{leg_name}_{self.columns["mediumId"]}'
-
-                genMatch_bool = f"{gen_kind} == 2 || {gen_kind} == 4"
-                legType = getLegTypeString(df, legType)
-
-                df = df.Define(
-                    f"{branch_name}_double",
-                    f"""{legType} == Leg::mu && ({genMatch_bool})
-                        ? ::correction::HighPtMuCorrProvider::getGlobal().getHighPtMuonSF(
-                            {p4}, {pfRelIso04_all}, {tightId}, {highPtId}, {tkRelIso}, {mediumId},
-                            ::correction::HighPtMuCorrProvider::UncSource::{source},
-                            ::correction::UncScale::{scale})
-                        : 1.""",
-                )
-
-                if scale != central:
-                    branch_name_final = branch_name + "_rel"
-                    df = df.Define(
-                        branch_name_final,
-                        f"static_cast<float>({branch_name}_double/{branch_central})",
-                    )
-                else:
-                    if source == central:
-                        branch_name_final = (
-                            f"""weight_{leg_name}_HighPt_MuonID_SF_{central}"""
-                        )
-                    else:
-                        branch_name_final = branch_name
-                    df = df.Define(
-                        branch_name_final,
-                        f"static_cast<float>({branch_name}_double)",
-                    )
-                highPtMuSF_branches.append(branch_name_final)
-    return df, highPtMuSF_branches
-
-########################################################################################################
-def getLowPtMuonIDSF(self, df, lepton_legs, isCentral, return_variations):
-    lowPtMuSF_branches = []
-    sf_sources = (
-        MuCorrProducer.lowPtmuReco_SF_sources
-        + MuCorrProducer.lowPtmuID_SF_Sources
-        + MuCorrProducer.lowPtmuIso_SF_Sources
-    )
-    sf_scales = [up, down] if return_variations else []
-    for source in sf_sources:
-        for scale in [central] + sf_scales:
-            if source == central and scale != central:
-                continue
-            if not isCentral and scale != central:
-                continue
-            source_name = (
-                MuCorrProducer.lowPtMu_SF_Sources_dict[source]
-                if source != central
-                else central
-            )
-            syst_name = source_name + scale if source != central else "Central"
-            for leg_idx, leg_name in enumerate(lepton_legs):
-                branch_name = f"weight_{leg_name}_LowPt_MuonID_SF_{syst_name}"
-                branch_central = (
-                    f"""weight_{leg_name}_LowPt_MuonID_SF_{source_name+central}"""
-                )
-
-                gen_kind = f"{leg_name}_{self.columns['gen_kind']}"
-                legType = f'{leg_name}_{self.columns["legType"]}'
-                p4 = f'{leg_name}_{self.columns["p4"]}'
-                # print(f"p4 is {p4}. Computing low pT SF:  pT < 30 GeV")
-                pfRelIso04_all = f'{leg_name}_{self.columns["pfRelIso04_all"]}'
-                tightId = f'{leg_name}_{self.columns["tightId"]}'
-                tkRelIso = f'{leg_name}_{self.columns["tkRelIso"]}'
-                highPtId = f'{leg_name}_{self.columns["highPtId"]}'
-                mediumId = f'{leg_name}_{self.columns["mediumId"]}'
-
-                genMatch_bool = f"{gen_kind} == 2 || {gen_kind} == 4"
-                legType = getLegTypeString(df, legType)
-
-                df = df.Define(
-                    f"{branch_name}_double",
-                    f"""{legType} == Leg::mu && ({genMatch_bool})
-                        ? ::correction::LowPtMuCorrProvider::getGlobal().getLowPtMuonSF(
-                            {p4}, {pfRelIso04_all}, {tightId}, {tkRelIso}, {highPtId}, {mediumId},
-                            ::correction::LowPtMuCorrProvider::UncSource::{source},
-                            ::correction::UncScale::{scale})
-                        : 1.""",
-                )
-
-                if scale != central:
-                    branch_name_final = branch_name + "_rel"
-                    df = df.Define(
-                        branch_name_final,
-                        f"static_cast<float>({branch_name}_double/{branch_central})",
-                    )
-                else:
-                    if source == central:
-                        branch_name_final = (
-                            f"""weight_{leg_name}_LowPt_MuonID_SF_{central}"""
-                        )
-                    else:
-                        branch_name_final = branch_name
-                    df = df.Define(
-                        branch_name_final,
-                        f"static_cast<float>({branch_name}_double)",
-                    )
-                lowPtMuSF_branches.append(branch_name_final)
-    return df, lowPtMuSF_branches
