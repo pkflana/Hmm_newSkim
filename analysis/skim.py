@@ -163,9 +163,9 @@ from corrections.jetVetoMap import ApplyJetVetoMap
 df,jet_veto_map_cols = ApplyJetVetoMap(df, config, apply_filter=False, defineElectronCleaning=False, isV12=nano_version=="v12")
 cols_to_save.extend(jet_veto_map_cols)
 
-from corrections.btag import initialize_btag_corrections,get_wp_id
-initialize_btag_corrections(config)
-df = get_wp_id(df, config)
+from corrections.btag_wpValues import getBTagWPValues
+bTagWPDict = getBTagWPValues(config)
+print(bTagWPDict)
 
 jet_cols = utilities.GetObservablesCols(
     "Jet",
@@ -187,7 +187,7 @@ FsrPhoton_cols = utilities.GetObservablesCols(
 )
 cols_to_save.extend(FsrPhoton_cols)
 cols_to_save= list(set(cols_to_save))
-print("Columns configured to be saved:")
-print(cols_to_save)
+# print("Columns configured to be saved:")
+# print(cols_to_save)
 
 df.Snapshot("Events", output_file, utilities.ListToVector(cols_to_save))

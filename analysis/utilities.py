@@ -3,6 +3,20 @@ from pathlib import Path
 import ROOT
 import yaml
 
+from enum import Enum
+class WorkingPointsbTag(Enum):
+    Loose = 1
+    Medium = 2
+    Tight = 3
+
+def generate_enum_class(cls):
+    enum_string = "enum class {} : int {{\n".format(cls.__name__)
+    for item in cls:
+        enum_string += "    {} = {},\n".format(item.name, item.value)
+    enum_string += "};"
+    return enum_string
+
+
 
 def _column_names(df):
     return {str(col) for col in df.GetColumnNames()}
