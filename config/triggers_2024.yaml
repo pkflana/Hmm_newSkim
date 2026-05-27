@@ -3,7 +3,7 @@ singleMu:
     - HLT_IsoMu24
   legs:
     - offline_obj:
-        cut: "{obj}_legType == Leg::mu && {obj}_{pt} > 26"
+        cut: "{obj}_{pt} > 26"
       online_obj:
         cut: TrigObj_id == 13 && (TrigObj_filterBits&8)!=0
       doMatching: True

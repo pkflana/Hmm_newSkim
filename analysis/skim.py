@@ -130,29 +130,29 @@ df, pu_branches = apply_corrections(df, config, dataset_cfg, dataset_name)
 if pu_branches:
     cols_to_save.extend(pu_branches)
 
-
-# 2. Refactored Muon & Dimuon Selection Block
-from analysis.muons import ProcessMuons, ApplyElectronVeto
-
-muon_cols_initial = utilities.GetObservablesCols("Muon", is_data, nano_version)
-
+from analysis.muons import DefineMuonPtAndP4, ApplyMuonTriggerMatching, ProcessMuonVariables, ApplyElectronVeto
 only_fsr = config.get("only_fsr", True)
 want_variations = config.get("want_variations", False)
 pt_cut = config.get("muon_pt_min", 15.0)
 m_cut = config.get("dimuon_mass_min", 50.0)
-
-# Run simplified framework processing chain
-df,new_muon_cols = ProcessMuons(
+apply_trg_filter = config.get("apply_trg_filter", True)
+df = DefineMuonPtAndP4(df, is_data, only_fsr=only_fsr, want_variations=want_variations)
+df, trigger_event_cols = ApplyMuonTriggerMatching(df, trigger_config, apply_filter=apply_trg_filter)
+cols_to_save.extend(trigger_event_cols) # Salva le variabili di trigger di evento, se vuoi
+muon_cols_initial = utilities.GetObservablesCols("Muon", is_data, nano_version)
+df, new_muon_cols = ProcessMuonVariables(
     df=df,
     is_data=is_data,
     muon_columns=muon_cols_initial,
+    trigger_config=trigger_config,
     only_fsr=only_fsr,
     want_variations=want_variations,
     pt_min=pt_cut,
     mass_cut=m_cut
 )
-df = ApplyElectronVeto(df)
 cols_to_save.extend(new_muon_cols)
+# Veto Elettroni extra
+df = ApplyElectronVeto(df)
 
 
 from corrections.jetVetoMap import ApplyJetVetoMap
@@ -180,7 +180,7 @@ FsrPhoton_cols = utilities.GetObservablesCols(
 )
 cols_to_save.extend(FsrPhoton_cols)
 cols_to_save= list(set(cols_to_save))
-print("Columns configured to be saved:")
-print(cols_to_save)
+# print("Columns configured to be saved:")
+# print(cols_to_save)
 
 df.Snapshot("Events", output_file, utilities.ListToVector(cols_to_save))
