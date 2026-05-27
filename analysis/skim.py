@@ -10,10 +10,6 @@ import utilities
 if __name__ == "__main__":
     sys.path.append(os.environ["ANALYSIS_PATH"])
 
-# Ensure local packages can be imported when running this script directly.
-# ROOT_DIR = Path(__file__).resolve().parents[1]
-# sys.path.insert(0, str(ROOT_DIR))
-
 headers_dir = os.path.dirname(os.path.abspath(__file__))
 header_path = os.path.join(headers_dir, "AnalysisTools.h")
 ROOT.gInterpreter.Declare(f'#include "{header_path}"')
@@ -109,7 +105,7 @@ apply_trg_filter = config.get("apply_trg_filter", True)
 default_suffix = sel_config.get("default_suffix", "")
 df = DefineMuonPtAndP4(df, is_data, only_default=only_default, want_variations=want_variations)
 df, trigger_event_cols = ApplyMuonTriggerMatching(df, trigger_config, apply_filter=apply_trg_filter)
-cols_to_save.extend(trigger_event_cols) # Salva le variabili di trigger di evento, se vuoi
+cols_to_save.extend(trigger_event_cols)
 muon_cols_initial = utilities.GetObservablesCols("Muon", is_data, nano_version)
 df, new_muon_cols = ProcessMuonVariables(
     df=df,
@@ -123,12 +119,12 @@ df, new_muon_cols = ProcessMuonVariables(
     mass_cut=m_cut
 )
 cols_to_save.extend(new_muon_cols)
-# Veto Elettroni extra
+
 df = ApplyElectronVeto(df)
 
 
 df,extra_lep_cols = ProcessExtraMuonVariables(df, is_data, muon_cols_initial, default_suffix, trigger_config, only_default, want_variations, pt_min=pt_cut)
-print(extra_lep_cols)
+
 df,muon_selection_cols=DefineMuonSelection(df,sel_config, only_default, is_data, want_variations=False)
 cols_to_save.extend(muon_selection_cols)
 

@@ -210,9 +210,6 @@ def ApplyElectronVeto(df):
 
 def DefineMuonSelection(df,sel_config, only_default, is_data, want_variations=False):
     sel_dict = sel_config.get("muons_selection", {})
-    # print(df.GetColumnNames())
-    # default_suffix = sel_dict.get("default_suffix", "")
-    # print(default_suffix)
     vars_to_store = []
     for sel_name,sel_str in sel_dict.items():
         sel_str_complete = sel_str.format(suff="") # default suffix is ""
