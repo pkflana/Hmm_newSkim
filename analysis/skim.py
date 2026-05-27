@@ -47,7 +47,7 @@ def _parse_args():
 
 def _get_new_muon_cols(df):
     """ Dynamically updates the list of new columns to be saved in the output file """
-    available_columns = {str(column) for column in df.GetColumnNames()}
+    available_columns = utilities._column_names(df)
     muon_patterns = [
         "mu1_idx*", "mu2_idx*",
         "mu1_pt*",  "mu2_pt*",
@@ -85,6 +85,7 @@ lumi = config["luminosity"]
 nano_version = config.get("nano_version", "v15")
 
 dataset_cfg = utilities.get_config(config["samplesFile"])[dataset_name]
+sel_config = utilities.get_config(config["sel_file"])
 xs_cfg = utilities.get_config(config["crossSectionsFile"])
 is_data = dataset_cfg.get("is_data", False)
 is_signal = dataset_cfg.get("is_signal", False)
@@ -130,22 +131,24 @@ df, pu_branches = apply_corrections(df, config, dataset_cfg, dataset_name)
 if pu_branches:
     cols_to_save.extend(pu_branches)
 
-from analysis.muons import DefineMuonPtAndP4, ApplyMuonTriggerMatching, ProcessMuonVariables, ApplyElectronVeto
-only_fsr = config.get("only_fsr", True)
+from analysis.muons import DefineMuonPtAndP4, ApplyMuonTriggerMatching, ProcessMuonVariables, ApplyElectronVeto,DefineMuonSelection
+only_default = config.get("only_default", True)
 want_variations = config.get("want_variations", False)
 pt_cut = config.get("muon_pt_min", 15.0)
 m_cut = config.get("dimuon_mass_min", 50.0)
 apply_trg_filter = config.get("apply_trg_filter", True)
-df = DefineMuonPtAndP4(df, is_data, only_fsr=only_fsr, want_variations=want_variations)
+default_suffix = sel_config.get("default_suffix", "")
+df = DefineMuonPtAndP4(df, is_data, only_default=only_default, want_variations=want_variations)
 df, trigger_event_cols = ApplyMuonTriggerMatching(df, trigger_config, apply_filter=apply_trg_filter)
 cols_to_save.extend(trigger_event_cols) # Salva le variabili di trigger di evento, se vuoi
 muon_cols_initial = utilities.GetObservablesCols("Muon", is_data, nano_version)
 df, new_muon_cols = ProcessMuonVariables(
     df=df,
     is_data=is_data,
+    default_suffix=default_suffix,
     muon_columns=muon_cols_initial,
     trigger_config=trigger_config,
-    only_fsr=only_fsr,
+    only_default=only_default,
     want_variations=want_variations,
     pt_min=pt_cut,
     mass_cut=m_cut
@@ -154,11 +157,15 @@ cols_to_save.extend(new_muon_cols)
 # Veto Elettroni extra
 df = ApplyElectronVeto(df)
 
-
+df,muon_selection_cols=DefineMuonSelection(df,sel_config, only_default, is_data, want_variations=False)
+cols_to_save.extend(muon_selection_cols)
 from corrections.jetVetoMap import ApplyJetVetoMap
 df,jet_veto_map_cols = ApplyJetVetoMap(df, config, apply_filter=False, defineElectronCleaning=False, isV12=nano_version=="v12")
 cols_to_save.extend(jet_veto_map_cols)
 
+from corrections.btag import initialize_btag_corrections,get_wp_id
+initialize_btag_corrections(config)
+df = get_wp_id(df, config)
 
 jet_cols = utilities.GetObservablesCols(
     "Jet",
@@ -180,7 +187,7 @@ FsrPhoton_cols = utilities.GetObservablesCols(
 )
 cols_to_save.extend(FsrPhoton_cols)
 cols_to_save= list(set(cols_to_save))
-# print("Columns configured to be saved:")
-# print(cols_to_save)
+print("Columns configured to be saved:")
+print(cols_to_save)
 
 df.Snapshot("Events", output_file, utilities.ListToVector(cols_to_save))

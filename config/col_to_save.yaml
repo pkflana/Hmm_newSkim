@@ -537,7 +537,7 @@
             # "Muon_softMvaId",
             "Muon_svIdx",
             # "Muon_tightCharge",
-            # "Muon_tightId",
+            "Muon_tightId",
             # "Muon_tkIsoId",
             # "Muon_tkRelIso",
             # "Muon_triggerIdLoose",

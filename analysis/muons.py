@@ -31,12 +31,11 @@ def _declare_muon_helpers():
         """
     )
 
-# =============================================================================
-# STADIO 1: DEFINIZIONE GLOBALE DI PT E P4
-# =============================================================================
-def DefineMuonPtAndP4(df, is_data, only_fsr=True, want_variations=False):
+
+def DefineMuonPtAndP4(df, is_data, only_default=True, want_variations=False):
     """Definisce nel dataframe i pT e p4 corretti per tutte le variazioni richieste"""
     _declare_muon_helpers()
+
 
     pt_configurations = [
         ("Muon_pt_noCorr",     "Muon_pt",                      "Muon_bsConstrainedPt"),
@@ -44,7 +43,7 @@ def DefineMuonPtAndP4(df, is_data, only_fsr=True, want_variations=False):
         ("Muon_pt_ScaRe_FSR",  "Muon_pt_nano_scare_FSR",       "Muon_bsc_pt_nano_scare_FSR")
     ]
 
-    if not only_fsr:
+    if not only_default:
         pt_configurations.extend([
             ("Muon_pt_scale",      "Muon_pt_scale_corr",           "Muon_bsc_pt_scale_corr"),
             ("Muon_pt_noCorr_FSR", "Muon_pt_nano_FSR",             "Muon_pt_bsc_FSR"),
@@ -58,7 +57,7 @@ def DefineMuonPtAndP4(df, is_data, only_fsr=True, want_variations=False):
             ("Muon_pt_resol_FSR_up",   "Muon_pt_nano_corr_resol_FSR_up",   "Muon_bsc_pt_nano_corr_resol_FSR_up"),
             ("Muon_pt_resol_FSR_down", "Muon_pt_nano_corr_resol_FSR_down", "Muon_bsc_pt_nano_corr_resol_FSR_down")
         ])
-        if not only_fsr:
+        if not only_default:
             pt_configurations.extend([
                 ("Muon_pt_scale_up",   "Muon_pt_scale_corr_up",   "Muon_bsc_pt_scale_corr_up"),
                 ("Muon_pt_scale_down", "Muon_pt_scale_corr_down", "Muon_bsc_pt_scale_corr_down"),
@@ -115,22 +114,19 @@ def ApplyMuonTriggerMatching(df, trigger_config, apply_filter=True):
     return df, matching_bool_vars
 
 
-# =============================================================================
-# STADIO 3: PROCESSO DELLE VARIABILI INDICE PER INDICE (CON SALVATAGGIO TRACCIATO)
-# =============================================================================
-def ProcessMuonVariables(df, is_data, muon_columns, trigger_config, only_fsr=True, want_variations=False, pt_min=15.0, mass_cut=50.0):
+def ProcessMuonVariables(df, is_data, muon_columns, default_suffix, trigger_config, only_default=True, want_variations=False, pt_min=15.0, mass_cut=50.0):
     """Seleziona la coppia di muoni di segnale ed estrae tutte le variabili tracciandole"""
     new_muon_cols = []
 
     # Seleziona quali pT processare indice per indice per l'output finale
-    pt_configurations = ["Muon_pt_ScaRe_FSR"] # Default standard richiesto
+    pt_configurations = [f"Muon_pt{default_suffix}"] # Default standard richiesto
 
-    if not only_fsr:
+    if not only_default:
         pt_configurations.extend(["Muon_pt_noCorr", "Muon_pt_ScaRe", "Muon_pt_scale", "Muon_pt_noCorr_FSR", "Muon_pt_scale_FSR"])
 
     if not is_data and want_variations:
         pt_configurations.extend(["Muon_pt_scale_FSR_up", "Muon_pt_scale_FSR_down", "Muon_pt_resol_FSR_up", "Muon_pt_resol_FSR_down"])
-        if not only_fsr:
+        if not only_default:
             pt_configurations.extend(["Muon_pt_scale_up", "Muon_pt_scale_down", "Muon_pt_resol_up", "Muon_pt_resol_down"])
 
     # Parsing rami scalari esterni
@@ -155,6 +151,8 @@ def ProcessMuonVariables(df, is_data, muon_columns, trigger_config, only_fsr=Tru
             continue
 
         suffix = "_" + name_pt.replace("Muon_pt_", "")
+        if suffix == default_suffix:
+            suffix = ""
 
         # Selezione cinematica e ordinamento basato sul pT specifico della variazione
         df = define_and_track(df, f"good_muons{suffix}", f"{name_pt} > {pt_min} && abs(Muon_eta) < 2.4 && Muon_mediumId && Muon_pfIsoId >= 2")
@@ -210,6 +208,34 @@ def ApplyElectronVeto(df):
     df = _define_if_missing(df, "veto_electrons", "Electron_pt > 20 && abs(Electron_eta) < 2.5 && Electron_mvaIso_WP90")
     return df.Filter("ROOT::VecOps::Nonzero(veto_electrons).size() == 0", "Electron veto")
 
+def DefineMuonSelection(df,sel_config, only_default, is_data, want_variations=False):
+    sel_dict = sel_config.get("muons_selection", {})
+    print(df.GetColumnNames())
+    # default_suffix = sel_dict.get("default_suffix", "")
+    # print(default_suffix)
+    vars_to_store = []
+    for sel_name,sel_str in sel_dict.items():
+        sel_str_complete = sel_str.format(suff="") # default suffix is ""
+        sel_name_complete= sel_name
+        df = df.Define(sel_name_complete, sel_str_complete)
+        vars_to_store.append(sel_name_complete)
+
+    additional_suffix = []
+    if not only_default:
+        additional_suffix.extend(["_noCorr", "_ScaRe", "_scale", "_noCorr_FSR", "_scale_FSR"])
+    if not is_data and want_variations:
+        additional_suffix.extend(["_scale_FSR_up", "_scale_FSR_down", "_resol_FSR_up", "_resol_FSR_down"])
+        if not only_default:
+            additional_suffix.extend(["_scale_up", "_scale_down", "_resol_up", "_resol_down"])
+
+    for additional_suff in additional_suffix:
+        for sel_name,sel_str in sel_dict.items():
+            sel_str_complete = sel_str.format(suff=additional_suff)
+            sel_name_complete=f"{sel_name}_{additional_suff}"
+            df = df.Define(sel_name_complete, sel_str_complete)
+            vars_to_store.append(sel_name_complete)
+    return df,vars_to_store
+
 # import ROOT
 # import sys
 # from pathlib import Path
@@ -243,7 +269,7 @@ def ApplyElectronVeto(df):
 #         """
 #     )
 
-# def ProcessMuons(df, is_data, muon_columns, only_fsr=True, want_variations=False, pt_min=15.0, mass_cut=50.0):
+# def ProcessMuons(df, is_data, muon_columns, only_default=True, want_variations=False, pt_min=15.0, mass_cut=50.0):
 #     _declare_muon_helpers()
 
 #     new_muon_cols = []  # List to keep track of all newly created columns
@@ -255,7 +281,7 @@ def ApplyElectronVeto(df):
 #         ("Muon_pt_ScaRe_FSR", "Muon_pt_nano_scare_FSR", "Muon_bsc_pt_nano_scare_FSR")
 #     ]
 
-#     if not only_fsr:
+#     if not only_default:
 #         pt_configurations.extend([
 #             ("Muon_pt_scale",      "Muon_pt_scale_corr",           "Muon_bsc_pt_scale_corr"),
 #             ("Muon_pt_noCorr_FSR", "Muon_pt_nano_FSR",             "Muon_pt_bsc_FSR"),
@@ -269,7 +295,7 @@ def ApplyElectronVeto(df):
 #             ("Muon_pt_resol_FSR_up",   "Muon_pt_nano_corr_resol_FSR_up",   "Muon_bsc_pt_nano_corr_resol_FSR_up"),
 #             ("Muon_pt_resol_FSR_down", "Muon_pt_nano_corr_resol_FSR_down", "Muon_bsc_pt_nano_corr_resol_FSR_down")
 #         ])
-#         if not only_fsr:
+#         if not only_default:
 #             pt_configurations.extend([
 #                 ("Muon_pt_scale_up",   "Muon_pt_scale_corr_up",   "Muon_bsc_pt_scale_corr_up"),
 #                 ("Muon_pt_scale_down", "Muon_pt_scale_corr_down", "Muon_bsc_pt_scale_corr_down"),
