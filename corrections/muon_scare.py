@@ -15,8 +15,25 @@ def apply_muon_scare(
     era = config.get("era")
     period_unc = period_names[era]
     folder_name = pog_folder_names["MUO"][period_unc]
-    jsonFile_path = f"corrections/data/MUO/MuonScaRe/{folder_name}/muon_scalesmearing.json"
-    jsonFile_path_VXBS = f"corrections/data/MUO/MuonScaRe/{folder_name}/muon_scalesmearing_VXBS.json"
+
+    jsonFile_path = os.path.join(
+        os.environ["ANALYSIS_PATH"],
+        "corrections",
+        "data",
+        "MUO",
+        "MuonScaRe",
+        folder_name,
+        "muon_scalesmearing.json"
+    )
+    jsonFile_path_VXBS = os.path.join(
+        os.environ["ANALYSIS_PATH"],
+        "corrections",
+        "data",
+        "MUO",
+        "MuonScaRe",
+        folder_name,
+        "muon_scalesmearing_VXBS.json"
+    )
 
     ## first on raw nano pT
 
