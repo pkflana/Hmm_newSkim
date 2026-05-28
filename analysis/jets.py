@@ -106,6 +106,7 @@ def ProcessAllJetVariables(df, is_data, jet_columns, config, bTagAlgo, bTagDict,
         # Applicazione dinamica della stringa di veto Horn passata da config
         current_horn_expr = horn_veto_base_expr.replace("Jet_p4", f"Jet_p4{suff}")
         df = define_and_track(df, f"Jet_IsInsideHorn{suff}", current_horn_expr)
+        df = define_and_track(df, f"Jet_IsOutsideHorn{suff}", f"!{current_horn_expr}")
 
         # Maschera finale dei jet selezionati (goodJet)
         df = df.Define(f"goodJet{suff}", f"Jet_NoOverlapWithMuons{suff}") # && !Jet_IsInsideHorn{suff}")
@@ -121,6 +122,7 @@ def ProcessAllJetVariables(df, is_data, jet_columns, config, bTagAlgo, bTagDict,
         df = define_and_track(df, f"SelectedJet_IsInsideHorn{suff}", f"Jet_IsInsideHorn{suff}[goodJet{suff}]")
         df = define_and_track(df, f"SelectedJet_IsOutsideHorn{suff}", f"!(Jet_IsInsideHorn{suff}[goodJet{suff}])")
         df = define_and_track(df, f"N_SelectedJets{suff}", f"(int)SelectedJet_idx{suff}.size()")
+        df = df.Define(f"SelectedJet_p4{suff}", f"GetP4(SelectedJet_pt{suff}, SelectedJet_eta{suff}, SelectedJet_phi{suff}, SelectedJet_mass{suff}, SelectedJet_idx{suff})")
 
         # ---------------------------------------------------------------------
         # SALVATAGGIO DINAMICO DELLE VARIABILI DI INPUT PASSATE (jet_columns)
