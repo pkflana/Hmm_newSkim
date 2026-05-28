@@ -43,6 +43,7 @@ def GetJetVetoMap(df, config):
 
 def ApplyJetVetoMap(df, config, apply_filter=True, defineElectronCleaning=False, isV12=False):
     df = GetJetVetoMap(df, config)
+    # defineElectronCleaning=
     cols_to_store = []
     function_for_jetId = (
         "JetIdNewDef::RedefineJet_passJetIdTight_v12(Jet_p4, Jet_neHEF, Jet_neEmEF, Jet_jetId)"

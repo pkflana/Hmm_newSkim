@@ -211,8 +211,8 @@ MediumMuIDIso_SF_Sources = {
         # "NUM_TightRelTkIso_DEN_HighPtID",
         # "NUM_TightRelTkIso_DEN_TrkHighPtID",
         "NUM_TightPFIso_DEN_TightID",
-        "NUM_LooseMiniIso_DEN_LooseID",
-        "NUM_LooseMiniIso_DEN_MediumID",
+        # "NUM_LooseMiniIso_DEN_LooseID",
+        # "NUM_LooseMiniIso_DEN_MediumID",
         # "NUM_MediumMiniIso_DEN_MediumID",
         # "NUM_TightMiniIso_DEN_MediumID",
     ],
@@ -321,9 +321,6 @@ import correctionlib
 
 correctionlib.register_pyroot_binding()
 
-headers_dir = os.path.dirname(os.path.abspath(__file__))
-header_path = os.path.join(headers_dir, "mu.h")
-ROOT.gInterpreter.Declare(f'#include "{header_path}"')
 
 
 def apply_muIDIso_weights(df, config, return_variations=True):
@@ -344,6 +341,9 @@ def apply_muIDIso_weights(df, config, return_variations=True):
     ROOT.gROOT.ProcessLine(
         f'auto cset = correction::CorrectionSet::from_file("{jsonFile_path}");'
     )
+    headers_dir = os.path.dirname(os.path.abspath(__file__))
+    header_path = os.path.join(headers_dir, "mu.h")
+    ROOT.gInterpreter.Declare(f'#include "{header_path}"')
 
     # Gather available keys for this era
     available_sources = (
@@ -352,7 +352,6 @@ def apply_muIDIso_weights(df, config, return_variations=True):
         + MediumMuTrg_SF_Sources.get(period_unc, [])
     )
 
-    print(available_sources)
     # Dict mapping python scale terminology to correctionlib JSON parameters
     scale_map = {"Central": "nominal", "Up": "systup", "Down": "systdown"}
 
@@ -361,7 +360,7 @@ def apply_muIDIso_weights(df, config, return_variations=True):
 
     # Define standard input column strings matching standard NanoAOD layout
     for leg_idx in [1,2]:
-        p4_pt = f"mu{leg_idx}_pt_noCorr"
+        p4_pt = f"mu{leg_idx}_pt" # no corr?
         p4_eta = f"mu{leg_idx}_eta"
         pfRelIso04_all = f"mu{leg_idx}_pfRelIso04_all"
         tightId = f"mu{leg_idx}_tightId"
@@ -385,7 +384,7 @@ def apply_muIDIso_weights(df, config, return_variations=True):
             # Loop through all scales to ALWAYS define them inside the RDataFrame
             for scale, cset_syst_string in scale_map.items():
                 branch_name = f"weight_mu{leg_idx}_{short_name}_{scale}"
-
+                # print(branch_name)
                 # Direct definition inside RDataFrame using your new C++ signature
                 df = df.Define(
                     branch_name,
@@ -393,9 +392,11 @@ def apply_muIDIso_weights(df, config, return_variations=True):
                         ? static_cast<float>(::correction::getMuonSF_simple(
                             "{source}", "{cset_syst_string}",
                             {p4_pt}, {p4_eta}, {pfRelIso04_all},
-                            {tightId}, {tkRelIso}, {mediumId}, {looseId},{trg_matching},{trg_path}))
+                            {tightId}, {tkRelIso}, {mediumId}, {looseId},{trg_matching},{trg_path}, event))
                         : 1.0f""",
                 )
+                # if source == "NUM_IsoMu24_DEN_CutBasedIdMedium_and_PFIsoMedium":
+                #     df.Display({branch_name}).Print()
 
                 # Control what goes to the downstream storing list:
                 # Always keep Central; only add Up/Down to track if return_variations is True

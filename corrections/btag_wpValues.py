@@ -33,8 +33,8 @@ def getBTagWPValues(config):
         except Exception as e:
             print(f"Could not evaluate WP '{wp}' for {tagger_name}: {e}")
 
-    print("Resulting WP Dictionary:")
-    print(wp_dict)
+    # print("Resulting WP Dictionary:")
+    # print(wp_dict)
     return wp_dict
 
 

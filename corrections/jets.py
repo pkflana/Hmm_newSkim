@@ -274,8 +274,21 @@ def define_jet_p4_variations(
             """,
         )
 
+
+    def define_mass_from_p4(df, pt_name, p4_name):
+        return df.Define(
+            pt_name,
+            f"""
+            ROOT::VecOps::RVec<float> Jet_m({p4_name}.size(), 0.);
+            for (size_t i = 0; i < {p4_name}.size(); ++i) {{
+                Jet_m[i] = {p4_name}[i].M();
+            }}
+            return Jet_m;
+            """,
+        )
     df = df.Define("Jet_p4", p4_from_shifted_map("Central", "Central"))
     df = define_pt_from_p4(df, "Jet_pt_corr", "Jet_p4")
+    df = define_mass_from_p4(df, "Jet_m_corr", "Jet_p4")
 
     if not is_data and return_variations:
         variation_sources = []

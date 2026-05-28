@@ -1,0 +1,33 @@
+era: Run3_2022
+luminosity: 7989.51 # pb-1 brilcalc lumi -b "STABLE BEAMS" --normtag /cvmfs/cms-bril.cern.ch/cms-lumi-pog/Normtags/normtag_PHYSICS.json -u /pb -i Cert_Collisions2022_355100_362760_Golden.json --begin 355794 --end 359021
+
+final_skim_folder:
+
+crossSectionsFile: FLAF/config/crossSections13p6TeV.yaml
+lumiFile: Corrections/data/golden_json/Cert_Collisions2022_355100_362760_Golden.json
+
+nano_version: v12 
+
+ignore_missing_nanoAOD_files:
+  data: False
+  signals: True
+  backgrounds: True
+
+
+MET_flags:  # https://twiki.cern.ch/twiki/bin/view/CMS/MissingETOptionalFiltersRun2#Run_3_2022_and_2023_data_and_MC
+  - Flag_goodVertices
+  - Flag_globalSuperTightHalo2016Filter
+  - Flag_EcalDeadCellTriggerPrimitiveFilter
+  - Flag_BadPFMuonFilter
+  - Flag_BadPFMuonDzFilter
+  - Flag_hfNoisyHitsFilter
+  - Flag_eeBadScFilter
+  - Flag_ecalBadCalibFilter
+
+only_default: True
+want_variations: True
+apply_trg_filter: True
+
+bTagAlgo: particleNet
+
+mu_weights_to_store: ["weight_mu1_MediumID", "weight_mu1_MediumID_Trk_Up", "weight_mu1_MediumID_Trk_Down", "weight_mu1_LoosePFIso_MediumID_Central", "weight_mu1_LoosePFIso_MediumID_Up", "weight_mu1_LoosePFIso_MediumID_Down", "weight_mu2_MediumID_Trk_Central", "weight_mu2_MediumID_Trk_Up", "weight_mu2_MediumID_Trk_Down", "weight_mu2_LoosePFIso_MediumID_Central", "weight_mu2_LoosePFIso_MediumID_Up", "weight_mu2_LoosePFIso_MediumID_Down", "weight_mu2_IsoMu24_CutBasedIdMedium_and_PFIsoMedium_Central", "weight_mu2_IsoMu24_CutBasedIdMedium_and_PFIsoMedium_Up", "weight_mu2_IsoMu24_CutBasedIdMedium_and_PFIsoMedium_Down"]
