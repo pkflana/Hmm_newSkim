@@ -1,5 +1,7 @@
-*.txt
+# *.txt
 __pycache__
 *.pyc
 studies/
 data/
+logs/
+*.tar.gz

@@ -40,8 +40,7 @@ cols_to_save = []
 # --- Dataframe Instantiation ---
 root_file = ROOT.TFile.Open(args.input_file)
 df = ROOT.RDataFrame(root_file.Get("Events"))
-
-# 🚀 ACTIVATE PROGRESS BAR (Will update dynamically during Snapshot)
+ 
 ROOT.RDF.Experimental.AddProgressBar(df)
 
 # --- Base Metadata & Event Filters ---

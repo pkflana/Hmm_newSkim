@@ -5,22 +5,17 @@ set -x
 
 exec > debug.log 2>&1
 
-echo "Starting job in Condor sandbox"
+echo "Starting job"
 
-echo "PWD = $PWD"
+# unpack
+tar -xzf framework.tar.gz
+
 ls -R .
 
-# --------------------------------------
-# environment (LOCAL COPY)
-# --------------------------------------
-
+# environment
 source env.sh
 
-
-# --------------------------------------
 # inputs
-# --------------------------------------
-
 ERA=$1
 DATASET=$2
 INPUTS=$3
@@ -30,11 +25,7 @@ INPUTS=$(echo $INPUTS | tr ',' ' ')
 
 mkdir -p $(dirname $OUTPUT)
 
-# --------------------------------------
-# run from local copy
-# --------------------------------------
-
-python3 analysis/skim.py \
+python3 skimProduction/analysis/skim.py \
     --era $ERA \
     --dataset-name $DATASET \
     --input-files $INPUTS \
