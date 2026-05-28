@@ -1,3 +1,4 @@
+from utilities import get_config
 
 def dy_cross_section_calc(xs_cfg, dysf_cfg):
     """
@@ -40,17 +41,18 @@ def dy_cross_section_calc(xs_cfg, dysf_cfg):
     return total_xs_scaling, selection_bins
 
 
-def apply_dy_cross_section_scaling(df, xs_cfg, dysf_cfg):
+def apply_dy_cross_section_scaling(df, xs_cfg, dysf_cfg_path):
     """
     Redefines the weight_xs branch for DY samples.
     Args:
     - df is the working RDataFrame
     - xs_cfg expected to crossSections13p6TeV.yaml loaded as dict.
-    - dysf_cfg expected to be dy_cross_section_stitching.yaml loaded as dict.
+    - dysf_cfg_path is the .yaml file containing the DY stitching configuration
     Returns:
     - The updated RDataFrame
     """
     # Get needed values from dy_cross_section_calc.
+    dysf_cfg = get_config(dysf_cfg_path)
     total_xs_scaling, selection_bins = dy_cross_section_calc(xs_cfg, dysf_cfg)
     
     # Build the RDataFrame expression to assign new cross-section values
