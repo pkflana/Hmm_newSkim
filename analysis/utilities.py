@@ -64,7 +64,9 @@ def process_from_dataset(process_cfg, dataset_name):
     Iterates over process_names.yaml to find which process a dataset name belongs to.
     """
     for process, entry in process_cfg.items():
-        if dataset_name in entry['datasets']:
+        datasets_list = entry.get("datasets", [])
+        datasets_list.extend(entry.get("sub_processes", []))
+        if dataset_name in datasets_list:
             return process
     return None
 
