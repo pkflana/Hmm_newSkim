@@ -1,0 +1,47 @@
+# ---------------------------------------------------------
+# Global settings
+# ---------------------------------------------------------
+
+era: Run3_2022
+
+# processes to run
+processes:
+  - Data_Muon
+  # - DY
+  # - TT
+
+# ---------------------------------------------------------
+# job configuration
+# ---------------------------------------------------------
+
+chunk_size: 1        # files per job
+max_files: 1        # -1 = all files
+
+# ---------------------------------------------------------
+# output configuration
+# ---------------------------------------------------------
+
+output_dir: /eos/cms/store/group/phys_higgs/cmshmm/vdamante/
+
+# ---------------------------------------------------------
+# condor configuration
+# ---------------------------------------------------------
+
+submit: true
+job_flavour: espresso
+
+request_cpus: 1
+request_memory: 4GB
+request_disk: 2GB
+
+# ---------------------------------------------------------
+# optional controls
+# ---------------------------------------------------------
+
+# run only subset of datasets (optional override)
+# datasets_whitelist:
+#   - Muon_Run2022C
+#   - Muon_Run2022D
+
+# debug mode
+dryrun: false

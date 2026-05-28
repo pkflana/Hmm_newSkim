@@ -1,0 +1,25 @@
+
+executable = /afs/cern.ch/work/v/vdamante/Hmm_newSkim/skimProduction/condor/job.sh
+arguments  = $(ARGS)
+
+output = /afs/cern.ch/work/v/vdamante/Hmm_newSkim/skimProduction/condor/logs/job_$(ClusterId)_$(ProcId).out
+error  = /afs/cern.ch/work/v/vdamante/Hmm_newSkim/skimProduction/condor/logs/job_$(ClusterId)_$(ProcId).err
+log    = /afs/cern.ch/work/v/vdamante/Hmm_newSkim/skimProduction/condor/logs/job_$(ClusterId)_$(ProcId).log
+
+request_cpus   = 1
+request_memory = 4 GB
+
++JobFlavour = "espresso"
+
+getenv = True
+environment = "ANALYSIS_PATH=$(ENV.ANALYSIS_PATH)"
+
+should_transfer_files   = YES
+when_to_transfer_output = ON_EXIT
+transfer_input_files    = skimProduction/, analysis/, corrections/, config/, env.sh
+
+queue ARGS from (
+Run3_2022 SingleMuon_Run2022C root://cms-xrd-global.cern.ch//store/data/Run2022C/SingleMuon/NANOAOD/22Sep2023-v1/50000/8050649a-e9db-4a0b-96c0-51d45e6f7d71.root root://cmseos.fnal.gov//store/user/vdamante/H_mumu/prova_skim/SingleMuon_Run2022C/outFile_0.root
+Run3_2022 Muon_Run2022C root://cms-xrd-global.cern.ch//store/data/Run2022C/Muon/NANOAOD/22Sep2023-v1/30000/8c3c411a-6cac-4dae-b120-c038f36bd9fd.root root://cmseos.fnal.gov//store/user/vdamante/H_mumu/prova_skim/Muon_Run2022C/outFile_0.root
+Run3_2022 Muon_Run2022D root://cms-xrd-global.cern.ch//store/data/Run2022D/Muon/NANOAOD/22Sep2023-v1/2520000/50eb4dec-d0c0-400a-a1eb-4561043b266c.root root://cmseos.fnal.gov//store/user/vdamante/H_mumu/prova_skim/Muon_Run2022D/outFile_0.root
+)
