@@ -119,6 +119,7 @@ def ProcessAllJetVariables(df, is_data, jet_columns, config, bTagAlgo, bTagDict,
         df = define_and_track(df, f"SelectedJet_phi{suff}", f"Jet_phi[goodJet{suff}]")
         df = define_and_track(df, f"SelectedJet_mass{suff}", f"Jet_mass_corr[goodJet{suff}]")
         df = define_and_track(df, f"SelectedJet_IsInsideHorn{suff}", f"Jet_IsInsideHorn{suff}[goodJet{suff}]")
+        df = define_and_track(df, f"SelectedJet_IsOutsideHorn{suff}", f"!(Jet_IsInsideHorn{suff}[goodJet{suff}])")
         df = define_and_track(df, f"N_SelectedJets{suff}", f"(int)SelectedJet_idx{suff}.size()")
 
         # ---------------------------------------------------------------------
@@ -136,7 +137,7 @@ def ProcessAllJetVariables(df, is_data, jet_columns, config, bTagAlgo, bTagDict,
         # ---------------------------------------------------------------------
         # ESTRAZIONE INDICI DELLE GAMBE VBF (VBFJetIdx_1, VBFJetIdx_2)
         # ---------------------------------------------------------------------
-        df = df.Define(f"VBFJetCand{suff}", f"FindVBFJets(Jet_p4{suff}, goodJet{suff})")
+        df = df.Define(f"VBFJetCand{suff}", f"FindVBFJets(SelectedJet_p4{suff}, SelectedJet_IsOutsideHorn{suff})")
         df = define_and_track(df, f"HasVBF{suff}", f"static_cast<bool>(VBFJetCand{suff}.isVBF)")
 
         df = define_and_track(df, f"VBFJetIdx_1{suff}", f"HasVBF{suff} ? static_cast<int>(VBFJetCand{suff}.leg_index[0]) : -1000")
