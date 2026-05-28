@@ -1,4 +1,3 @@
-from utilities import get_config
 
 def dy_cross_section_calc(xs_cfg, dysf_cfg):
     """
@@ -41,7 +40,7 @@ def dy_cross_section_calc(xs_cfg, dysf_cfg):
     return total_xs_scaling, selection_bins
 
 
-def apply_dy_cross_section_scaling(df, xs_cfg, dysf_cfg_path):
+def apply_dy_cross_section(df, weight_xs_name, xs_cfg, dysf_cfg):
     """
     Redefines the weight_xs branch for DY samples.
     Args:
@@ -52,7 +51,6 @@ def apply_dy_cross_section_scaling(df, xs_cfg, dysf_cfg_path):
     - The updated RDataFrame
     """
     # Get needed values from dy_cross_section_calc.
-    dysf_cfg = get_config(dysf_cfg_path)
     total_xs_scaling, selection_bins = dy_cross_section_calc(xs_cfg, dysf_cfg)
     
     # Build the RDataFrame expression to assign new cross-section values
@@ -66,5 +64,5 @@ def apply_dy_cross_section_scaling(df, xs_cfg, dysf_cfg_path):
     xs_expr = "\n".join(xs_expr_list)
 
     # Apply and return!
-    df = df.Redefine("weight_xs", xs_expr)        
+    df = df.Define(weight_xs_name, xs_expr)        
     return df

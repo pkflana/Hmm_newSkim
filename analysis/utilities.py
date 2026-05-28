@@ -58,6 +58,16 @@ def get_config(yaml_file):
     return config
 
 
+def process_from_dataset(process_cfg, dataset_name):
+    """
+    Iterates over process_names.yaml to find which process a dataset name belongs to.
+    """
+    for process, entry in process_cfg.items():
+        if dataset_name in entry['datasets']:
+            return process
+    return None
+
+
 def GetObservablesCols(obs_name, is_data, nano_version="v12"):
     col_to_save_path = _resolve_config_path("config/col_to_save.yaml")
     with open(col_to_save_path, "r") as f:

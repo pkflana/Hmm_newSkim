@@ -26,6 +26,7 @@ config = utilities.get_config(os.path.join(os.environ["ANALYSIS_PATH"], "config"
 dataset_cfg = utilities.get_config(os.path.join(os.environ["ANALYSIS_PATH"], "config", args.era, "samples.yaml"))[args.dataset_name]
 sel_config = utilities.get_config(os.path.join(os.environ["ANALYSIS_PATH"], "config", args.era, "selections.yaml"))
 trigger_config = utilities.get_config(os.path.join(os.environ["ANALYSIS_PATH"], "config", args.era, "triggers.yaml"))
+process_cfg = utilities.get_config(os.path.join(os.environ["ANALYSIS_PATH"], "config", args.era, "process_names.yaml"))
 xs_cfg = utilities.get_config(config["crossSectionsFile"])
 
 # Setup parameters
@@ -64,7 +65,9 @@ cols_to_save.extend(utilities.GetObservablesCols("default", is_data, nano_versio
 if not is_data:
     from corrections.general import define_base_weights
     xs_entry = dataset_cfg.get("crossSection", args.dataset_name)
-    df, base_weights = define_base_weights(df, config.get("luminosity",""), xs_entry, xs_cfg)
+    process = utilities.process_from_dataset(process_cfg, args.dataset_name)
+    process_entry = process_cfg[process]
+    df, base_weights = define_base_weights(df, config.get("luminosity",""), xs_entry, xs_cfg, process_entry)
     cols_to_save.extend(base_weights)
 
 from corrections.general import apply_corrections

@@ -1,4 +1,7 @@
 
+import utilities
+import os
+
 pog_folder_names = {
     "BTV": {
         "2016postVFP_UL": "Run2-2016postVFP-UL-NanoAODv9",
@@ -120,7 +123,7 @@ periods = {
     "2016postVFP_UL": "2016",
 }
 
-def define_base_weights(df, lumi, xs_entry, xs_cfg, use_genWeight_sign_only=True):
+def define_base_weights(df, lumi, xs_entry, xs_cfg, process_entry, use_genWeight_sign_only=True):
     base_weights_to_store = []
     lumi_weight_name = "weight_lumi"
     df = df.Define(lumi_weight_name, f"float({lumi})")
@@ -133,10 +136,18 @@ def define_base_weights(df, lumi, xs_entry, xs_cfg, use_genWeight_sign_only=True
     )
     df = df.Define(gen_weight_name, genWeight_def)
     base_weights_to_store.append(gen_weight_name)
-    ### tmp --> need to implement MC stitching
+
     weight_xs_name = "weight_xs"
-    xs_value = str(xs_cfg[xs_entry]['crossSec'])
-    df = df.Define("weight_xs", xs_value)
+    try: 
+        processor_file = process_entry['processor']
+    except KeyError:
+        xs_value = str(xs_cfg[xs_entry]['crossSec'])
+        df = df.Define("weight_xs", xs_value)
+    else:
+        from .dy_cross_section import apply_dy_cross_section
+        processor_cfg = utilities.get_config(os.path.join(os.environ["ANALYSIS_PATH"], "config", processor))
+        df = apply_dy_cross_section(df, weight_xs_name, xs_cfg, processor_cfg)
+
     base_weights_to_store.append(weight_xs_name)
 
     ### to add --> 2024/2025/2026 --> weight 0 or 1 to decide what MC use for what prod
@@ -167,6 +178,7 @@ def apply_corrections(df, config, dataset_cfg, dataset_name):
     df = apply_jet_corrections(df, config, dataset_cfg, dataset_name, return_variations)
 
     return df,weight_branches
-# def getBTagValues():
+
+
 
 
