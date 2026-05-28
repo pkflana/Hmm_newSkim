@@ -5,3 +5,4 @@ studies/
 data/
 logs/
 *.tar.gz
+condor/
