@@ -5,7 +5,7 @@ jet_pt_min: 25.0
 jet_eta_max: 4.7
 # Espressione complessa specifica per l'anno 2024 (Tabella Run 3 Run Conditions)
 # Nota: 'Jet_p4' è il placeholder che il codice Python sostituirà con 'Jet_p4{suff}'
-jet_horn_veto_expr: "( (abs(v_ops::eta(Jet_p4)) >= 2.5 && abs(v_ops::eta(Jet_p4)) < 3.0) && v_ops::pt(Jet_p4) < 50.0 ) || ( (abs(v_ops::eta(Jet_p4)) >= 2.0 && abs(v_ops::eta(Jet_p4)) < 2.5) && v_ops::pt(Jet_p4) < 30.0 )"
+jet_horn_veto_expr: "( ( abs(v_ops::eta(Jet_p4)) >= 2.5 && abs(v_ops::eta(Jet_p4)) < 3.0) && v_ops::pt(Jet_p4) < 50.0 )"
 
 # =============================================================================
 # SUFFIXES & REGIONS DEFINITIONS

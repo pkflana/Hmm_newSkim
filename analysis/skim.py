@@ -62,10 +62,12 @@ df = df.Define("FullEventId", f"eventId::encodeFullEventId({dataset_crc}, {input
 cols_to_save.extend(utilities.GetObservablesCols("default", is_data, nano_version))
 
 # --- Weights & Corrections Block ---
-from corrections.general import define_base_weights, apply_corrections
-df, base_weights = define_base_weights(df, config, args.dataset_name, xs_cfg)
-cols_to_save.extend(base_weights)
+if not is_data:
+    from corrections.general import define_base_weights
+    df, base_weights = define_base_weights(df, config, args.dataset_name, xs_cfg)
+    cols_to_save.extend(base_weights)
 
+from corrections.general import apply_corrections
 df, weight_branches = apply_corrections(df, config, dataset_cfg, args.dataset_name)
 if weight_branches:
     cols_to_save.extend(weight_branches)
@@ -93,10 +95,11 @@ cols_to_save.extend(new_muon_cols)
 df = ApplyElectronVeto(df)
 
 # # Muon SF Weights evaluation
-from corrections.mu import apply_muIDIso_weights
-df, mu_weights = apply_muIDIso_weights(df, config, return_variations=want_variations)
-valid_mu_weights = [w for w in config.get("mu_weights_to_store", mu_weights) if w in mu_weights]
-cols_to_save.extend(valid_mu_weights)
+if not is_data:
+    from corrections.mu import apply_muIDIso_weights
+    df, mu_weights = apply_muIDIso_weights(df, config, return_variations=want_variations)
+    valid_mu_weights = [w for w in config.get("mu_weights_to_store", mu_weights) if w in mu_weights]
+    cols_to_save.extend(valid_mu_weights)
 
 df, extra_lep_cols = ProcessExtraMuonVariables(
     df, is_data, muon_cols_initial, sel_config.get("default_suffix", ""),
@@ -118,14 +121,16 @@ from analysis.jets import ProcessAllJetVariables
 from corrections.btag_wpValues import getBTagWPValues
 bTagWPDict = getBTagWPValues(config)
 jet_cols_initial = utilities.GetObservablesCols("Jet", is_data, nano_version)
-df, jet_columns_to_store = ProcessAllJetVariables(df, is_data, jet_cols_initial, config=sel_config, bTagAlgo=config.get("bTagAlgo","particleNet"), bTagDict=bTagWPDict, want_variations=want_variations, mu_suff="")
+df, jet_columns_to_store = ProcessAllJetVariables(df, is_data, jet_cols_initial, config=sel_config, bTagAlgo=config.get("bTagAlgo","PNet"), bTagDict=bTagWPDict, want_variations=want_variations, mu_suff="")
 cols_to_save.extend(jet_columns_to_store)
 
 from analysis.other import DefineCategoryBooleans
 df, cat_vars = DefineCategoryBooleans(df, sel_config, is_data, want_variations)
 cols_to_save.extend(cat_vars)
 
-for collection in ["LHEWeight", "SoftActivityJet"]:
+additional_collections_to_store = ["SoftActivityJet"]
+if not is_data : additional_collections_to_store.append("LHEWeight")
+for collection in additional_collections_to_store:
     cols_to_save.extend(utilities.GetObservablesCols(collection, is_data, nano_version))
 
 # # Ensure uniqueness of columns

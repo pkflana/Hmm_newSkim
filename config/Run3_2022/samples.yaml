@@ -1,66 +1,80 @@
 ############## Data ##############
 EGamma_Run2022C:
+  is_data: True
   eraLetter: C
   nanoAOD: /EGamma/Run2022C-22Sep2023-v1/NANOAOD
   # 16Dec23: /EGamma/Run2022C-16Dec2023-v1/NANOAOD
   # v15: /EGamma/Run2022C-NanoAODv15-v1/NANOAOD
 EGamma_Run2022D:
+  is_data: True
   eraLetter: D
   nanoAOD: /EGamma/Run2022D-22Sep2023-v1/NANOAOD
   # 16Dec23: /EGamma/Run2022D-16Dec2023-v1/NANOAOD
   # v15: /EGamma/Run2022D-NanoAODv15-v1/NANOAOD
 Muon_Run2022C:
+  is_data: True
   eraLetter: C
   nanoAOD: /Muon/Run2022C-22Sep2023-v1/NANOAOD
   # 16Dec23: /Muon/Run2022C-16Dec2023-v1/NANOAOD
   # v15: /Muon/Run2022C-NanoAODv15-v1/NANOAOD
 Muon_Run2022D:
+  is_data: True
   eraLetter: D
   nanoAOD: /Muon/Run2022D-22Sep2023-v1/NANOAOD
   # 16Dec23: /Muon/Run2022D-16Dec2023-v1/NANOAOD
   # v15: /Muon/Run2022D-NanoAODv15-v1/NANOAOD
 SingleMuon_Run2022C:
+  is_data: True
   eraLetter: C
   nanoAOD: /SingleMuon/Run2022C-22Sep2023-v1/NANOAOD
   # 16Dec23: /SingleMuon/Run2022C-16Dec2023-v1/NANOAOD
   # v15: /SingleMuon/Run2022C-NanoAODv15-v1/NANOAOD
 DoubleMuon_Run2022C:
+  is_data: True
   eraLetter: C
   nanoAOD: /DoubleMuon/Run2022C-22Sep2023-v1/NANOAOD
   # 16Dec23: /DoubleMuon/Run2022C-16Dec2023-v1/NANOAOD
   # v15: /DoubleMuon/Run2022C-NanoAODv15-v1/NANOAOD
 MuonEG_Run2022C:
+  is_data: True
   eraLetter: C
   nanoAOD: /MuonEG/Run2022C-22Sep2023-v1/NANOAOD
   # 16Dec23: /MuonEG/Run2022C-16Dec2023-v1/NANOAOD
   # v15: /MuonEG/Run2022C-NanoAODv15-v1/NANOAOD
 MuonEG_Run2022D:
+  is_data: True
   eraLetter: D
   nanoAOD: /MuonEG/Run2022D-22Sep2023-v1/NANOAOD
   # v15: /MuonEG/Run2022D-NanoAODv15-v1/NANOAOD
 Tau_Run2022C:
+  is_data: True
   eraLetter: C
   nanoAOD: /Tau/Run2022C-22Sep2023-v1/NANOAOD
   # v15: /Tau/Run2022C-NanoAODv15-v1/NANOAOD
 Tau_Run2022D:
+  is_data: True
   eraLetter: D
   nanoAOD: /Tau/Run2022D-22Sep2023-v1/NANOAOD
   # v15: /Tau/Run2022D-NanoAODv15-v1/NANOAOD
 JetHT_Run2022C:
+  is_data: True
   eraLetter: C
   nanoAOD: /JetHT/Run2022C-22Sep2023-v1/NANOAOD
   # 19Dec23: /JetHT/Run2022C-19Dec2023-v1/NANOAOD
   # v15: /JetHT/Run2022C-NanoAODv15-v1/NANOAOD
 JetMET_Run2022C:
+  is_data: True
   eraLetter: C
   nanoAOD: /JetMET/Run2022C-22Sep2023-v1/NANOAOD
   # 19Dec23: /JetMET/Run2022C-19Dec2023-v1/NANOAOD
   # v15: /JetMET/Run2022C-NanoAODv15-v1/NANOAOD
 MET_Run2022C:
+  is_data: True
   eraLetter: C
   nanoAOD: /MET/Run2022C-22Sep2023-v1/NANOAOD
   # v15: /MET/Run2022C-NanoAODv15-v1/NANOAOD
 JetMET_Run2022D:
+  is_data: True
   eraLetter: D
   nanoAOD: /JetMET/Run2022D-22Sep2023-v1/NANOAOD
   # 19Dec23: /JetMET/Run2022D-19Dec2023-v1/NANOAOD
@@ -77,7 +91,7 @@ DYto2E_MLL_50to120_powheg:
   crossSection: DYto2E_MLL_50to120_powheg
   generator: powheg
   nanoAOD: /DYto2E_MLL-50to120_TuneCP5_13p6TeV_powheg-pythia8/Run3Summer22NanoAODv12-130X_mcRun3_2022_realistic_v5-v2/NANOAODSIM
-    v15: /DYto2E_MLL-50to120_TuneCP5_13p6TeV_powheg-pythia8/Run3Summer22NanoAODv15-150X_mcRun3_2022_realistic_v1-v3/NANOAODSIM
+  # v15: /DYto2E_MLL-50to120_TuneCP5_13p6TeV_powheg-pythia8/Run3Summer22NanoAODv15-150X_mcRun3_2022_realistic_v1-v3/NANOAODSIM
 DYto2E_MLL_120to200_powheg:
   crossSection: DYto2E_MLL_120to200_powheg
   generator: powheg
@@ -120,7 +134,7 @@ DYto2Mu_MLL_50to120_powheg:
   crossSection: DYto2Mu_MLL_50to120_powheg
   generator: powheg
   nanoAOD: /DYto2Mu_MLL-50to120_TuneCP5_13p6TeV_powheg-pythia8/Run3Summer22NanoAODv12-130X_mcRun3_2022_realistic_v5-v2/NANOAODSIM
-    v15: /DYto2Mu_MLL-50to120_TuneCP5_13p6TeV_powheg-pythia8/Run3Summer22NanoAODv15-150X_mcRun3_2022_realistic_v1-v3/NANOAODSIM
+  # v15: /DYto2Mu_MLL-50to120_TuneCP5_13p6TeV_powheg-pythia8/Run3Summer22NanoAODv15-150X_mcRun3_2022_realistic_v1-v3/NANOAODSIM
 DYto2Mu_MLL_120to200_powheg:
   crossSection: DYto2Mu_MLL_120to200_powheg
   generator: powheg
@@ -163,7 +177,7 @@ DYto2Tau_MLL_50to120_powheg:
   crossSection: DYto2Tau_MLL_50to120_powheg
   generator: powheg
   nanoAOD: /DYto2Tau_MLL-50to120_TuneCP5_13p6TeV_powheg-pythia8/Run3Summer22NanoAODv12-130X_mcRun3_2022_realistic_v5-v2/NANOAODSIM
-    v15: /DYto2Tau_MLL-50to120_TuneCP5_13p6TeV_powheg-pythia8/Run3Summer22NanoAODv15-150X_mcRun3_2022_realistic_v1-v3/NANOAODSIM
+  # v15: /DYto2Tau_MLL-50to120_TuneCP5_13p6TeV_powheg-pythia8/Run3Summer22NanoAODv15-150X_mcRun3_2022_realistic_v1-v3/NANOAODSIM
 DYto2Tau_MLL_120to200_powheg:
   crossSection: DYto2Tau_MLL_120to200_powheg
   generator: powheg
@@ -224,7 +238,7 @@ DYto2L_M_50_amcatnloFXFX:
   crossSection: DYto2L_M_50_amcatnloFXFX_allFlavors
   generator: amcatnlo
   nanoAOD: /DYto2L-2Jets_MLL-50_TuneCP5_13p6TeV_amcatnloFXFX-pythia8/Run3Summer22NanoAODv12-130X_mcRun3_2022_realistic_v5-v5/NANOAODSIM
-    v13: /DYto2L-2Jets_MLL-50_TuneCP5_13p6TeV_amcatnloFXFX-pythia8/Run3Summer22NanoAODv13-133X_mcRun3_2022_realistic_ForNanov13_v1-v1/NANOAODSIM
+    # v13: /DYto2L-2Jets_MLL-50_TuneCP5_13p6TeV_amcatnloFXFX-pythia8/Run3Summer22NanoAODv13-133X_mcRun3_2022_realistic_ForNanov13_v1-v1/NANOAODSIM
 DYto2E_M_50_amcatnloFXFX:
   crossSection: DYto2L_M_50_amcatnloFXFX_singleFlavor
   generator: amcatnlo
@@ -282,8 +296,8 @@ DYto2Tau_M_50_0J_amcatnloFXFX:
   crossSection: DYto2L_M_50_0J_amcatnloFXFX_singleFlavor
   generator: amcatnlo
   nanoAOD: /DYto2Tau-2Jets_MLL-50_0J_TuneCP5_13p6TeV_amcatnloFXFX-pythia8/Run3Summer22NanoAODv12-130X_mcRun3_2022_realistic_v5-v1/NANOAODSIM
-    v13: /DYto2Tau-2Jets_MLL-50_0J_TuneCP5_13p6TeV_amcatnloFXFX-pythia8/Run3Summer22NanoAODv13-133X_mcRun3_2022_realistic_ForNanov13_v1-v2/NANOAODSIM
-    v15: /DYto2Tau-2Jets_MLL-50_0J_TuneCP5_13p6TeV_amcatnloFXFX-pythia8/Run3Summer22NanoAODv15-150X_mcRun3_2022_realistic_v1-v3/NANOAODSIM
+    # v13: /DYto2Tau-2Jets_MLL-50_0J_TuneCP5_13p6TeV_amcatnloFXFX-pythia8/Run3Summer22NanoAODv13-133X_mcRun3_2022_realistic_ForNanov13_v1-v2/NANOAODSIM
+  # v15: /DYto2Tau-2Jets_MLL-50_0J_TuneCP5_13p6TeV_amcatnloFXFX-pythia8/Run3Summer22NanoAODv15-150X_mcRun3_2022_realistic_v1-v3/NANOAODSIM
   dirName: DYto2Tau_MLL_50_0J_amcatnloFXFX
   fileNamePattern:
     HLepRare: ^nano_\d+\.root$
@@ -291,7 +305,7 @@ DYto2Tau_M_50_0J_Filtered_amcatnloFXFX:
   crossSection: DYto2Tau_M_50_0J_Filtered_amcatnloFXFX_singleFlavor
   generator: amcatnlo
   nanoAOD: /DYto2Tau-2Jets_M-50_0J_Filtered_TuneCP5_13p6TeV_amcatnloFXFX-pythia8/Run3Summer22NanoAODv12-130X_mcRun3_2022_realistic_v5-v1/NANOAODSIM
-    v13: /DYto2Tau-2Jets_M-50_0J_Filtered_TuneCP5_13p6TeV_amcatnloFXFX-pythia8/Run3Summer22NanoAODv13-133X_mcRun3_2022_realistic_ForNanov13_v1-v3/NANOAODSIM
+    # v13: /DYto2Tau-2Jets_M-50_0J_Filtered_TuneCP5_13p6TeV_amcatnloFXFX-pythia8/Run3Summer22NanoAODv13-133X_mcRun3_2022_realistic_ForNanov13_v1-v3/NANOAODSIM
   dirName: DYto2Tau_MLL_50_0J_Filtered_amcatnloFXFX
   fileNamePattern:
     HLepRare: ^nano_\d+\.root$
@@ -315,7 +329,7 @@ DYto2Tau_M_50_1J_amcatnloFXFX:
   crossSection: DYto2L_M_50_1J_amcatnloFXFX_singleFlavor
   generator: amcatnlo
   nanoAOD: /DYto2Tau-2Jets_MLL-50_1J_TuneCP5_13p6TeV_amcatnloFXFX-pythia8/Run3Summer22NanoAODv12-130X_mcRun3_2022_realistic_v5-v1/NANOAODSIM
-    v13: /DYto2Tau-2Jets_MLL-50_1J_TuneCP5_13p6TeV_amcatnloFXFX-pythia8/Run3Summer22NanoAODv13-133X_mcRun3_2022_realistic_ForNanov13_v1-v2/NANOAODSIM
+    # v13: /DYto2Tau-2Jets_MLL-50_1J_TuneCP5_13p6TeV_amcatnloFXFX-pythia8/Run3Summer22NanoAODv13-133X_mcRun3_2022_realistic_ForNanov13_v1-v2/NANOAODSIM
   dirName: DYto2Tau_MLL_50_1J_amcatnloFXFX
   fileNamePattern:
     HLepRare: ^nano_\d+\.root$
@@ -323,7 +337,7 @@ DYto2Tau_M_50_1J_Filtered_amcatnloFXFX:
   crossSection: DYto2Tau_M_50_1J_Filtered_amcatnloFXFX_singleFlavor
   generator: amcatnlo
   nanoAOD: /DYto2Tau-2Jets_M-50_1J_Filtered_TuneCP5_13p6TeV_amcatnloFXFX-pythia8/Run3Summer22NanoAODv12-130X_mcRun3_2022_realistic_v5-v1/NANOAODSIM
-    v13: /DYto2Tau-2Jets_M-50_1J_Filtered_TuneCP5_13p6TeV_amcatnloFXFX-pythia8/Run3Summer22NanoAODv13-133X_mcRun3_2022_realistic_ForNanov13_v1-v3/NANOAODSIM
+    # v13: /DYto2Tau-2Jets_M-50_1J_Filtered_TuneCP5_13p6TeV_amcatnloFXFX-pythia8/Run3Summer22NanoAODv13-133X_mcRun3_2022_realistic_ForNanov13_v1-v3/NANOAODSIM
   dirName: DYto2Tau_MLL_50_1J_Filtered_amcatnloFXFX
   fileNamePattern:
     HLepRare: ^nano_\d+\.root$
@@ -347,7 +361,7 @@ DYto2Tau_M_50_2J_amcatnloFXFX:
   crossSection: DYto2L_M_50_2J_amcatnloFXFX_singleFlavor
   generator: amcatnlo
   nanoAOD: /DYto2Tau-2Jets_MLL-50_2J_TuneCP5_13p6TeV_amcatnloFXFX-pythia8/Run3Summer22NanoAODv12-130X_mcRun3_2022_realistic_v5-v1/NANOAODSIM
-    v13: /DYto2Tau-2Jets_MLL-50_2J_TuneCP5_13p6TeV_amcatnloFXFX-pythia8/Run3Summer22NanoAODv13-133X_mcRun3_2022_realistic_ForNanov13_v1-v2/NANOAODSIM
+    # v13: /DYto2Tau-2Jets_MLL-50_2J_TuneCP5_13p6TeV_amcatnloFXFX-pythia8/Run3Summer22NanoAODv13-133X_mcRun3_2022_realistic_ForNanov13_v1-v2/NANOAODSIM
   dirName: DYto2Tau_MLL_50_2J_amcatnloFXFX
   fileNamePattern:
     HLepRare: ^nano_\d+\.root$
@@ -355,7 +369,7 @@ DYto2Tau_M_50_2J_Filtered_amcatnloFXFX:
   crossSection: DYto2Tau_M_50_2J_Filtered_amcatnloFXFX_singleFlavor
   generator: amcatnlo
   nanoAOD: /DYto2Tau-2Jets_M-50_2J_Filtered_TuneCP5_13p6TeV_amcatnloFXFX-pythia8/Run3Summer22NanoAODv12-130X_mcRun3_2022_realistic_v5-v1/NANOAODSIM
-    v13: /DYto2Tau-2Jets_M-50_2J_Filtered_TuneCP5_13p6TeV_amcatnloFXFX-pythia8/Run3Summer22NanoAODv13-133X_mcRun3_2022_realistic_ForNanov13_v1-v4/NANOAODSIM
+    # v13: /DYto2Tau-2Jets_M-50_2J_Filtered_TuneCP5_13p6TeV_amcatnloFXFX-pythia8/Run3Summer22NanoAODv13-133X_mcRun3_2022_realistic_ForNanov13_v1-v4/NANOAODSIM
   dirName: DYto2Tau_MLL_50_2J_Filtered_amcatnloFXFX
   fileNamePattern:
     HLepRare: ^nano_\d+\.root$
@@ -850,66 +864,66 @@ TbarWplusto2L2Nu:
   crossSection: TbarWplusto2L2Nu
   generator: powheg
   nanoAOD: /TbarWplusto2L2Nu_TuneCP5_13p6TeV_powheg-pythia8/Run3Summer22NanoAODv12-130X_mcRun3_2022_realistic_v5-v2/NANOAODSIM
-    v13: /TbarWplusto2L2Nu_TuneCP5_13p6TeV_powheg-pythia8/Run3Summer22NanoAODv13-133X_mcRun3_2022_realistic_ForNanov13_v1-v8/NANOAODSIM
+    # v13: /TbarWplusto2L2Nu_TuneCP5_13p6TeV_powheg-pythia8/Run3Summer22NanoAODv13-133X_mcRun3_2022_realistic_ForNanov13_v1-v8/NANOAODSIM
 TbarWplusto2L2Nu_ext1:
   crossSection: TbarWplusto2L2Nu
   generator: powheg
   nanoAOD: /TbarWplusto2L2Nu_TuneCP5_13p6TeV_powheg-pythia8/Run3Summer22NanoAODv12-130X_mcRun3_2022_realistic_v5_ext1-v2/NANOAODSIM
-    v13: /TbarWplusto2L2Nu_TuneCP5_13p6TeV_powheg-pythia8/Run3Summer22NanoAODv13-133X_mcRun3_2022_realistic_ForNanov13_v1_ext1-v1/NANOAODSIM
+    # v13: /TbarWplusto2L2Nu_TuneCP5_13p6TeV_powheg-pythia8/Run3Summer22NanoAODv13-133X_mcRun3_2022_realistic_ForNanov13_v1_ext1-v1/NANOAODSIM
 TbarWplusto4Q:
   crossSection: TbarWplusto4Q
   generator: powheg
   nanoAOD: /TbarWplusto4Q_TuneCP5_13p6TeV_powheg-pythia8/Run3Summer22NanoAODv12-130X_mcRun3_2022_realistic_v5-v2/NANOAODSIM
-    v13: /TbarWplusto4Q_TuneCP5_13p6TeV_powheg-pythia8/Run3Summer22NanoAODv13-133X_mcRun3_2022_realistic_ForNanov13_v1-v1/NANOAODSIM
+    # v13: /TbarWplusto4Q_TuneCP5_13p6TeV_powheg-pythia8/Run3Summer22NanoAODv13-133X_mcRun3_2022_realistic_ForNanov13_v1-v1/NANOAODSIM
 TbarWplusto4Q_ext1:
   crossSection: TbarWplusto4Q
   generator: powheg
   nanoAOD: /TbarWplusto4Q_TuneCP5_13p6TeV_powheg-pythia8/Run3Summer22NanoAODv12-130X_mcRun3_2022_realistic_v5_ext1-v2/NANOAODSIM
-    v13: /TbarWplusto4Q_TuneCP5_13p6TeV_powheg-pythia8/Run3Summer22NanoAODv13-133X_mcRun3_2022_realistic_ForNanov13_v1_ext1-v1/NANOAODSIM
+    # v13: /TbarWplusto4Q_TuneCP5_13p6TeV_powheg-pythia8/Run3Summer22NanoAODv13-133X_mcRun3_2022_realistic_ForNanov13_v1_ext1-v1/NANOAODSIM
 
 TbarWplustoLNu2Q:
   crossSection: TbarWplustoLNu2Q
   generator: powheg
   nanoAOD: /TbarWplustoLNu2Q_TuneCP5_13p6TeV_powheg-pythia8/Run3Summer22NanoAODv12-130X_mcRun3_2022_realistic_v5-v2/NANOAODSIM
-    v13: /TbarWplustoLNu2Q_TuneCP5_13p6TeV_powheg-pythia8/Run3Summer22NanoAODv13-133X_mcRun3_2022_realistic_ForNanov13_v1-v3/NANOAODSIM
+    # v13: /TbarWplustoLNu2Q_TuneCP5_13p6TeV_powheg-pythia8/Run3Summer22NanoAODv13-133X_mcRun3_2022_realistic_ForNanov13_v1-v3/NANOAODSIM
 TbarWplustoLNu2Q_ext1:
   crossSection: TbarWplustoLNu2Q
   generator: powheg
   nanoAOD: /TbarWplustoLNu2Q_TuneCP5_13p6TeV_powheg-pythia8/Run3Summer22NanoAODv12-130X_mcRun3_2022_realistic_v5_ext1-v2/NANOAODSIM
-    v13: /TbarWplustoLNu2Q_TuneCP5_13p6TeV_powheg-pythia8/Run3Summer22NanoAODv13-133X_mcRun3_2022_realistic_ForNanov13_v1_ext1-v1/NANOAODSIM
+    # v13: /TbarWplustoLNu2Q_TuneCP5_13p6TeV_powheg-pythia8/Run3Summer22NanoAODv13-133X_mcRun3_2022_realistic_ForNanov13_v1_ext1-v1/NANOAODSIM
 
 TWminusto2L2Nu:
   crossSection: TWminusto2L2Nu
   generator: powheg
   nanoAOD: /TWminusto2L2Nu_TuneCP5_13p6TeV_powheg-pythia8/Run3Summer22NanoAODv12-130X_mcRun3_2022_realistic_v5-v2/NANOAODSIM
-    v13: /TWminusto2L2Nu_TuneCP5_13p6TeV_powheg-pythia8/Run3Summer22NanoAODv13-133X_mcRun3_2022_realistic_ForNanov13_v1-v1/NANOAODSIM
+    # v13: /TWminusto2L2Nu_TuneCP5_13p6TeV_powheg-pythia8/Run3Summer22NanoAODv13-133X_mcRun3_2022_realistic_ForNanov13_v1-v1/NANOAODSIM
 TWminusto2L2Nu_ext1:
   crossSection: TWminusto2L2Nu
   generator: powheg
   nanoAOD: /TWminusto2L2Nu_TuneCP5_13p6TeV_powheg-pythia8/Run3Summer22NanoAODv12-130X_mcRun3_2022_realistic_v5_ext1-v2/NANOAODSIM
-    v13: /TWminusto2L2Nu_TuneCP5_13p6TeV_powheg-pythia8/Run3Summer22NanoAODv13-133X_mcRun3_2022_realistic_ForNanov13_v1_ext1-v1/NANOAODSIM
+    # v13: /TWminusto2L2Nu_TuneCP5_13p6TeV_powheg-pythia8/Run3Summer22NanoAODv13-133X_mcRun3_2022_realistic_ForNanov13_v1_ext1-v1/NANOAODSIM
 
 TWminusto4Q:
   crossSection: TWminusto4Q
   generator: powheg
   nanoAOD: /TWminusto4Q_TuneCP5_13p6TeV_powheg-pythia8/Run3Summer22NanoAODv12-130X_mcRun3_2022_realistic_v5-v2/NANOAODSIM
-    v13: /TWminusto4Q_TuneCP5_13p6TeV_powheg-pythia8/Run3Summer22NanoAODv13-133X_mcRun3_2022_realistic_ForNanov13_v1-v1/NANOAODSIM
+    # v13: /TWminusto4Q_TuneCP5_13p6TeV_powheg-pythia8/Run3Summer22NanoAODv13-133X_mcRun3_2022_realistic_ForNanov13_v1-v1/NANOAODSIM
 TWminusto4Q_ext1:
   crossSection: TWminusto4Q
   generator: powheg
   nanoAOD: /TWminusto4Q_TuneCP5_13p6TeV_powheg-pythia8/Run3Summer22NanoAODv12-130X_mcRun3_2022_realistic_v5_ext1-v2/NANOAODSIM
-    v13: /TWminusto4Q_TuneCP5_13p6TeV_powheg-pythia8/Run3Summer22NanoAODv13-133X_mcRun3_2022_realistic_ForNanov13_v1_ext1-v1/NANOAODSIM
+    # v13: /TWminusto4Q_TuneCP5_13p6TeV_powheg-pythia8/Run3Summer22NanoAODv13-133X_mcRun3_2022_realistic_ForNanov13_v1_ext1-v1/NANOAODSIM
 
 TWminustoLNu2Q:
   crossSection: TWminustoLNu2Q
   generator: powheg
   nanoAOD: /TWminustoLNu2Q_TuneCP5_13p6TeV_powheg-pythia8/Run3Summer22NanoAODv12-130X_mcRun3_2022_realistic_v5-v2/NANOAODSIM
-    v13: /TWminustoLNu2Q_TuneCP5_13p6TeV_powheg-pythia8/Run3Summer22NanoAODv13-133X_mcRun3_2022_realistic_ForNanov13_v1-v1/NANOAODSIM
+    # v13: /TWminustoLNu2Q_TuneCP5_13p6TeV_powheg-pythia8/Run3Summer22NanoAODv13-133X_mcRun3_2022_realistic_ForNanov13_v1-v1/NANOAODSIM
 TWminustoLNu2Q_ext1:
   crossSection: TWminustoLNu2Q
   generator: powheg
   nanoAOD: /TWminustoLNu2Q_TuneCP5_13p6TeV_powheg-pythia8/Run3Summer22NanoAODv12-130X_mcRun3_2022_realistic_v5_ext1-v2/NANOAODSIM
-    v13: /TWminustoLNu2Q_TuneCP5_13p6TeV_powheg-pythia8/Run3Summer22NanoAODv13-133X_mcRun3_2022_realistic_ForNanov13_v1_ext1-v1/NANOAODSIM
+    # v13: /TWminustoLNu2Q_TuneCP5_13p6TeV_powheg-pythia8/Run3Summer22NanoAODv13-133X_mcRun3_2022_realistic_ForNanov13_v1_ext1-v1/NANOAODSIM
 
 ############## TT ##############
 TT:
@@ -952,7 +966,7 @@ TTto2L2Nu:
   crossSection: TTto2L2Nu
   generator: powheg
   nanoAOD: /TTto2L2Nu_TuneCP5_13p6TeV_powheg-pythia8/Run3Summer22NanoAODv12-130X_mcRun3_2022_realistic_v5-v2/NANOAODSIM
-    v15: /TTto2L2Nu_TuneCP5_13p6TeV_powheg-pythia8/Run3Summer22NanoAODv15-150X_mcRun3_2022_realistic_v1-v2/NANOAODSIM
+  # v15: /TTto2L2Nu_TuneCP5_13p6TeV_powheg-pythia8/Run3Summer22NanoAODv15-150X_mcRun3_2022_realistic_v1-v2/NANOAODSIM
 TTto2L2Nu_ext1:
   crossSection: TTto2L2Nu
   generator: powheg
@@ -966,7 +980,7 @@ TTto4Q:
   crossSection: TTto4Q
   generator: powheg
   nanoAOD: /TTto4Q_TuneCP5_13p6TeV_powheg-pythia8/Run3Summer22NanoAODv12-130X_mcRun3_2022_realistic_v5-v2/NANOAODSIM
-    v15: /TTto4Q_TuneCP5_13p6TeV_powheg-pythia8/Run3Summer22NanoAODv15-150X_mcRun3_2022_realistic_v1-v2/NANOAODSIM
+  # v15: /TTto4Q_TuneCP5_13p6TeV_powheg-pythia8/Run3Summer22NanoAODv15-150X_mcRun3_2022_realistic_v1-v2/NANOAODSIM
 TTto4Q_ext1:
   crossSection: TTto4Q
   generator: powheg
@@ -976,7 +990,7 @@ TTtoLNu2Q:
   crossSection: TTtoLNu2Q
   generator: powheg
   nanoAOD: /TTtoLNu2Q_TuneCP5_13p6TeV_powheg-pythia8/Run3Summer22NanoAODv12-130X_mcRun3_2022_realistic_v5-v2/NANOAODSIM
-    v15: /TTtoLNu2Q_TuneCP5_13p6TeV_powheg-pythia8/Run3Summer22NanoAODv15-150X_mcRun3_2022_realistic_v1-v2/NANOAODSIM
+  # v15: /TTtoLNu2Q_TuneCP5_13p6TeV_powheg-pythia8/Run3Summer22NanoAODv15-150X_mcRun3_2022_realistic_v1-v2/NANOAODSIM
 TTtoLNu2Q_ext1:
   crossSection: TTtoLNu2Q
   generator: powheg
@@ -1028,7 +1042,7 @@ WtoLNu_amcatnloFXFX:
   crossSection: WtoLNu_NNLO_QCD+NLO_EW
   generator: amcatnlo
   nanoAOD: /WtoLNu-2Jets_TuneCP5_13p6TeV_amcatnloFXFX-pythia8/Run3Summer22NanoAODv12-130X_mcRun3_2022_realistic_v5-v2/NANOAODSIM
-    v15: /WtoLNu-2Jets_TuneCP5_13p6TeV_amcatnloFXFX-pythia8/Run3Summer22NanoAODv15-150X_mcRun3_2022_realistic_v1-v2/NANOAODSIM
+  # v15: /WtoLNu-2Jets_TuneCP5_13p6TeV_amcatnloFXFX-pythia8/Run3Summer22NanoAODv15-150X_mcRun3_2022_realistic_v1-v2/NANOAODSIM
 
 WtoLNu_madgraphMLM:
   crossSection: WtoLNu_NNLO_QCD+NLO_EW
@@ -1085,7 +1099,7 @@ WW:
   crossSection: WW
   generator: pythia8
   nanoAOD: /WW_TuneCP5_13p6TeV_pythia8/Run3Summer22NanoAODv12-130X_mcRun3_2022_realistic_v5-v2/NANOAODSIM
-    v13: /WW_TuneCP5_13p6TeV_pythia8/Run3Summer22NanoAODv13-133X_mcRun3_2022_realistic_ForNanov13_v1-v1/NANOAODSIM
+    # v13: /WW_TuneCP5_13p6TeV_pythia8/Run3Summer22NanoAODv13-133X_mcRun3_2022_realistic_ForNanov13_v1-v1/NANOAODSIM
 
 WWto2L2Nu_powheg:
   crossSection: WWto2L2Nu
@@ -1118,7 +1132,7 @@ WZ:
   crossSection: WZ
   generator: pythia8
   nanoAOD: /WZ_TuneCP5_13p6TeV_pythia8/Run3Summer22NanoAODv12-130X_mcRun3_2022_realistic_v5-v2/NANOAODSIM
-    v13: /WZ_TuneCP5_13p6TeV_pythia8/Run3Summer22NanoAODv13-133X_mcRun3_2022_realistic_ForNanov13_v1-v1/NANOAODSIM
+    # v13: /WZ_TuneCP5_13p6TeV_pythia8/Run3Summer22NanoAODv13-133X_mcRun3_2022_realistic_ForNanov13_v1-v1/NANOAODSIM
 
 WZto3LNu_powheg:
   crossSection: WZto3LNu_powheg
@@ -1147,7 +1161,7 @@ ZZ:
   crossSection: ZZ
   generator: pythia8
   nanoAOD: /ZZ_TuneCP5_13p6TeV_pythia8/Run3Summer22NanoAODv12-130X_mcRun3_2022_realistic_v5-v2/NANOAODSIM
-    v13: /ZZ_TuneCP5_13p6TeV_pythia8/Run3Summer22NanoAODv13-133X_mcRun3_2022_realistic_ForNanov13_v1-v1/NANOAODSIM
+    # v13: /ZZ_TuneCP5_13p6TeV_pythia8/Run3Summer22NanoAODv13-133X_mcRun3_2022_realistic_ForNanov13_v1-v1/NANOAODSIM
 
 ZZto4L_powheg:
   crossSection: ZZto4L_powheg

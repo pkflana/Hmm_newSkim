@@ -5,7 +5,7 @@ jet_pt_min: 25.0
 jet_eta_max: 4.7
 # Espressione complessa specifica per l'anno 2024 (Tabella Run 3 Run Conditions)
 # Nota: 'Jet_p4' è il placeholder che il codice Python sostituirà con 'Jet_p4{suff}'
-jet_horn_veto_expr: "( (abs(v_ops::eta(Jet_p4)) >= 2.5 && abs(v_ops::eta(Jet_p4)) < 3.0) && v_ops::pt(Jet_p4) < 50.0 ) || ( (abs(v_ops::eta(Jet_p4)) >= 2.0 && abs(v_ops::eta(Jet_p4)) < 2.5) && v_ops::pt(Jet_p4) < 30.0 )"
+jet_horn_veto_expr: "( abs(v_ops::eta(Jet_p4)) >= 2.5 && v_ops::pt(Jet_p4) < 50.0 ) "
 
 # =============================================================================
 # SUFFIXES & REGIONS DEFINITIONS
@@ -106,44 +106,31 @@ jets_selection:
     expression: "JetTagSel{suff}"
     store: True
 
-
 categories:
-  base_sel: "muons_OS_presel_trg && && OS_sel && jets_cleanFromMu_sel"
-  baseline: "base_sel && mu1_ML && mu2_ML"
-  # baseline_thirdLepVeto: "baseline && vetoed_muons==0"
-  baseline_chi2: "baseline && chi2_sel"
-  baseline_lowPtTT: "(baseline) && (pt_lessthan30_and_TT)"
+  base_sel:
+    expression: "muons_OS_presel_trg{suff} && JetTagSel{suff}"
+    store: True
+  baseline:
+    expression: "base_sel{suff} && mu1_ML && mu2_ML"
+    store: True
+  baseline_chi2:
+    expression: "baseline{suff} && chi2_sel{suff}"
+    store: True
+  baseline_lowPtTT:
+    expression: "baseline{suff} && pt_lessthan30_and_TT{suff}"
+    store: True
+  baseline_chi2_lowPtTT:
+    expression: "baseline{suff} && pt_lessthan30_and_TT{suff} && chi2_sel{suff}"
+    store: True
 
-  # baseline_thirdLepVeto_chi2: "baseline && chi2_sel && vetoed_muons==0"
-  # baseline_thirdLepVeto_lowPtTT: "baseline && (pt_lessthan30_and_TT) && vetoed_muons==0"
-  baseline_chi2_lowPtTT: "baseline && (pt_lessthan30_and_TT) && chi2_sel"
-  # baseline_thirdLepVeto_lowPtTT_chi2: "baseline && (pt_lessthan30_and_TT) && chi2_sel && vetoed_muons==0"
+  # Definizione VBF senza alcuna logica nascosta nel C++
+  VBF_def:
+    expression: "HasVBF{suff} && SelectedJet_pt{suff}[VBFJetIdx_1{suff}] >= 35 && SelectedJet_pt{suff}[VBFJetIdx_2{suff}] >= 25"
+    store: True
 
-  # j1_outside_horn: "(abs(j1_eta) < 2.5 || abs(j1_eta) > 3 || j1_pt > 50)"
-  # j2_outside_horn: "(abs(j2_eta) < 2.5 || abs(j2_eta) > 3 || j2_pt > 50)"
-  VBF_def: "HasVBF && j1_pt >= 35 && j2_pt >= 25"
-
-  VBF: "baseline && VBF_def"
-  ggF: "baseline && !(VBF_def)"
-  # # VBF_thirdLepVeto: "baseline_thirdLepVeto && VBF_def"
-  # # ggF_thirdLepVeto: "baseline_thirdLepVeto && !(VBF_def)"
-  VBF_chi2: "baseline_chi2 && VBF_def"
-  ggF_chi2: "baseline_chi2 && !(VBF_def)"
-  VBF_lowPtTT: "baseline_lowPtTT && VBF_def"
-  ggF_lowPtTT: "baseline_lowPtTT && !(VBF_def)"
-  # # VBF_thirdLepVeto_chi2: "baseline_thirdLepVeto_chi2 && VBF_def"
-  # # ggF_thirdLepVeto_chi2: "baseline_thirdLepVeto_chi2 && !(VBF_def)"
-  VBF_chi2_lowPtTT: "baseline_chi2_lowPtTT && VBF_def"
-  ggF_chi2_lowPtTT: "baseline_chi2_lowPtTT && !(VBF_def)"
-  # # VBF_thirdLepVeto_lowPtTT: "baseline_thirdLepVeto_lowPtTT && VBF_def"
-  # # ggF_thirdLepVeto_lowPtTT: "baseline_thirdLepVeto_lowPtTT && !(VBF_def)"
-  # # VBF_thirdLepVeto_lowPtTT_chi2: "baseline_thirdLepVeto_lowPtTT_chi2 && VBF_def"
-  # # ggF_thirdLepVeto_lowPtTT_chi2: "baseline_thirdLepVeto_lowPtTT_chi2 && !(VBF_def)"
-
-  # mu1_prompt: "(mu1_genPartIdx >= 0 && mu1_gen_kind == 2)"
-  # mu2_prompt: "(mu2_genPartIdx >= 0 && mu2_gen_kind == 2)"
-  # mu1_from_tau: "(mu1_genPartIdx >= 0 && mu1_gen_kind == 4)"
-  # mu2_from_tau: "(mu2_genPartIdx >= 0 && mu2_gen_kind == 4)"
-  # both_muons_true_prompt: "mu1_prompt && mu2_prompt"
-  # at_least_one_muon_from_tau: "!(both_muons_true_prompt) && (mu1_from_tau || mu2_from_tau)"
-  # any_muon_not_true: "!(both_muons_true_prompt) && !(at_least_one_muon_from_tau)"
+  VBF:
+    expression: "baseline{suff} && VBF_def{suff}"
+    store: True
+  ggF:
+    expression: "baseline{suff} && !(VBF_def{suff})"
+    store: True
