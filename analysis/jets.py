@@ -86,8 +86,8 @@ def ProcessAllJetVariables(df, is_data, jet_columns, config, bTagAlgo, bTagDict,
         if branch_pt not in available_cols: continue
 
         # Pre-selezione cinematica e applicazione Veto Map
-        df = df.Define(f"Jet_preSel{suff}", f"v_ops::pt(Jet_p4{suff}) > {pt_min} && abs(v_ops::eta(Jet_p4{suff})) < {eta_max} && Jet_passJetIdTight")
-        df = df.Define(f"Jet_NotInDeadZome{suff}", f"Jet_preSel{suff} && !Jet_vetoMap")
+        df = define_and_track(df, f"Jet_preSel{suff}", f"v_ops::pt(Jet_p4{suff}) > {pt_min} && abs(v_ops::eta(Jet_p4{suff})) < {eta_max} && Jet_passJetIdTight")
+        df = define_and_track(df, f"Jet_NotInDeadZome{suff}", f"Jet_preSel{suff} && !Jet_vetoMap")
 
         # Cross-cleaning geometrico dai muoni del segnale (dR > 0.4)
         overlap_expr = f"""
@@ -101,14 +101,14 @@ def ProcessAllJetVariables(df, is_data, jet_columns, config, bTagAlgo, bTagDict,
         }}
         return clean_vec;
         """
-        df = df.Define(f"Jet_NoOverlapWithMuons{suff}", overlap_expr)
+        df = define_and_track(df, f"Jet_NoOverlapWithMuons{suff}", overlap_expr)
 
         # Applicazione dinamica della stringa di veto Horn passata da config
         current_horn_expr = horn_veto_base_expr.replace("Jet_p4", f"Jet_p4{suff}")
-        df = df.Define(f"Jet_IsInsideHorn{suff}", current_horn_expr)
+        df = define_and_track(df, f"Jet_IsInsideHorn{suff}", current_horn_expr)
 
         # Maschera finale dei jet selezionati (goodJet)
-        df = df.Define(f"goodJet{suff}", f"Jet_NoOverlapWithMuons{suff} && !Jet_IsInsideHorn{suff}")
+        df = df.Define(f"goodJet{suff}", f"Jet_NoOverlapWithMuons{suff}") # && !Jet_IsInsideHorn{suff}")
 
         # ---------------------------------------------------------------------
         # SALVATAGGIO COLLEZIONE "SelectedJets" (VARIABILI FONDAMENTALI)
@@ -117,7 +117,8 @@ def ProcessAllJetVariables(df, is_data, jet_columns, config, bTagAlgo, bTagDict,
         df = define_and_track(df, f"SelectedJet_pt{suff}", f"{branch_pt}[goodJet{suff}]")
         df = define_and_track(df, f"SelectedJet_eta{suff}", f"Jet_eta[goodJet{suff}]")
         df = define_and_track(df, f"SelectedJet_phi{suff}", f"Jet_phi[goodJet{suff}]")
-        df = define_and_track(df, f"SelectedJet_mass{suff}", f"Jet_mass[goodJet{suff}]")
+        df = define_and_track(df, f"SelectedJet_mass{suff}", f"Jet_mass_corr[goodJet{suff}]")
+        df = define_and_track(df, f"SelectedJet_IsInsideHorn{suff}", f"Jet_IsInsideHorn{suff}[goodJet{suff}]")
         df = define_and_track(df, f"N_SelectedJets{suff}", f"(int)SelectedJet_idx{suff}.size()")
 
         # ---------------------------------------------------------------------

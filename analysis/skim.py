@@ -128,7 +128,7 @@ from analysis.other import DefineCategoryBooleans
 df, cat_vars = DefineCategoryBooleans(df, sel_config, is_data, want_variations)
 cols_to_save.extend(cat_vars)
 
-additional_collections_to_store = ["SoftActivityJet"]
+additional_collections_to_store = ["SoftActivityJet", "Jet"]
 if not is_data : additional_collections_to_store.append("LHEWeight")
 for collection in additional_collections_to_store:
     cols_to_save.extend(utilities.GetObservablesCols(collection, is_data, nano_version))

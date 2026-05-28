@@ -288,7 +288,7 @@ def define_jet_p4_variations(
         )
     df = df.Define("Jet_p4", p4_from_shifted_map("Central", "Central"))
     df = define_pt_from_p4(df, "Jet_pt_corr", "Jet_p4")
-    df = define_mass_from_p4(df, "Jet_m_corr", "Jet_p4")
+    df = define_mass_from_p4(df, "Jet_mass_corr", "Jet_p4")
 
     if not is_data and return_variations:
         variation_sources = []
