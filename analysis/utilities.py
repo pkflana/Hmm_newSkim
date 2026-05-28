@@ -1,4 +1,6 @@
 import ast
+import os
+import sys
 from pathlib import Path
 import ROOT
 import yaml
@@ -57,7 +59,6 @@ def get_config(yaml_file):
         config = yaml.safe_load(f)
     return config
 
-
 def process_from_dataset(process_cfg, dataset_name):
     """
     Iterates over process_names.yaml to find which process a dataset name belongs to.
@@ -66,7 +67,6 @@ def process_from_dataset(process_cfg, dataset_name):
         if dataset_name in entry['datasets']:
             return process
     return None
-
 
 def GetObservablesCols(obs_name, is_data, nano_version="v12"):
     col_to_save_path = _resolve_config_path("config/col_to_save.yaml")
@@ -96,3 +96,51 @@ def ListToVector(list, type="string"):
     for item in list:
         vec.push_back(item)
     return vec
+
+
+def mkdir_recursive(root_file, dir_path):
+    if dir_path == "":
+        return root_file
+    current = root_file
+    for folder in dir_path.split("/"):
+        if not current.GetDirectory(folder):
+            current.mkdir(folder)
+        current = current.GetDirectory(folder)
+    return current
+
+
+def mkdir(file, path):
+    dir_names = path.split("/")
+    current_dir = file
+    for n, dir_name in enumerate(dir_names):
+        dir_obj = current_dir.Get(dir_name)
+        full_name = f"{file.GetPath()}" + "/".join(dir_names[:n])
+        if dir_obj:
+            if not dir_obj.IsA().InheritsFrom(ROOT.TDirectory.Class()):
+                raise RuntimeError(
+                    f"{dir_name} already exists in {full_name} and it is not a directory"
+                )
+        else:
+            dir_obj = current_dir.mkdir(dir_name)
+            if not dir_obj:
+
+                raise RuntimeError(f"Failed to create {dir_name} in {full_name}")
+        current_dir = dir_obj
+    return current_dir
+
+rootAnaPathSet = False
+def DeclareHeader(header, verbose=0):
+    global rootAnaPathSet
+    if not rootAnaPathSet:
+        if verbose > 0:
+            print(f'Adding "{os.environ["ANALYSIS_PATH"]}" to the ROOT include path')
+        ROOT.gROOT.ProcessLine(".include " + os.environ["ANALYSIS_PATH"])
+        rootAnaPathSet = True
+    if verbose > 0:
+        print(f'Including "{header}"')
+    if not os.path.exists(header):
+        raise RuntimeError(f'"{header}" does not exist')
+    if not ROOT.gInterpreter.Declare(f'#include "{header}"'):
+        raise RuntimeError(f"Failed to include {header}")
+    if verbose > 0:
+        print(f'Successfully included "{header}"')
