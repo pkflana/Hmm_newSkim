@@ -420,7 +420,7 @@ R_pt:
   divide_by_bin_width: False
 
 minDeltaEta:
-  x_bins: "400|-10.:10."
+  x_bins: "100|0.:10."
   x_rebin: [ ]
   x_title: "min($\\Delta\\eta(\\mu\\mu, j)$)"
   y_title: Events
@@ -428,17 +428,9 @@ minDeltaEta:
   max_y_sf: 2.
   divide_by_bin_width: False
 
-minDeltaEtaSigned:
-  x_bins: "400|0.:10."
-  x_rebin: [ -8.5, -8., -7.5, -7.0, -6.5, -6.0, -5.5, -5.0, -4.5, -4.0, -3.5, -3.0, -2.5, -2., -1.5, -1., -0.5, 0., 0.5, 1.0, 1.5, 2.0, 2.5, 3.0, 3.5, 4.0, 4.5, 5.0, 5.5, 6.0, 6.5, 7.0, 7.5, 8., 8.5 ]
-  x_title: "min($|\\Delta\\eta(\\mu\\mu, j)|$)"
-  y_title: Events
-  use_log_y: False
-  max_y_sf: 2.
-  divide_by_bin_width: False
 
 minDeltaPhi:
-  x_bins: "100|-3.2:3.2"
+  x_bins: "320|-3.2:3.2"
   x_rebin: [ -3.2, -2.88, -2.56, -2.24, -1.92, -1.6, -1.28, -0.96, -0.64, -0.32, -0.0, 0.32, 0.64, 0.96, 1.28, 1.6, 1.92, 2.24, 2.56, 2.88, 3.2 ]
   x_title: "min($\\Delta\\phi(\\mu\\mu, j)$)"
   y_title: Events

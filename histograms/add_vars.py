@@ -111,10 +111,10 @@ def VBFJetMuonsObservablesDef(df):
         "minDeltaEta",
         f"if(HasVBF) return static_cast<float>(std::min(std::abs(eta_mumu - vbfjet1_eta),std::abs(eta_mumu - vbfjet2_eta))) ; return -10000.f;",
     )
-    df = df.Define(
-        "minDeltaEtaSigned",
-        f"if(HasVBF) return static_cast<float>(std::min((eta_mumu - vbfjet1_eta),(eta_mumu - vbfjet2_eta))) ; return -10000.f;",
-    )
+    # df = df.Define(
+    #     "minDeltaEtaSigned",
+    #     f"if(HasVBF) return static_cast<float>(std::min((eta_mumu - vbfjet1_eta),(eta_mumu - vbfjet2_eta))) ; return -10000.f;",
+    # )
 
     return df
 
@@ -254,7 +254,6 @@ def GetAllMuonsObservablesNew(df):
         p4_dimu = f"(mu1_p4{pt_suffix}+mu2_p4{pt_suffix})"
         p4_dimu_list = [f"mu1_p4{pt_suffix}", f"mu2_p4{pt_suffix}"]
         for obs, expr in dimu_obs.items():
-            print(f"defining {obs}{pt_suffix}")
             # if pt_suffix == "":
             #     continue
             if f"{obs}{pt_suffix}" in df.GetColumnNames():
