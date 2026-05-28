@@ -64,7 +64,8 @@ cols_to_save.extend(utilities.GetObservablesCols("default", is_data, nano_versio
 # --- Weights & Corrections Block ---
 if not is_data:
     from corrections.general import define_base_weights
-    df, base_weights = define_base_weights(df, config, args.dataset_name, xs_cfg)
+    xs_entry = dataset_cfg.get("crossSection", args.dataset_name)
+    df, base_weights = define_base_weights(df, config.get("luminosity",""), xs_entry, xs_cfg)
     cols_to_save.extend(base_weights)
 
 from corrections.general import apply_corrections

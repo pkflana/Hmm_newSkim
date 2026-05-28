@@ -2,8 +2,8 @@
 DY:
   name: "DY"
   color: "kAzure+7"
-  color_mplhep: dodgerblue 
-  processors: *DY_processors_allFlavors
+  color_mplhep: dodgerblue
+  # processors: *DY_processors_allFlavors
   datasets:
     - DYto2L_M_50_amcatnloFXFX
     - DYto2L_M_50_0J_amcatnloFXFX
@@ -31,7 +31,7 @@ DY_M_10to50:
     # - DYto2Tau_M_10to50_amcatnloFXFX
 
 DYto2E_M_50:
-  processors: *DY_processors_singleFlavor
+  # processors: *DY_processors_singleFlavor
   datasets:
     # - DYto2E_M_50_amcatnloFXFX
     # - DYto2E_M_50_amcatnloFXFX_ext1
@@ -50,7 +50,7 @@ DYto2E_M_50:
     - DYto2E_M_50_PTLL_600_2J_amcatnloFXFX
 
 DYto2Mu_M_50:
-  processors: *DY_processors_singleFlavor
+  # processors: *DY_processors_singleFlavor
   datasets:
     # - DYto2Mu_M_50_amcatnloFXFX
     # - DYto2Mu_M_50_amcatnloFXFX_ext1
@@ -69,7 +69,7 @@ DYto2Mu_M_50:
     - DYto2Mu_M_50_PTLL_600_2J_amcatnloFXFX
 
 DYto2Tau_M_50:
-  processors: *DY_processors_singleFlavor
+  # processors: *DY_processors_singleFlavor
   datasets:
     - DYto2Tau_M_50_0J_amcatnloFXFX
     - DYto2Tau_M_50_1J_amcatnloFXFX
@@ -99,22 +99,22 @@ TT:
     - TTto4Q
 
 TTto2L2Nu:
-  processors: *ext_processor
+  # processors: *ext_processor
   datasets:
     - TTto2L2Nu
-    - TTto2L2Nu_ext1
+    # - TTto2L2Nu_ext1
 
 TTtoLNu2Q:
-  processors: *ext_processor
+  # processors: *ext_processor
   datasets:
     - TTtoLNu2Q
-    - TTtoLNu2Q_ext1
+    # - TTtoLNu2Q_ext1
 
 TTto4Q:
-  processors: *ext_processor
+  # processors: *ext_processor
   datasets:
     - TTto4Q
-    - TTto4Q_ext1
+    # - TTto4Q_ext1
 
 TT_Inclusive:
   name: "t#bar{t} Inclusive"
@@ -288,14 +288,7 @@ VBFHto2Mu_M125_powheg:
   color: "kPink"
   color_mplhep: fuchsia
   datasets:
-    - VBFHto2Mu_m125_powheg
-
-VBFHto2Mu_m125_powheg:
-  name: "VBFHto2Mu"
-  color: "kPink"
-  color_mplhep: fuchsia
-  datasets:
-    - VBFHto2Mu_m125_powheg
+    - VBFHto2Mu_M125_powheg
 
 VBFHto2Mu_m120:
   name: "VBFHto2Mu"

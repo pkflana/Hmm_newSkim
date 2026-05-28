@@ -44,6 +44,8 @@ def DefineCategoryBooleans(df, sel_config, is_data, want_variations=False):
     and configuration keys, with zero hardcoded physics objects.
     """
     categories_dict = sel_config.get("categories", {})
+    categories_dict.update(sel_config.get("masses_regions", {}))
+    # print(categories_dict)
     vars_to_store = []
 
     # Lista delle variazioni attive su cui ciclare
@@ -73,6 +75,7 @@ def DefineCategoryBooleans(df, sel_config, is_data, want_variations=False):
             # (es: "baseline" diventa "baseline_JERUp" se siamo nel loop JERUp)
             formatted_expr = base_expression
             for defined_cat in categories_dict.keys():
+                # print(f"Processing category '{cat_name}' with base expression: {base_expression}and defined cat {defined_cat}")
                 formatted_expr = formatted_expr.replace(f"{defined_cat} ", f"{defined_cat}{suff} ")
                 formatted_expr = formatted_expr.replace(f"({defined_cat})", f"({defined_cat}{suff})")
                 if formatted_expr.endswith(defined_cat):

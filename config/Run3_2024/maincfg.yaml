@@ -3,7 +3,7 @@ luminosity: 109948.18  # pb-1, https://twiki.cern.ch/twiki/bin/view/CMS/PdmVRun3
 
 final_skim_folder:
 
-crossSectionsFile: config/crossSections13p6TeV.yaml 
+crossSectionsFile: config/crossSections13p6TeV.yaml
 lumiFile: corrections/data/golden_json/Cert_Collisions2024_378981_386951_Golden.json
 
 nano_version: v15
@@ -31,49 +31,34 @@ bTagAlgo: UParTAK4
 
 mu_weights_to_store: ["weight_mu1_MediumID", "weight_mu1_MediumID_Trk_Up", "weight_mu1_MediumID_Trk_Down", "weight_mu1_LoosePFIso_MediumID_Central", "weight_mu1_LoosePFIso_MediumID_Up", "weight_mu1_LoosePFIso_MediumID_Down", "weight_mu2_MediumID_Trk_Central", "weight_mu2_MediumID_Trk_Up", "weight_mu2_MediumID_Trk_Down", "weight_mu2_LoosePFIso_MediumID_Central", "weight_mu2_LoosePFIso_MediumID_Up", "weight_mu2_LoosePFIso_MediumID_Down", "weight_mu2_IsoMu24_CutBasedIdMedium_and_PFIsoMedium_Central", "weight_mu2_IsoMu24_CutBasedIdMedium_and_PFIsoMedium_Up", "weight_mu2_IsoMu24_CutBasedIdMedium_and_PFIsoMedium_Down"]
 
-# corrections:
-#   btag:
-#     tagger: UParTAK4
-#     jetCollection: Jet
-#   mu:
-#     stage: HistTuple # AnaTuple
-#     columns:
-#       pfRelIso04_all: pfRelIso04_all
-#       tightId: tightId
-#       tkRelIso: tkRelIso
-#       highPtId: highPtId
-#       mediumId: mediumId
-#       looseId: looseId
-#       p4: p4 # it is the final ScaRe corrected p4, either BSC or nano according to chi2 --> has to be modified with the non-corrected pT
-#     lowPt: True
-#     midPt: True
-#     hiPt: False
-#   trigger:
-#     stages: HistTuple # AnaTuple
-#     mode: SF
-#     extraFormat:
-#       pt: "bsConstrainedPt"
-#   muScaRe:
-#     stages: [ AnaTuple, AnalysisCache, HistTuple ]
-#     scare_enabled:
-#       AnaTuple: true
-#       AnalysisCache: false
-#       HistTuple: false
-#     fsr_enabled:
-#       AnaTuple: false
-#       AnalysisCache: true
-#       HistTuple: true
-#     mu_pt_for_ScaReApplication: "bsConstrainedPt"
-#   lumi: { stage: AnaTuple }
-#   xs: { stage: AnaTuple }
-#   gen: { stage: AnaTuple }
-#   pu:
-#     stages: [ AnaTuple, AnaTupleMerge ]
-#     enabled:
-#       AnaTuple: true
-#       AnaTupleMerge: false
-#   base: { stage: AnaTupleMerge }
-#   JEC: { stage: AnaTuple }
-#   JER:
-#     stage: AnaTuple
-#     apply_jet_horns_fix: true
+process_to_select:
+  - DY
+  - DYto2Mu_MLL105To160
+  # - DYto2Mu_MLL105To160_FlashSim
+  - TT
+  - W_NJets
+  - EWK
+  - EWK_2Mu2J_MLL_105to160_herwig
+  - EWK_2Mu2J_MLL_105to160_pythia
+  # - EWK_2Mu2J_MLL_105to160_pythia_Flashsim
+  # - H_mainBckg
+  - VV
+  # - VH_inclusive
+  - VVV
+  - ST
+  - TW
+  - TTX
+  - VBFHto2Mu_m125_amcatnlo
+  - VBFHto2Mu_M125_powheg
+  # - VBFHto2Mu_m125_powheg
+  - VBFHto2Mu_m120
+  - VBFHto2Mu_m130
+  - VBFHto2Mu_m125_tuneDown
+  - VBFHto2Mu_m125_tuneUp
+  - VBFHto2Mu_Herwig
+  - GluGluHto2Mu_MiNNLO
+  - GluGluHto2Mu
+  # - VHto2Mu
+  # - TTHto2Mu
+  # - TTH_inclusive
+  - Data_Muon

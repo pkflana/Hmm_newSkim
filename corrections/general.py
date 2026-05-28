@@ -120,10 +120,9 @@ periods = {
     "2016postVFP_UL": "2016",
 }
 
-def define_base_weights(df,config,dataset_name,xs_cfg,use_genWeight_sign_only=True):
+def define_base_weights(df, lumi, xs_entry, xs_cfg, use_genWeight_sign_only=True):
     base_weights_to_store = []
     lumi_weight_name = "weight_lumi"
-    lumi = config["luminosity"]
     df = df.Define(lumi_weight_name, f"float({lumi})")
     base_weights_to_store.append(lumi_weight_name)
     gen_weight_name = "weight_gen"
@@ -136,7 +135,7 @@ def define_base_weights(df,config,dataset_name,xs_cfg,use_genWeight_sign_only=Tr
     base_weights_to_store.append(gen_weight_name)
     ### tmp --> need to implement MC stitching
     weight_xs_name = "weight_xs"
-    xs_value = xs_cfg[dataset_name]['crossSec']
+    xs_value = str(xs_cfg[xs_entry]['crossSec'])
     df = df.Define("weight_xs", xs_value)
     base_weights_to_store.append(weight_xs_name)
 
@@ -166,7 +165,7 @@ def apply_corrections(df, config, dataset_cfg, dataset_name):
     # JEC / JER / JES
     from .jets import apply_jet_corrections
     df = apply_jet_corrections(df, config, dataset_cfg, dataset_name, return_variations)
-    
+
     return df,weight_branches
 # def getBTagValues():
 

@@ -2,13 +2,18 @@
 """Simple lumi mask helper for raw golden JSON files."""
 
 import json
+import os
 from pathlib import Path
 
 __all__ = ["apply_lumi_filter", "load_lumi_map"]
 
 
 def load_lumi_map(path):
+    # Handle relative paths with ANALYSIS_PATH
+    analysis_path = Path(os.environ.get("ANALYSIS_PATH", "."))
     path = Path(path)
+    if not path.is_absolute():
+        path = analysis_path / path
     if not path.exists():
         raise FileNotFoundError(f"Lumi JSON file not found: {path}")
 

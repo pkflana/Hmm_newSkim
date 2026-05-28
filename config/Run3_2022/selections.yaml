@@ -19,11 +19,21 @@ varied_additional_suff: ["_scale_up", "_scale_down", "_resol_up", "_resol_down"]
 jet_varied_suffix: ["_JERUp", "_JERDown", "_TotalUp", "_TotalDown", "_unCorr"]
 
 masses_regions:
-    Z_sideband: "m_mumu{suff} > 70 && m_mumu{suff} < 110"
-    Signal_Fit: "m_mumu{suff} > 115 && m_mumu{suff} < 135"
-    H_sideband: "((m_mumu{suff} > 110 && m_mumu{suff} < 115) || (m_mumu{suff} > 135 && m_mumu{suff} < 150))"
-    Signal_ext: "m_mumu{suff} > 110 && m_mumu{suff} < 150"
-    mass_inclusive: "m_mumu{suff} > 60 && m_mumu{suff} < 150"
+    Z_sideband:
+      expression: "m_mumu{suff} > 70 && m_mumu{suff} < 110"
+      store: True
+    Signal_Fit:
+      expression: "m_mumu{suff} > 115 && m_mumu{suff} < 135"
+      store: True
+    H_sideband:
+      expression: "((m_mumu{suff} > 110 && m_mumu{suff} < 115) || (m_mumu{suff} > 135 && m_mumu{suff} < 150))"
+      store: True
+    Signal_ext:
+      expression: "m_mumu{suff} > 110 && m_mumu{suff} < 150"
+      store: True
+    mass_inclusive:
+      expression: "m_mumu{suff} > 60 && m_mumu{suff} < 150"
+      store: True
 
 muon_presel_pt_cut: 15.0
 dimuon_m_cut: 50.0
