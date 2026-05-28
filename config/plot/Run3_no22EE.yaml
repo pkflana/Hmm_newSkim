@@ -1,0 +1,8 @@
+lumi_text:
+  text: "35.63"
+  pos_ref: inner_right_top
+  pos: [ 0., -0.035 ]
+  text_size: 16
+  font: 42
+  align: right_bottom
+

@@ -1,0 +1,17 @@
+lumi_text:
+  text: "7.9804"
+  pos_ref: inner_right_top
+  pos: [ 0., -0.035 ]
+  text_size: 15
+  font: 42
+  align: right_bottom
+
+channel_text:
+  'muMu': '#mu#mu'
+
+customregion_text:
+  'Z_sideband': 'Z SideBand'
+  'Signal_Fit': 'Signal Fit'
+  'H_sideband': 'H SideBand'
+  'Signal_ext': 'Signal extension'
+  'mass_inclusive': 'Inclusive'
