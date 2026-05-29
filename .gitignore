@@ -5,4 +5,6 @@ studies/
 data/
 logs/
 *.tar.gz
-condor/
+htcondor/error/
+htcondor/log/
+htcondor/output/

@@ -102,12 +102,30 @@ def extract_dataset_name(path):
         return match.group(1)
 
     return "UnknownDataset"
+```python id="9s5c58"
+def merge_dataset(dataset, files, output_dir, remove_inputs=False):
 
-def merge_dataset(dataset, files, output_dir):
+    output_file = (
+        output_dir.rstrip("/")
+        + f"/{dataset}.root"
+    )
 
-    output_file = output_dir.rstrip('/') + f"/{dataset}.root"
+    report_file = (
+        output_dir.rstrip("/")
+        + f"/{dataset}_Report.root"
+    )
 
-    df = ROOT.RDataFrame("Events", files)
+    print(f"\nProcessing dataset: {dataset}")
+    print(f"Output file: {output_file}")
+
+    # ========================================
+    # RDF
+    # ========================================
+
+    df = ROOT.RDataFrame(
+        "Events",
+        files
+    )
 
     duplicate_filter = ROOT.EventDuplicateFilter()
 
@@ -117,10 +135,19 @@ def merge_dataset(dataset, files, output_dir):
         "RemoveDuplicates"
     )
 
-    columns = [str(c) for c in df.GetColumnNames()]
+    report = df_filtered.Report()
+
+    columns = [
+        str(c)
+        for c in df.GetColumnNames()
+    ]
 
     opts = ROOT.RDF.RSnapshotOptions()
     opts.fMode = "RECREATE"
+
+    # ========================================
+    # Snapshot
+    # ========================================
 
     df_filtered.Snapshot(
         "Events",
@@ -128,6 +155,75 @@ def merge_dataset(dataset, files, output_dir):
         columns,
         opts
     )
+
+    # ========================================
+    # Save report
+    # ========================================
+
+    f_report = ROOT.TFile(
+        report_file,
+        "RECREATE"
+    )
+
+    report.Print()
+
+    for cut in report:
+
+        h = ROOT.TH1D(
+            cut.GetName(),
+            cut.GetName(),
+            1,
+            0,
+            1
+        )
+
+        h.SetBinContent(
+            1,
+            cut.GetPass()
+        )
+
+        h.Write()
+
+    f_report.Close()
+
+    # ========================================
+    # Remove original files
+    # ========================================
+
+    if remove_inputs:
+
+        print("\nRemoving input files...")
+
+        for f in files:
+
+            print(f"Removing: {f}")
+
+            if f.startswith("root://"):
+
+                match = re.match(
+                    r"root://([^/]+)/(.*)",
+                    f
+                )
+
+                host = match.group(1)
+                remote_path = "/" + match.group(2).lstrip("/")
+
+                cmd = [
+                    "xrdfs",
+                    host,
+                    "rm",
+                    remote_path,
+                ]
+
+                subprocess.run(
+                    cmd,
+                    check=True
+                )
+
+            else:
+
+                os.remove(f)
+```
 
 
 if __name__ == "__main__":
