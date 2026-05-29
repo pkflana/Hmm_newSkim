@@ -2,7 +2,7 @@
 submit: true
 job_flavour: espresso
 
-chunk_size: 3        # files per job
+chunk_size: 1        # files per job
 max_files: -1        # -1 = all files
 
 output_dir: /eos/cms/store/group/phys_higgs/cmshmm/vdamante/
@@ -30,34 +30,34 @@ dryrun: false
 
 process_to_select:
   - Data_Muon
-  - DY
-  # - DY_M_10to50
-  - DYto2Mu_MLL105To160
-  # - DYto2Mu_MLL105To160_FlashSim
-  - TT
-  - W_NJets
-  - EWK
-  - EWK_2Mu2J_MLL_105to160_herwig
-  - EWK_2Mu2J_MLL_105to160_pythia
-  # - EWK_2Mu2J_MLL_105to160_pythia_Flashsim
-  # - H_mainBckg
-  - VV
-  # - VH_inclusive
-  - VVV
-  - ST
-  - TW
-  - TTX
-  - VBFHto2Mu_m125_amcatnlo
-  - VBFHto2Mu_M125_powheg
-  - VBFHto2Mu_m120
-  - VBFHto2Mu_m130
-  - VBFHto2Mu_m125_tuneDown
-  - VBFHto2Mu_m125_tuneUp
-  # - VBFHto2Mu_Herwig
-  - GluGluHto2Mu_MiNNLO
-  - GluGluHto2Mu
-  # - TTH_inclusive
-  # - VHto2Mu
-  # - TTHto2Mu
+  # - DY
+  # # - DY_M_10to50
+  # - DYto2Mu_MLL105To160
+  # # - DYto2Mu_MLL105To160_FlashSim
+  # - TT
+  # - W_NJets
+  # - EWK
+  # - EWK_2Mu2J_MLL_105to160_herwig
+  # - EWK_2Mu2J_MLL_105to160_pythia
+  # # - EWK_2Mu2J_MLL_105to160_pythia_Flashsim
+  # # - H_mainBckg
+  # - VV
+  # # - VH_inclusive
+  # - VVV
+  # - ST
+  # - TW
+  # - TTX
+  # - VBFHto2Mu_m125_amcatnlo
+  # - VBFHto2Mu_M125_powheg
+  # - VBFHto2Mu_m120
+  # - VBFHto2Mu_m130
+  # - VBFHto2Mu_m125_tuneDown
+  # - VBFHto2Mu_m125_tuneUp
+  # # - VBFHto2Mu_Herwig
+  # - GluGluHto2Mu_MiNNLO
+  # - GluGluHto2Mu
+  # # - TTH_inclusive
+  # # - VHto2Mu
+  # # - TTHto2Mu
 
 proxy_location: /afs/cern.ch/work/v/vdamante/Hmm_newSkim/data/voms.proxy

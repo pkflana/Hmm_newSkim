@@ -5,6 +5,7 @@ import zlib
 from pathlib import Path
 import ROOT
 import utilities
+import json
 
 if __name__ == "__main__":
     sys.path.append(os.environ["ANALYSIS_PATH"])
@@ -41,7 +42,7 @@ cols_to_save = []
 # --- Dataframe Instantiation ---
 root_file = ROOT.TFile.Open(args.input_file)
 df = ROOT.RDataFrame(root_file.Get("Events"))
- 
+
 ROOT.RDF.Experimental.AddProgressBar(df)
 
 # --- Base Metadata & Event Filters ---
@@ -142,9 +143,12 @@ cols_to_save = list(set(cols_to_save))
 # --- Snapshot Execution & Cutflow reporting ---
 # The progress bar will output to standard error here while the entries loop runs
 df.Snapshot("Events", args.output_file, utilities.ListToVector(cols_to_save))
+df,report_json = utilities.SaveReport(df, df.Report().GetValue(), verbose=0)
 
-# Write Cutflow Report Object back into the file
+json_file = os.path.splitext(args.output_file)[0] + "_report.json"
+
+with open(json_file, "w") as f:
+    json.dump(report_json, f, indent=4)
+
 out_tfile = ROOT.TFile.Open(args.output_file, "UPDATE")
-hist_rep = utilities.SaveReport(df.Report().GetValue(), reportName="Report", verbose=0)
-out_tfile.WriteTObject(hist_rep, "Report", "Overwrite")
 out_tfile.Close()

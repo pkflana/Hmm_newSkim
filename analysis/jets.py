@@ -87,14 +87,13 @@ def ProcessAllJetVariables(df, is_data, jet_columns, config, bTagAlgo, bTagDict,
 
         # Pre-selezione cinematica e applicazione Veto Map
         df = define_and_track(df, f"Jet_preSel{suff}", f"v_ops::pt(Jet_p4{suff}) > {pt_min} && abs(v_ops::eta(Jet_p4{suff})) < {eta_max} && Jet_passJetIdTight")
-        df = define_and_track(df, f"Jet_NotInDeadZome{suff}", f"Jet_preSel{suff} && !Jet_vetoMap")
 
         # Cross-cleaning geometrico dai muoni del segnale (dR > 0.4)
         overlap_expr = f"""
         ROOT::VecOps::RVec<bool> clean_vec;
         clean_vec.reserve(Jet_p4{suff}.size());
         for (size_t i = 0; i < Jet_p4{suff}.size(); ++i) {{
-            bool pass = Jet_NotInDeadZome{suff}[i] &&
+            bool pass = Jet_preSel{suff}[i] && !Jet_vetoMap[i] &&
                         ROOT::Math::VectorUtil::DeltaR(Jet_p4{suff}[i], mu1_p4{mu_suff}) > 0.4 &&
                         ROOT::Math::VectorUtil::DeltaR(Jet_p4{suff}[i], mu2_p4{mu_suff}) > 0.4;
             clean_vec.push_back(pass);

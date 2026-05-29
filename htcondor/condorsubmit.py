@@ -16,12 +16,13 @@ print(f"Environment variable ANALYSIS_PATH is not set, using {ANALYSIS_PATH} as 
 
 HTCONDOR_PATH = os.path.join(ANALYSIS_PATH, "htcondor")
 CONFIG_PATH = os.path.join(ANALYSIS_PATH, "config")
+EOS_PATH = "/eos/user/v/vdamante/condor_logs_hmm/"
 
 # =========================================================
 # Load skim configuration
 # =========================================================
 
-era = "Run3_2024"
+era = "Run3_2022"
 skim_cfg_path = os.path.join(
     CONFIG_PATH,
     era,
@@ -160,8 +161,8 @@ for process in skim_config["process_to_select"]:
             for dirname in ["output", "error", "log"]:
 
                 path = os.path.join(
-                    '/eos/user/v/vdamante/condor_logs_hmm/',
-                    era
+                    HTCONDOR_PATH,
+                    era,
                     dirname,
                     dataset
                 )
@@ -185,6 +186,9 @@ for process in skim_config["process_to_select"]:
             "run_skim.sh"
         )
 
+        log_path = f"{HTCONDOR_PATH}/{era}/log/{dataset}"
+        error_path = f"{HTCONDOR_PATH}/{era}/error/{dataset}"
+        output_path = f"{HTCONDOR_PATH}/{era}/output/{dataset}"
         job = htcondor.Submit({
 
             "executable": executable_path,
@@ -193,23 +197,20 @@ for process in skim_config["process_to_select"]:
 
             "output":
                 os.path.join(
-                    HTCONDOR_PATH,
-                    "output",
+                    output_path,
                     "$(logpath)$(filename).$(ClusterId).$(ProcId).out"
                 ),
 
             "error":
                 os.path.join(
-                    HTCONDOR_PATH,
-                    "error",
-                    "$(logpath)$(filename).$(ClusterId).$(ProcId).err"
+                    error_path,
+                    "$(logpath)$(filename).$(ClusterId).$(ProcId).out"
                 ),
 
             "log":
                 os.path.join(
-                    HTCONDOR_PATH,
-                    "log",
-                    "$(logpath)$(filename).$(ClusterId).$(ProcId).log"
+                    log_path,
+                    "$(logpath)$(filename).$(ClusterId).$(ProcId).out"
                 ),
 
             "universe": "vanilla",

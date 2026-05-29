@@ -170,8 +170,8 @@ def ProcessMuonVariables(df, is_data, muon_columns, default_suffix, trigger_conf
         # CRITICO: Enforce exactly 2 muons for the default configuration, but allow >= 2 for systematic loops
         if is_nominal:
             event_filters.append(f"sorted_idx{suff}.size() == 2")
-        # else:
-        #     event_filters.append(f"sorted_idx{suff}.size() > 1")
+        else:
+            event_filters.append(f"sorted_idx{suff}.size() == 2")
 
         # Save specific single muon variables
         for num in [1, 2]:
@@ -200,9 +200,10 @@ def ProcessMuonVariables(df, is_data, muon_columns, default_suffix, trigger_conf
 
     # 3d. Apply active filters to the data stream
     operator = " || " if (not is_data and want_variations) else " && "
-    df = df.Filter(operator.join(event_filters), "Dimuon multiplicity selection (Exactly 2 for default configuration)")
-
-    df = df.Filter(operator.join(mass_filters), f"Dimuon mass cut > {mass_cut} GeV")
+    # print(operator.join(event_filters))
+    df = df.Filter(operator.join(event_filters), "DiMuon Filter")
+    # print(operator.join(mass_filters))
+    df = df.Filter(operator.join(mass_filters), f"M_mumu gt {int(mass_cut)} GeV")
 
     # 3e. Passive evaluation of noCorr and ScaRe variables anchored to the nominal selection indices
     nominal_suff = ""

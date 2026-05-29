@@ -2,25 +2,36 @@
 
 import ROOT
 import os
-import re
-import subprocess
+import json
 import argparse
-from collections import defaultdict
 
 ROOT.gROOT.SetBatch(True)
+
 ROOT.EnableThreadSafety()
 ROOT.EnableImplicitMT()
 
-ROOT.gInterpreter.Declare(r'''
+# =========================================================
+# Duplicate filter
+# =========================================================
+
+ROOT.gInterpreter.Declare(
+r'''
+#include <map>
+#include <set>
+#include <mutex>
+#include <memory>
+
 struct EventDuplicateFilter {
 
-    using LumiMap = std::map<unsigned int, std::set<unsigned long long>>;
-    using RunMap  = std::map<unsigned int, LumiMap>;
+    using LumiMap = std::map<unsigned int,
+                    std::set<unsigned long long>>;
+
+    using RunMap = std::map<unsigned int, LumiMap>;
 
     std::shared_ptr<RunMap> events;
     std::shared_ptr<std::mutex> mutex;
 
-    EventDuplicateFilter() :
+    EventDuplicateFilter():
         events(std::make_shared<RunMap>()),
         mutex(std::make_shared<std::mutex>())
     {}
@@ -34,197 +45,309 @@ struct EventDuplicateFilter {
         auto& lumiMap = (*events)[run];
         auto& evtSet  = lumiMap[lumi];
 
-        if(evtSet.count(event))
+        if (evtSet.count(event))
             return false;
 
         evtSet.insert(event);
+
         return true;
     }
 };
-''')
+'''
+)
 
+# =========================================================
+# Utilities
+# =========================================================
 
 def list_root_files(path):
 
     if path.endswith(".root"):
         return [path]
 
-    match = re.match(r"root://([^/]+)/(.*)", path)
-
-    if not match:
-        raise RuntimeError(f"Invalid xrootd path: {path}")
-
-    host = match.group(1)
-    eos_path = "/" + match.group(2).lstrip("/")
-
-    cmd = [
-        "xrdfs",
-        host,
-        "ls",
-        "-R",
-        eos_path,
-    ]
-
-    print("Running:", " ".join(cmd))
-
-    result = subprocess.run(
-        cmd,
-        stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE,
-        text=True,
-        check=True,
-    )
-
     files = []
 
-    for line in result.stdout.splitlines():
+    for root, _, fnames in os.walk(path):
 
-        if not line.endswith(".root"):
-            continue
+        for fname in fnames:
 
-        full_path = f"root://{host}//{line.lstrip('/')}"
-        files.append(full_path)
+            if fname.endswith(".root"):
+
+                files.append(
+                    os.path.join(root, fname)
+                )
 
     return sorted(files)
 
+
 def extract_dataset_name(path):
 
-    parent = os.path.basename(os.path.dirname(path))
-
-    if re.match(r".*Run20[0-9]{2}[A-Z].*", parent):
-        return parent
-
-    fname = os.path.basename(path)
-
-    match = re.match(r"(.*Run20[0-9]{2}[A-Z]).*", fname)
-
-    if match:
-        return match.group(1)
-
-    return "UnknownDataset"
-```python id="9s5c58"
-def merge_dataset(dataset, files, output_dir, remove_inputs=False):
-
-    output_file = (
-        output_dir.rstrip("/")
-        + f"/{dataset}.root"
+    return os.path.basename(
+        path.rstrip("/")
     )
 
-    report_file = (
-        output_dir.rstrip("/")
-        + f"/{dataset}_Report.root"
+# =========================================================
+# JSON utilities
+# =========================================================
+
+def load_report_json(root_file):
+
+    json_file = os.path.splitext(root_file)[0] + "_report.json"
+
+    if not os.path.exists(json_file):
+
+        print(f"[WARNING] Missing json: {json_file}")
+
+        return {}
+
+    with open(json_file) as f:
+
+        return json.load(f)
+
+
+def merge_reports(report_list):
+
+    merged = {}
+
+    total_initial = 0
+
+    # =====================================================
+    # First pass
+    # =====================================================
+
+    for report in report_list:
+
+        if "Initial" in report:
+
+            total_initial += report["Initial"]
+
+        for key, value in report.items():
+
+            if key == "Initial":
+                continue
+
+            if key not in merged:
+
+                merged[key] = {
+                    "pass": 0,
+                    "eff": 0.0
+                }
+
+            if isinstance(value, dict):
+
+                merged[key]["pass"] += value.get("pass", 0)
+
+    # =====================================================
+    # Recompute efficiencies
+    # =====================================================
+
+    merged["Initial"] = total_initial
+
+    for key, value in merged.items():
+
+        if key == "Initial":
+            continue
+
+        passed = value["pass"]
+
+        if total_initial > 0:
+
+            value["eff"] = passed / total_initial
+
+        else:
+
+            value["eff"] = 0.0
+
+    return merged
+
+# =========================================================
+# Merge dataset
+# =========================================================
+
+def merge_dataset(
+    dataset,
+    files,
+    output_dir,
+    remove_inputs=False,
+):
+
+    os.makedirs(output_dir, exist_ok=True)
+
+    output_file = os.path.join(
+        output_dir,
+        f"{dataset}.root"
     )
 
-    print(f"\nProcessing dataset: {dataset}")
-    print(f"Output file: {output_file}")
+    output_json = os.path.join(
+        output_dir,
+        f"{dataset}_report.json"
+    )
 
-    # ========================================
-    # RDF
-    # ========================================
+    print("\n================================================")
+    print(f"Dataset : {dataset}")
+    print(f"N files : {len(files)}")
+    print(f"Output  : {output_file}")
+    print("================================================\n")
+
+    # =====================================================
+    # Merge json reports
+    # =====================================================
+
+    report_list = []
+
+    for f in files:
+
+        report_list.append(
+            load_report_json(f)
+        )
+
+    merged_report = merge_reports(report_list)
+
+    # =====================================================
+    # Create dataframe
+    # =====================================================
 
     df = ROOT.RDataFrame(
         "Events",
         files
     )
 
+    # =====================================================
+    # Duplicate removal
+    # =====================================================
+
     duplicate_filter = ROOT.EventDuplicateFilter()
 
-    df_filtered = df.Filter(
-        duplicate_filter,
-        ["run", "luminosityBlock", "event"],
-        "RemoveDuplicates"
+    df_filtered = (
+        df.Filter(
+            duplicate_filter,
+            ["run", "luminosityBlock", "event"],
+            "RemoveDuplicates"
+        )
+        .Cache()
     )
+
+    # =====================================================
+    # Report
+    # =====================================================
 
     report = df_filtered.Report()
 
-    columns = [
-        str(c)
-        for c in df.GetColumnNames()
-    ]
+    # =====================================================
+    # Columns
+    # =====================================================
+
+    columns = ROOT.std.vector('string')()
+
+    for c in df_filtered.GetColumnNames():
+
+        columns.push_back(str(c))
+
+    # =====================================================
+    # Snapshot options
+    # =====================================================
 
     opts = ROOT.RDF.RSnapshotOptions()
+
     opts.fMode = "RECREATE"
 
-    # ========================================
+    # =====================================================
     # Snapshot
-    # ========================================
+    # =====================================================
 
-    df_filtered.Snapshot(
+    print("Writing snapshot...")
+
+    snapshot = df_filtered.Snapshot(
         "Events",
         output_file,
         columns,
         opts
     )
 
-    # ========================================
-    # Save report
-    # ========================================
+    # =====================================================
+    # Trigger event loop ONCE
+    # =====================================================
 
-    f_report = ROOT.TFile(
-        report_file,
-        "RECREATE"
-    )
+    snapshot.GetValue()
+
+    # =====================================================
+    # Save merged report json
+    # =====================================================
+
+    with open(output_json, "w") as fjson:
+
+        json.dump(
+            merged_report,
+            fjson,
+            indent=4
+        )
+
+    print(f"\nSaved merged report: {output_json}")
+
+    # =====================================================
+    # Print report
+    # =====================================================
+
+    print("\n================ REPORT ================\n")
 
     report.Print()
 
-    for cut in report:
+    # =====================================================
+    # Check output
+    # =====================================================
 
-        h = ROOT.TH1D(
-            cut.GetName(),
-            cut.GetName(),
-            1,
-            0,
-            1
-        )
+    f = ROOT.TFile.Open(output_file)
 
-        h.SetBinContent(
-            1,
-            cut.GetPass()
-        )
+    t = f.Get("Events")
 
-        h.Write()
+    if not t:
 
-    f_report.Close()
+        print("[ERROR] Output tree not found")
 
-    # ========================================
-    # Remove original files
-    # ========================================
+    else:
+
+        print(f"\nSaved tree with {t.GetEntries()} entries")
+
+    f.Close()
+
+    # =====================================================
+    # Remove input files
+    # =====================================================
 
     if remove_inputs:
 
-        print("\nRemoving input files...")
+        print("\nRemoving input files...\n")
 
         for f in files:
 
-            print(f"Removing: {f}")
+            try:
 
-            if f.startswith("root://"):
-
-                match = re.match(
-                    r"root://([^/]+)/(.*)",
-                    f
-                )
-
-                host = match.group(1)
-                remote_path = "/" + match.group(2).lstrip("/")
-
-                cmd = [
-                    "xrdfs",
-                    host,
-                    "rm",
-                    remote_path,
-                ]
-
-                subprocess.run(
-                    cmd,
-                    check=True
-                )
-
-            else:
+                print(f"Removing: {f}")
 
                 os.remove(f)
-```
 
+                json_file = (
+                    os.path.splitext(f)[0]
+                    + "_report.json"
+                )
+
+                if os.path.exists(json_file):
+
+                    print(f"Removing: {json_file}")
+
+                    os.remove(json_file)
+
+            except Exception as e:
+
+                print(f"[WARNING] Could not remove {f}")
+
+                print(e)
+
+    print("\nDone.\n")
+
+# =========================================================
+# Main
+# =========================================================
 
 if __name__ == "__main__":
 
@@ -235,38 +358,318 @@ if __name__ == "__main__":
         "--inputs",
         nargs="+",
         required=True,
-        help="Input xrootd directory or root files"
+        help="Input ROOT files or directories"
     )
 
     parser.add_argument(
         "-o",
         "--output",
         required=True,
-        help="Output xrootd directory"
+        help="Output directory"
+    )
+
+    parser.add_argument(
+        "--remove-inputs",
+        action="store_true",
+        help="Remove original ROOT and JSON files"
     )
 
     args = parser.parse_args()
 
-    all_files = []
-
     for inp in args.inputs:
-        all_files.extend(list_root_files(inp))
 
-    datasets = defaultdict(list)
+        dataset = extract_dataset_name(inp)
 
-    for f in all_files:
+        files = list_root_files(inp)
 
-        dataset = extract_dataset_name(f)
+        if len(files) == 0:
 
-        if dataset == "UnknownDataset":
-            print(f"[WARNING] Could not determine dataset for: {f}")
+            print(
+                f"[WARNING] No ROOT files found in {inp}"
+            )
+
             continue
 
-        datasets[dataset].append(f)
+        merge_dataset(
+            dataset=dataset,
+            files=files,
+            output_dir=args.output,
+            remove_inputs=args.remove_inputs,
+        )
 
 
-    for ds, files in datasets.items():
-        print(f"  - {ds}: {len(files)} files")
+# #!/usr/bin/env python3
 
-    for dataset, files in datasets.items():
-        merge_dataset(dataset, files, args.output)
+# import ROOT
+# import os
+# import argparse
+
+# ROOT.gROOT.SetBatch(True)
+
+# ROOT.EnableThreadSafety()
+# ROOT.EnableImplicitMT()
+
+# # =========================================================
+# # Duplicate filter
+# # =========================================================
+
+# ROOT.gInterpreter.Declare(
+# r'''
+# #include <map>
+# #include <set>
+# #include <mutex>
+# #include <memory>
+
+# struct EventDuplicateFilter {
+
+#     using LumiMap = std::map<unsigned int,
+#                     std::set<unsigned long long>>;
+
+#     using RunMap = std::map<unsigned int, LumiMap>;
+
+#     std::shared_ptr<RunMap> events;
+#     std::shared_ptr<std::mutex> mutex;
+
+#     EventDuplicateFilter():
+#         events(std::make_shared<RunMap>()),
+#         mutex(std::make_shared<std::mutex>())
+#     {}
+
+#     bool operator()(unsigned int run,
+#                     unsigned int lumi,
+#                     unsigned long long event)
+#     {
+#         std::lock_guard<std::mutex> lock(*mutex);
+
+#         auto& lumiMap = (*events)[run];
+#         auto& evtSet  = lumiMap[lumi];
+
+#         if (evtSet.count(event))
+#             return false;
+
+#         evtSet.insert(event);
+
+#         return true;
+#     }
+# };
+# '''
+# )
+
+# # =========================================================
+# # Utilities
+# # =========================================================
+
+# def list_root_files(path):
+
+#     if path.endswith(".root"):
+#         return [path]
+
+#     files = []
+
+#     for root, _, fnames in os.walk(path):
+
+#         for fname in fnames:
+
+#             if fname.endswith(".root"):
+
+#                 files.append(
+#                     os.path.join(root, fname)
+#                 )
+
+#     return sorted(files)
+
+
+# def extract_dataset_name(path):
+
+#     return os.path.basename(
+#         path.rstrip("/")
+#     )
+
+# # =========================================================
+# # Merge dataset
+# # =========================================================
+
+# def merge_dataset(
+#     dataset,
+#     files,
+#     output_dir,
+#     remove_inputs=False,
+# ):
+
+#     os.makedirs(output_dir, exist_ok=True)
+
+#     output_file = os.path.join(
+#         output_dir,
+#         f"{dataset}.root"
+#     )
+
+#     print("\n================================================")
+#     print(f"Dataset : {dataset}")
+#     print(f"N files : {len(files)}")
+#     print(f"Output  : {output_file}")
+#     print("================================================\n")
+
+#     # =====================================================
+#     # Create dataframe
+#     # =====================================================
+
+#     df = ROOT.RDataFrame(
+#         "Events",
+#         files
+#     )
+
+#     # =====================================================
+#     # Duplicate removal
+#     # =====================================================
+
+#     duplicate_filter = ROOT.EventDuplicateFilter()
+
+#     df_filtered = (
+#         df.Filter(
+#             duplicate_filter,
+#             ["run", "luminosityBlock", "event"],
+#             "RemoveDuplicates"
+#         )
+#         .Cache()
+#     )
+
+#     # =====================================================
+#     # Report
+#     # =====================================================
+
+#     report = df_filtered.Report()
+
+#     # =====================================================
+#     # Columns
+#     # =====================================================
+
+#     columns = ROOT.std.vector('string')()
+
+#     for c in df_filtered.GetColumnNames():
+#         columns.push_back(str(c))
+
+#     # =====================================================
+#     # Snapshot options
+#     # =====================================================
+
+#     opts = ROOT.RDF.RSnapshotOptions()
+
+#     opts.fMode = "RECREATE"
+
+#     # =====================================================
+#     # Snapshot
+#     # =====================================================
+
+#     print("Writing snapshot...")
+
+#     snapshot = df_filtered.Snapshot(
+#         "Events",
+#         output_file,
+#         columns,
+#         opts
+#     )
+
+#     # =====================================================
+#     # Trigger event loop ONCE
+#     # =====================================================
+
+#     snapshot.GetValue()
+
+#     # =====================================================
+#     # Print report
+#     # =====================================================
+
+#     print("\n================ REPORT ================\n")
+
+#     report.Print()
+
+#     # =====================================================
+#     # Check output
+#     # =====================================================
+
+#     f = ROOT.TFile.Open(output_file)
+
+#     t = f.Get("Events")
+
+#     if not t:
+#         print("[ERROR] Output tree not found")
+#     else:
+#         print(f"\nSaved tree with {t.GetEntries()} entries")
+
+#     f.Close()
+
+#     # =====================================================
+#     # Remove input files
+#     # =====================================================
+
+#     if remove_inputs:
+
+#         print("\nRemoving input files...\n")
+
+#         for f in files:
+
+#             try:
+
+#                 print(f"Removing: {f}")
+
+#                 os.remove(f)
+
+#             except Exception as e:
+
+#                 print(f"[WARNING] Could not remove {f}")
+
+#                 print(e)
+
+#     print("\nDone.\n")
+
+# # =========================================================
+# # Main
+# # =========================================================
+
+# if __name__ == "__main__":
+
+#     parser = argparse.ArgumentParser()
+
+#     parser.add_argument(
+#         "-i",
+#         "--inputs",
+#         nargs="+",
+#         required=True,
+#         help="Input ROOT files or directories"
+#     )
+
+#     parser.add_argument(
+#         "-o",
+#         "--output",
+#         required=True,
+#         help="Output directory"
+#     )
+
+#     parser.add_argument(
+#         "--remove-inputs",
+#         action="store_true",
+#         help="Remove original ROOT files"
+#     )
+
+#     args = parser.parse_args()
+
+#     for inp in args.inputs:
+
+#         dataset = extract_dataset_name(inp)
+
+#         files = list_root_files(inp)
+
+#         if len(files) == 0:
+
+#             print(
+#                 f"[WARNING] No ROOT files found in {inp}"
+#             )
+
+#             continue
+
+#         merge_dataset(
+#             dataset=dataset,
+#             files=files,
+#             output_dir=args.output,
+#             remove_inputs=args.remove_inputs,
+#         )

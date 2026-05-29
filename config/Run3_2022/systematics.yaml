@@ -1,0 +1,38 @@
+systematics:
+
+  Central:
+    muon_suffix: ""
+    jet_suffix: ""
+    weight: "weight__Central"
+
+  JERUp:
+    muon_suffix: ""
+    jet_suffix: "_JERUp"
+
+  JERDown:
+    muon_suffix: ""
+    jet_suffix: "_JERDown"
+
+  JESUp:
+    muon_suffix: ""
+    jet_suffix: "_TotalUp"
+
+  JESDown:
+    muon_suffix: ""
+    jet_suffix: "_TotalDown"
+
+  MuonScaleUp:
+    muon_suffix: "_scale_FSR_up"
+    jet_suffix: ""
+
+  MuonScaleDown:
+    muon_suffix: "_scale_FSR_down"
+    jet_suffix: ""
+
+  MuonResolUp:
+    muon_suffix: "_resol_FSR_up"
+    jet_suffix: ""
+
+  MuonResolDown:
+    muon_suffix: "_resol_FSR_down"
+    jet_suffix: ""
