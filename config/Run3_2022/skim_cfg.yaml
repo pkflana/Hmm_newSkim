@@ -1,6 +1,6 @@
 
 submit: true
-job_flavour: espresso
+job_flavour: microcentury
 
 chunk_size: 1        # files per job
 max_files: -1        # -1 = all files
@@ -20,8 +20,8 @@ request_disk: 2GB
 # ---------------------------------------------------------
 
 # run only subset of datasets (optional override)
-# datasets_whitelist:
-#   - Muon_Run2022C
+datasets_whitelist: []
+  # - Muon_Run2022C
 #   - Muon_Run2022D
 
 # debug mode
@@ -30,32 +30,32 @@ dryrun: false
 
 process_to_select:
   - Data_Muon
-  # - DY
+  - DY
   # # - DY_M_10to50
-  # - DYto2Mu_MLL105To160
-  # # - DYto2Mu_MLL105To160_FlashSim
-  # - TT
-  # - W_NJets
-  # - EWK
-  # - EWK_2Mu2J_MLL_105to160_herwig
-  # - EWK_2Mu2J_MLL_105to160_pythia
+  - DYto2Mu_MLL105To160
+  # - DYto2Mu_MLL105To160_FlashSim
+  - TT
+  - W_NJets
+  - EWK
+  - EWK_2Mu2J_MLL_105to160_herwig
+  - EWK_2Mu2J_MLL_105to160_pythia
   # # - EWK_2Mu2J_MLL_105to160_pythia_Flashsim
-  # # - H_mainBckg
-  # - VV
+  # - H_mainBckg
+  - VV
   # # - VH_inclusive
-  # - VVV
-  # - ST
-  # - TW
-  # - TTX
-  # - VBFHto2Mu_m125_amcatnlo
-  # - VBFHto2Mu_M125_powheg
+  - VVV
+  - ST
+  - TW
+  - TTX
+  - VBFHto2Mu_m125_amcatnlo
+  - VBFHto2Mu_M125_powheg
   # - VBFHto2Mu_m120
   # - VBFHto2Mu_m130
   # - VBFHto2Mu_m125_tuneDown
   # - VBFHto2Mu_m125_tuneUp
   # # - VBFHto2Mu_Herwig
   # - GluGluHto2Mu_MiNNLO
-  # - GluGluHto2Mu
+  - GluGluHto2Mu
   # # - TTH_inclusive
   # # - VHto2Mu
   # # - TTHto2Mu

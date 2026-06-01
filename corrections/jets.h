@@ -229,7 +229,7 @@ namespace correction {
 
         if (!is_data_) {
 
-            for (const auto& unc_scale : {UncScale::Up, UncScale::Down}) {
+            for (const auto& unc_scale : {UncScale::up, UncScale::down}) {
 
                 for (const auto& [unc_source, unc_name] : unc_map_) {
 
@@ -341,10 +341,10 @@ namespace correction {
 
                     if (unc_source == UncSource::JER) {
 
-                        if (unc_scale == UncScale::Up) {
+                        if (unc_scale == UncScale::up) {
                             jer_tag = "up";
                         }
-                        else if (unc_scale == UncScale::Down) {
+                        else if (unc_scale == UncScale::down) {
                             jer_tag = "down";
                         }
                     }

@@ -54,7 +54,7 @@
   types:
     - ST
     # - TW
-  title: "channelSelection"
+  title: "ST"
   color: kCyan-1
   color_mplhep: green
 

@@ -323,7 +323,7 @@ correctionlib.register_pyroot_binding()
 
 
 
-def apply_muIDIso_weights(df, config, return_variations=True):
+def apply_muIDIso_weights(df, config, want_variations=True):
     era = config.get("era")
     requested_SFs = config.get("requested_SFs", [])
 
@@ -353,7 +353,7 @@ def apply_muIDIso_weights(df, config, return_variations=True):
     )
 
     # Dict mapping python scale terminology to correctionlib JSON parameters
-    scale_map = {"Central": "nominal", "Up": "systup", "Down": "systdown"}
+    scale_map = {"Central": "nominal", "up": "systup", "down": "systdown"}
 
     SF_branches = []
 
@@ -399,8 +399,8 @@ def apply_muIDIso_weights(df, config, return_variations=True):
                 #     df.Display({branch_name}).Print()
 
                 # Control what goes to the downstream storing list:
-                # Always keep Central; only add Up/Down to track if return_variations is True
-                if scale == "Central" or return_variations:
+                # Always keep Central; only add up/down to track if want_variations is True
+                if scale == "Central" or want_variations:
                     SF_branches.append(branch_name)
 
     return df, SF_branches

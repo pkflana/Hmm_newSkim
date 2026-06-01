@@ -17,9 +17,9 @@ namespace correction {
     using RVecLV = ROOT::VecOps::RVec<LorentzVectorM>;
 
     enum class UncScale : int {
-        Down = -1,
+        down = -1,
         Central = 0,
-        Up = +1,
+        up = +1,
     };
 
     template <typename... Args>

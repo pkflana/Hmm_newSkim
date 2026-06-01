@@ -10,7 +10,7 @@ def apply_muon_scare(
     df,
     config,
     dataset_cfg,
-    return_variations=True,
+    want_variations=True,
 ):
     era = config.get("era")
     period_unc = period_names[era]
@@ -50,13 +50,13 @@ def apply_muon_scare(
 
     # CENTRAL - Scale (both data and MC)
     df = df.Define(
-        'Muon_pt_scale_corr',
+        'Muon_pt_nano_scale',
         f'''
-        ROOT::VecOps::RVec<float> Muon_pt_scale_corr(Muon_pt.size());
+        ROOT::VecOps::RVec<float> Muon_pt_nano_scale(Muon_pt.size());
         for(size_t Muon_pt_idx = 0 ; Muon_pt_idx < Muon_pt.size(); Muon_pt_idx ++ ){{
-            Muon_pt_scale_corr[Muon_pt_idx] = pt_scale(is_data_int, Muon_pt[Muon_pt_idx], Muon_eta[Muon_pt_idx], Muon_phi[Muon_pt_idx], Muon_charge[Muon_pt_idx], false);
+            Muon_pt_nano_scale[Muon_pt_idx] = pt_scale(is_data_int, Muon_pt[Muon_pt_idx], Muon_eta[Muon_pt_idx], Muon_phi[Muon_pt_idx], Muon_charge[Muon_pt_idx], false);
         }}
-        return Muon_pt_scale_corr;
+        return Muon_pt_nano_scale;
 
         '''
     )
@@ -66,61 +66,61 @@ def apply_muon_scare(
 
     if not dataset_cfg.get("is_data", False):
         df = df.Define(
-            'Muon_pt_corr',
+            'Muon_pt_nano_corr',
             f'''
-            ROOT::VecOps::RVec<float> Muon_pt_corr(Muon_pt.size());
+            ROOT::VecOps::RVec<float> Muon_pt_nano_corr(Muon_pt.size());
             for(size_t Muon_pt_idx = 0 ; Muon_pt_idx < Muon_pt.size(); Muon_pt_idx ++ ){{
-                Muon_pt_corr[Muon_pt_idx] = pt_resol(Muon_pt_scale_corr[Muon_pt_idx], Muon_eta[Muon_pt_idx], Muon_phi[Muon_pt_idx], float(Muon_nTrackerLayers[Muon_pt_idx]), event, luminosityBlock, false);
+                Muon_pt_nano_corr[Muon_pt_idx] = pt_resol(Muon_pt_nano_scale[Muon_pt_idx], Muon_eta[Muon_pt_idx], Muon_phi[Muon_pt_idx], float(Muon_nTrackerLayers[Muon_pt_idx]), event, luminosityBlock, false);
             }}
-            return Muon_pt_corr;
+            return Muon_pt_nano_corr;
 
             '''
         )
     else:
-        df = df.Define('Muon_pt_corr',"Muon_pt_scale_corr")
+        df = df.Define('Muon_pt_nano_corr',"Muon_pt_nano_scale")
 
     # UP/DOWN - Scale, then Resol (only MC)
-    if not dataset_cfg.get("is_data", False) and return_variations:
+    if not dataset_cfg.get("is_data", False) and want_variations:
         df = df.Define(
-            'Muon_pt_scale_corr_up',
+            'Muon_pt_nano_scale_up',
             f'''
-            ROOT::VecOps::RVec<float> Muon_pt_scale_corr_up(Muon_pt.size());
+            ROOT::VecOps::RVec<float> Muon_pt_nano_scale_up(Muon_pt.size());
             for(size_t Muon_pt_idx = 0 ; Muon_pt_idx < Muon_pt.size(); Muon_pt_idx ++ ){{
-                Muon_pt_scale_corr_up[Muon_pt_idx] = pt_scale_var(Muon_pt_corr[Muon_pt_idx], Muon_eta[Muon_pt_idx], Muon_phi[Muon_pt_idx], Muon_charge[Muon_pt_idx], "up", false);
+                Muon_pt_nano_scale_up[Muon_pt_idx] = pt_scale_var(Muon_pt_nano_corr[Muon_pt_idx], Muon_eta[Muon_pt_idx], Muon_phi[Muon_pt_idx], Muon_charge[Muon_pt_idx], "up", false);
             }}
-            return Muon_pt_scale_corr_up;
+            return Muon_pt_nano_scale_up;
             '''
         )
         df = df.Define(
-            'Muon_pt_scale_corr_down',
+            'Muon_pt_nano_scale_down',
             f'''
-            ROOT::VecOps::RVec<float> Muon_pt_scale_corr_down(Muon_pt.size());
+            ROOT::VecOps::RVec<float> Muon_pt_nano_scale_down(Muon_pt.size());
             for(size_t Muon_pt_idx = 0 ; Muon_pt_idx < Muon_pt.size(); Muon_pt_idx ++ ){{
-                Muon_pt_scale_corr_down[Muon_pt_idx] = pt_scale_var(Muon_pt_corr[Muon_pt_idx], Muon_eta[Muon_pt_idx], Muon_phi[Muon_pt_idx], Muon_charge[Muon_pt_idx], "down", false);
+                Muon_pt_nano_scale_down[Muon_pt_idx] = pt_scale_var(Muon_pt_nano_corr[Muon_pt_idx], Muon_eta[Muon_pt_idx], Muon_phi[Muon_pt_idx], Muon_charge[Muon_pt_idx], "down", false);
             }}
-            return Muon_pt_scale_corr_down;
+            return Muon_pt_nano_scale_down;
             '''
         )
 
         df = df.Define(
-                "Muon_pt_corr_resol_up",
+                "Muon_pt_nano_res_up",
                 f'''
-                    ROOT::VecOps::RVec<float> Muon_pt_corr_resol_up(Muon_pt.size());
+                    ROOT::VecOps::RVec<float> Muon_pt_nano_res_up(Muon_pt.size());
                     for(size_t Muon_pt_idx = 0 ; Muon_pt_idx < Muon_pt.size(); Muon_pt_idx ++ ){{
-                        Muon_pt_corr_resol_up[Muon_pt_idx] = pt_resol_var(Muon_pt_scale_corr[Muon_pt_idx], Muon_pt_corr[Muon_pt_idx], Muon_eta[Muon_pt_idx], "up", false);
+                        Muon_pt_nano_res_up[Muon_pt_idx] = pt_resol_var(Muon_pt_nano_scale[Muon_pt_idx], Muon_pt_nano_corr[Muon_pt_idx], Muon_eta[Muon_pt_idx], "up", false);
                     }}
-                    return Muon_pt_corr_resol_up;
+                    return Muon_pt_nano_res_up;
                 '''
         )
 
         df = df.Define(
-                "Muon_pt_corr_resol_down",
+                "Muon_pt_nano_res_down",
                 f'''
-                    ROOT::VecOps::RVec<float> Muon_pt_corr_resol_down(Muon_pt.size());
+                    ROOT::VecOps::RVec<float> Muon_pt_nano_res_down(Muon_pt.size());
                     for(size_t Muon_pt_idx = 0 ; Muon_pt_idx < Muon_pt.size(); Muon_pt_idx ++ ){{
-                        Muon_pt_corr_resol_down[Muon_pt_idx] =  pt_resol_var(Muon_pt_scale_corr[Muon_pt_idx], Muon_pt_corr[Muon_pt_idx], Muon_eta[Muon_pt_idx], "dn", false);
+                        Muon_pt_nano_res_down[Muon_pt_idx] =  pt_resol_var(Muon_pt_nano_scale[Muon_pt_idx], Muon_pt_nano_corr[Muon_pt_idx], Muon_eta[Muon_pt_idx], "dn", false);
                     }}
-                    return Muon_pt_corr_resol_down;
+                    return Muon_pt_nano_res_down;
                 '''
         )
 
@@ -128,13 +128,13 @@ def apply_muon_scare(
 
     # CENTRAL - Scale (both data and MC)
     df = df.Define(
-        'Muon_bsc_pt_scale_corr',
+        'Muon_pt_bsc_scale',
         f'''
-        ROOT::VecOps::RVec<float> Muon_bsc_pt_scale_corr(Muon_bsConstrainedPt.size());
-        for(size_t Muon_bsc_pt_idx = 0 ; Muon_bsc_pt_idx < Muon_bsConstrainedPt.size(); Muon_bsc_pt_idx ++ ){{
-            Muon_bsc_pt_scale_corr[Muon_bsc_pt_idx] = pt_scale(is_data_int, Muon_bsConstrainedPt[Muon_bsc_pt_idx], Muon_eta[Muon_bsc_pt_idx], Muon_phi[Muon_bsc_pt_idx], Muon_charge[Muon_bsc_pt_idx], true);
+        ROOT::VecOps::RVec<float> Muon_pt_bsc_scale(Muon_bsConstrainedPt.size());
+        for(size_t Muon_pt_bsc_idx = 0 ; Muon_pt_bsc_idx < Muon_bsConstrainedPt.size(); Muon_pt_bsc_idx ++ ){{
+            Muon_pt_bsc_scale[Muon_pt_bsc_idx] = pt_scale(is_data_int, Muon_bsConstrainedPt[Muon_pt_bsc_idx], Muon_eta[Muon_pt_bsc_idx], Muon_phi[Muon_pt_bsc_idx], Muon_charge[Muon_pt_bsc_idx], true);
         }}
-        return Muon_bsc_pt_scale_corr;
+        return Muon_pt_bsc_scale;
 
         '''
     )
@@ -143,61 +143,61 @@ def apply_muon_scare(
 
     if not dataset_cfg.get("is_data", False):
         df = df.Define(
-            'Muon_bsc_pt_corr',
+            'Muon_pt_bsc_corr',
             f'''
-            ROOT::VecOps::RVec<float> Muon_bsc_pt_corr(Muon_bsConstrainedPt.size());
-            for(size_t Muon_bsc_pt_idx = 0 ; Muon_bsc_pt_idx < Muon_bsConstrainedPt.size(); Muon_bsc_pt_idx ++ ){{
-                Muon_bsc_pt_corr[Muon_bsc_pt_idx] = pt_resol(Muon_bsc_pt_scale_corr[Muon_bsc_pt_idx], Muon_eta[Muon_bsc_pt_idx], Muon_phi[Muon_bsc_pt_idx], float(Muon_nTrackerLayers[Muon_bsc_pt_idx]), event, luminosityBlock, true);
+            ROOT::VecOps::RVec<float> Muon_pt_bsc_corr(Muon_bsConstrainedPt.size());
+            for(size_t Muon_pt_bsc_idx = 0 ; Muon_pt_bsc_idx < Muon_bsConstrainedPt.size(); Muon_pt_bsc_idx ++ ){{
+                Muon_pt_bsc_corr[Muon_pt_bsc_idx] = pt_resol(Muon_pt_bsc_scale[Muon_pt_bsc_idx], Muon_eta[Muon_pt_bsc_idx], Muon_phi[Muon_pt_bsc_idx], float(Muon_nTrackerLayers[Muon_pt_bsc_idx]), event, luminosityBlock, true);
             }}
-            return Muon_bsc_pt_corr;
+            return Muon_pt_bsc_corr;
 
             '''
         )
     else:
-        df = df.Define('Muon_bsc_pt_corr',"Muon_bsc_pt_scale_corr")
+        df = df.Define('Muon_pt_bsc_corr',"Muon_pt_bsc_scale")
 
     # UP/DOWN - Scale, then Resol (only MC)
     if not dataset_cfg.get("is_data", False):
         df = df.Define(
-            'Muon_bsc_pt_scale_corr_up',
+            'Muon_pt_bsc_scale_up',
             f'''
-            ROOT::VecOps::RVec<float> Muon_bsc_pt_scale_corr_up(Muon_bsConstrainedPt.size());
-            for(size_t Muon_bsc_pt_idx = 0 ; Muon_bsc_pt_idx < Muon_bsConstrainedPt.size(); Muon_bsc_pt_idx ++ ){{
-                Muon_bsc_pt_scale_corr_up[Muon_bsc_pt_idx] = pt_scale_var(Muon_bsc_pt_corr[Muon_bsc_pt_idx], Muon_eta[Muon_bsc_pt_idx], Muon_phi[Muon_bsc_pt_idx], Muon_charge[Muon_bsc_pt_idx], "up", true);
+            ROOT::VecOps::RVec<float> Muon_pt_bsc_scale_up(Muon_bsConstrainedPt.size());
+            for(size_t Muon_pt_bsc_idx = 0 ; Muon_pt_bsc_idx < Muon_bsConstrainedPt.size(); Muon_pt_bsc_idx ++ ){{
+                Muon_pt_bsc_scale_up[Muon_pt_bsc_idx] = pt_scale_var(Muon_pt_bsc_corr[Muon_pt_bsc_idx], Muon_eta[Muon_pt_bsc_idx], Muon_phi[Muon_pt_bsc_idx], Muon_charge[Muon_pt_bsc_idx], "up", true);
             }}
-            return Muon_bsc_pt_scale_corr_up;
+            return Muon_pt_bsc_scale_up;
             '''
         )
         df = df.Define(
-            'Muon_bsc_pt_scale_corr_down',
+            'Muon_pt_bsc_scale_down',
             f'''
-            ROOT::VecOps::RVec<float> Muon_bsc_pt_scale_corr_down(Muon_bsConstrainedPt.size());
-            for(size_t Muon_bsc_pt_idx = 0 ; Muon_bsc_pt_idx < Muon_bsConstrainedPt.size(); Muon_bsc_pt_idx ++ ){{
-                Muon_bsc_pt_scale_corr_down[Muon_bsc_pt_idx] = pt_scale_var(Muon_bsc_pt_corr[Muon_bsc_pt_idx], Muon_eta[Muon_bsc_pt_idx], Muon_phi[Muon_bsc_pt_idx], Muon_charge[Muon_bsc_pt_idx], "down", true);
+            ROOT::VecOps::RVec<float> Muon_pt_bsc_scale_down(Muon_bsConstrainedPt.size());
+            for(size_t Muon_pt_bsc_idx = 0 ; Muon_pt_bsc_idx < Muon_bsConstrainedPt.size(); Muon_pt_bsc_idx ++ ){{
+                Muon_pt_bsc_scale_down[Muon_pt_bsc_idx] = pt_scale_var(Muon_pt_bsc_corr[Muon_pt_bsc_idx], Muon_eta[Muon_pt_bsc_idx], Muon_phi[Muon_pt_bsc_idx], Muon_charge[Muon_pt_bsc_idx], "down", true);
             }}
-            return Muon_bsc_pt_scale_corr_down;
+            return Muon_pt_bsc_scale_down;
             '''
         )
 
         df = df.Define(
-                "Muon_bsc_pt_corr_resol_up",
+                "Muon_pt_bsc_res_up",
                 f'''
-                    ROOT::VecOps::RVec<float> Muon_bsc_pt_corr_resol_up(Muon_bsConstrainedPt.size());
-                    for(size_t Muon_bsc_pt_idx = 0 ; Muon_bsc_pt_idx < Muon_bsConstrainedPt.size(); Muon_bsc_pt_idx ++ ){{
-                        Muon_bsc_pt_corr_resol_up[Muon_bsc_pt_idx] = pt_resol_var(Muon_bsc_pt_scale_corr[Muon_bsc_pt_idx], Muon_bsc_pt_corr[Muon_bsc_pt_idx], Muon_eta[Muon_bsc_pt_idx], "up", true);
+                    ROOT::VecOps::RVec<float> Muon_pt_bsc_res_up(Muon_bsConstrainedPt.size());
+                    for(size_t Muon_pt_bsc_idx = 0 ; Muon_pt_bsc_idx < Muon_bsConstrainedPt.size(); Muon_pt_bsc_idx ++ ){{
+                        Muon_pt_bsc_res_up[Muon_pt_bsc_idx] = pt_resol_var(Muon_pt_bsc_scale[Muon_pt_bsc_idx], Muon_pt_bsc_corr[Muon_pt_bsc_idx], Muon_eta[Muon_pt_bsc_idx], "up", true);
                     }}
-                    return Muon_bsc_pt_corr_resol_up;
+                    return Muon_pt_bsc_res_up;
                 '''
         )
 
         df = df.Define(
-                "Muon_bsc_pt_corr_resol_down",
+                "Muon_pt_bsc_res_down",
                 f'''
-                    ROOT::VecOps::RVec<float> Muon_bsc_pt_corr_resol_down(Muon_bsConstrainedPt.size());
-                    for(size_t Muon_bsc_pt_idx = 0 ; Muon_bsc_pt_idx < Muon_bsConstrainedPt.size(); Muon_bsc_pt_idx ++ ){{
-                        Muon_bsc_pt_corr_resol_down[Muon_bsc_pt_idx] = pt_resol_var(Muon_bsc_pt_scale_corr[Muon_bsc_pt_idx], Muon_bsc_pt_corr[Muon_bsc_pt_idx], Muon_eta[Muon_bsc_pt_idx], "dn", true);
+                    ROOT::VecOps::RVec<float> Muon_pt_bsc_res_down(Muon_bsConstrainedPt.size());
+                    for(size_t Muon_pt_bsc_idx = 0 ; Muon_pt_bsc_idx < Muon_bsConstrainedPt.size(); Muon_pt_bsc_idx ++ ){{
+                        Muon_pt_bsc_res_down[Muon_pt_bsc_idx] = pt_resol_var(Muon_pt_bsc_scale[Muon_pt_bsc_idx], Muon_pt_bsc_corr[Muon_pt_bsc_idx], Muon_eta[Muon_pt_bsc_idx], "dn", true);
                     }}
-                    return Muon_bsc_pt_corr_resol_down;
+                    return Muon_pt_bsc_res_down;
                 '''
         )
     return df

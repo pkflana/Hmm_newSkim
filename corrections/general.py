@@ -138,7 +138,7 @@ def define_base_weights(df, lumi, xs_entry, xs_cfg, process_entry, use_genWeight
     base_weights_to_store.append(gen_weight_name)
 
     weight_xs_name = "weight_xs"
-    try: 
+    try:
         processor_file = process_entry['processor']
     except KeyError:
         xs_value = str(xs_cfg[xs_entry]['crossSec'])
@@ -157,7 +157,7 @@ def define_base_weights(df, lumi, xs_entry, xs_cfg, process_entry, use_genWeight
 def apply_corrections(df, config, dataset_cfg, dataset_name):
     # golden json only if it's data, else pu weights
     is_data = dataset_cfg.get("is_data", False)
-    return_variations = config.get("want_variations", False)
+    want_variations = True # config.get("want_variations", False)
     weight_branches = []
     if is_data:
         from .lumi import apply_lumi_filter
@@ -165,18 +165,17 @@ def apply_corrections(df, config, dataset_cfg, dataset_name):
         df = apply_lumi_filter(df, lumiFile_path)
     else:
         from .pu import apply_pu_weights
-        df,pu_branches = apply_pu_weights(df, config, pileup_column="Pileup_nTrueInt",return_variations=return_variations)
+        df,pu_branches = apply_pu_weights(df, config, pileup_column="Pileup_nTrueInt",want_variations=want_variations)
         weight_branches.extend(pu_branches)
     # muons ScaRe
     from .muon_scare import apply_muon_scare
-    df = apply_muon_scare(df, config, dataset_cfg,return_variations=return_variations)
+    df = apply_muon_scare(df, config, dataset_cfg,want_variations=want_variations)
     # muons FSR
     from .muon_fsr import apply_muon_fsr
-    df = apply_muon_fsr(df, is_data, has_variations=return_variations)
+    df = apply_muon_fsr(df, is_data, want_variations=want_variations)
     # JEC / JER / JES
     from .jets import apply_jet_corrections
-    df = apply_jet_corrections(df, config, dataset_cfg, dataset_name, return_variations)
-
+    df = apply_jet_corrections(df, config, dataset_cfg, dataset_name, want_variations)
     return df,weight_branches
 
 

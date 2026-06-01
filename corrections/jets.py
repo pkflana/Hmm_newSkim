@@ -26,7 +26,7 @@ unc_sources_regrouped = [
 unc_source_enum = {
     "Central": "Central",
     "JER": "JER",
-    "Total": "Total",
+    "JESTotal": "Total",
     "RelativeBal": "RelativeBal",
     "HF": "HF",
     "BBEC1": "BBEC1",
@@ -209,10 +209,13 @@ def initialize_jet_corrections(
 
     _jet_correction_state["initialized"] = True
 
+# ============================================================
+# JET CORRECTIONS ONLY (JEC/JER PROVIDER LAYER)
+# ============================================================
 
 def define_jet_p4_variations(
     df,
-    return_variations,
+    want_variations,
     apply_JER,
     apply_JES,
     apply_forward_jet_horns_fix=False,
@@ -222,105 +225,89 @@ def define_jet_p4_variations(
 
     is_data = _jet_correction_state["is_data"]
     period = _jet_correction_state["period"]
-    apply_forward_jet_horns_fix_str = (
-        "true" if apply_forward_jet_horns_fix else "false"
-    )
 
     apply_jer = "true" if apply_JER and not is_data else "false"
     reapply_jec = "true"
-    require_run_number = "false"
-    if is_data:
-        require_run_number = "true"
-    if period == "2023_Summer23BPix":
-        require_run_number = "true"
+    require_run_number = "true" if is_data or period == "2023_Summer23BPix" else "false"
+
     wantPhi = (
         "true"
-        if (period == "2023_Summer23BPix" and is_data)
-        or (period == "2024_Summer24" or period == "2025_Summer24")
+        if (period in ["2023_Summer23BPix", "2024_Summer24", "2025_Summer24"] and is_data)
         else "false"
     )
 
+    forward_fix = "true" if apply_forward_jet_horns_fix else "false"
+
+    # ===========================
+    # CORE SHIFTED MAP
+    # ===========================
     if not is_data:
         df = df.Define(
             "Jet_p4_shifted_map",
-            f"""::correction::JetCorrectionProvider::getGlobal().getShiftedP4(Jet_pt, Jet_eta, Jet_phi, Jet_mass,\
-                Jet_rawFactor, Jet_area, Rho_fixedGridRhoFastjetAll, event, {apply_jer},\
-                {reapply_jec}, {require_run_number}, run, {wantPhi}, {apply_forward_jet_horns_fix_str},\
-                GenJet_pt, GenJet_eta, GenJet_phi, Jet_genJetIdx)""",
+            f"""::correction::JetCorrectionProvider::getGlobal().getShiftedP4(
+                Jet_pt, Jet_eta, Jet_phi, Jet_mass,
+                Jet_rawFactor, Jet_area,
+                Rho_fixedGridRhoFastjetAll,
+                event,
+                {apply_jer},
+                {reapply_jec},
+                {require_run_number},
+                run,
+                {wantPhi},
+                {forward_fix},
+                GenJet_pt, GenJet_eta, GenJet_phi, Jet_genJetIdx
+            )"""
         )
     else:
         df = df.Define(
             "Jet_p4_shifted_map",
-            f"""::correction::JetCorrectionProvider::getGlobal().getShiftedP4(Jet_pt, Jet_eta, Jet_phi, Jet_mass, Jet_rawFactor, Jet_area, Rho_fixedGridRhoFastjetAll, event, {apply_jer}, {reapply_jec}, {require_run_number}, run, {wantPhi}, {apply_forward_jet_horns_fix_str})""",
+            f"""::correction::JetCorrectionProvider::getGlobal().getShiftedP4(
+                Jet_pt, Jet_eta, Jet_phi, Jet_mass,
+                Jet_rawFactor, Jet_area,
+                Rho_fixedGridRhoFastjetAll,
+                event,
+                {apply_jer},
+                {reapply_jec},
+                {require_run_number},
+                run,
+                {wantPhi},
+                {forward_fix}
+            )"""
         )
 
-    def p4_from_shifted_map(unc_source, unc_scale):
-        source_enum = unc_source_enum[unc_source]
+    # ===========================
+    # helper: extract p4
+    # ===========================
+    def p4_from(unc_source, unc_scale):
+        src = unc_source_enum[unc_source]
         return (
             "Jet_p4_shifted_map.at(std::make_pair("
-            f"::correction::JetCorrectionProvider::UncSource::{source_enum}, "
+            f"::correction::JetCorrectionProvider::UncSource::{src}, "
             f"::correction::UncScale::{unc_scale}))"
         )
 
-    def define_pt_from_p4(df, pt_name, p4_name):
-        return df.Define(
-            pt_name,
-            f"""
-            ROOT::VecOps::RVec<float> jet_pt({p4_name}.size(), 0.);
-            for (size_t i = 0; i < {p4_name}.size(); ++i) {{
-                jet_pt[i] = {p4_name}[i].Pt();
-            }}
-            return jet_pt;
-            """,
-        )
+    # ===========================
+    # nominal only p4 (central)
+    # ===========================
+    df = df.Define("Jet_p4", p4_from("Central", "Central"))
 
-
-    def define_mass_from_p4(df, pt_name, p4_name):
-        return df.Define(
-            pt_name,
-            f"""
-            ROOT::VecOps::RVec<float> Jet_m({p4_name}.size(), 0.);
-            for (size_t i = 0; i < {p4_name}.size(); ++i) {{
-                Jet_m[i] = {p4_name}[i].M();
-            }}
-            return Jet_m;
-            """,
-        )
-    df = df.Define("Jet_p4", p4_from_shifted_map("Central", "Central"))
-    df = define_pt_from_p4(df, "Jet_pt_corr", "Jet_p4")
-    df = define_mass_from_p4(df, "Jet_mass_corr", "Jet_p4")
-
-    if not is_data and return_variations:
-        variation_sources = []
+    # ONLY VARIATIONS (NO DERIVED FEATURES HERE)
+    if not is_data and want_variations:
+        sources = []
         if apply_JER:
-            variation_sources.append("JER")
+            sources.append("JER")
         if apply_JES:
-            variation_sources.extend(
-                source
-                for source in _jet_correction_state["uncSources_toUse"]
-                if source != "JER"
-            )
+            sources += [f"JES{s}" for s in _jet_correction_state["uncSources_toUse"] if s != "JER"]
+        for unc in sources:
+            for scale in ["up", "down"]:
+                df = df.Define(
+                    f"Jet_p4_{unc}{scale}",
+                    p4_from(unc, scale)
+                )
 
-        for unc_source in variation_sources:
-            for unc_scale in ["Up", "Down"]:
-                branch_suffix = f"{unc_source}{unc_scale}"
-                p4_name = f"Jet_p4_{branch_suffix}"
-                df = df.Define(p4_name, p4_from_shifted_map(unc_source, unc_scale))
-                df = define_pt_from_p4(df, f"Jet_pt_{branch_suffix}", p4_name)
     return df
 
-
-# def define_jet_energy_resolution(df):
-#     if not _jet_correction_state["initialized"]:
-#         raise RuntimeError("Jet corrections are not initialized")
-#     df = df.Define(
-#         "Jet_ptRes",
-#         "::correction::JetCorrectionProvider::getGlobal().GetResolutions(Jet_pt, Jet_mass, Jet_rawFactor, Jet_eta, Rho_fixedGridRhoFastjetAll)",
-#     )
-#     return df
-
-
-def apply_jet_corrections(df, config, dataset_cfg, dataset_name, return_variations):
+def apply_jet_corrections(df, config, dataset_cfg, dataset_name, want_variations):
     # Extract configuration parameters
     era = config.get("era")
     period = period_names[era]
@@ -334,7 +321,7 @@ def apply_jet_corrections(df, config, dataset_cfg, dataset_name, return_variatio
     initialize_jet_corrections(period, is_data, dataset_name, use_regrouped)
     df = define_jet_p4_variations(
         df,
-        return_variations,
+        want_variations,
         apply_JER,
         apply_JES,
         apply_forward_jet_horns_fix,

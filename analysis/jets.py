@@ -1,147 +1,262 @@
+
 import ROOT
 import sys
 
 def _column_names(df):
     return {str(col) for col in df.GetColumnNames()}
 
+
+def _vec_pt(df, p4, out,new_cols):
+    new_cols.append(out)
+    if out not in df.GetColumnNames():
+        return df.Define(out, f"""
+            ROOT::VecOps::RVec<float> v({p4}.size(), 0.);
+            for (size_t i = 0; i < {p4}.size(); ++i)
+                v[i] = {p4}[i].Pt();
+            return v;
+        """)
+    return df.Redefine(out, f"""
+        ROOT::VecOps::RVec<float> v({p4}.size(), 0.);
+        for (size_t i = 0; i < {p4}.size(); ++i)
+            v[i] = {p4}[i].Pt();
+        return v;
+    """)
+
+def _vec_mass(df, p4, out,new_cols):
+    new_cols.append(out)
+    if out not in df.GetColumnNames():
+        return df.Define(out, f"""
+            ROOT::VecOps::RVec<float> v({p4}.size(), 0.);
+            for (size_t i = 0; i < {p4}.size(); ++i)
+                v[i] = {p4}[i].M();
+            return v;
+        """)
+    return df.Redefine(out, f"""
+        ROOT::VecOps::RVec<float> v({p4}.size(), 0.);
+        for (size_t i = 0; i < {p4}.size(); ++i)
+            v[i] = {p4}[i].M();
+        return v;
+    """)
+
+def _vec_eta(df, p4, out,new_cols):
+    new_cols.append(out)
+    if out not in df.GetColumnNames():
+        return df.Define(out, f"""
+            ROOT::VecOps::RVec<float> v({p4}.size(), 0.);
+            for (size_t i = 0; i < {p4}.size(); ++i)
+                v[i] = {p4}[i].Eta();
+            return v;
+        """)
+    return df.Redefine(out, f"""
+        ROOT::VecOps::RVec<float> v({p4}.size(), 0.);
+        for (size_t i = 0; i < {p4}.size(); ++i)
+            v[i] = {p4}[i].Eta();
+        return v;
+    """)
+
+def _vec_phi(df, p4, out,new_cols):
+    new_cols.append(out)
+    if out not in df.GetColumnNames():
+        return df.Define(out, f"""
+            ROOT::VecOps::RVec<float> v({p4}.size(), 0.);
+            for (size_t i = 0; i < {p4}.size(); ++i)
+                v[i] = {p4}[i].Phi();
+            return v;
+        """)
+    return df.Redefine(out, f"""
+        ROOT::VecOps::RVec<float> v({p4}.size(), 0.);
+        for (size_t i = 0; i < {p4}.size(); ++i)
+            v[i] = {p4}[i].Phi();
+        return v;
+    """)
+
 def _define_if_missing(df, name, expression):
-    if name in _column_names(df):
-        return df
+    if name in _column_names(df): return df
     return df.Define(name, expression)
 
-# =============================================================================
-# 1. JET PT & P4 VARIATION CONFIGURATIONS (Initial Jet Cols)
-# =============================================================================
-def GetJetPtConfigurations(is_data, want_variations):
-    """Mappatura esplicita dei suffissi e dei rami di pT da NanoAOD."""
-    configs = [("", "Jet_pt_corr")] # Suffix nominale
-
-    if not is_data and want_variations:
-        configs.extend([
-            ("_JERUp",       "Jet_pt_JERUp"),
-            ("_JERDown",     "Jet_pt_JERDown"),
-            ("_TotalUp",     "Jet_pt_TotalUp"),
-            ("_TotalDown",   "Jet_pt_TotalDown"),
-            ("_unCorr",      "Jet_pt")
-        ])
-    return configs
 
 
-def DefineJetInitialVectors(df, is_data, want_variations=False):
-    """Inizializzazione dei vettori p4 per tutte le variazioni attive."""
-    available_cols = _column_names(df)
-    pt_configs = GetJetPtConfigurations(is_data, want_variations)
-
-    df = _define_if_missing(df, "Jet_idx", "CreateIndexes(Jet_pt.size())")
-
-    for suff, branch_pt in pt_configs:
-        if branch_pt not in available_cols:
-            continue
-        df = _define_if_missing(df, f"Jet_p4{suff}", f"GetP4({branch_pt}, Jet_eta, Jet_phi, Jet_mass, Jet_idx)")
-
-    return df
-
-
-# =============================================================================
-# 2. NTUPLIZER CORE PROCESSING (WITH INPUT VARIABLES DYNAMIC MAPPING)
-# =============================================================================
-def ProcessAllJetVariables(df, is_data, jet_columns, config, bTagAlgo, bTagDict, want_variations=False, mu_suff="ScaRe_FSR"):
-    """
-    Seleziona i jet applicando cross-cleaning e Horn Veto. Salva la collezione
-    dei SelectedJets includendo tutte le variabili passate in 'jet_columns' filtrate.
-    Estrae inoltre gli indici nativi delle gambe VBF.
-    """
-    new_jet_cols = []
-    available_cols = _column_names(df)
-
-    # Parametri di taglio da dizionario config
-    pt_min = config.get("jet_pt_min", 25.0)
+def ProcessAllJetVariables(df,is_data,jet_columns,config,bTagAlgo,bTagDict,want_variations=False,syst_cfg=None):
+    cols = _column_names(df)
+    pt_min = config.get("jet_pt_min", 20.0)
     eta_max = config.get("jet_eta_max", 4.7)
-    horn_veto_base_expr = config.get("jet_horn_veto_expr", "false")
+    horn_expr = config.get("jet_horn_veto_expr", "false")
+    loose_wp = bTagDict["L"]
+    medium_wp = bTagDict["M"]
 
-    loose_wp = bTagDict.get("loose", 0.0)
-    medium_wp = bTagDict.get("medium", 0.0)
+    ### to be fixed here
 
-    # Inizializzazione p4 dei jet
-    df = DefineJetInitialVectors(df, is_data, want_variations)
-    pt_configs = GetJetPtConfigurations(is_data, want_variations)
+    cols = _column_names(df)
+    syst_suffixes = [""]
+    if want_variations:
+        scales = syst_cfg.get('scales',['up','down'])
+        syst_suffixes.extend([syst_cfg['systematics']['JER']['jet_suffix'].format(scale=scale) for scale in scales])
+        syst_suffixes.extend([syst_cfg['systematics']['JES_Total']['jet_suffix'].format(scale=scale) for scale in scales])
 
-    # Mappatura delle altre variabili dei jet fornite in input (escludendo pT/eta/phi/mass gestiti esplicitamente)
-    jet_extra_branches = {}
+    jet_extra = {}
     for col in jet_columns:
-        col_lower = col.lower()
-        if any(k in col_lower for k in ["_pt", "_eta", "_phi", "_mass", "jet_idx"]):
+        if any(x in col.lower() for x in ["pt", "eta", "phi", "mass", "idx"]):
             continue
-        # Estrae il suffisso pulito (es: da 'Jet_jetId' prende 'jetId')
-        suffix_clean = col.split("Jet_")[-1]
-        jet_extra_branches[suffix_clean] = col
+        jet_extra[col.split("Jet_")[-1]] = col
 
-    def define_and_track(dataframe, name, expr):
-        if name in _column_names(dataframe): return dataframe
-        new_jet_cols.append(name)
-        return dataframe.Define(name, expr)
+    new_cols = []
 
-    # --- Loop delle Variazioni Sistematiche ---
-    for suff, branch_pt in pt_configs:
-        if branch_pt not in available_cols: continue
+    def track(df, name, expr):
+        if name not in new_cols:
+            new_cols.append(name)
+        if name in _column_names(df): return df
+        return df.Define(name, expr)
 
-        # Pre-selezione cinematica e applicazione Veto Map
-        df = define_and_track(df, f"Jet_preSel{suff}", f"v_ops::pt(Jet_p4{suff}) > {pt_min} && abs(v_ops::eta(Jet_p4{suff})) < {eta_max} && Jet_passJetIdTight")
+    for suff in syst_suffixes:
+        p4_branch = f"Jet_p4{suff}"
+        df = track(df, f"Jet_idx{suff}", f"CreateIndexes(Jet_p4{suff}.size())")
+        horn = horn_expr.replace("Jet_p4", p4_branch)
+        df = track(df, f"Jet_IsInsideHorn{suff}", horn)
+        df = track(df, f"Jet_IsOutsideHorn{suff}", f"!{horn}")
+        if suff=="":
+            df = track(df, f"Jet_pt_nocorr", f"Jet_pt")
+            df = track(df, f"Jet_mass_nocorr", f"Jet_mass")
 
-        # Cross-cleaning geometrico dai muoni del segnale (dR > 0.4)
+        df = _vec_pt(df, p4_branch, f"Jet_pt{suff}",new_cols)
+        df = _vec_mass(df, p4_branch, f"Jet_mass{suff}",new_cols)
+        df = _vec_eta(df, p4_branch, f"Jet_eta{suff}",new_cols)
+        df = _vec_phi(df, p4_branch, f"Jet_phi{suff}",new_cols)
+
+        for b, col in jet_extra.items():
+            if col in cols:
+                df = track(df, col, f"{col}")
+                df = track(
+                    df,
+                    f"Jet_btag_loose{suff}",
+                    f"Jet_btag{bTagAlgo}B >= {loose_wp} && abs(Jet_eta{suff}) < 2.5"
+                )
+
+                df = track(
+                    df,
+                    f"Jet_btag_medium{suff}",
+                    f"Jet_btag{bTagAlgo}B >= {medium_wp} && abs(Jet_eta{suff}) < 2.5"
+                )
+
+        df = track(
+            df,
+            f"JetTagSel{suff}",
+            f"Jet_p4{suff}[Jet_btag_medium{suff}].size() < 1 && "
+            f"Jet_p4{suff}[Jet_btag_loose{suff}].size() < 2"
+        )
+    return df, new_cols
+
+def SelectJetVars(df,is_data,jet_columns,config,bTagAlgo,bTagDict,want_variations=False,syst_cfg=None):
+    cols = _column_names(df)
+    pt_min = config.get("jet_pt_min", 20.0)
+    eta_max = config.get("jet_eta_max", 4.7)
+    horn_expr = config.get("jet_horn_veto_expr", "false")
+    loose_wp = bTagDict["L"]
+    medium_wp = bTagDict["M"]
+
+    ### to be fixed here
+
+
+    cols = _column_names(df)
+    syst_suffixes = [""]
+    if want_variations:
+        scales = syst_cfg.get('scales',['up','down'])
+        syst_suffixes.extend([syst_cfg['systematics']['JER']['jet_suffix'].format(scale=scale) for scale in scales])
+        syst_suffixes.extend([syst_cfg['systematics']['JES_Total']['jet_suffix'].format(scale=scale) for scale in scales])
+
+    jet_extra = {}
+    for col in jet_columns:
+        if any(x in col.lower() for x in ["pt", "eta", "phi", "mass", "idx"]):
+            continue
+        jet_extra[col.split("Jet_")[-1]] = col
+
+    new_cols = []
+
+    def track(df, name, expr):
+        if name not in new_cols:
+            new_cols.append(name)
+        if name in _column_names(df): return df
+        return df.Define(name, expr)
+
+    for suff in syst_suffixes:
+        p4_branch = f"Jet_p4{suff}"
+        df = track(df,f"Jet_preSel{suff}",f"v_ops::pt({p4_branch}) > {pt_min} && abs(v_ops::eta({p4_branch})) < {eta_max} && Jet_passJetIdTight")
+        # -----------------------------------------------------
+        # MUON CLEANING
+        # -----------------------------------------------------
         overlap_expr = f"""
-        ROOT::VecOps::RVec<bool> clean_vec;
-        clean_vec.reserve(Jet_p4{suff}.size());
-        for (size_t i = 0; i < Jet_p4{suff}.size(); ++i) {{
-            bool pass = Jet_preSel{suff}[i] && !Jet_vetoMap[i] &&
-                        ROOT::Math::VectorUtil::DeltaR(Jet_p4{suff}[i], mu1_p4{mu_suff}) > 0.4 &&
-                        ROOT::Math::VectorUtil::DeltaR(Jet_p4{suff}[i], mu2_p4{mu_suff}) > 0.4;
-            clean_vec.push_back(pass);
+        ROOT::VecOps::RVec<bool> out;
+        out.reserve({p4_branch}.size());
+        for (size_t i = 0; i < {p4_branch}.size(); ++i) {{
+            bool ok = Jet_preSel{suff}[i] && !Jet_vetoMap{suff}[i]
+                      && ROOT::Math::VectorUtil::DeltaR({p4_branch}[i], mu1_p4) > 0.4
+                      && ROOT::Math::VectorUtil::DeltaR({p4_branch}[i], mu2_p4) > 0.4;
+            out.push_back(ok);
         }}
-        return clean_vec;
+        return out;
         """
-        df = define_and_track(df, f"Jet_NoOverlapWithMuons{suff}", overlap_expr)
 
-        # Applicazione dinamica della stringa di veto Horn passata da config
-        current_horn_expr = horn_veto_base_expr.replace("Jet_p4", f"Jet_p4{suff}")
-        df = define_and_track(df, f"Jet_IsInsideHorn{suff}", current_horn_expr)
-        df = define_and_track(df, f"Jet_IsOutsideHorn{suff}", f"!{current_horn_expr}")
+        df = track(df, f"Jet_NoOverlapWithMuons{suff}", overlap_expr)
+        df = track(df, f"goodJet{suff}", f"Jet_NoOverlapWithMuons{suff}")
 
-        # Maschera finale dei jet selezionati (goodJet)
-        df = df.Define(f"goodJet{suff}", f"Jet_NoOverlapWithMuons{suff}") # && !Jet_IsInsideHorn{suff}")
 
-        # ---------------------------------------------------------------------
-        # SALVATAGGIO COLLEZIONE "SelectedJets" (VARIABILI FONDAMENTALI)
-        # ---------------------------------------------------------------------
-        df = define_and_track(df, f"SelectedJet_idx{suff}", f"Jet_idx[goodJet{suff}]")
-        df = define_and_track(df, f"SelectedJet_pt{suff}", f"{branch_pt}[goodJet{suff}]")
-        df = define_and_track(df, f"SelectedJet_eta{suff}", f"Jet_eta[goodJet{suff}]")
-        df = define_and_track(df, f"SelectedJet_phi{suff}", f"Jet_phi[goodJet{suff}]")
-        df = define_and_track(df, f"SelectedJet_mass{suff}", f"Jet_mass_corr[goodJet{suff}]")
-        df = define_and_track(df, f"SelectedJet_IsInsideHorn{suff}", f"Jet_IsInsideHorn{suff}[goodJet{suff}]")
-        df = define_and_track(df, f"SelectedJet_IsOutsideHorn{suff}", f"!(Jet_IsInsideHorn{suff}[goodJet{suff}])")
-        df = define_and_track(df, f"N_SelectedJets{suff}", f"(int)SelectedJet_idx{suff}.size()")
-        df = df.Define(f"SelectedJet_p4{suff}", f"GetP4(SelectedJet_pt{suff}, SelectedJet_eta{suff}, SelectedJet_phi{suff}, SelectedJet_mass{suff}, SelectedJet_idx{suff})")
+        df = track(df, f"SelectedJet_idx{suff}", f"Jet_idx{suff}[goodJet{suff}]")
+        df = track(df, f"N_SelectedJets{suff}", f"(int)SelectedJet_idx{suff}.size()")
+        df = track(df, f"SelectedJet_IsInsideHorn{suff}", f"Jet_IsInsideHorn{suff}[goodJet{suff}]")
+        df = track(df, f"SelectedJet_IsOutsideHorn{suff}", f"Jet_IsOutsideHorn{suff}[goodJet{suff}]")
 
-        # ---------------------------------------------------------------------
-        # SALVATAGGIO DINAMICO DELLE VARIABILI DI INPUT PASSATE (jet_columns)
-        # ---------------------------------------------------------------------
-        for branch_suff, original_branch in jet_extra_branches.items():
-            if original_branch in available_cols:
-                df = define_and_track(df, f"SelectedJet_{branch_suff}{suff}", f"{original_branch}[goodJet{suff}]")
+        if suff=="":
+            df = track(df, f"SelectedJet_pt_nocorr", f"Jet_pt_nocorr[goodJet{suff}]")
+            df = track(df, f"SelectedJet_mass_nocorr", f"Jet_mass_nocorr[goodJet{suff}]")
 
-        # Informazione b-tagging passata a livello di evento (JetTagSel)
-        df = df.Define(f"Jet_btag_Veto_loose{suff}", f"Jet_btag{bTagAlgo}B >= {loose_wp} && abs(v_ops::eta(Jet_p4{suff})) < 2.5")
-        df = df.Define(f"Jet_btag_Veto_medium{suff}", f"Jet_btag{bTagAlgo}B >= {medium_wp} && abs(v_ops::eta(Jet_p4{suff})) < 2.5")
-        df = define_and_track(df, f"JetTagSel{suff}", f"Jet_p4{suff}[goodJet{suff} && Jet_btag_Veto_medium{suff}].size() < 1 && Jet_p4{suff}[goodJet{suff} && Jet_btag_Veto_loose{suff}].size() < 2")
 
-        # ---------------------------------------------------------------------
-        # ESTRAZIONE INDICI DELLE GAMBE VBF (VBFJetIdx_1, VBFJetIdx_2)
-        # ---------------------------------------------------------------------
-        df = df.Define(f"VBFJetCand{suff}", f"FindVBFJets(SelectedJet_p4{suff}, SelectedJet_IsOutsideHorn{suff})")
-        df = define_and_track(df, f"HasVBF{suff}", f"static_cast<bool>(VBFJetCand{suff}.isVBF)")
+        df = df.Define(f"Selected{p4_branch}",f"{p4_branch}[goodJet{suff}]")
 
-        df = define_and_track(df, f"VBFJetIdx_1{suff}", f"HasVBF{suff} ? static_cast<int>(VBFJetCand{suff}.leg_index[0]) : -1000")
-        df = define_and_track(df, f"VBFJetIdx_2{suff}", f"HasVBF{suff} ? static_cast<int>(VBFJetCand{suff}.leg_index[1]) : -1000")
+        df = _vec_pt(df, f"Selected{p4_branch}", f"SelectedJet_pt{suff}",new_cols)
+        df = _vec_mass(df, f"Selected{p4_branch}", f"SelectedJet_mass{suff}",new_cols)
+        df = _vec_eta(df, f"Selected{p4_branch}", f"SelectedJet_eta{suff}",new_cols)
+        df = _vec_phi(df, f"Selected{p4_branch}", f"SelectedJet_phi{suff}",new_cols)
 
-    return df, new_jet_cols
+        for b, col in jet_extra.items():
+            if col in cols:
+                df = track(df, f"SelectedJet_{b}{suff}", f"{col}[goodJet{suff}]")
+
+        df = track(
+            df,
+            f"SelectedJet_btag_loose{suff}",
+            f"SelectedJet_btag{bTagAlgo}B >= {loose_wp} && abs(SelectedJet_eta{suff}) < 2.5"
+        )
+
+        df = track(
+            df,
+            f"SelectedJet_btag_medium{suff}",
+            f"SelectedJet_btag{bTagAlgo}B >= {medium_wp} && abs(SelectedJet_eta{suff}) < 2.5"
+        )
+
+        # df = track(
+        #     df,
+        #     f"SelectedJetTagSel{suff}",
+        #     f"SelectedJet_p4{suff}[SelectedJet_btag_medium{suff}].size() < 1 && "
+        #     f"SelectedJet_p4{suff}[SelectedJet_btag_loose{suff}].size() < 2"
+        # )
+
+        # df = df.Define(
+        #     f"VBFJetCand{suff}",
+        #     f"FindVBFJets(SelectedJet_p4{suff}, SelectedJet_IsOutsideHorn{suff})"
+        # )
+
+        # df = track(df, f"HasVBF{suff}", f"static_cast<bool>(VBFJetCand{suff}.isVBF)")
+        # df.Display({f"HasVBF{suff}"}).Print()
+
+        # df = track(
+        #     df,
+        #     f"VBFJetIdx_1{suff}",
+        #     f"HasVBF{suff} ? int(VBFJetCand{suff}.leg_index[0]) : -1000"
+        # )
+
+        # df = track(
+        #     df,
+        #     f"VBFJetIdx_2{suff}",
+        #     f"HasVBF{suff} ? int(VBFJetCand{suff}.leg_index[1]) : -1000"
+        # )
+
+    return df, new_cols

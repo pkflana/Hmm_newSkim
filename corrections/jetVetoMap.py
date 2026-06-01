@@ -6,8 +6,10 @@ import correctionlib
 from .general import pog_folder_names, period_names
 
 correctionlib.register_pyroot_binding()
+def _column_names(df):
+    return {str(col) for col in df.GetColumnNames()}
 
-def GetJetVetoMap(df, config):
+def InitializeVetoMap(config):
     JME_vetoMap_JsonPath = (
         "/cvmfs/cms-griddata.cern.ch/cat/metadata/JME/{}/latest/jetvetomaps.json.gz"
     )
@@ -32,52 +34,42 @@ def GetJetVetoMap(df, config):
     ROOT.gInterpreter.ProcessLine(
         f'::correction::JetVetoMapProvider::Initialize("{JME_vetoMap_JsonFile}", "{entry_name}")'
     )
-    # jet pT > 15 GeV, tight jet ID, PU jet ID for CHS jets with pT < 50 GeV,  jet EM fraction (charged + neutral) < 0.9
-    df = df.Define(
-        f"Jet_isInsideVetoRegion",
-        f"""::correction::JetVetoMapProvider::getGlobal().GetJetVetoMapValues(Jet_p4)""",
-    )
-    return df
 
 
+def ApplyJetVetoMap(df, config, muon_default_suffix, apply_filter=False, defineElectronCleaning=False, isV12=False, want_variations=False,syst_cfg=None):
+    InitializeVetoMap(config)
+    new_cols = []
 
-def ApplyJetVetoMap(df, config, apply_filter=True, defineElectronCleaning=False, isV12=False):
-    df = GetJetVetoMap(df, config)
-    # defineElectronCleaning=
-    cols_to_store = []
-    function_for_jetId = (
-        "JetIdNewDef::RedefineJet_passJetIdTight_v12(Jet_p4, Jet_neHEF, Jet_neEmEF, Jet_jetId)"
-        if isV12
-        else "JetIdNewDef::RedefineJet_passJetIdTight_v13(Jet_p4, Jet_neHEF, Jet_neEmEF, Jet_chHEF, Jet_chMultiplicity, Jet_neMultiplicity )"
-    )
-    df = df.Define(f"Jet_passJetIdTight", function_for_jetId)
-    cols_to_store.append("Jet_passJetIdTight")
-    df = df.Define(
-        f"Jet_passJetIdTightLepVeto",
-        "JetIdNewDef::Redefine_Jet_passJetIdTightLepVeto(Jet_p4, Jet_passJetIdTight, Jet_muEF, Jet_chEmEF)",
-    )
-    cols_to_store.append("Jet_passJetIdTightLepVeto")
-    df = df.Define(
-        f"Jet_vetoMapLooseRegion_presel",
-        "Jet_pt > 15 && ( Jet_passJetIdTightLepVeto ) && (Jet_chEmEF + Jet_neEmEF < 0.9) && Jet_isInsideVetoRegion",  # here goes the new Jet ID
-    )  #  (Jet_puId > 0 || Jet_pt >50) &&  for CHS jets
-    cols_to_store.append("Jet_vetoMapLooseRegion_presel")
+    def track(df, name, expr):
+        if name not in new_cols:
+            new_cols.append(name)
+        if name in _column_names(df): return df
+        return df.Define(name, expr)
 
-    df = df.Define(
-        f"Jet_vetoMap",
-        " RemoveOverlaps(Jet_p4, Jet_vetoMapLooseRegion_presel, Muon_p4_ScaRe_FSR[Muon_isPFcand], 0.2)",
-    )
-    jet_veto_map_string = "Jet_vetoMap"
-    cols_to_store.append(jet_veto_map_string)
+    cols = _column_names(df)
+    syst_suffixes = [""]
+    if want_variations:
+        scales = syst_cfg.get('scales',['up','down'])
+        syst_suffixes.extend([syst_cfg['systematics']['JER']['jet_suffix'].format(scale=scale) for scale in scales])
+        syst_suffixes.extend([syst_cfg['systematics']['JES_Total']['jet_suffix'].format(scale=scale) for scale in scales])
 
-    if defineElectronCleaning:
-        df = df.Define(
-            f"Jet_vetoMapEle",
-            " RemoveOverlaps(Jet_p4, Jet_vetoMap, Electron_p4[Electron_isPFcand], 0.2)",
+    for suff in syst_suffixes:
+        p4_branch = f"Jet_p4{suff}"
+        function_for_jetId = (
+            f"JetIdNewDef::RedefineJet_passJetIdTight_v12({p4_branch}, Jet_neHEF, Jet_neEmEF, Jet_jetId)"
+            if isV12
+            else f"JetIdNewDef::RedefineJet_passJetIdTight_v13({p4_branch}, Jet_neHEF, Jet_neEmEF, Jet_chHEF, Jet_chMultiplicity, Jet_neMultiplicity )"
         )
-        jet_veto_map_string+="Ele"
-        cols_to_store.append(jet_veto_map_string)
+        df = track(df,f"Jet_passJetIdTight{suff}", function_for_jetId)
+        df = track(df,f"Jet_passJetIdTightLepVeto{suff}", f"JetIdNewDef::Redefine_Jet_passJetIdTightLepVeto({p4_branch}, Jet_passJetIdTight, Jet_muEF, Jet_chEmEF)")
+        df = track(df,f"Jet_isInsideVetoRegion{suff}",f"""::correction::JetVetoMapProvider::getGlobal().GetJetVetoMapValues({p4_branch})""")
+        df = track(df,f"Jet_vetoMapLooseRegion_presel{suff}",f"Jet_pt{suff} > 15 && ( Jet_passJetIdTightLepVeto ) && (Jet_chEmEF + Jet_neEmEF < 0.9) && Jet_isInsideVetoRegion")
+        df = track(df,f"Jet_vetoMap{suff}",f"RemoveOverlaps({p4_branch}, Jet_vetoMapLooseRegion_presel{suff}, Muon_p4_{muon_default_suffix}[Muon_isPFcand], 0.2)")
 
-    if apply_filter:
-        return df.Filter(f"Jet_p4[{jet_veto_map_string}].size()==0", "Jet Veto Map filter")
-    return df,cols_to_store
+
+        if defineElectronCleaning:
+            df = track(df,f"Jet_vetoMapEle{suff}",f" RemoveOverlaps({p4_branch}, Jet_vetoMap, Electron_p4[Electron_isPFcand], 0.2)")
+
+        if apply_filter:
+            return df.Filter(f"{p4_branch}[{jet_veto_map_string}].size()==0", "Jet Veto Map filter")
+    return df,new_cols

@@ -37,61 +37,42 @@ import ROOT
 def _column_names(df):
     return {str(col) for col in df.GetColumnNames()}
 
-def DefineCategoryBooleans(df, sel_config, is_data, want_variations=False):
-    """
-    Parses the flat 'categories' section from the YAML config.
-    Applies systematic suffix replacements purely using python's .format()
-    and configuration keys, with zero hardcoded physics objects.
-    """
-    categories_dict = sel_config.get("categories", {})
-    categories_dict.update(sel_config.get("masses_regions", {}))
-    # print(categories_dict)
+
+def DefineCategories(df, sel_config, is_data, want_variations=False, syst_cfg=None):
+    categories_dict = {}
+    sections_to_load = ["masses_regions", "categories"]
+    for section in sections_to_load:
+        categories_dict.update(sel_config.get(section, {}))
     vars_to_store = []
-
-    # Lista delle variazioni attive su cui ciclare
-    suffixes = [""]  # Nominal
-
-    # if not is_data and want_variations:
-    #     suffixes.extend([
-    #         "_JERUp", "_JERDown", "_TotalUp", "_TotalDown",
-    #         "_scale_FSR_up", "_scale_FSR_down", "_resol_FSR_up", "_resol_FSR_down"
-    #     ])
-    # print(suffixes)
-    for suff in suffixes:
-        for cat_name, cat_content in categories_dict.items():
-
-            # 1. Estrazione del contenuto dal dizionario dello YAML
-            if isinstance(cat_content, dict):
-                base_expression = cat_content.get("expression", "")
-                should_store = cat_content.get("store", True)
-            else:
-                base_expression = cat_content
-                should_store = True
-
-            if not base_expression:
+    tot_suffixes = [""]
+    mu_suffixes = [""]
+    jet_suffixes = [""]
+    if want_variations and syst_cfg:
+        scales = syst_cfg.get('scales', ['up', 'down'])
+        for tot_name, syst_subdict in syst_cfg.get("systematics", {}).items():
+            if tot_name == "Central":
                 continue
+            for scale in scales:
+                tot_suffixes.append(f"_{tot_name}{scale.capitalize()}")
+                mu_suffixes.append(syst_subdict.get('muon_suffix', '').format(scale=scale))
+                jet_suffixes.append(syst_subdict.get('jet_suffix', '').format(scale=scale))
 
-            # 2. Sostituzione dei token delle macro-categorie dipendenti
-            # (es: "baseline" diventa "baseline_JERUp" se siamo nel loop JERUp)
-            formatted_expr = base_expression
-            for defined_cat in categories_dict.keys():
-                # print(f"Processing category '{cat_name}' with base expression: {base_expression}and defined cat {defined_cat}")
-                formatted_expr = formatted_expr.replace(f"{defined_cat} ", f"{defined_cat}{suff} ")
-                formatted_expr = formatted_expr.replace(f"({defined_cat})", f"({defined_cat}{suff})")
-                if formatted_expr.endswith(defined_cat):
-                    formatted_expr = formatted_expr + suff
-
-            # 3. Risoluzione dei placeholder {suff} scritti esplicitamente nello YAML
-            # Questo sostituisce simultaneamente muoni, jet, b-tag senza avere liste hardcoded nel codice!
-            formatted_expr = formatted_expr.format(suff=suff)
-
-            # 4. Generazione della colonna nell'RDataFrame
-            final_column_name = f"{cat_name}{suff}" if suff != "" else cat_name
-
-            if final_column_name not in _column_names(df):
-                df = df.Define(final_column_name, formatted_expr)
-
-                if should_store:
-                    vars_to_store.append(final_column_name)
-
+    defined_columns = set(_column_names(df))
+    for cat_name, cat_content in categories_dict.items():
+        if isinstance(cat_content, dict):
+            base_expression = cat_content.get("expression", "")
+            should_store = cat_content.get("store", True)
+        else:
+            base_expression = cat_content
+            should_store = True
+        if not base_expression:
+            print("no base expression" )
+            continue
+        for tot_suff, mu_suff, jet_suff in zip(tot_suffixes, mu_suffixes, jet_suffixes):
+            formatted_expr = base_expression.format(tot_suff=tot_suff,mu_suff=mu_suff,jet_suff=jet_suff)
+            final_column_name = f"{cat_name}{tot_suff}"
+            # print(f"defining {final_column_name} with expression: {formatted_expr}")
+            df = df.Define(final_column_name, formatted_expr)
+            if should_store:
+                vars_to_store.append(final_column_name)
     return df, vars_to_store

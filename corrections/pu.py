@@ -27,7 +27,7 @@ def apply_pu_weights(
     df,
     config,
     pileup_column="Pileup_nTrueInt",
-    return_variations=True,
+    want_variations=True,
     return_list_of_branches=True,
 ):
 
@@ -47,7 +47,7 @@ def apply_pu_weights(
     cs = correctionlib.CorrectionSet.from_file(str(pu_path))
 
     json_key = golden_json_dict.get(period_unc)
-    corr = cs[json_key] 
+    corr = cs[json_key]
     # sample pileup values (0..max_pu) to create lookup arrays
     max_pu = 200
     central_arr = []
@@ -94,15 +94,15 @@ def apply_pu_weights(
 
     branches = []
     scales = ["Central"]
-    if return_variations:
-        scales += ["Up", "Down"]
+    if want_variations:
+        scales += ["up", "down"]
 
     for scale in scales:
         branch_name = f"weight_pu"
         if scale != "Central": branch_name += f"_{scale}"
         if scale == "Central":
             expr = f"{func_c}({pileup_column})"
-        elif scale == "Up":
+        elif scale == "up":
             expr = f"{func_u}({pileup_column})"
         else:
             expr = f"{func_d}({pileup_column})"

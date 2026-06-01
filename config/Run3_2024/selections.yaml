@@ -11,12 +11,6 @@ jet_horn_veto_expr: "( ( abs(v_ops::eta(Jet_p4)) >= 2.5 && abs(v_ops::eta(Jet_p4
 # SUFFIXES & REGIONS DEFINITIONS
 # =============================================================================
 default_suffix: _ScaRe_FSR
-additional_suffix: ["_noCorr", "_ScaRe", "_scale", "_noCorr_FSR", "_scale_FSR"]
-varied_suffix: ["_scale_FSR_up", "_scale_FSR_down", "_resol_FSR_up", "_resol_FSR_down"]
-varied_additional_suff: ["_scale_up", "_scale_down", "_resol_up", "_resol_down"]
-
-# Lista aggiuntiva ad uso interno o per documentare le variazioni passive dei Jet
-jet_varied_suffix: ["_JERUp", "_JERDown", "_TotalUp", "_TotalDown", "_unCorr"]
 
 masses_regions:
     Z_sideband: "m_mumu{suff} > 70 && m_mumu{suff} < 110"

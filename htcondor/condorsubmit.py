@@ -75,6 +75,7 @@ memory = skim_config["request_memory"]
 disk = skim_config["request_disk"]
 
 max_files = skim_config["max_files"]
+datasets_whitelist = skim_config.get("datasets_whitelist",[])
 chunk_size = skim_config["chunk_size"]
 
 output_directory = skim_config["output_dir"]
@@ -85,171 +86,167 @@ output_directory = os.path.abspath(output_directory)
 # =========================================================
 # Submit jobs
 # =========================================================
+all_datasets = []
+all_datasets.extend(datasets_whitelist)
+if skim_config.get("process_to_select",[]):
+    for process in skim_config.get("process_to_select",[]):
+        for dataset in processes_cfg[process].get("datasets", [])+processes_cfg[process].get("sub_processes", []):
+            all_datasets.append(dataset)
+print(all_datasets)
+for dataset in all_datasets:
+    if "filelist" not in data[dataset]:
+        print(f"You don't have the filelist for: {dataset}")
+        continue
 
-for process in skim_config["process_to_select"]:
-    for dataset in processes_cfg[process].get("datasets", [])+processes_cfg[process].get("sub_processes", []):
-        if "filelist" not in data[dataset]:
-            print(f"You don't have the filelist for: {dataset}")
-            continue
+    condorinputs = []
+    filecounter = 0
 
-        condorinputs = []
-        filecounter = 0
+    filelist = data[dataset]["filelist"]
 
-        filelist = data[dataset]["filelist"]
+    for i in range(0, len(filelist), chunk_size):
 
-        for i in range(0, len(filelist), chunk_size):
+        input_files = []
+        output_files = []
 
-            input_files = []
-            output_files = []
+        chunk = filelist[i:i + chunk_size]
 
-            chunk = filelist[i:i + chunk_size]
+        for infile in chunk:
 
-            for infile in chunk:
-
-                output_file = (
-                    os.path.basename(infile)
-                    .replace(".root", "_skim.root")
-                )
-
-                outfile = os.path.join(
-                    output_directory,
-                    era,
-                    dataset,
-                    output_file
-                )
-
-                input_files.append(infile)
-                output_files.append(outfile)
-
-                filecounter += 1
-
-                # if max_files > 0 and filecounter >= max_files:
-                #     break
-
-            if len(input_files) == 0:
-                continue
-
-            input_list = ",".join(input_files)
-            output_list = ",".join(output_files)
-
-            arguments = (
-                f"{proxy_location} "
-                f"{ANALYSIS_PATH} "
-                f"{era} "
-                f"{input_list} "
-                f"{dataset} "
-                f"{output_list}"
+            output_file = (
+                os.path.basename(infile)
+                .replace(".root", "_skim.root")
             )
 
-            condorinputs.append({
-                "arguments": arguments,
-                "filename": os.path.basename(
-                    input_files[0].replace(".root", "")
-                ),
-                "logpath": f"{dataset}/"
-            })
-
-            # if filecounter >= max_files:
-            #     break
-
-        # =====================================================
-        # Create log directories
-        # =====================================================
-
-        if filecounter > 0:
-
-            for dirname in ["output", "error", "log"]:
-
-                path = os.path.join(
-                    HTCONDOR_PATH,
-                    era,
-                    dirname,
-                    dataset
-                )
-
-                os.makedirs(path, exist_ok=True)
-
-            output_dataset_dir = os.path.join(
+            outfile = os.path.join(
                 output_directory,
                 era,
-                dataset
+                dataset,
+                output_file
             )
 
-            os.makedirs(output_dataset_dir, exist_ok=True)
+            input_files.append(infile)
+            output_files.append(outfile)
 
-        # =====================================================
-        # Submit description
-        # =====================================================
+            filecounter += 1
 
-        executable_path = os.path.join(
-            HTCONDOR_PATH,
-            "run_skim.sh"
+            # if max_files > 0 and filecounter >= max_files:
+            #     break
+
+        if len(input_files) == 0:
+            continue
+
+        input_list = ",".join(input_files)
+        output_list = ",".join(output_files)
+
+        arguments = (
+            f"{proxy_location} "
+            f"{ANALYSIS_PATH} "
+            f"{era} "
+            f"{input_list} "
+            f"{dataset} "
+            f"{output_list}"
         )
 
-        log_path = f"{HTCONDOR_PATH}/{era}/log/{dataset}"
-        error_path = f"{HTCONDOR_PATH}/{era}/error/{dataset}"
-        output_path = f"{HTCONDOR_PATH}/{era}/output/{dataset}"
-        job = htcondor.Submit({
-
-            "executable": executable_path,
-
-            "arguments": "$(arguments)",
-
-            "output":
-                os.path.join(
-                    output_path,
-                    "$(logpath)$(filename).$(ClusterId).$(ProcId).out"
-                ),
-
-            "error":
-                os.path.join(
-                    error_path,
-                    "$(logpath)$(filename).$(ClusterId).$(ProcId).out"
-                ),
-
-            "log":
-                os.path.join(
-                    log_path,
-                    "$(logpath)$(filename).$(ClusterId).$(ProcId).out"
-                ),
-
-            "universe": "vanilla",
-
-            "Requirements":
-                '(OpSysAndVer =?= "AlmaLinux9")',
-
-            "+JobFlavour": flavour,
-
-            "RequestCpus": cpus,
-
-            "request_memory": memory,
-
-            "request_disk": disk,
-
-            "max_retries": "1",
-
-            "batch_name": dataset
+        condorinputs.append({
+            "arguments": arguments,
+            "filename": os.path.basename(
+                input_files[0].replace(".root", "")
+            ),
+            "logpath": f"{dataset}/"
         })
 
-        job["MY.SendCredential"] = "true"
+        # if filecounter >= max_files:
+        #     break
 
-        # =====================================================
-        # Submit
-        # =====================================================
+    # =====================================================
+    # Create log directories
+    # =====================================================
 
-        if len(condorinputs) > 0:
+    if filecounter > 0:
 
-            print(
-                f"Submitting {len(condorinputs)} jobs "
-                f"for dataset {dataset}"
+            log_base = os.path.join(HTCONDOR_PATH, "log", era, dataset)
+            err_base = os.path.join(HTCONDOR_PATH, "error", era, dataset)
+            out_base = os.path.join(HTCONDOR_PATH, "output", era, dataset)
+
+            for p in [log_base, err_base, out_base]:
+                os.makedirs(p, exist_ok=True)
+
+            output_dataset_dir = os.path.join(output_directory, era, dataset)
+            os.makedirs(output_dataset_dir, exist_ok=True)
+
+
+
+    # =====================================================
+    # Submit description
+    # =====================================================
+
+    executable_path = os.path.join(
+        HTCONDOR_PATH,
+        "run_skim.sh"
+    )
+
+    log_path = f"{HTCONDOR_PATH}/log/{era}/{dataset}"
+    error_path = f"{HTCONDOR_PATH}/error/{era}/{dataset}"
+    output_path = f"{HTCONDOR_PATH}/output/{era}/{dataset}"
+    job = htcondor.Submit({
+
+        "executable": executable_path,
+
+        "arguments": "$(arguments)",
+
+        "output": os.path.join(
+            out_base,
+            "$(filename).$(ClusterId).$(ProcId).out"
+        ),
+
+        "error": os.path.join(
+            err_base,
+            "$(filename).$(ClusterId).$(ProcId).err"
+        ),
+
+        "log": os.path.join(
+            log_base,
+            "$(filename).$(ClusterId).$(ProcId).log"
+        ),
+
+
+        "universe": "vanilla",
+
+        "Requirements":
+            '(OpSysAndVer =?= "AlmaLinux9")',
+
+        "+JobFlavour": flavour,
+
+        "RequestCpus": cpus,
+
+        "request_memory": memory,
+
+        "request_disk": disk,
+
+        "max_retries": "1",
+
+        "batch_name": dataset
+    })
+
+    job["MY.SendCredential"] = "true"
+
+    # =====================================================
+    # Submit
+    # =====================================================
+
+    if len(condorinputs) > 0:
+
+        print(
+            f"Submitting {len(condorinputs)} jobs "
+            f"for dataset {dataset}"
+        )
+
+        if skim_config["submit"]:
+
+            submit_result = schedd.submit(
+                job,
+                itemdata=iter(condorinputs)
             )
-
-            if skim_config["submit"]:
-
-                submit_result = schedd.submit(
-                    job,
-                    itemdata=iter(condorinputs)
-                )
 
 # import htcondor
 # import yaml

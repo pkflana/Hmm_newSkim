@@ -63,13 +63,14 @@ def hadd_datasets_to_processes():
         #     .replace("\\nu", "nu")
         #     .replace("#", "")
         # )
-        if process_name == "Data_Full" or process_name=="DY": continue
+        # if process_name == "Data_Full" : continue
+        # if process_name=="DY": continue
 
         if process_name not in process_mapping:
             process_mapping[process_name] = []
 
         process_mapping[process_name].extend(datasets)
-    print(process_mapping)
+    # print(process_mapping)
     # 2. Controllo file ed Esecuzione/Stampa
     if DRY_RUN:
         print("\n=== [DRY-RUN] PIANO DI ACCOPPIAMENTO (Solo file esistenti) ===")

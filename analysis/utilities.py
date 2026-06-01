@@ -18,40 +18,6 @@ def generate_enum_class(cls):
     enum_string += "};"
     return enum_string
 
-# def SaveReport(rdf, report, reportName="Report", verbose=0):
-#     cuts = [c for c in report]
-#     # hist = ROOT.TH1D(reportName, reportName, len(cuts) + 1, 0, len(cuts) + 1)
-#     if len(cuts) > 0:
-#         rdf = rdf.Define(f"Initial", )
-#         hist.GetXaxis().SetBinLabel(1, "Initial")
-#         hist.SetBinContent(1, cuts[0].GetAll())
-#         for c_id, cut in enumerate(cuts):
-#             hist.SetBinContent(c_id + 2, cut.GetPass())
-#             hist.GetXaxis().SetBinLabel(c_id + 2, cut.GetName())
-#             if verbose > 0:
-#                 print(
-#                     f"for the cut {cut.GetName()} there are {cut.GetPass()} events passed over {cut.GetAll()}, resulting in an efficiency of {cut.GetEff()}"
-#                 )
-#     return hist
-
-# def SaveReport(rdf, report, verbose=0):
-#     cuts = [c for c in report]
-#     cols_to_store = []
-#     if len(cuts) > 0:
-#         rdf = rdf.Define(f"Report_Initial", f"{cuts[0].GetAll()}")
-#         cols_to_store.append(f"Report_Initial")
-#         for c_id, cut in enumerate(cuts):
-#             cut_name = '_'.join(str(cut.GetName()).split(" "))
-#             rdf = rdf.Define(f"Report_{cut_name}", f"{cut.GetPass()}")
-#             cols_to_store.append(f"Report_{cut_name}")
-#             rdf = rdf.Define(f"Eff_{cut_name}", f"{cut.GetEff()}")
-#             cols_to_store.append(f"Eff_{cut_name}")
-#             if verbose > 0:
-#                 print(
-#                     f"for the cut {cut.GetName()} there are {cut.GetPass()} events passed over {cut.GetAll()}, resulting in an efficiency of {cut.GetEff()}"
-#                 )
-#     return rdf,cols_to_store
-
 import json
 
 def SaveReport(rdf, report, verbose=0):
@@ -69,7 +35,7 @@ def SaveReport(rdf, report, verbose=0):
             eff = cut.GetEff()
             report_json[cut_name] = {
                 "pass": passed,
-                "eff": eff
+                # "eff": eff            
             }
             if verbose > 0:
                 print(
