@@ -16,8 +16,8 @@ plt.style.use(hep.style.CMS)
 if __name__ == "__main__":
     sys.path.append(os.environ["ANALYSIS_PATH"])
 
-import analysis.utilities as utilities
-from histograms.helpers import *
+import common.utilities as utilities
+from common.helpers import *
 
 HEADERS = ["analysis/AnalysisTools.h"]
 for header in HEADERS:

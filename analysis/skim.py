@@ -4,7 +4,6 @@ import argparse
 import zlib
 from pathlib import Path
 import ROOT
-import utilities
 import json
 
 if __name__ == "__main__":
@@ -14,6 +13,7 @@ headers_dir = os.path.dirname(os.path.abspath(__file__))
 ROOT.gInterpreter.Declare(
     f'#include "{os.path.join(headers_dir, "AnalysisTools.h")}"'
 )
+import common.utilities as utilities
 
 parser = argparse.ArgumentParser(description="Run the Hmumu skim.")
 parser.add_argument("--era", required=True)

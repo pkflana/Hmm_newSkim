@@ -9,13 +9,14 @@ import time
 if __name__ == "__main__":
     sys.path.append(os.environ["ANALYSIS_PATH"])
 
-import analysis.utilities as utilities
+import common.utilities as utilities
 
 HEADERS = ["analysis/AnalysisTools.h"]
 for header in HEADERS:
     utilities.DeclareHeader(f"{os.environ['ANALYSIS_PATH']}/{header}")
 
-from histograms.helpers import GetModel,GetRdfForDataset
+from common.helpers import GetModel,GetRdfForDataset
+
 
 
 parser = argparse.ArgumentParser()

@@ -7,7 +7,7 @@ import json
 
 if __name__ == "__main__":
     sys.path.append(os.environ["ANALYSIS_PATH"])
-import analysis.utilities as utilities
+import common.utilities as utilities
 
 
 # ****** root / json files manipulation
@@ -100,7 +100,7 @@ def get_segmentation_dict(input_dir, node="gen"):
 # ****** RDF manipulation
 
 from histograms.defineTriggerWeights import AddTriggerWeightsAndErrors
-from histograms.add_vars import SelectedJetObservablesDef,VBFJetObservablesDef,GetAllMuonsObservablesNew,SoftJetCollectionCleaningInVBF,VBFJetMuonsObservablesDef
+from .add_vars_to_skim_tuples import SelectedJetObservablesDef,VBFJetObservablesDef,GetAllMuonsObservablesNew,SoftJetCollectionCleaningInVBF,VBFJetMuonsObservablesDef
 
 def build_rdf(rdf, is_data, seg_dict,weight_dict, store_shifted_weights):
     if not is_data:

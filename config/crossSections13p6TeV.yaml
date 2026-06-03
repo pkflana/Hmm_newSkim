@@ -172,11 +172,11 @@ DYto2L_M_10to50_madgraphMLM:
   unc: 26.57
 
 DYto2L_M_50_0J_amcatnloFXFX_allFlavors:
-  crossSec: 5378.0
+  crossSec: 5378.0 *(3*2094.2/6688.00)
   reference: XSDB DYto2L-2Jets_MLL-50_0J_TuneCP5_13p6TeV_amcatnloFXFX-pythia8 modifiedOn 2024-04-03 19:19:07
   unc: 8.007
 DYto2L_M_50_0J_amcatnloFXFX_singleFlavor:
-  crossSec: 5378.0 / 3
+  crossSec: 5378.0 / 3 * (3*2094.2/6688.00)
   reference: XSDB DYto2L-2Jets_MLL-50_0J_TuneCP5_13p6TeV_amcatnloFXFX-pythia8 modifiedOn 2024-04-03 19:19:07
   unc: 8.007 / 3
   comments: "divided by 3 to account for e, mu, tau"
@@ -191,7 +191,7 @@ DYto2Tau_M_50_0J_Filtered_amcatnloFXFX_singleFlavor:
   unc: 14.152 / 3
   comments: "divided by 3 to account for e, mu, tau"
 DYto2L_M_50_1J_amcatnloFXFX_allFlavors:
-  crossSec: 1017.0
+  crossSec: 1017.0 *(3*2094.2/6688.00)
   reference: XSDB DYto2L-2Jets_MLL-50_1J_TuneCP5_13p6TeV_amcatnloFXFX-pythia8 modifiedOn 2024-04-03 19:19:09
   unc: 6.264
 DYto2L_M_50_1J_amcatnloFXFX_singleFlavor:
@@ -209,7 +209,7 @@ DYto2Tau_M_50_1J_Filtered_amcatnloFXFX_singleFlavor:
   unc: 11.8 / 3
   comments: "divided by 3 to account for e, mu, tau"
 DYto2L_M_50_2J_amcatnloFXFX_allFlavors:
-  crossSec: 385.5
+  crossSec: 385.5 * (3*2094.2/6688.00)
   reference: XSDB DYto2L-2Jets_MLL-50_2J_TuneCP5_13p6TeV_amcatnloFXFX-pythia8 modifiedOn 2024-04-03 19:19:12
   unc: 3.858
 DYto2L_M_50_2J_amcatnloFXFX_singleFlavor:

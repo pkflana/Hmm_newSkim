@@ -40,7 +40,7 @@ weights:
     jet_suffix: ""
     weight: "weight__Central"
     expression: >
-      weight_gen *
+      genWeight *
       weight_lumi *
       weight_xs *
       weight_pu *
@@ -60,7 +60,7 @@ weights:
     name: "CMS_pileup_{scale}"
     weight: "weight__PU_{scale}"
     expression: >
-      weight_gen *
+      genWeight *
       weight_lumi *
       weight_xs *
       weight_pu_{scale} *
@@ -80,7 +80,7 @@ weights:
     name: CMS_eff_m_id_{}
     weight: "weight__MuonID_{scale}"
     expression: >
-      weight_gen *
+      genWeight *
       weight_lumi *
       weight_xs *
       weight_pu *
@@ -96,7 +96,7 @@ weights:
     name: CMS_eff_m_id_iso_{scale}
     weight: "weight__MuonIso_{scale}"
     expression: >
-      weight_gen *
+      genWeight *
       weight_lumi *
       weight_xs *
       weight_pu *
@@ -116,7 +116,7 @@ weights:
     name: CMS_trig_singleMu_{}
     weight: "weight__singleMuTrigger_{scale}"
     expression: >
-      weight_gen *
+      genWeight *
       weight_lumi *
       weight_xs *
       weight_pu *
