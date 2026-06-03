@@ -29,8 +29,8 @@ dryrun: false
 process_to_select:
   # - Data_Muon
   - DY
-  # - DYto2Mu_MLL105To160
-  - TT
+  - DYto2Mu_MLL105To160
+  # - TT
   # - W_NJets
   # - EWK
   # - EWK_2Mu2J_MLL_105to160_herwig
