@@ -1,17 +1,19 @@
 import ROOT
 import sys
 from pathlib import Path
+
 ROOT_DIR = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT_DIR))
 from .utilities import *
 
-def _column_names(df):
-    return {str(col) for col in df.GetColumnNames()}
+
+def _column_names(df): return {str(col) for col in df.GetColumnNames()}
+
 
 def _define_if_missing(df, name, expression):
-    if name in _column_names(df):
-        return df
+    if name in _column_names(df): return df
     return df.Define(name, expression)
+
 
 def _declare_muon_helpers():
     ROOT.gInterpreter.Declare(
@@ -20,285 +22,186 @@ def _declare_muon_helpers():
         #define NEW_SKIM_MUON_ANALYSIS_HELPERS
         using RVecF = ROOT::VecOps::RVec<float>;
 
-        RVecF Muon_pt_sel(const RVecF& Muon_nano_pt, const RVecF& Muon_bsc_pt, const RVecF& Muon_bsc_chi2) {
-            RVecF Muon_pt_sel(Muon_nano_pt.size());
-            for (size_t i = 0; i < Muon_pt_sel.size(); ++i) {
-                Muon_pt_sel[i] = (Muon_bsc_chi2[i] < 30) ? Muon_bsc_pt[i] : Muon_nano_pt[i];
+        RVecF Muon_pt_err_sel(const RVecF& Muon_nano_pt_err, const RVecF& Muon_bsc_pt_err, const RVecF& Muon_bsc_chi2) {
+            RVecF out(Muon_nano_pt_err.size());
+            for (size_t i = 0; i < out.size(); ++i) {
+                out[i] = (Muon_bsc_chi2[i] < 30) ? Muon_bsc_pt_err[i] : Muon_nano_pt_err[i];
             }
-            return Muon_pt_sel;
+            return out;
+        }
+
+        RVecF Muon_pt_sel(const RVecF& Muon_nano_pt, const RVecF& Muon_bsc_pt, const RVecF& Muon_bsc_chi2) {
+            RVecF out(Muon_nano_pt.size());
+            for (size_t i = 0; i < out.size(); ++i) {
+                out[i] = (Muon_bsc_chi2[i] < 30) ? Muon_bsc_pt[i] : Muon_nano_pt[i];
+            }
+            return out;
         }
         #endif
         """
     )
 
-# =============================================================================
-# 1. PT & P4 VARIATION CONFIGURATIONS
-# =============================================================================
-def GetPtConfigurations(is_data, only_default, want_variations):
-    """Returns the explicit mapping of (OutputColumn, NanoBranch, BscBranch)"""
-    configs = [
-        ("Muon_pt_noCorr",     "Muon_pt",                "Muon_bsConstrainedPt"),
-        ("Muon_pt_ScaRe",      "Muon_pt_corr",           "Muon_bsc_pt_corr"),
-        ("Muon_pt_ScaRe_FSR",  "Muon_pt_nano_scare_FSR", "Muon_bsc_pt_nano_scare_FSR")
-    ]
+def GetPtConfigurations(only_default, want_variations):
+    configs = {
+        "Muon_pt_noCorr": ["Muon_pt", "Muon_bsConstrainedPt"],
+        "Muon_pt_corr": ["Muon_pt_nano_corr", "Muon_pt_bsc_corr"],
+        "Muon_pt_corr_FSR": ["Muon_pt_nano_corr_FSR", "Muon_pt_bsc_corr_FSR"],
+        "Muon_pt_FSR_scale": ["Muon_pt_nano_scale_FSR", "Muon_pt_bsc_scale_FSR"],
+        "Muon_pt_scale": ["Muon_pt_nano_scale", "Muon_pt_bsc_scale"],
+    }
     if not only_default:
-        configs.extend([
-            ("Muon_pt_scale",      "Muon_pt_scale_corr",          "Muon_bsc_pt_scale_corr"),
-            ("Muon_pt_noCorr_FSR", "Muon_pt_nano_FSR",            "Muon_pt_bsc_FSR"),
-            ("Muon_pt_scale_FSR",  "Muon_pt_nano_scale_corr_FSR", "Muon_bsc_pt_nano_scale_corr_FSR")
-        ])
-    if not is_data and want_variations:
-        configs.extend([
-            ("Muon_pt_scale_FSR_up",   "Muon_pt_nano_scale_corr_FSR_up",   "Muon_bsc_pt_nano_scale_corr_FSR_up"),
-            ("Muon_pt_scale_FSR_down", "Muon_pt_nano_scale_corr_FSR_down", "Muon_bsc_pt_nano_scale_corr_FSR_down"),
-            ("Muon_pt_resol_FSR_up",   "Muon_pt_nano_corr_resol_FSR_up",   "Muon_bsc_pt_nano_corr_resol_FSR_up"),
-            ("Muon_pt_resol_FSR_down", "Muon_pt_nano_corr_resol_FSR_down", "Muon_bsc_pt_nano_corr_resol_FSR_down")
-        ])
-        if not only_default:
-            configs.extend([
-                ("Muon_pt_scale_up",   "Muon_pt_scale_corr_up",   "Muon_bsc_pt_scale_corr_up"),
-                ("Muon_pt_scale_down", "Muon_pt_scale_corr_down", "Muon_bsc_pt_scale_corr_down"),
-                ("Muon_pt_resol_up",   "Muon_pt_corr_resol_up",   "Muon_bsc_pt_corr_resol_up"),
-                ("Muon_pt_resol_down", "Muon_pt_corr_resol_down", "Muon_bsc_pt_corr_resol_down")
-            ])
-    return configs
+        configs.update({
+            "Muon_pt_noCorr_FSR": ["Muon_pt_nano_FSR", "Muon_bsConstrainedPt"],
+        })
+    if want_variations:
+        configs.update({
+            "Muon_pt_FSR_scale_up": ["Muon_pt_nano_FSR_scale_up", "Muon_pt_bsc_FSR_scale_up"],
+            "Muon_pt_FSR_scale_down": ["Muon_pt_nano_FSR_scale_down", "Muon_pt_bsc_FSR_scale_down"],
+            "Muon_pt_FSR_res_up": ["Muon_pt_nano_FSR_res_up", "Muon_pt_bsc_FSR_res_up"],
+            "Muon_pt_FSR_res_down": ["Muon_pt_nano_FSR_res_down", "Muon_pt_bsc_FSR_res_down"],
+        })
+    err_configs = {
+        "Muon_pt_err": ["Muon_ptErr", "Muon_bsConstrainedPtErr"],
+    }
+    return configs,err_configs
 
-
-def DefineMuonPtAndP4(df, is_data, only_default=True, want_variations=False):
-    """Sets up primary pT vectors and Lorentz Vectors inside the RDataFrame"""
+def DefineMuonPtAndP4(df, only_default, want_variations):
     _declare_muon_helpers()
-    pt_configurations = GetPtConfigurations(is_data, only_default, want_variations)
-    available_cols = _column_names(df)
-
-    for name_pt, branch_nano, branch_bsc in pt_configurations:
-        if branch_nano not in available_cols or branch_bsc not in available_cols:
-            continue
-        df = _define_if_missing(df, name_pt, f"Muon_pt_sel({branch_nano}, {branch_bsc}, Muon_bsConstrainedChi2)")
-        df = _define_if_missing(df, name_pt.replace("pt", "p4"), f"GetP4({name_pt}, Muon_eta, Muon_phi, Muon_mass)")
+    configs,err_configs = GetPtConfigurations(only_default, want_variations)
+    cols = _column_names(df)
+    for name_pt, (nano, bsc) in configs.items():
+        df = _define_if_missing(df,name_pt,f"Muon_pt_sel({nano}, {bsc}, Muon_bsConstrainedChi2)")
+        df = _define_if_missing(df,name_pt.replace("pt", "p4"),f"GetP4({name_pt}, Muon_eta, Muon_phi, Muon_mass)")
+    for name_err, (nano_err, bsc_err) in err_configs.items():
+         df = _define_if_missing(df,name_err,f"Muon_pt_err_sel({nano_err}, {bsc_err}, Muon_bsConstrainedChi2)")
     return df
 
-
-# =============================================================================
-# 2. GLOBAL TRIGGER EVENT FILTER
-# =============================================================================
-def ApplyMuonTriggerMatching(df, trigger_config, apply_filter=True):
-    """Applies strict event filtering based on Trigger Object matching"""
-    matching_bool_vars = []
-    available_cols = _column_names(df)
-
-    if "TrigObj_pt" in available_cols:
+def ApplyMuonTriggerMatching(df, trigger_config, apply_filter):
+    cols = _column_names(df)
+    if "TrigObj_pt" in cols:
         df = _define_if_missing(df, "TrigObj_idx", "CreateIndexes(TrigObj_pt.size())")
-        if "TrigObj_mass" not in available_cols:
-            df = _define_if_missing(df, "TrigObj_mass", "RVecF(TrigObj_pt.size(), 0.f)")
-        df = _define_if_missing(df, "TrigObj_p4", "GetP4(TrigObj_pt, TrigObj_eta, TrigObj_phi, TrigObj_mass, TrigObj_idx)")
-
+        df = _define_if_missing(df, "TrigObj_mass", "RVecF(TrigObj_pt.size(), 0.f)")
+        df = _define_if_missing(df, "TrigObj_p4","GetP4(TrigObj_pt, TrigObj_eta, TrigObj_phi, TrigObj_mass, TrigObj_idx)")
+    filters = []
     for path, config in trigger_config.items():
         path_name = config["path"][0]
-        matching_bool_vars.append(path_name)
-        leg_config = config["legs"][0]
+        leg = config["legs"][0]
+        offline = leg["offline_obj"]["cut"].format(obj="Muon", pt="pt_corr_FSR")
+        online = leg["online_obj"]["cut"]
+        df = _define_if_missing(df, f"Muon_passOfflineCut_{path}", offline)
+        df = _define_if_missing(df, f"TrigObj_passOnlineCut_{path}", online)
+        df = _define_if_missing(df,f"Muon_TriggerMatchingIdx_{path}",f"FindMatching(Muon_passOfflineCut_{path}, TrigObj_passOnlineCut_{path}, Muon_p4_corr_FSR, TrigObj_p4, 0.4)")
+        evt = f"Event_HasTriggerMatching_{path}"
+        df = df.Define(evt, f"{path_name} && Any(Muon_TriggerMatchingIdx_{path} > -1)")
+        filters.append(evt)
+    if apply_filter:
+        df = df.Filter(" || ".join(filters), "Trigger matching for " + "__".join(trigger_config.keys()))
+    return df, filters
 
-        offline_cut_expr = leg_config["offline_obj"]["cut"].format(obj="Muon", pt="pt_ScaRe_FSR")
-        online_cut_expr = leg_config["online_obj"]["cut"]
-        df = _define_if_missing(df, f"Muon_passOfflineCut_{path}", offline_cut_expr)
-        df = _define_if_missing(df, f"TrigObj_passOnlineCut_{path}", online_cut_expr)
-        df = _define_if_missing(df, f"Muon_TriggerMatchingIdx_{path}",
-                                f"FindMatching(Muon_passOfflineCut_{path}, TrigObj_passOnlineCut_{path}, Muon_p4_ScaRe_FSR, TrigObj_p4, 0.4)")
-        matching_branch_bool = f"Event_HasTriggerMatching_{path}"
-        df = df.Define(matching_branch_bool, f"{path_name} && Any(Muon_TriggerMatchingIdx_{path} > -1)")
-        matching_bool_vars.append(matching_branch_bool)
+def ProcessMuonVariables(df,muon_columns,default_suffix,trigger_config,only_default,want_variations,pt_min,lower_mass_cut,upper_mass_cut,syst_cfg):
+    cols = _column_names(df)
+    selection_pt = [f"Muon_pt_{default_suffix}"]
+    syst_suffixes = [""]
+    if want_variations:
+        scales = syst_cfg.get('scales',['up','down'])
+        syst_suffixes.extend([syst_cfg['systematics']['MuonScale']['muon_suffix'].format(scale=scale) for scale in scales])
+        syst_suffixes.extend([syst_cfg['systematics']['MuonRes']['muon_suffix'].format(scale=scale) for scale in scales])
+        selection_pt += ["Muon_pt{syst}" for syst in syst_suffixes]
+    new_cols = []
 
-    if apply_filter and matching_bool_vars:
-        df = df.Filter(" || ".join(matching_bool_vars), "Trigger application filter")
-    return df, matching_bool_vars
-
-
-# =============================================================================
-# 3. CORE PROCESSING & KINEMATIC FILTERS
-# =============================================================================
-def ProcessMuonVariables(df, is_data, muon_columns, default_suffix, trigger_config, only_default=True, want_variations=False, pt_min=15.0, mass_cut=50.0):
-    """Processes signal dimuons using main/shifted configurations. noCorr and ScaRe are computed passively."""
-    new_muon_cols = []
-    available_cols = _column_names(df)
-
-    # 3a. Active configurations guiding the event filters (Excluding noCorr & ScaRe)
-    nominal_pt_branch = f"Muon_pt{default_suffix}"
-    filtering_pt_configs = [nominal_pt_branch]
-    if not only_default:
-        filtering_pt_configs.extend(["Muon_pt_scale", "Muon_pt_scale_FSR"])
-    if not is_data and want_variations:
-        filtering_pt_configs.extend([
-            "Muon_pt_scale_FSR_up", "Muon_pt_scale_FSR_down",
-            "Muon_pt_resol_FSR_up", "Muon_pt_resol_FSR_down"
-        ])
-        if not only_default:
-            filtering_pt_configs.extend([
-                "Muon_pt_scale_up", "Muon_pt_scale_down",
-                "Muon_pt_resol_up", "Muon_pt_resol_down"
-            ])
-
-    # 3b. Map additional scalar branches
-    muon_scalar_branches = {}
-    for col in muon_columns:
-        if "pt" in col.lower(): continue
-        suffix_clean = "_".join(col.split("_")[1:])
-        muon_scalar_branches[suffix_clean] = col
-
-    def define_and_track(dataframe, name, expr):
-        if name in _column_names(dataframe): return dataframe
-        if "p4" not in name: new_muon_cols.append(name)
-        return dataframe.Define(name, expr)
+    def track(df, name, expr):
+        if name in _column_names(df): return df
+        if "p4" not in name: new_cols.append(name)
+        return df.Define(name, expr)
 
     event_filters = []
     mass_filters = []
 
-    # 3c. Main loop over active filtering configurations
-    for name_pt in filtering_pt_configs:
-        if name_pt not in available_cols: continue
-
-        is_nominal = (name_pt == nominal_pt_branch)
-        suff = "" if is_nominal else "_" + name_pt.replace("Muon_pt_", "")
-
-        # Object selection
-        df = df.Define(f"good_muons{suff}", f"{name_pt} > {pt_min} && abs(Muon_eta) < 2.4 && Muon_mediumId && Muon_pfIsoId >= 2")
-        df = df.Define(f"good_idx{suff}", f"ROOT::VecOps::Nonzero(good_muons{suff})")
-        df = df.Define(f"sorted_idx{suff}", f"Reverse(Take(good_idx{suff}, Argsort(Take({name_pt}, good_idx{suff}))))")
-
-        # Pick leading & subleading
-        df = define_and_track(df, f"mu1_idx{suff}", f"sorted_idx{suff}.size() > 0 ? (int)sorted_idx{suff}[0] : -1")
-        df = define_and_track(df, f"mu2_idx{suff}", f"sorted_idx{suff}.size() > 1 ? (int)sorted_idx{suff}[1] : -1")
-
-        # CRITICO: Enforce exactly 2 muons for the default configuration, but allow >= 2 for systematic loops
-        if is_nominal:
-            event_filters.append(f"sorted_idx{suff}.size() == 2")
-        # else:
-        #     event_filters.append(f"sorted_idx{suff}.size() > 1")
-
-        # Save specific single muon variables
-        for num in [1, 2]:
-            idx = f"mu{num}_idx{suff}"
-            df = define_and_track(df, f"mu{num}_pt{suff}", f"{idx} >= 0 ? {name_pt}[{idx}] : -999.f")
-
-            for branch_suff, original_branch in muon_scalar_branches.items():
-                df = define_and_track(df, f"mu{num}_{branch_suff}{suff}", f"{idx} >= 0 ? {original_branch}[{idx}] : -999.f")
-
-            df = define_and_track(df, f"mu{num}_p4{suff}",
-                                  f"{idx} >= 0 ? ROOT::Math::LorentzVector<ROOT::Math::PtEtaPhiM4D<double>>({name_pt}[{idx}], Muon_eta[{idx}], Muon_phi[{idx}], Muon_mass[{idx}]) : ROOT::Math::LorentzVector<ROOT::Math::PtEtaPhiM4D<double>>(0,0,0,0)")
-
+    for suff in syst_suffixes:
+        is_nominal = (suff == "")
+        pt=f"Muon_pt{suff}"
+        if is_nominal: pt = "Muon_pt_"+default_suffix
+        df = df.Define(f"good_muons{suff}",f"{pt} > {pt_min} && abs(Muon_eta) < 2.4 && Muon_mediumId && Muon_pfIsoId >= 2")
+        df = df.Define(f"good_idx{suff}",f"ROOT::VecOps::Nonzero(good_muons{suff})")
+        df = df.Define(f"sorted_idx{suff}",f"Reverse(Take(good_idx{suff}, Argsort(Take({pt}, good_idx{suff}))))")
+        df = track(df, f"mu1_idx{suff}", f"sorted_idx{suff}.size()>0 ? (int)sorted_idx{suff}[0] : -1")
+        df = track(df, f"mu2_idx{suff}", f"sorted_idx{suff}.size()>1 ? (int)sorted_idx{suff}[1] : -1")
+        event_filters.append(f"sorted_idx{suff}.size() == 2")
+        for i in [1, 2]:
+            idx = f"mu{i}_idx{suff}"
+            df = track(df, f"mu{i}_pt{suff}", f"{idx}>=0 ? {pt}[{idx}] : -999.f")
+            df = track(df,f"mu{i}_p4{suff}",f"{idx}>=0 ? ROOT::Math::LorentzVector<ROOT::Math::PtEtaPhiM4D<double>>({pt}[{idx}], Muon_eta[{idx}], Muon_phi[{idx}], Muon_mass[{idx}]) : ROOT::Math::LorentzVector<ROOT::Math::PtEtaPhiM4D<double>>(0,0,0,0)")
+            for muon_col in muon_columns+['Muon_pt_corr','Muon_pt_err', 'Muon_pt_scale', 'Muon_pt_FSR_scale']:
+                suffix_clean = "_".join(c for c in muon_col.split("_")[1:])
+                df = track(df, f"mu{i}_{suffix_clean}{suff}", f"{idx}>=0 ? {muon_col}[{idx}] : -999.f")
             for path in trigger_config.keys():
+                df = track(df, f"mu{i}_HasTriggerMatching_{path}{suff}", f"{idx} >= 0 ? (Muon_TriggerMatchingIdx_{path}[{idx}] >= 0) : false")
 
-                df = define_and_track(df, f"mu{num}_HasTriggerMatching_{path}{suff}", f"{idx} >= 0 ? (Muon_TriggerMatchingIdx_{path}[{idx}] >= 0) : false")
+        p4 = f"(mu1_p4{suff} + mu2_p4{suff})"
+        df = track(df, f"m_mumu{suff}", f"{p4}.M()")
+        mass_filters.append(f"m_mumu{suff} > {lower_mass_cut} && m_mumu{suff} < {upper_mass_cut}")
 
-        # Compute pair metrics
-        p4_mumu = f"(mu1_p4{suff} + mu2_p4{suff})"
-        df = define_and_track(df, f"m_mumu{suff}", f"{p4_mumu}.M()")
-        df = define_and_track(df, f"pt_mumu{suff}", f"{p4_mumu}.Pt()")
-        df = define_and_track(df, f"eta_mumu{suff}", f"{p4_mumu}.Eta()")
-        df = define_and_track(df, f"phi_mumu{suff}", f"{p4_mumu}.Phi()")
-        df = define_and_track(df, f"dR_mumu{suff}", f"ROOT::Math::VectorUtil::DeltaR(mu1_p4{suff}, mu2_p4{suff})")
+    df = df.Filter(" && ".join(event_filters), "Exactly 2 muons")
+    df = df.Filter(" && ".join(mass_filters), "dimuon mass cut")
 
-        mass_filters.append(f"m_mumu{suff} > {mass_cut}")
-
-    # 3d. Apply active filters to the data stream
-    operator = " || " if (not is_data and want_variations) else " && "
-    df = df.Filter(operator.join(event_filters), "Dimuon multiplicity selection (Exactly 2 for default configuration)")
-
-    df = df.Filter(operator.join(mass_filters), f"Dimuon mass cut > {mass_cut} GeV")
-
-    # 3e. Passive evaluation of noCorr and ScaRe variables anchored to the nominal selection indices
-    nominal_suff = ""
-    idx_mu1 = f"mu1_idx{nominal_suff}"
-    idx_mu2 = f"mu2_idx{nominal_suff}"
-
-    passive_pt_variables = {
-        "_noCorr": "Muon_pt_noCorr",
-        "_ScaRe":  "Muon_pt_ScaRe"
-    }
-
-    for label, branch_pt in passive_pt_variables.items():
-        if branch_pt not in available_cols: continue
-
-        df = define_and_track(df, f"mu1_pt{label}", f"{idx_mu1} >= 0 ? {branch_pt}[{idx_mu1}] : -999.f")
-        df = define_and_track(df, f"mu2_pt{label}", f"{idx_mu2} >= 0 ? {branch_pt}[{idx_mu2}] : -999.f")
-
-        df = define_and_track(df, f"mu1_p4{label}", f"{idx_mu1} >= 0 ? ROOT::Math::LorentzVector<ROOT::Math::PtEtaPhiM4D<double>>({branch_pt}[{idx_mu1}], Muon_eta[{idx_mu1}], Muon_phi[{idx_mu1}], Muon_mass[{idx_mu1}]) : ROOT::Math::LorentzVector<ROOT::Math::PtEtaPhiM4D<double>>(0,0,0,0)")
-        df = define_and_track(df, f"mu2_p4{label}", f"{idx_mu2} >= 0 ? ROOT::Math::LorentzVector<ROOT::Math::PtEtaPhiM4D<double>>({branch_pt}[{idx_mu2}], Muon_eta[{idx_mu2}], Muon_phi[{idx_mu2}], Muon_mass[{idx_mu2}]) : ROOT::Math::LorentzVector<ROOT::Math::PtEtaPhiM4D<double>>(0,0,0,0)")
-
-        p4_mumu_passive = f"(mu1_p4{label} + mu2_p4{label})"
-        df = define_and_track(df, f"m_mumu{label}", f"{p4_mumu_passive}.M()")
-        df = define_and_track(df, f"pt_mumu{label}", f"{p4_mumu_passive}.Pt()")
-
-    return df, new_muon_cols
+    onlyCentral_branches = ["Muon_pt_noCorr"]
+    idx1 = "mu1_idx"
+    idx2 = "mu2_idx"
+    for centr_br in onlyCentral_branches:
+        suffix_br = "_".join(c for c in centr_br.split("_")[1:])
+        df = track(df, f"mu1_{suffix_br}", f"{idx1}>=0 ? {centr_br}[{idx1}] : -999.f")
+        df = track(df, f"mu2_{suffix_br}", f"{idx2}>=0 ? {centr_br}[{idx2}] : -999.f")
+    return df, new_cols
 
 
-# =============================================================================
-# 4. OBJECT VETOS & ADDITIONAL SYSTEMATICS DEFINITIONS
-# =============================================================================
+def ProcessExtraMuonVariables(df,muon_columns,default_suffix,trigger_config,only_default,want_variations,pt_min):
+
+    cols = _column_names(df)
+    new_cols = []
+    pt_list = [f"Muon_pt_{default_suffix}"]
+    def track(df, name, expr):
+        if name in _column_names(df): return df
+        new_cols.append(name)
+        return df.Define(name, expr)
+    for pt in pt_list:
+        if pt not in cols:
+            print(f"pt column {pt} not found, skipping extra muon variables")
+            continue
+        df = _define_if_missing(df, "Muon_idx", f"CreateIndexes({pt}.size())")
+        df = df.Define( "extra_good_muons", f"{pt} > {pt_min} && abs(Muon_eta) < 2.4 && Muon_looseId && Muon_pfIsoId >= 2 && " f"Muon_idx != mu1_idx && " f"Muon_idx != mu2_idx")
+        df = df.Define("extra_good_idx", "ROOT::VecOps::Nonzero(extra_good_muons)")
+        df = df.Define("extra_sorted_idx", f"Reverse(Take(extra_good_idx, Argsort(Take({pt}, extra_good_idx))))")
+        df = track(df, "extraMuon_idx", "extra_sorted_idx")
+        df = track(df, "n_extraMuon", "int(extraMuon_idx.size())")
+        df = track(df, "extraMuon_pt", f"Take({pt}, extraMuon_idx)")
+        df = track(df, "extraMuon_eta", "Take(Muon_eta, extraMuon_idx)")
+        df = track(df, "extraMuon_phi", "Take(Muon_phi, extraMuon_idx)")
+        df = track(df, "extraMuon_charge", "Take(Muon_charge, extraMuon_idx)")
+        for col in muon_columns + ['Muon_pt_corr','Muon_pt_err']:
+            suffix_clean = "_".join(c for c in col.split("_")[1:])
+            if f"extraMuon_{suffix_clean}" not in _column_names(df):
+                df = track(df, f"extraMuon_{suffix_clean}", f"Take({col}, extraMuon_idx)")
+    return df, new_cols
+
 def ApplyElectronVeto(df):
     df = df.Define("Electron_p4", "GetP4(Electron_pt, Electron_eta, Electron_phi, Electron_mass)")
-    df = _define_if_missing(df, "veto_electrons", "Electron_pt > 20 && abs(Electron_eta) < 2.5 && Electron_mvaIso_WP90")
-    return df.Filter("ROOT::VecOps::Nonzero(veto_electrons).size() == 0", "Electron veto")
+    df = _define_if_missing(df, "veto_electrons","Electron_pt > 20 && abs(Electron_eta) < 2.5 && Electron_mvaIso_WP90")
+    return df.Filter("ROOT::VecOps::Nonzero(veto_electrons).size() == 0", "No extra electrons")
 
-
-def DefineMuonSelection(df, sel_config, only_default, is_data, want_variations=False):
-    """Maps configured external selections to their nominal and systematic variations"""
+def DefineMuonSelection(df,sel_config,only_default,want_variations,syst_cfg):
     sel_dict = sel_config.get("muons_selection", {})
     vars_to_store = []
-
-    for sel_name, sel_subdict in sel_dict.items():
-        sel_str = sel_subdict['expression']
-        df = df.Define(sel_name, sel_str.format(suff=""))
-        if sel_subdict['store'] == True: vars_to_store.append(sel_name)
-
-    suffixes = []
-    if not only_default:
-        suffixes.extend(["_noCorr", "_ScaRe", "_scale", "_noCorr_FSR", "_scale_FSR"])
-    if not is_data and want_variations:
-        suffixes.extend(["_scale_FSR_up", "_scale_FSR_down", "_resol_FSR_up", "_resol_FSR_down"])
-        if not only_default:
-            suffixes.extend(["_scale_up", "_scale_down", "_resol_up", "_resol_down"])
-
-    for suff in suffixes:
+    syst_suffixes = [""]
+    if want_variations:
+        scales = syst_cfg.get('scales',['up','down'])
+        syst_suffixes.extend([syst_cfg['systematics']['MuonScale']['muon_suffix'].format(scale=scale) for scale in scales])
+        syst_suffixes.extend([syst_cfg['systematics']['MuonRes']['muon_suffix'].format(scale=scale) for scale in scales])
+    for suff in syst_suffixes:
         for sel_name, sel_subdict in sel_dict.items():
-            sel_str = sel_subdict['expression']
-            full_name = f"{sel_name}_{suff}"
-            df = df.Define(full_name, sel_str.format(suff=suff))
-            if sel_subdict['store'] == True: vars_to_store.append(full_name)
+            sel_str = sel_subdict["expression"]
+            full_name = f"{sel_name}{suff}"
+            df = df.Define(full_name,sel_str.format(mu_suff=suff))
+            if sel_subdict.get("store", False):
+                vars_to_store.append(full_name)
     return df, vars_to_store
 
-
-def ProcessExtraMuonVariables(df, is_data, muon_columns, default_suffix, trigger_config, only_default=True, want_variations=False, pt_min=15.0):
-    """Saves vector properties of remaining Loose-ID extra muons bypassing signal roles"""
-    new_extra_muon_cols = []
-    available_cols = _column_names(df)
-
-    pt_configs = [f"Muon_pt{default_suffix}"]
-    if not only_default:
-        pt_configs.extend(["Muon_pt_noCorr", "Muon_pt_ScaRe", "Muon_pt_scale", "Muon_pt_noCorr_FSR", "Muon_pt_scale_FSR"])
-    if not is_data and want_variations:
-        pt_configs.extend(["Muon_pt_scale_FSR_up", "Muon_pt_scale_FSR_down", "Muon_pt_resol_FSR_up", "Muon_pt_resol_FSR_down"])
-
-    def define_and_track_extra(dataframe, name, expr):
-        if name in _column_names(dataframe): return dataframe
-        new_extra_muon_cols.append(name)
-        return dataframe.Define(name, expr)
-
-    for name_pt in pt_configs:
-        if name_pt not in available_cols: continue
-        suff = "" if f"Muon_pt{default_suffix}" == name_pt else "_" + name_pt.replace("Muon_pt_", "")
-
-        df = df.Define(f"extra_good_muons{suff}", f"{name_pt} > {pt_min} && abs(Muon_eta) < 2.4 && Muon_looseId && Muon_pfIsoId >= 2")
-        df = df.Define(f"extra_good_idx{suff}", f"ROOT::VecOps::Nonzero(extra_good_muons{suff})")
-        df = df.Define(f"extra_sorted_idx{suff}", f"Reverse(Take(extra_good_idx{suff}, Argsort(Take({name_pt}, extra_good_idx{suff}))))")
-
-        m1, m2 = f"mu1_idx{suff}", f"mu2_idx{suff}"
-        df = define_and_track_extra(df, f"extraMuon_idx{suff}", f"extra_sorted_idx{suff}[extra_sorted_idx{suff} != {m1} && extra_sorted_idx{suff} != {m2}]")
-        df = define_and_track_extra(df, f"n_extraMuon{suff}", f"(int)extraMuon_idx{suff}.size()")
-
-        df = define_and_track_extra(df, f"extraMuon_pt{suff}", f"Take({name_pt}, extraMuon_idx{suff})")
-        df = define_and_track_extra(df, f"extraMuon_eta{suff}", f"Take(Muon_eta, extraMuon_idx{suff})")
-        df = define_and_track_extra(df, f"extraMuon_phi{suff}", f"Take(Muon_phi, extraMuon_idx{suff})")
-        df = define_and_track_extra(df, f"extraMuon_charge{suff}", f"Take(Muon_charge, extraMuon_idx{suff})")
-        if "Muon_pfRelIso04_all" in available_cols:
-            df = define_and_track_extra(df, f"extraMuon_pfRelIso04{suff}", f"Take(Muon_pfRelIso04_all, extraMuon_idx{suff})")
-
-    return df, new_extra_muon_cols

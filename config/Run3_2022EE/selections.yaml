@@ -1,0 +1,140 @@
+# =============================================================================
+# JET CONFIGURATION PARAMETERS (FLAF-Independent parameters parsed by Python)
+# =============================================================================
+jet_pt_min: 25.0
+jet_eta_max: 4.7
+# Espressione complessa specifica per l'anno 2024 (Tabella Run 3 Run Conditions)
+# Nota: 'Jet_p4' è il placeholder che il codice Python sostituirà con 'Jet_p4{suff}'
+jet_horn_veto_expr: "( abs(v_ops::eta(Jet_p4)) >= 2.5 && v_ops::pt(Jet_p4) < 50.0 ) "
+
+# =============================================================================
+# SUFFIXES & REGIONS DEFINITIONS
+# =============================================================================
+default_suffix: _ScaRe_FSR
+
+masses_regions:
+    Z_sideband:
+      expression: "m_mumu{suff} > 70 && m_mumu{suff} < 110"
+      store: True
+    Signal_Fit:
+      expression: "m_mumu{suff} > 115 && m_mumu{suff} < 135"
+      store: True
+    H_sideband:
+      expression: "((m_mumu{suff} > 110 && m_mumu{suff} < 115) || (m_mumu{suff} > 135 && m_mumu{suff} < 150))"
+      store: True
+    Signal_ext:
+      expression: "m_mumu{suff} > 110 && m_mumu{suff} < 150"
+      store: True
+    mass_inclusive:
+      expression: "m_mumu{suff} > 60 && m_mumu{suff} < 150"
+      store: True
+
+muon_presel_pt_cut: 15.0
+dimuon_m_cut: 50.0
+
+# =============================================================================
+# MUONS SELECTION PIPELINE
+# =============================================================================
+muons_selection:
+  muon_pre_sel_check:
+    expression: "mu1_pt{suff} > 15 && abs(mu1_eta) < 2.4 && mu2_pt{suff} > 15 && abs(mu2_eta) < 2.4"
+    store: True
+  muons_OS:
+    expression: "mu1_charge * mu2_charge < 0"
+    store: True
+  muons_OS_and_presel:
+    expression: "muon_pre_sel_check && muons_OS"
+    store: True
+  muons_trigger:
+    expression: "( Event_HasTriggerMatching_singleMu && HLT_IsoMu24 && ( ( mu1_pt{suff} > 26 && mu1_HasTriggerMatching_singleMu{suff}) || (mu2_pt{suff} > 26 && mu2_HasTriggerMatching_singleMu{suff}) ) ) "
+    store: True
+  muons_OS_presel_trg:
+    expression: "muons_OS_and_presel && muons_trigger"
+    store: True
+  mu1_pt_l30:
+    expression: "mu1_pt{suff} < 30"
+    store: False
+  mu2_pt_l30:
+    expression: "mu2_pt{suff} < 30"
+    store: False
+  mu1_pt_g20:
+    expression: "mu1_pt{suff} > 20"
+    store: False
+  mu2_pt_g20:
+    expression: "mu2_pt{suff} > 20"
+    store: False
+  mu_pt_sel:
+    expression: "mu1_pt_g20 && mu2_pt_g20"
+    store: False
+  mu1_ML:
+    expression: "mu1_pfIsoId >= 2 && mu1_mediumId"
+    store: False
+  mu1_LL:
+    expression: "mu1_pfIsoId >= 2 && mu1_looseId"
+    store: False
+  mu1_TT:
+    expression: "mu1_pfIsoId >= 4 && mu1_tightId"
+    store: False
+  mu2_ML:
+    expression: "mu2_pfIsoId >= 2 && mu2_mediumId"
+    store: False
+  mu2_LL:
+    expression: "mu2_pfIsoId >= 2 && mu2_looseId"
+    store: False
+  mu2_TT:
+    expression: "mu2_pfIsoId >= 4 && mu2_tightId"
+    store: False
+  bothMuons_ML:
+    expression: "mu1_ML && mu2_ML"
+    store: True
+  bothMuons_LL:
+    expression: "mu1_LL && mu2_LL"
+    store: False
+  chi2_sel:
+    expression: "mu1_bsConstrainedChi2 < 30 && mu2_bsConstrainedChi2 < 30"
+    store: True
+  pt_lessthan30_and_TT:
+    expression: "(((mu1_pt_l30 && mu1_TT) || !(mu1_pt_l30)) && ((mu2_pt_l30 && mu2_TT) || !(mu2_pt_l30)))"
+    store: True
+
+# =============================================================================
+# JETS SELECTION PIPELINE (Systematics tracking structure)
+# =============================================================================
+jets_selection:
+  # Conta quanti jet passano i requisiti di cross-cleaning e horn veto regionali esterni
+  has_good_jets:
+    expression: "N_SelectedJets{suff} >= 0"
+    store: True
+  # JetTagSel controlla passivamente le condizioni sulle soglie loose/medium dei b-tagger
+  jets_btag_clean_sel:
+    expression: "JetTagSel{suff}"
+    store: True
+
+categories:
+  base_sel:
+    expression: "muons_OS_presel_trg{suff} && JetTagSel{suff}"
+    store: True
+  baseline:
+    expression: "base_sel{suff} && mu1_ML && mu2_ML"
+    store: True
+  baseline_chi2:
+    expression: "baseline{suff} && chi2_sel{suff}"
+    store: True
+  baseline_lowPtTT:
+    expression: "baseline{suff} && pt_lessthan30_and_TT{suff}"
+    store: True
+  baseline_chi2_lowPtTT:
+    expression: "baseline{suff} && pt_lessthan30_and_TT{suff} && chi2_sel{suff}"
+    store: True
+
+  # Definizione VBF senza alcuna logica nascosta nel C++
+  VBF_def:
+    expression: "HasVBF{suff} && SelectedJet_pt{suff}[VBFJetIdx_1{suff}] >= 35 && SelectedJet_pt{suff}[VBFJetIdx_2{suff}] >= 25"
+    store: True
+
+  VBF:
+    expression: "baseline{suff} && VBF_def{suff}"
+    store: True
+  ggF:
+    expression: "baseline{suff} && !(VBF_def{suff})"
+    store: True

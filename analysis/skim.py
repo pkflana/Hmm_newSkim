@@ -5,146 +5,150 @@ import zlib
 from pathlib import Path
 import ROOT
 import utilities
+import json
 
 if __name__ == "__main__":
     sys.path.append(os.environ["ANALYSIS_PATH"])
 
-# --- ROOT Environment Configuration ---
 headers_dir = os.path.dirname(os.path.abspath(__file__))
-ROOT.gInterpreter.Declare(f'#include "{os.path.join(headers_dir, "AnalysisTools.h")}"')
+ROOT.gInterpreter.Declare(
+    f'#include "{os.path.join(headers_dir, "AnalysisTools.h")}"'
+)
 
-# --- CLI Arguments Parsing ---
 parser = argparse.ArgumentParser(description="Run the Hmumu skim.")
-parser.add_argument("--era", required=True, type=str, help="Main skim YAML.")
-parser.add_argument("--input-file", required=True, type=str, help="Input ROOT file.")
-parser.add_argument("--dataset-name", required=True, type=str, help="Dataset key.")
-parser.add_argument("--output-file", required=True, type=str, help="Output ROOT file.")
+parser.add_argument("--era", required=True)
+parser.add_argument("--input-file", required=True)
+parser.add_argument("--dataset-name", required=True)
+parser.add_argument("--output-file", required=True)
 args = parser.parse_args()
 
-# --- Config Initialization ---
+## all configurations to load ##
 config = utilities.get_config(os.path.join(os.environ["ANALYSIS_PATH"], "config", args.era, "maincfg.yaml"))
 dataset_cfg = utilities.get_config(os.path.join(os.environ["ANALYSIS_PATH"], "config", args.era, "samples.yaml"))[args.dataset_name]
 sel_config = utilities.get_config(os.path.join(os.environ["ANALYSIS_PATH"], "config", args.era, "selections.yaml"))
 trigger_config = utilities.get_config(os.path.join(os.environ["ANALYSIS_PATH"], "config", args.era, "triggers.yaml"))
 process_cfg = utilities.get_config(os.path.join(os.environ["ANALYSIS_PATH"], "config", args.era, "process_names.yaml"))
+systematics_cfg = utilities.get_config(os.path.join(os.environ["ANALYSIS_PATH"], "config", args.era, "systematics.yaml"))
 xs_cfg = utilities.get_config(config["crossSectionsFile"])
 
-# Setup parameters
+## some utilities definitions ##
 nano_version = config.get("nano_version", "v15")
 is_data = dataset_cfg.get("is_data", False)
 is_signal = dataset_cfg.get("is_signal", False)
-want_variations = config.get("want_variations", False)
-only_default = config.get("only_default", True)
 
+want_variations = config.get("want_variations", False) and not is_data
+only_default = sel_config.get("only_default", True)
+muon_pt_default_suffix = sel_config.get("muon_pt_default_suffix", "")
+
+# columns to save #
 cols_to_save = []
-
-# --- Dataframe Instantiation ---
+# open root file #
 root_file = ROOT.TFile.Open(args.input_file)
 df = ROOT.RDataFrame(root_file.Get("Events"))
- 
 ROOT.RDF.Experimental.AddProgressBar(df)
 
-# --- Base Metadata & Event Filters ---
-if "MET_flags" in config:
-    from analysis.other import applyMETFlags
-    df = applyMETFlags(df, config, is_data)
-
+# useful definitions #
 df = df.Define("period", f"static_cast<int>(Period::{config['era']})")
 df = df.Define("is_data", "true" if is_data else "false")
 df = df.Define("is_data_int", "1" if is_data else "0")
 df = df.Define("is_signal", "true" if is_signal else "false")
-
-# Event ID Encoding
 dataset_crc = zlib.crc32(args.dataset_name.encode()) & 0xFFFF
 input_crc = zlib.crc32(args.input_file.encode()) & 0xFFFF
-df = df.Define("FullEventId", f"eventId::encodeFullEventId({dataset_crc}, {input_crc}, rdfentry_)")
-
+df = df.Define("FullEventId",f"eventId::encodeFullEventId({dataset_crc}, {input_crc}, rdfentry_)")
+# default columns to store: #
 cols_to_save.extend(utilities.GetObservablesCols("default", is_data, nano_version))
 
-# --- Weights & Corrections Block ---
+# define weights #
 if not is_data:
     from corrections.general import define_base_weights
     xs_entry = dataset_cfg.get("crossSection", args.dataset_name)
     process = utilities.process_from_dataset(process_cfg, args.dataset_name)
+    print(process)
+    print(process_cfg)
     process_entry = process_cfg[process]
-    df, base_weights = define_base_weights(df, config.get("luminosity",""), xs_entry, xs_cfg, process_entry)
+    print(config.get("luminosity", ""))
+    df,base_weights,json_dict_to_store = define_base_weights(df, config.get("luminosity", ""), xs_entry, xs_cfg,config,dataset_cfg, process_entry)
     cols_to_save.extend(base_weights)
+else:
+    from corrections.general import apply_golden_json
+    df = apply_golden_json(df, config["lumiFile"])
 
+# apply corrections --> this time also for data (e.g. JEC/ScaRe) #
 from corrections.general import apply_corrections
-df, weight_branches = apply_corrections(df, config, dataset_cfg, args.dataset_name)
-if weight_branches:
-    cols_to_save.extend(weight_branches)
+df = apply_corrections(df, config, dataset_cfg, args.dataset_name)
 
-# --- Muon & Lepton Processing Selection Chain ---
-from analysis.muons import (
-    DefineMuonPtAndP4, ApplyMuonTriggerMatching, ProcessMuonVariables,
-    ApplyElectronVeto, DefineMuonSelection, ProcessExtraMuonVariables
-)
+# MET FLAGS
+if "MET_flags" in config:
+    from analysis.other import applyMETFlags
+    df = applyMETFlags(df, config, is_data)
 
-df = DefineMuonPtAndP4(df, is_data, only_default=only_default, want_variations=want_variations)
-
-df, trigger_event_cols = ApplyMuonTriggerMatching(df, trigger_config, apply_filter=config.get("apply_trg_filter", True))
-cols_to_save.extend(trigger_event_cols)
-
+## muon definitions ##
+from analysis.muons import DefineMuonPtAndP4,ProcessMuonVariables,ApplyMuonTriggerMatching,ProcessExtraMuonVariables,ApplyElectronVeto,DefineMuonSelection
+# definitions of p4
+df = DefineMuonPtAndP4(df,only_default,want_variations)
+# trigger application && matching
+df, trigger_cols = ApplyMuonTriggerMatching(df, trigger_config, sel_config.get("apply_trg_filter", True))
+cols_to_save.extend(trigger_cols)
+# dimuon system definitions
 muon_cols_initial = utilities.GetObservablesCols("Muon", is_data, nano_version)
-df, new_muon_cols = ProcessMuonVariables(
-    df=df, is_data=is_data, default_suffix=sel_config.get("default_suffix", ""),
-    muon_columns=muon_cols_initial, trigger_config=trigger_config,
-    only_default=only_default, want_variations=want_variations,
-    pt_min=config.get("muon_pt_min", 15.0), mass_cut=config.get("dimuon_mass_min", 50.0)
-)
+df, new_muon_cols =  ProcessMuonVariables(df,muon_cols_initial,muon_pt_default_suffix,trigger_config,only_default,want_variations,sel_config.get("muon_pt_min", 15.0),sel_config.get("dimuon_mass_min", 50.0),sel_config.get("dimuon_mass_max", 200.0),systematics_cfg)
 cols_to_save.extend(new_muon_cols)
-
+# electron veto
 df = ApplyElectronVeto(df)
-
-# # Muon SF Weights evaluation
+# # muon id/iso weights definitions
 if not is_data:
     from corrections.mu import apply_muIDIso_weights
-    df, mu_weights = apply_muIDIso_weights(df, config, return_variations=want_variations)
-    valid_mu_weights = [w for w in config.get("mu_weights_to_store", mu_weights) if w in mu_weights]
-    cols_to_save.extend(valid_mu_weights)
-
-df, extra_lep_cols = ProcessExtraMuonVariables(
-    df, is_data, muon_cols_initial, sel_config.get("default_suffix", ""),
-    trigger_config, only_default, want_variations, pt_min=config.get("muon_pt_min", 15.0)
-)
+    df, mu_weights = apply_muIDIso_weights(df, config, want_variations)
+    cols_to_save.extend(mu_weights)
+# # extra lepton inclusion
+df, extra_lep_cols = ProcessExtraMuonVariables(df,muon_cols_initial,muon_pt_default_suffix,trigger_config,only_default,want_variations,sel_config.get("muon_pt_min", 15.0))
 cols_to_save.extend(extra_lep_cols)
+# # muon selection
+df,vars_sel = DefineMuonSelection(df,sel_config,only_default,want_variations,systematics_cfg)
+cols_to_save.extend(vars_sel)
 
-df, muon_selection_cols = DefineMuonSelection(df, sel_config, only_default, is_data, want_variations=False)
-cols_to_save.extend(muon_selection_cols)
-
-# --- Jet & Miscellaneous Global Columns ---
-from corrections.jetVetoMap import ApplyJetVetoMap
-df, jet_veto_map_cols = ApplyJetVetoMap(df, config, apply_filter=False, defineElectronCleaning=False, isV12=(nano_version == "v12"))
-cols_to_save.extend(jet_veto_map_cols)
-
-from analysis.jets import ProcessAllJetVariables
-
-# Load additional background/signal collections
+# ## jet definitions ##
+from analysis.jets import ProcessAllJetVariables, SelectJetVars
 from corrections.btag_wpValues import getBTagWPValues
+# define all varied variables for jets
 bTagWPDict = getBTagWPValues(config)
 jet_cols_initial = utilities.GetObservablesCols("Jet", is_data, nano_version)
-df, jet_columns_to_store = ProcessAllJetVariables(df, is_data, jet_cols_initial, config=sel_config, bTagAlgo=config.get("bTagAlgo","PNet"), bTagDict=bTagWPDict, want_variations=want_variations, mu_suff="")
-cols_to_save.extend(jet_columns_to_store)
+df, jet_cols = ProcessAllJetVariables(df,is_data,jet_cols_initial,sel_config,config.get("bTagAlgo", "PNet"),bTagWPDict,want_variations,systematics_cfg)
+cols_to_save.extend(jet_cols)
+# apply jet veto map
+from corrections.jetVetoMap import ApplyJetVetoMap
+df, jet_veto_map_cols = ApplyJetVetoMap(df, config, muon_pt_default_suffix, False, sel_config.get("define_electron_cleaning", False),(nano_version == "v12"), want_variations,systematics_cfg)
+cols_to_save.extend(jet_veto_map_cols)
+# define selected jet vars
+df, selected_jet_cols = SelectJetVars(df,is_data,jet_cols_initial,sel_config,config.get("bTagAlgo", "PNet"),bTagWPDict,want_variations,systematics_cfg)
+cols_to_save.extend(selected_jet_cols)
 
-from analysis.other import DefineCategoryBooleans
-df, cat_vars = DefineCategoryBooleans(df, sel_config, is_data, want_variations)
-cols_to_save.extend(cat_vars)
+## category definitions ##
+from analysis.other import DefineCategories
+df, cat_cols = DefineCategories(df, sel_config, is_data, want_variations,systematics_cfg)
+cols_to_save.extend(cat_cols)
 
-additional_collections_to_store = ["SoftActivityJet", "Jet"]
-if not is_data : additional_collections_to_store.append("LHEWeight")
-for collection in additional_collections_to_store:
-    cols_to_save.extend(utilities.GetObservablesCols(collection, is_data, nano_version))
-
-# # Ensure uniqueness of columns
+## additional col to store ##
+collections = ["SoftActivityJet"]
+if not is_data:
+    collections.append("LHEWeight")
+    collections.append("LHE")
+for c in collections:
+    cols_to_save.extend(utilities.GetObservablesCols(c, is_data, nano_version))
 cols_to_save = list(set(cols_to_save))
 
-# --- Snapshot Execution & Cutflow reporting ---
-# The progress bar will output to standard error here while the entries loop runs
-df.Snapshot("Events", args.output_file, utilities.ListToVector(cols_to_save))
+## snapshot + report store ##
+df.Snapshot("Events",args.output_file,utilities.ListToVector(cols_to_save))
+df, report_json = utilities.SaveReport(df, df.Report().GetValue(), verbose=0)
+if not is_data:
+    for pu_key,pu_dict in json_dict_to_store.items():
+        for xs_key,xs_dict in pu_dict.items():
+            value_to_extract = xs_dict['value']
+            xs_dict['value']=value_to_extract.GetValue()
+    report_json.update(json_dict_to_store)
 
-# Write Cutflow Report Object back into the file
+json_file = os.path.splitext(args.output_file)[0] + "_report.json"
+with open(json_file, "w") as f:
+    json.dump(report_json, f, indent=4)
 out_tfile = ROOT.TFile.Open(args.output_file, "UPDATE")
-hist_rep = utilities.SaveReport(df.Report().GetValue(), reportName="Report", verbose=0)
-out_tfile.WriteTObject(hist_rep, "Report", "Overwrite")
 out_tfile.Close()

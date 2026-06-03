@@ -18,22 +18,33 @@ def generate_enum_class(cls):
     enum_string += "};"
     return enum_string
 
-def SaveReport(report, reportName="Report", verbose=0):
+import json
+
+def SaveReport(rdf, report, verbose=0):
+
     cuts = [c for c in report]
-    hist = ROOT.TH1D(reportName, reportName, len(cuts) + 1, 0, len(cuts) + 1)
+    report_json = {}
     if len(cuts) > 0:
-        hist.GetXaxis().SetBinLabel(1, "Initial")
-        hist.SetBinContent(1, cuts[0].GetAll())
+        # iniziale
+        initial = cuts[0].GetAll()
+        rdf = rdf.Define("Report_Initial", f"{initial}")
+        report_json["Initial"] = initial
         for c_id, cut in enumerate(cuts):
-            hist.SetBinContent(c_id + 2, cut.GetPass())
-            hist.GetXaxis().SetBinLabel(c_id + 2, cut.GetName())
+            cut_name = '_'.join(str(cut.GetName()).split(" "))
+            passed = cut.GetPass()
+            eff = cut.GetEff()
+            report_json[cut_name] = {
+                "pass": passed,
+                # "eff": eff            
+            }
             if verbose > 0:
                 print(
-                    f"for the cut {cut.GetName()} there are {cut.GetPass()} events passed over {cut.GetAll()}, resulting in an efficiency of {cut.GetEff()}"
+                    f"for the cut {cut.GetName()} "
+                    f"there are {passed} events passed over {initial}, "
+                    f"resulting in an efficiency of {eff}"
                 )
-    return hist
 
-
+    return rdf, report_json
 
 def _column_names(df):
     return {str(col) for col in df.GetColumnNames()}

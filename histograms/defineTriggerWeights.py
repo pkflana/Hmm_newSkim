@@ -42,7 +42,7 @@ def defineTriggerWeights(df, pt_to_use="pt"):  # needs application region def
 
 
 def defineTriggerWeightsErrors(df, pt_to_use="pt"):
-    for scale in ["Up", "Down"]:
+    for scale in ["up", "down"]:
         # weight_mu2_TrgSF_singleMu_IsoMu24
         trg_name = "singleMu_IsoMu24"  # "singleMu_IsoMu24"
         df = df.Define(

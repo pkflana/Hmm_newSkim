@@ -1,0 +1,121 @@
+weights:
+
+  Central:
+    expression: >
+      weight_gen *
+      weight_lumi *
+      weight_xs *
+      weight_pu *
+      weight_mu1_LoosePFIso_MediumID_Central *
+      weight_mu1_MediumID_Trk_Central *
+      weight_mu2_LoosePFIso_MediumID_Central *
+      weight_mu2_MediumID_Trk_Central *
+      weight_TrgSF_singleMu_IsoMu24Central
+
+  # ========================================
+  # Pileup
+  # ========================================
+
+  PU_Up:
+    expression: >
+      weight_gen *
+      weight_lumi *
+      weight_xs *
+      weight_pu_Up *
+      weight_mu1_LoosePFIso_MediumID_Central *
+      weight_mu1_MediumID_Trk_Central *
+      weight_mu2_LoosePFIso_MediumID_Central *
+      weight_mu2_MediumID_Trk_Central *
+      weight_TrgSF_singleMu_IsoMu24Central
+
+  PU_Down:
+    expression: >
+      weight_gen *
+      weight_lumi *
+      weight_xs *
+      weight_pu_Down *
+      weight_mu1_LoosePFIso_MediumID_Central *
+      weight_mu1_MediumID_Trk_Central *
+      weight_mu2_LoosePFIso_MediumID_Central *
+      weight_mu2_MediumID_Trk_Central *
+      weight_TrgSF_singleMu_IsoMu24Central
+
+  # ========================================
+  # Muon ID/Iso
+  # ========================================
+
+  MuonID_Up:
+    expression: >
+      weight_gen *
+      weight_lumi *
+      weight_xs *
+      weight_pu *
+      weight_mu1_LoosePFIso_MediumID_Central *
+      weight_mu1_MediumID_Trk_Up *
+      weight_mu2_LoosePFIso_MediumID_Central *
+      weight_mu2_MediumID_Trk_Up *
+      weight_TrgSF_singleMu_IsoMu24Central
+
+  MuonID_Down:
+    expression: >
+      weight_gen *
+      weight_lumi *
+      weight_xs *
+      weight_pu *
+      weight_mu1_LoosePFIso_MediumID_Central *
+      weight_mu1_MediumID_Trk_Down *
+      weight_mu2_LoosePFIso_MediumID_Central *
+      weight_mu2_MediumID_Trk_Down *
+      weight_TrgSF_singleMu_IsoMu24Central
+
+  MuonIso_Up:
+    expression: >
+      weight_gen *
+      weight_lumi *
+      weight_xs *
+      weight_pu *
+      weight_mu1_LoosePFIso_MediumID_Up *
+      weight_mu1_MediumID_Trk_Central *
+      weight_mu2_LoosePFIso_MediumID_Up *
+      weight_mu2_MediumID_Trk_Central *
+      weight_TrgSF_singleMu_IsoMu24Central
+
+  MuonIso_Down:
+    expression: >
+      weight_gen *
+      weight_lumi *
+      weight_xs *
+      weight_pu *
+      weight_mu1_LoosePFIso_MediumID_Down *
+      weight_mu1_MediumID_Trk_Central *
+      weight_mu2_LoosePFIso_MediumID_Down *
+      weight_mu2_MediumID_Trk_Central *
+      weight_TrgSF_singleMu_IsoMu24Central
+
+  # ========================================
+  # Trigger
+  # ========================================
+
+  Trigger_Up:
+    expression: >
+      weight_gen *
+      weight_lumi *
+      weight_xs *
+      weight_pu *
+      weight_mu1_LoosePFIso_MediumID_Central *
+      weight_mu1_MediumID_Trk_Central *
+      weight_mu2_LoosePFIso_MediumID_Central *
+      weight_mu2_MediumID_Trk_Central *
+      weight_TrgSF_singleMu_IsoMu24Up
+
+  Trigger_Down:
+    expression: >
+      weight_gen *
+      weight_lumi *
+      weight_xs *
+      weight_pu *
+      weight_mu1_LoosePFIso_MediumID_Central *
+      weight_mu1_MediumID_Trk_Central *
+      weight_mu2_LoosePFIso_MediumID_Central *
+      weight_mu2_MediumID_Trk_Central *
+      weight_TrgSF_singleMu_IsoMu24Down

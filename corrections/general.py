@@ -123,61 +123,64 @@ periods = {
     "2016postVFP_UL": "2016",
 }
 
-def define_base_weights(df, lumi, xs_entry, xs_cfg, process_entry, use_genWeight_sign_only=True):
+def define_base_weights(df, lumi, xs_entry, xs_cfg,config,dataset_cfg, process_entry, use_genWeight_sign_only=True):
+    want_variations = config.get("want_variations", False)
     base_weights_to_store = []
+    json_dict_to_store = {}
+    from .pu import apply_pu_weights
+    df,pu_branches,json_dict_to_store = apply_pu_weights(df, config, "Pileup_nTrueInt",want_variations)
+    base_weights_to_store.extend(pu_branches)
+
+
     lumi_weight_name = "weight_lumi"
     df = df.Define(lumi_weight_name, f"float({lumi})")
     base_weights_to_store.append(lumi_weight_name)
-    gen_weight_name = "weight_gen"
-    genWeight_def = (
-        "std::copysign<float>(1.f, genWeight)"
-        if use_genWeight_sign_only
-        else "genWeight"
-    )
-    df = df.Define(gen_weight_name, genWeight_def)
-    base_weights_to_store.append(gen_weight_name)
+
+    df = df.Define("weight_gen_sign", "std::copysign<float>(1.f, genWeight)")
+    base_weights_to_store.append("genWeight")
+    base_weights_to_store.append("weight_gen_sign")
+    if 'gen' not in json_dict_to_store.keys():
+        json_dict_to_store['gen'] = {}
+    json_dict_to_store['gen'][f"total"] = {}
+    json_dict_to_store['gen'][f"total"]['selection']= "return true;"
+    json_dict_to_store['gen'][f"total"]['value']= df.Sum("genWeight")
+
 
     weight_xs_name = "weight_xs"
-    try: 
-        processor_file = process_entry['processor']
-    except KeyError:
+    processor_file = process_entry.get('processors','')
+    if processor_file:
+        # print(f"considering processor file {processor_file} for {process_entry}")
+        from .dy_cross_section import apply_dy_cross_section
+        processor_cfg = utilities.get_config(os.path.join(os.environ["ANALYSIS_PATH"], processor_file))
+        df,json_dict_xs = apply_dy_cross_section(df, weight_xs_name, xs_cfg, processor_cfg,json_dict_to_store)
+    else:
         xs_value = str(xs_cfg[xs_entry]['crossSec'])
         df = df.Define("weight_xs", xs_value)
-    else:
-        from .dy_cross_section import apply_dy_cross_section
-        processor_cfg = utilities.get_config(os.path.join(os.environ["ANALYSIS_PATH"], "config", processor))
-        df = apply_dy_cross_section(df, weight_xs_name, xs_cfg, processor_cfg)
-
     base_weights_to_store.append(weight_xs_name)
 
     ### to add --> 2024/2025/2026 --> weight 0 or 1 to decide what MC use for what prod
 
-    return df,base_weights_to_store
+
+    return df,base_weights_to_store,json_dict_to_store
+
+def apply_golden_json(df, lumiFile_path):
+    from .lumi import apply_lumi_filter
+    df = apply_lumi_filter(df, lumiFile_path)
+    return df
 
 def apply_corrections(df, config, dataset_cfg, dataset_name):
-    # golden json only if it's data, else pu weights
     is_data = dataset_cfg.get("is_data", False)
-    return_variations = config.get("want_variations", False)
-    weight_branches = []
-    if is_data:
-        from .lumi import apply_lumi_filter
-        lumiFile_path = config["lumiFile"]
-        df = apply_lumi_filter(df, lumiFile_path)
-    else:
-        from .pu import apply_pu_weights
-        df,pu_branches = apply_pu_weights(df, config, pileup_column="Pileup_nTrueInt",return_variations=return_variations)
-        weight_branches.extend(pu_branches)
+    want_variations = config.get("want_variations", False)
     # muons ScaRe
     from .muon_scare import apply_muon_scare
-    df = apply_muon_scare(df, config, dataset_cfg,return_variations=return_variations)
+    df = apply_muon_scare(df, config, dataset_cfg,want_variations)
     # muons FSR
     from .muon_fsr import apply_muon_fsr
-    df = apply_muon_fsr(df, is_data, has_variations=return_variations)
+    df = apply_muon_fsr(df, is_data, want_variations)
     # JEC / JER / JES
     from .jets import apply_jet_corrections
-    df = apply_jet_corrections(df, config, dataset_cfg, dataset_name, return_variations)
-
-    return df,weight_branches
+    df = apply_jet_corrections(df, config, dataset_cfg, dataset_name, want_variations)
+    return df
 
 
 
