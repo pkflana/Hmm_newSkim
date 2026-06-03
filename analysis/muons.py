@@ -65,7 +65,7 @@ def GetPtConfigurations(only_default, want_variations):
     }
     return configs,err_configs
 
-def DefineMuonPtAndP4(df, only_default=True, want_variations=False):
+def DefineMuonPtAndP4(df, only_default, want_variations):
     _declare_muon_helpers()
     configs,err_configs = GetPtConfigurations(only_default, want_variations)
     cols = _column_names(df)
@@ -76,7 +76,7 @@ def DefineMuonPtAndP4(df, only_default=True, want_variations=False):
          df = _define_if_missing(df,name_err,f"Muon_pt_err_sel({nano_err}, {bsc_err}, Muon_bsConstrainedChi2)")
     return df
 
-def ApplyMuonTriggerMatching(df, trigger_config, apply_filter=True):
+def ApplyMuonTriggerMatching(df, trigger_config, apply_filter):
     cols = _column_names(df)
     if "TrigObj_pt" in cols:
         df = _define_if_missing(df, "TrigObj_idx", "CreateIndexes(TrigObj_pt.size())")
@@ -98,7 +98,7 @@ def ApplyMuonTriggerMatching(df, trigger_config, apply_filter=True):
         df = df.Filter(" || ".join(filters), "Trigger matching for " + "__".join(trigger_config.keys()))
     return df, filters
 
-def ProcessMuonVariables(df,muon_columns,default_suffix,trigger_config,only_default=True,want_variations=False,pt_min=15.0,lower_mass_cut=50.0,upper_mass_cut=200.0,syst_cfg=None,):
+def ProcessMuonVariables(df,muon_columns,default_suffix,trigger_config,only_default,want_variations,pt_min,lower_mass_cut,upper_mass_cut,syst_cfg):
     cols = _column_names(df)
     selection_pt = [f"Muon_pt_{default_suffix}"]
     syst_suffixes = [""]
@@ -154,7 +154,7 @@ def ProcessMuonVariables(df,muon_columns,default_suffix,trigger_config,only_defa
     return df, new_cols
 
 
-def ProcessExtraMuonVariables(df,muon_columns,default_suffix,trigger_config,only_default=True,want_variations=False,pt_min=15.0):
+def ProcessExtraMuonVariables(df,muon_columns,default_suffix,trigger_config,only_default,want_variations,pt_min):
 
     cols = _column_names(df)
     new_cols = []
@@ -188,7 +188,7 @@ def ApplyElectronVeto(df):
     df = _define_if_missing(df, "veto_electrons","Electron_pt > 20 && abs(Electron_eta) < 2.5 && Electron_mvaIso_WP90")
     return df.Filter("ROOT::VecOps::Nonzero(veto_electrons).size() == 0", "No extra electrons")
 
-def DefineMuonSelection(df,sel_config,only_default,want_variations=False,syst_cfg=None):
+def DefineMuonSelection(df,sel_config,only_default,want_variations,syst_cfg):
     sel_dict = sel_config.get("muons_selection", {})
     vars_to_store = []
     syst_suffixes = [""]

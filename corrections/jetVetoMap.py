@@ -36,7 +36,7 @@ def InitializeVetoMap(config):
     )
 
 
-def ApplyJetVetoMap(df, config, muon_default_suffix, apply_filter=False, defineElectronCleaning=False, isV12=False, want_variations=False,syst_cfg=None):
+def ApplyJetVetoMap(df, config, muon_default_suffix, apply_filter, defineElectronCleaning, isV12, want_variations,syst_cfg):
     InitializeVetoMap(config)
     new_cols = []
 

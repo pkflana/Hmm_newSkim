@@ -323,7 +323,7 @@ correctionlib.register_pyroot_binding()
 
 
 
-def apply_muIDIso_weights(df, config, want_variations=True):
+def apply_muIDIso_weights(df, config, want_variations):
     era = config.get("era")
     requested_SFs = config.get("requested_SFs", [])
 

@@ -76,7 +76,7 @@ def _define_if_missing(df, name, expression):
 
 
 
-def ProcessAllJetVariables(df,is_data,jet_columns,config,bTagAlgo,bTagDict,want_variations=False,syst_cfg=None):
+def ProcessAllJetVariables(df,is_data,jet_columns,config,bTagAlgo,bTagDict,want_variations,syst_cfg):
     cols = _column_names(df)
     pt_min = config.get("jet_pt_min", 20.0)
     eta_max = config.get("jet_eta_max", 4.7)
@@ -145,7 +145,7 @@ def ProcessAllJetVariables(df,is_data,jet_columns,config,bTagAlgo,bTagDict,want_
         )
     return df, new_cols
 
-def SelectJetVars(df,is_data,jet_columns,config,bTagAlgo,bTagDict,want_variations=False,syst_cfg=None):
+def SelectJetVars(df,is_data,jet_columns,config,bTagAlgo,bTagDict,want_variations,syst_cfg):
     cols = _column_names(df)
     pt_min = config.get("jet_pt_min", 20.0)
     eta_max = config.get("jet_eta_max", 4.7)
@@ -219,44 +219,42 @@ def SelectJetVars(df,is_data,jet_columns,config,bTagAlgo,bTagDict,want_variation
         for b, col in jet_extra.items():
             if col in cols:
                 df = track(df, f"SelectedJet_{b}{suff}", f"{col}[goodJet{suff}]")
-
         df = track(
             df,
             f"SelectedJet_btag_loose{suff}",
-            f"SelectedJet_btag{bTagAlgo}B >= {loose_wp} && abs(SelectedJet_eta{suff}) < 2.5"
+            f"SelectedJet_btag{bTagAlgo}B{suff} >= {loose_wp} && abs(SelectedJet_eta{suff}) < 2.5"
         )
 
         df = track(
             df,
             f"SelectedJet_btag_medium{suff}",
-            f"SelectedJet_btag{bTagAlgo}B >= {medium_wp} && abs(SelectedJet_eta{suff}) < 2.5"
+            f"SelectedJet_btag{bTagAlgo}B{suff} >= {medium_wp} && abs(SelectedJet_eta{suff}) < 2.5"
         )
 
-        # df = track(
-        #     df,
-        #     f"SelectedJetTagSel{suff}",
-        #     f"SelectedJet_p4{suff}[SelectedJet_btag_medium{suff}].size() < 1 && "
-        #     f"SelectedJet_p4{suff}[SelectedJet_btag_loose{suff}].size() < 2"
-        # )
+        df = track(
+            df,
+            f"SelectedJetTagSel{suff}",
+            f"SelectedJet_p4{suff}[SelectedJet_btag_medium{suff}].size() < 1 && "
+            f"SelectedJet_p4{suff}[SelectedJet_btag_loose{suff}].size() < 2"
+        )
 
-        # df = df.Define(
-        #     f"VBFJetCand{suff}",
-        #     f"FindVBFJets(SelectedJet_p4{suff}, SelectedJet_IsOutsideHorn{suff})"
-        # )
+        df = df.Define(
+            f"VBFJetCand{suff}",
+            f"FindVBFJets(SelectedJet_p4{suff}, SelectedJet_IsOutsideHorn{suff})"
+        )
 
-        # df = track(df, f"HasVBF{suff}", f"static_cast<bool>(VBFJetCand{suff}.isVBF)")
-        # df.Display({f"HasVBF{suff}"}).Print()
+        df = track(df, f"HasVBF{suff}", f"static_cast<bool>(VBFJetCand{suff}.isVBF)")
 
-        # df = track(
-        #     df,
-        #     f"VBFJetIdx_1{suff}",
-        #     f"HasVBF{suff} ? int(VBFJetCand{suff}.leg_index[0]) : -1000"
-        # )
+        df = track(
+            df,
+            f"VBFJetIdx_1{suff}",
+            f"HasVBF{suff} ? int(VBFJetCand{suff}.leg_index[0]) : -1000"
+        )
 
-        # df = track(
-        #     df,
-        #     f"VBFJetIdx_2{suff}",
-        #     f"HasVBF{suff} ? int(VBFJetCand{suff}.leg_index[1]) : -1000"
-        # )
+        df = track(
+            df,
+            f"VBFJetIdx_2{suff}",
+            f"HasVBF{suff} ? int(VBFJetCand{suff}.leg_index[1]) : -1000"
+        )
 
     return df, new_cols

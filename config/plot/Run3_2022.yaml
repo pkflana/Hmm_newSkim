@@ -2,7 +2,7 @@ lumi_text:
   text: "7.9804"
   pos_ref: inner_right_top
   pos: [ 0., -0.035 ]
-  text_size: 15
+  text_size: 13
   font: 42
   align: right_bottom
 

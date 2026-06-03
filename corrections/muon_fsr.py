@@ -84,7 +84,7 @@ ROOT.gInterpreter.Declare(
         """
 )
 
-def apply_muon_fsr(df, is_data, want_variations=False):
+def apply_muon_fsr(df, is_data, want_variations):
     branches_map = {
         # non corrected
         'Muon_pt':['Muon_p4_nano_FSR','Muon_pt_nano_FSR'],

@@ -232,7 +232,7 @@ def define_jet_p4_variations(
 
     wantPhi = (
         "true"
-        if (period in ["2023_Summer23BPix", "2024_Summer24", "2025_Summer24"] and is_data)
+        if ((period in ["2023_Summer23BPix"] and is_data) or (period in ["2024_Summer24", "2025_Summer24"]))
         else "false"
     )
 

@@ -38,7 +38,7 @@ def _column_names(df):
     return {str(col) for col in df.GetColumnNames()}
 
 
-def DefineCategories(df, sel_config, is_data, want_variations=False, syst_cfg=None):
+def DefineCategories(df, sel_config, is_data, want_variations, syst_cfg):
     categories_dict = {}
     sections_to_load = ["masses_regions", "categories"]
     for section in sections_to_load:

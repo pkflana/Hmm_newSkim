@@ -42,17 +42,8 @@ page_setup:
     - cms_label
     # - category_label
     # - channel_label
-  legend: legend
+  legend: legend_mplhep
 
-legend:
-  pos_ref: inner_right_top
-  pos: [ 0.5, 0.3 ]
-  size: [ 0.5, 0.3 ]
-  fill_color: kWhite
-  fill_style: 0
-  border_size: 0
-  text_size: 0.02
-  font: 42
 
 legend_mplhep:
   pos_ref: inner_left_top
@@ -62,7 +53,7 @@ legend_mplhep:
   fill_color: white
   fill_style: 0
   border_size: 0
-  text_size: 0.16
+  text_size: 0.1
   font: 42
 
 cms_label:
@@ -138,15 +129,14 @@ bkg_hist:
   fill_style: 1001
   line_style: 1
   line_width: 1
-  line_color: kBlack  # black
+  line_color: black  # black
   legend_style: F
   draw_opt: HIST
   unc_hist: bkg_unc_hist
 
 bkg_unc_hist:
   fill_style: 3013
-  fill_color: kCyan-5
-  fill_color_mplhep: gray
+  fill_color: gray
   line_width: 0
   legend_title: "Bkg. uncertainty"
   legend_style: f
@@ -154,8 +144,7 @@ bkg_unc_hist:
 
 sgn_hist:
   fill_style: 1001
-  fill_color: kWhite
-  fill_color_mplhep: white  # kWhite
+  fill_color: white
   line_style: 2
   line_width: 3
   legend_style: F
@@ -165,190 +154,9 @@ data_hist:
   fill_style: 0
   line_style: 1
   line_width: 2
-  line_color: kBlack  # black
-  marker_style: 20
+  line_color: black  # black
   marker_size: 1.1
-  marker_color: kBlack  # black
+  marker_color: black  # black
   legend_style: PLE
   draw_opt: "0pe"
   blind: true
-
-# page_setup:
-#   canvas_size: [ 1000, 1000 ]
-#   main_pad: [ 0.07, 0.25, 0.98, 0.95 ]  # Aumentato il primo valore (sinistra)
-#   margins: [ 0.18, 0.12, 0.08, 0.05 ]  # Aumentato il margine sinistro
-#   paper_size: [ 20, 20 ]
-#   canvas_color: kWhite
-#   canvas_border_size: 10
-#   canvas_border_mode: 0
-#   palette: 1
-#   end_error_size: 0
-#   grid_xy: [ False, False ]
-#   tick_xy: [ False, False ]
-#   tick_length_xy: [ 0.03, 0.03 ]
-#   n_div_xy: [ 510, 510 ]
-#   y_min: 0
-#   y_min_log: 1e-2
-#   axis_title_sizes: [ 0.055, 0.055 ]
-#   axis_title_offsets: [ 0.8, 1.2 ]
-#   axis_label_sizes: [ 0.04, 0.04 ]
-#   axis_label_offsets: [ 0.005, 0.005 ]
-#   draw_ratio: True
-#   ratio_y_title: "Obs/Bkg"
-#   ratio_y_title_size: 0.055
-#   ratio_y_title_offset: 0.3
-#   ratio_y_label_size: 0.04
-#   ratio_y_label_offset: 0.005
-#   ratio_n_div_y: 505
-#   max_ratio: 1.5
-#   allowed_ratio_margin: 0.5
-#   ratio_pad_size: 0.25
-#   ratio_pad_spacing: 0.04
-#   text_boxes:
-#     - cms_text
-#     - scope_text
-#     - datasim_text
-#     - lumi_text
-#     - ana_text
-#     - com_text
-#   #   # - cat_text
-#   #   # - ch_text
-#   legend: legend
-#   # text_boxes_mplhep:
-#   #   - cms_label
-#   #   - ana_label
-
-# legend:
-#   pos_ref: inner_right_top
-#   pos: [ 0.95, 0.98 ]
-#   size: [ 0.6, 0.6 ]
-#   fill_color: kWhite
-#   fill_style: 0
-#   border_size: 1
-#   text_size: 0.15
-#   font: 42
-
-# legend_mplhep:
-#   pos_ref: inner_right_top
-#   pos: [ 0.95, 0.98 ]
-#   size: [ 0.6, 0.6 ]
-#   fill_color: white
-#   fill_style: 0
-#   border_size: 1
-#   text_size: 0.15
-#   font: 42
-
-
-# ana_label:
-#   text: "$H \\rightarrow \\mu\\mu$"
-#   pos: [ 0.1, 1.032 ]
-#   ref: null       # pos relativa a cms_label
-#   font: 61
-#   text_size: 16
-
-# cms_text:
-#   text: "CMS"
-#   pos_ref: inner_left_top
-#   pos: [ 0.05, -0.05]  # X, Y relative a inner_left_to  p
-#   text_size: 0.05
-#   font: 61
-
-# scope_text:
-#   text: "Private Work"
-#   pos_ref: cms_text
-#   pos: [ 0.0, -0.06 ]
-#   text_size: 0.04
-#   font: 52
-
-# ana_text:
-#   text: "$H\\rightarrow\\mu\\mu$"
-#   pos_ref: inner_left_top
-#   pos: [ 0.05, 1.]  # sotto a CM  S
-#   text_size: 0.04
-#   font: 61
-
-# lumi_text:
-#   text: "{lumi} ({year})"
-#   pos_ref: scope_text
-#   pos: [ 0.0, -0.06 ]
-#   text_size: 0.04
-#   font: 42
-
-# com_text:
-#   text: "{com}"
-#   pos_ref: scope_text
-#   pos: [ 0.0, -0.06 ]
-#   text_size: 0.04
-#   font: 42
-
-# cms_text:
-#   text: "CMS"
-#   pos_ref: inner_left_top
-#   pos: [ 0.05, -0.06 ]
-#   text_size: 0.05
-#   font: 61
-
-# datasim_text:
-#   text: "#sqrt{s} = 13 TeV, L = 138 fb^{-1}"
-#   pos_ref: scope_text
-#   pos: [ 0.0, -0.06 ]
-#   text_size: 0.04
-#   font: 42
-
-# ana_text:
-#   text: "$h\\rightarrow\\mu\\mu$"
-#   pos_ref: inner_left_top
-#   pos: [ 0.0, -0.06 ]
-#   text_size: 0.035
-#   font: 62
-
-# cat_text:
-#   text: "Category: 1b-loose"
-#   pos_ref: ana_text
-#   pos: [ 0.0, -0.06 ]
-#   text_size: 0.03
-#   font: 62
-
-# ch_text:
-#   text: "Channel: #mu#mu"
-#   pos_ref: cat_text
-#   pos: [ 0.0, -0.06 ]
-#   text_size: 0.03
-#   font: 62
-
-# bkg_hist:
-#   fill_style: 1001
-#   line_style: 1
-#   line_width: 1
-#   line_color: kBlack
-#   legend_style: F
-#   draw_opt: HIST
-#   unc_hist: bkg_unc_hist
-
-# bkg_unc_hist:
-#   fill_style: 3013
-#   fill_color: kCyan-5
-#   line_width: 0
-#   legend_title: "Bkg. uncertainty"
-#   legend_style: f
-#   draw_opt: e2
-
-# sgn_hist:
-#   fill_style: 1001
-#   fill_color: kWhite
-#   line_style: 2
-#   line_width: 3
-#   legend_style: F
-#   draw_opt: HIST
-
-# data_hist:
-#   fill_style: 0
-#   line_style: 1
-#   line_width: 2
-#   line_color: kBlack
-#   marker_style: 20
-#   marker_size: 1.1
-#   marker_color: kBlack
-#   legend_style: PLE
-#   draw_opt: "0pe"
-#   blind: True

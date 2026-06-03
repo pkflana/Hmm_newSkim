@@ -4,8 +4,8 @@ import yaml
 
 # CONFIGURAZIONE
 YAML_FILE = "config/Run3_2022/process_names.yaml"  # Il tuo file YAML
-INPUT_DIR = "/eos/user/v/vdamante/H_mumu/newHists/"  # Cartella file ROOT dei dataset
-OUTPUT_DIR = "/eos/user/v/vdamante/H_mumu/newHists_hadded/"  # Cartella di output
+INPUT_DIR = "/eos/user/v/vdamante/H_mumu/newHists_v1/"  # Cartella file ROOT dei dataset
+OUTPUT_DIR = "/eos/user/v/vdamante/H_mumu/newHists_v1_hadded/"  # Cartella di output
 
 # MODALITÀ DRY-RUN
 # True: Stampa solo la mappa dei file che verranno uniti (senza toccare il disco)
@@ -47,24 +47,7 @@ def hadd_datasets_to_processes():
         if not datasets or not isinstance(datasets, list):
             continue
 
-        # Determina il nome del processo finale basandoti sul campo 'name' o sulla chiave
         process_name = yaml_key
-        # process_name = info.get("name", yaml_key)
-
-        # Pulizia del nome per renderlo un nome di file sicuro
-        # process_name = (
-        #     process_name.strip()
-        #     .replace(" ", "_")
-        #     .replace("$", "")
-        #     .replace("\\bar{t}", "barT")
-        #     .replace("t_\\bar{t}", "ttbar")
-        #     .replace("\\rightarrow", "to")
-        #     .replace("\\ell", "l")
-        #     .replace("\\nu", "nu")
-        #     .replace("#", "")
-        # )
-        # if process_name == "Data_Full" : continue
-        # if process_name=="DY": continue
 
         if process_name not in process_mapping:
             process_mapping[process_name] = []

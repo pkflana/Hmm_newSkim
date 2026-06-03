@@ -2,84 +2,32 @@
 DY:
   name: "DY"
   color: dodgerblue
-  # processors: *DY_processors_allFlavors
+  # processors: config/dy_xs_stitch_allFlavors.yaml
   datasets:
-    - DYto2L_M_50_amcatnloFXFX
+    # - DYto2L_M_50_amcatnloFXFX
     - DYto2L_M_50_0J_amcatnloFXFX
     - DYto2L_M_50_1J_amcatnloFXFX
     - DYto2L_M_50_2J_amcatnloFXFX
-    - DYto2L_M_50_PTLL_40to100_1J_amcatnloFXFX
-    - DYto2L_M_50_PTLL_100to200_1J_amcatnloFXFX
-    - DYto2L_M_50_PTLL_200to400_1J_amcatnloFXFX
-    - DYto2L_M_50_PTLL_400to600_1J_amcatnloFXFX
-    - DYto2L_M_50_PTLL_600_1J_amcatnloFXFX
-    - DYto2L_M_50_PTLL_40to100_2J_amcatnloFXFX
-    - DYto2L_M_50_PTLL_100to200_2J_amcatnloFXFX
-    - DYto2L_M_50_PTLL_200to400_2J_amcatnloFXFX
-    - DYto2L_M_50_PTLL_400to600_2J_amcatnloFXFX
-    - DYto2L_M_50_PTLL_600_2J_amcatnloFXFX
-
-
-DY_M_10to50:
-  name: "DY M10to50"
-  datasets:
-    - DYto2L_M_10to50_amcatnloFXFX
-    # - DYto2E_M_10to50_amcatnloFXFX
-    # - DYto2Mu_M_10to50_amcatnloFXFX
-    # - DYto2Tau_M_10to50_amcatnloFXFX
-
-DYto2E_M_50:
-  # processors: *DY_processors_singleFlavor
-  datasets:
-    # - DYto2E_M_50_amcatnloFXFX
-    # - DYto2E_M_50_amcatnloFXFX_ext1
-    - DYto2E_M_50_0J_amcatnloFXFX
-    - DYto2E_M_50_1J_amcatnloFXFX
-    - DYto2E_M_50_2J_amcatnloFXFX
-    - DYto2E_M_50_PTLL_40to100_1J_amcatnloFXFX
-    - DYto2E_M_50_PTLL_100to200_1J_amcatnloFXFX
-    - DYto2E_M_50_PTLL_200to400_1J_amcatnloFXFX
-    - DYto2E_M_50_PTLL_400to600_1J_amcatnloFXFX
-    - DYto2E_M_50_PTLL_600_1J_amcatnloFXFX
-    - DYto2E_M_50_PTLL_40to100_2J_amcatnloFXFX
-    - DYto2E_M_50_PTLL_100to200_2J_amcatnloFXFX
-    - DYto2E_M_50_PTLL_200to400_2J_amcatnloFXFX
-    - DYto2E_M_50_PTLL_400to600_2J_amcatnloFXFX
-    - DYto2E_M_50_PTLL_600_2J_amcatnloFXFX
-
-DYto2Mu_M_50:
-  # processors: *DY_processors_singleFlavor
-  datasets:
-    # - DYto2Mu_M_50_amcatnloFXFX
-    # - DYto2Mu_M_50_amcatnloFXFX_ext1
-    - DYto2Mu_M_50_0J_amcatnloFXFX
-    - DYto2Mu_M_50_1J_amcatnloFXFX
-    - DYto2Mu_M_50_2J_amcatnloFXFX
-    - DYto2Mu_M_50_PTLL_40to100_1J_amcatnloFXFX
-    - DYto2Mu_M_50_PTLL_100to200_1J_amcatnloFXFX
-    - DYto2Mu_M_50_PTLL_200to400_1J_amcatnloFXFX
-    - DYto2Mu_M_50_PTLL_400to600_1J_amcatnloFXFX
-    - DYto2Mu_M_50_PTLL_600_1J_amcatnloFXFX
-    - DYto2Mu_M_50_PTLL_40to100_2J_amcatnloFXFX
-    - DYto2Mu_M_50_PTLL_100to200_2J_amcatnloFXFX
-    - DYto2Mu_M_50_PTLL_200to400_2J_amcatnloFXFX
-    - DYto2Mu_M_50_PTLL_400to600_2J_amcatnloFXFX
-    - DYto2Mu_M_50_PTLL_600_2J_amcatnloFXFX
-
-DYto2Tau_M_50:
-  # processors: *DY_processors_singleFlavor
-  datasets:
-    - DYto2Tau_M_50_0J_amcatnloFXFX
-    - DYto2Tau_M_50_1J_amcatnloFXFX
-    - DYto2Tau_M_50_2J_amcatnloFXFX
+    # - DYto2L_M_50_PTLL_40to100_1J_amcatnloFXFX
+    # - DYto2L_M_50_PTLL_100to200_1J_amcatnloFXFX
+    # - DYto2L_M_50_PTLL_200to400_1J_amcatnloFXFX
+    # - DYto2L_M_50_PTLL_400to600_1J_amcatnloFXFX
+    # - DYto2L_M_50_PTLL_600_1J_amcatnloFXFX
+    # - DYto2L_M_50_PTLL_40to100_2J_amcatnloFXFX
+    # - DYto2L_M_50_PTLL_100to200_2J_amcatnloFXFX
+    # - DYto2L_M_50_PTLL_200to400_2J_amcatnloFXFX
+    # - DYto2L_M_50_PTLL_400to600_2J_amcatnloFXFX
+    # - DYto2L_M_50_PTLL_600_2J_amcatnloFXFX
 
 DYto2Mu_MLL105To160:
+  skip_plotting: True
   name: "DY"
   color: dodgerblue
   datasets:
     - DYto2Mu_MLL_105to160_amcatnloFXFX
 
 DYto2Mu_MLL105To160_FlashSim:
+  skip_plotting: True
   name: "DY"
   color: dodgerblue
   datasets: [ ]
@@ -94,6 +42,7 @@ TT:
     - TTto4Q
 
 TTto2L2Nu:
+  skip_plotting: True
   # processors: *ext_processor
   datasets:
     - TTto2L2Nu
@@ -101,18 +50,21 @@ TTto2L2Nu:
 
 TTtoLNu2Q:
   # processors: *ext_processor
+  skip_plotting: True
   datasets:
     - TTtoLNu2Q
     # - TTtoLNu2Q_ext1
 
 TTto4Q:
   # processors: *ext_processor
+  skip_plotting: True
   datasets:
     - TTto4Q
     # - TTto4Q_ext1
 
 TT_Inclusive:
   name: "t#bar{t} Inclusive"
+  skip_plotting: True
   color: darkgreen  # turquoise
   datasets:
     - TT
@@ -121,6 +73,7 @@ TT_Inclusive:
 ############## WJetsToLNu ##############
 W:
   name: "W"
+  skip_plotting: True
   color: navy
   datasets:
     - WtoLNu_amcatnloFXFX
@@ -136,6 +89,7 @@ W_NJets:
 ############## EWK ##############
 EWK_LLJJ:
   name: "EWK"
+  skip_plotting: True
   color: lavender
   datasets: [ ]
 
@@ -147,17 +101,20 @@ EWK:
 
 EWK_2Mu2J_MLL_105to160_herwig:
   name: "EWK"
+  skip_plotting: True
   color: lavender
   datasets:
     - EWK_2Mu2J_MLL_105to160_herwig
 
 EWK_2Mu2J_MLL_105to160_pythia:
   name: "EWK"
+  skip_plotting: True
   color: lavender
   datasets:
     - EWK_2Mu2J_MLL_105to160_pythia
 EWK_2Mu2J_MLL_105to160_pythia_Flashsim:
   name: "DY"
+  skip_plotting: True
   color: lavender
   datasets: [ ]
 ############## Other single H  ##############
@@ -174,6 +131,7 @@ H_mainBckg:
 ############## VV ##############
 VV_Inclusive:
   name: "VV Inclusive"
+  skip_plotting: True
   color: tomato
   datasets:
     - WW
@@ -257,6 +215,7 @@ TTX:
 ############## VBF signal ##############
 VBFHto2Mu_m125_amcatnlo:
   name: "VBFHto2Mu_amcatnlo"
+  skip_plotting: True
   is_signal: true
   color: fuchsia
   datasets:
@@ -271,6 +230,7 @@ VBFHto2Mu_M125_powheg:
 
 VBFHto2Mu_m120:
   name: "VBFHto2Mu_m120"
+  skip_plotting: True
   is_signal: true
   color: fuchsia
   datasets:
@@ -278,6 +238,7 @@ VBFHto2Mu_m120:
 
 VBFHto2Mu_m130:
   name: "VBFHto2Mu_m130"
+  skip_plotting: True
   is_signal: true
   color: fuchsia
   datasets:
@@ -285,6 +246,7 @@ VBFHto2Mu_m130:
 
 VBFHto2Mu_m125_tuneDown:
   name: "VBFHto2Mu_tuneDown"
+  skip_plotting: True
   is_signal: true
   color: fuchsia
   datasets:
@@ -292,6 +254,7 @@ VBFHto2Mu_m125_tuneDown:
 
 VBFHto2Mu_m125_tuneUp:
   name: "VBFHto2Mu_tuneUp"
+  skip_plotting: True
   is_signal: true
   color: fuchsia
   datasets:
@@ -299,6 +262,7 @@ VBFHto2Mu_m125_tuneUp:
 
 VBFHto2Mu_Herwig:
   name: "VBFHto2Mu_Herwig"
+  skip_plotting: True
   is_signal: true
   color: fuchsia
   datasets:
@@ -310,6 +274,7 @@ VBFHto2Mu_Herwig:
 
 GluGluHto2Mu_MiNNLO:
   name: "GluGluHto2Mu_minnlo"
+  skip_plotting: True
   is_signal: true
   color: cyan
   datasets:
@@ -337,6 +302,7 @@ VHto2Mu:
 
 TTHto2Mu:
   name: "TTHto2Mu"
+  skip_plotting: True
   # is_signal: true
   color: red
   datasets:
@@ -344,6 +310,7 @@ TTHto2Mu:
 
 TTH_inclusive:
   name: "ttH"
+  skip_plotting: True
   color: red
   datasets:
     - TTHtoNon2B_M125
@@ -367,6 +334,7 @@ Data_Full:
 
 Data_EGamma:
   name: "Data EGamma"
+
   is_data: true
   datasets:
     - EGamma_Run2022C

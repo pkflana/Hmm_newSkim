@@ -2,9 +2,9 @@ era: Run3_2022
 luminosity: 7989.51 # pb-1 brilcalc lumi -b "STABLE BEAMS" --normtag /cvmfs/cms-bril.cern.ch/cms-lumi-pog/Normtags/normtag_PHYSICS.json -u /pb -i Cert_Collisions2022_355100_362760_Golden.json --begin 355794 --end 359021
 
 
-crossSectionsFile: config/crossSections13p6TeV.yaml
 lumiFile: corrections/data/golden_json/Cert_Collisions2022_355100_362760_Golden.json
 
+crossSectionsFile: config/crossSections13p6TeV.yaml
 nano_version: v12
 
 ignore_missing_nanoAOD_files:
@@ -25,7 +25,6 @@ MET_flags:  # https://twiki.cern.ch/twiki/bin/view/CMS/MissingETOptionalFiltersR
 
 
 want_variations: False
-
 
 mu_weights_to_store: ["weight_mu1_IsoMu24_CutBasedIdMedium_and_PFIsoMedium_Central","weight_mu1_IsoMu24_CutBasedIdMedium_and_PFIsoMedium_down","weight_mu1_IsoMu24_CutBasedIdMedium_and_PFIsoMedium_up","weight_mu1_IsoMu24_CutBasedIdTight_and_PFIsoTight_Central","weight_mu1_IsoMu24_CutBasedIdTight_and_PFIsoTight_down","weight_mu1_IsoMu24_CutBasedIdTight_and_PFIsoTight_up","weight_mu1_LoosePFIso_MediumID_Central","weight_mu1_LoosePFIso_MediumID_down","weight_mu1_LoosePFIso_MediumID_up","weight_mu1_MediumID_Trk_Central","weight_mu1_MediumID_Trk_down","weight_mu1_MediumID_Trk_up","weight_mu1_TightID_Trk_Central","weight_mu1_TightID_Trk_down","weight_mu1_TightID_Trk_up","weight_mu1_TightPFIso_TightID_Central","weight_mu1_TightPFIso_TightID_down","weight_mu1_TightPFIso_TightID_up","weight_mu2_IsoMu24_CutBasedIdMedium_and_PFIsoMedium_Central","weight_mu2_IsoMu24_CutBasedIdMedium_and_PFIsoMedium_down","weight_mu2_IsoMu24_CutBasedIdMedium_and_PFIsoMedium_up","weight_mu2_IsoMu24_CutBasedIdTight_and_PFIsoTight_Central","weight_mu2_IsoMu24_CutBasedIdTight_and_PFIsoTight_down","weight_mu2_IsoMu24_CutBasedIdTight_and_PFIsoTight_up","weight_mu2_LoosePFIso_MediumID_Central","weight_mu2_LoosePFIso_MediumID_down","weight_mu2_LoosePFIso_MediumID_up","weight_mu2_MediumID_Trk_Central","weight_mu2_MediumID_Trk_down","weight_mu2_MediumID_Trk_up","weight_mu2_TightID_Trk_Central","weight_mu2_TightID_Trk_down","weight_mu2_TightID_Trk_up","weight_mu2_TightPFIso_TightID_Central","weight_mu2_TightPFIso_TightID_down","weight_mu2_TightPFIso_TightID_up"]
 

@@ -36,7 +36,7 @@ nano_version = config.get("nano_version", "v15")
 is_data = dataset_cfg.get("is_data", False)
 is_signal = dataset_cfg.get("is_signal", False)
 
-want_variations = True and not is_data # config.get("want_variations", False)
+want_variations = config.get("want_variations", False) and not is_data
 only_default = sel_config.get("only_default", True)
 muon_pt_default_suffix = sel_config.get("muon_pt_default_suffix", "")
 
@@ -63,14 +63,19 @@ if not is_data:
     from corrections.general import define_base_weights
     xs_entry = dataset_cfg.get("crossSection", args.dataset_name)
     process = utilities.process_from_dataset(process_cfg, args.dataset_name)
+    print(process)
+    print(process_cfg)
     process_entry = process_cfg[process]
-    df, base_weights = define_base_weights(df, config.get("luminosity", ""), xs_entry, xs_cfg, process_entry)
+    print(config.get("luminosity", ""))
+    df,base_weights,json_dict_to_store = define_base_weights(df, config.get("luminosity", ""), xs_entry, xs_cfg,config,dataset_cfg, process_entry)
     cols_to_save.extend(base_weights)
+else:
+    from corrections.general import apply_golden_json
+    df = apply_golden_json(df, config["lumiFile"])
 
 # apply corrections --> this time also for data (e.g. JEC/ScaRe) #
 from corrections.general import apply_corrections
-df, weight_branches = apply_corrections(df, config, dataset_cfg, args.dataset_name)
-cols_to_save.extend(weight_branches or [])
+df = apply_corrections(df, config, dataset_cfg, args.dataset_name)
 
 # MET FLAGS
 if "MET_flags" in config:
@@ -80,9 +85,9 @@ if "MET_flags" in config:
 ## muon definitions ##
 from analysis.muons import DefineMuonPtAndP4,ProcessMuonVariables,ApplyMuonTriggerMatching,ProcessExtraMuonVariables,ApplyElectronVeto,DefineMuonSelection
 # definitions of p4
-df = DefineMuonPtAndP4(df,only_default=only_default,want_variations=want_variations)
+df = DefineMuonPtAndP4(df,only_default,want_variations)
 # trigger application && matching
-df, trigger_cols = ApplyMuonTriggerMatching(df, trigger_config, apply_filter=sel_config.get("apply_trg_filter", True))
+df, trigger_cols = ApplyMuonTriggerMatching(df, trigger_config, sel_config.get("apply_trg_filter", True))
 cols_to_save.extend(trigger_cols)
 # dimuon system definitions
 muon_cols_initial = utilities.GetObservablesCols("Muon", is_data, nano_version)
@@ -90,43 +95,44 @@ df, new_muon_cols =  ProcessMuonVariables(df,muon_cols_initial,muon_pt_default_s
 cols_to_save.extend(new_muon_cols)
 # electron veto
 df = ApplyElectronVeto(df)
-# muon id/iso weights definitions
+# # muon id/iso weights definitions
 if not is_data:
     from corrections.mu import apply_muIDIso_weights
-    df, mu_weights = apply_muIDIso_weights(df, config, want_variations=want_variations)
+    df, mu_weights = apply_muIDIso_weights(df, config, want_variations)
     cols_to_save.extend(mu_weights)
-# extra lepton inclusion
-df, extra_lep_cols = ProcessExtraMuonVariables(df,muon_cols_initial,muon_pt_default_suffix,trigger_config,only_default,want_variations,pt_min=sel_config.get("muon_pt_min", 15.0))
+# # extra lepton inclusion
+df, extra_lep_cols = ProcessExtraMuonVariables(df,muon_cols_initial,muon_pt_default_suffix,trigger_config,only_default,want_variations,sel_config.get("muon_pt_min", 15.0))
 cols_to_save.extend(extra_lep_cols)
-# muon selection
+# # muon selection
 df,vars_sel = DefineMuonSelection(df,sel_config,only_default,want_variations,systematics_cfg)
 cols_to_save.extend(vars_sel)
 
-## jet definitions ##
+# ## jet definitions ##
 from analysis.jets import ProcessAllJetVariables, SelectJetVars
 from corrections.btag_wpValues import getBTagWPValues
 # define all varied variables for jets
 bTagWPDict = getBTagWPValues(config)
 jet_cols_initial = utilities.GetObservablesCols("Jet", is_data, nano_version)
-df, jet_cols = ProcessAllJetVariables(df,is_data,jet_cols_initial,config=sel_config,bTagAlgo=config.get("bTagAlgo", "PNet"),bTagDict=bTagWPDict,want_variations=want_variations,syst_cfg=systematics_cfg)
+df, jet_cols = ProcessAllJetVariables(df,is_data,jet_cols_initial,sel_config,config.get("bTagAlgo", "PNet"),bTagWPDict,want_variations,systematics_cfg)
 cols_to_save.extend(jet_cols)
 # apply jet veto map
 from corrections.jetVetoMap import ApplyJetVetoMap
-df, jet_veto_map_cols = ApplyJetVetoMap(df, config, muon_pt_default_suffix, apply_filter=False, defineElectronCleaning=sel_config.get("define_electron_cleaning", False),isV12=(nano_version == "v12"), want_variations=want_variations,syst_cfg=systematics_cfg)
+df, jet_veto_map_cols = ApplyJetVetoMap(df, config, muon_pt_default_suffix, False, sel_config.get("define_electron_cleaning", False),(nano_version == "v12"), want_variations,systematics_cfg)
 cols_to_save.extend(jet_veto_map_cols)
 # define selected jet vars
-df, selected_jet_cols = SelectJetVars(df,is_data,jet_cols_initial,config=sel_config,bTagAlgo=config.get("bTagAlgo", "PNet"),bTagDict=bTagWPDict,want_variations=want_variations,syst_cfg=systematics_cfg)
+df, selected_jet_cols = SelectJetVars(df,is_data,jet_cols_initial,sel_config,config.get("bTagAlgo", "PNet"),bTagWPDict,want_variations,systematics_cfg)
 cols_to_save.extend(selected_jet_cols)
 
 ## category definitions ##
-# from analysis.other import DefineCategories
-# df, cat_cols = DefineCategories(df, sel_config, is_data, want_variations,systematics_cfg)
-# cols_to_save.extend(cat_cols)
+from analysis.other import DefineCategories
+df, cat_cols = DefineCategories(df, sel_config, is_data, want_variations,systematics_cfg)
+cols_to_save.extend(cat_cols)
 
 ## additional col to store ##
-collections = ["SoftActivityJet", "Jet"]
+collections = ["SoftActivityJet"]
 if not is_data:
     collections.append("LHEWeight")
+    collections.append("LHE")
 for c in collections:
     cols_to_save.extend(utilities.GetObservablesCols(c, is_data, nano_version))
 cols_to_save = list(set(cols_to_save))
@@ -134,6 +140,13 @@ cols_to_save = list(set(cols_to_save))
 ## snapshot + report store ##
 df.Snapshot("Events",args.output_file,utilities.ListToVector(cols_to_save))
 df, report_json = utilities.SaveReport(df, df.Report().GetValue(), verbose=0)
+if not is_data:
+    for pu_key,pu_dict in json_dict_to_store.items():
+        for xs_key,xs_dict in pu_dict.items():
+            value_to_extract = xs_dict['value']
+            xs_dict['value']=value_to_extract.GetValue()
+    report_json.update(json_dict_to_store)
+
 json_file = os.path.splitext(args.output_file)[0] + "_report.json"
 with open(json_file, "w") as f:
     json.dump(report_json, f, indent=4)

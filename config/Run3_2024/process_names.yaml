@@ -3,15 +3,10 @@ DY:
   name: "DY"
   color: "kAzure+7"
   color_mplhep: dodgerblue
-  datasets:
-    # - DYto2E_M_10to50_amcatnloFXFX
-    # - DYto2Mu_M_10to50_amcatnloFXFX
-    # - DYto2Tau_M_10to50_amcatnloFXFX
-    # - DYto2E_M_50_amcatnloFXFX
+  datasets: 
     - DYto2E_M_50_0J_amcatnloFXFX
     - DYto2E_M_50_1J_amcatnloFXFX
     - DYto2E_M_50_2J_amcatnloFXFX
-    # - DYto2Mu_M_50_amcatnloFXFX
     - DYto2Mu_M_50_0J_amcatnloFXFX
     - DYto2Mu_M_50_1J_amcatnloFXFX
     - DYto2Mu_M_50_2J_amcatnloFXFX

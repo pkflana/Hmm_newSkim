@@ -433,16 +433,16 @@
     },
     "LHE": {
         "base": [
-            "LHE_AlphaS",
-            "LHE_HT",
-            "LHE_HTIncoming",
-            "LHE_Nb",
-            "LHE_Nc",
-            "LHE_Nglu",
+            # "LHE_AlphaS",
+            # "LHE_HT",
+            # "LHE_HTIncoming",
+            # "LHE_Nb",
+            # "LHE_Nc",
+            # "LHE_Nglu",
             "LHE_Njets",
             "LHE_NpLO",
             "LHE_NpNLO",
-            "LHE_Nuds",
+            # "LHE_Nuds",
             "LHE_Vpt",
         ],
     },
@@ -451,7 +451,8 @@
             "LHEPdfWeight",
             "LHEReweightingWeight",
             "LHEScaleWeight",
-            "LHEWeight_originalXWGTUP",
+            # "LHEWeight_originalXWGTUP",
+            "PSWeight"
         ],
     },
     "LHEWeight_special": {

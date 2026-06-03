@@ -10,7 +10,7 @@ def apply_muon_scare(
     df,
     config,
     dataset_cfg,
-    want_variations=True,
+    want_variations,
 ):
     era = config.get("era")
     period_unc = period_names[era]

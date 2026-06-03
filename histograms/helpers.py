@@ -1,15 +1,161 @@
 
 import math
-import ROOT
-import numpy as np
-import array
-import re
+import ROOT, re, array, math, numpy as np, bisect
 import os
 import sys
+import json
 
 if __name__ == "__main__":
     sys.path.append(os.environ["ANALYSIS_PATH"])
 import analysis.utilities as utilities
+
+
+# ****** root / json files manipulation
+def is_valid_root_file(filename, tree_name="Events"):
+    try:
+        f = ROOT.TFile.Open(filename)
+        if not f or f.IsZombie():
+            return False
+        tree = f.Get(tree_name)
+        if tree is None:
+            f.Close()
+            return False
+        if tree.GetEntries() == 0:
+            f.Close()
+            return False
+        f.Close()
+        return True
+    except Exception:
+        return False
+
+def get_valid_root_files(files, tree_name="Events"):
+    valid_files = []
+    for f in files:
+        if is_valid_root_file(f, tree_name):
+            valid_files.append(f)
+        else:
+            print(f"[WARNING] Skipping invalid file: {f}")
+    return valid_files
+
+def get_root_files(path):
+    if path.endswith(".root"):
+        return [path]
+    files = []
+    for root, _, fnames in os.walk(path):
+        for f in fnames:
+            if not f.endswith(".root"):
+                continue
+            files.append(
+                os.path.join(root, f)
+            )
+    return sorted(files)
+
+
+# ****** dictionary for denum definition
+def get_segmentation_dict(input_dir, node="gen"):
+    global_segmentation = {}
+
+    for root, _, files in os.walk(input_dir):
+        for f in files:
+            if not f.endswith(".json"):
+                continue
+            with open(os.path.join(root, f)) as jf:
+                try:
+                    info = json.load(jf)
+                except Exception as e:
+                    print(f"[WARNING] Errore nel parsing del file JSON {f}: {e}")
+                    continue
+
+            # Controlliamo se esiste il blocco centrale 'pu'
+            if node in info and isinstance(info[node], dict):
+                node_dict = info[node]
+
+                # Se ci sono più chiavi di 'total', o se 'total' non c'è, è un file DY segmentato
+                has_fine_segmentation = len(node_dict) > 1 #or "total" not in node_dict
+                if has_fine_segmentation:
+                    # File DY: cicliamo sulle sotto-selezioni ignorando il total cumulativo interno
+                    for sub_key, sub_info in node_dict.items():
+                        if sub_key == "total":
+                            continue
+                        selection = sub_info.get("selection")
+                        val = float(sub_info.get("value", 0.0))
+                        if selection:
+                            global_segmentation[selection] = global_segmentation.get(selection, 0.0) + val
+                else:
+                    # File non-DY: prendiamo direttamente la chiave 'total' dentro 'pu'
+                    total_node = node_dict["total"]
+                    selection = total_node.get("selection", "return true;")
+                    val = float(total_node.get("value", 0.0))
+                    global_segmentation[selection] = global_segmentation.get(selection, 0.0) + val
+
+            # Fallback su 'Initial' se manca completamente il blocco 'pu'
+            elif "Initial" in info:
+                init_val = info["Initial"]
+                val = float(init_val) if not isinstance(init_val, dict) else sum(float(v) for v in init_val.values())
+                global_segmentation["return true;"] = global_segmentation.get("return true;", 0.0) + val
+
+    return global_segmentation
+
+
+# ****** RDF manipulation
+
+from histograms.defineTriggerWeights import AddTriggerWeightsAndErrors
+from histograms.add_vars import SelectedJetObservablesDef,VBFJetObservablesDef,GetAllMuonsObservablesNew,SoftJetCollectionCleaningInVBF,VBFJetMuonsObservablesDef
+
+def build_rdf(rdf, is_data, seg_dict,weight_dict, store_shifted_weights):
+    if not is_data:
+        rdf = AddTriggerWeightsAndErrors(
+            rdf,
+            WantErrors=False
+        )
+        if seg_dict:
+            if len(seg_dict) == 1 and "return true;" in seg_dict:
+                total_val = seg_dict["return true;"]
+                print(total_val)
+                ternary_expr = f"{1.0 / total_val}f" if total_val > 0.0 else "0.f"
+            else:
+                # Se ci sono selezioni cinematiche (file DY segmentati presenti nel mix)
+                ternary_expr = "0.f"
+                for selection, total_val in seg_dict.items():
+                    if total_val <= 0.0:
+                        continue
+                    if selection.strip().lower() == "return true;":
+                        # Il return true fa da blocco di fallback finale al posto di 0.f
+                        ternary_expr = f"{1.0 / total_val}f"
+                    else:
+                        ternary_expr = f"({selection}) ? ({1.0 / total_val}f) : ({ternary_expr})"
+            rdf = rdf.Define("inv_N_orig", ternary_expr)
+
+
+    for weight_name, weight_info in weight_dict.items():
+        scales = ['central','up','down'] if store_shifted_weights else ['central']
+        for scale in scales:
+            if weight_name == 'Central' and scale != 'central': continue
+            if weight_name != 'Central' and scale == 'central': continue
+            if weight_name != 'Central': weight_name = weight_name.format(scale=scale)
+            print(weight_info['expression'])
+            expr = "1.f" if is_data else f"({weight_info['expression']}) * inv_N_orig"
+            rdf = rdf.Define(f"weight__{weight_name}", expr)
+    rdf = SelectedJetObservablesDef(rdf)
+    rdf = VBFJetObservablesDef(rdf)
+    rdf = GetAllMuonsObservablesNew(rdf)
+    rdf = VBFJetMuonsObservablesDef(rdf)
+    rdf = SoftJetCollectionCleaningInVBF(rdf)
+    return rdf
+
+
+def GetRdfForDataset(input_dir, is_data, weight_dict, store_shifted_weights, treeName="Events"):
+    input_files = get_valid_root_files(get_root_files(input_dir), treeName)
+    if len(input_files)==0 :
+        print("[WARNING] No valid ROOT files with non-empty Events tree found.")
+        return None
+    rdf = ROOT.RDataFrame("Events", utilities.ListToVector(input_files))
+    seg_dict = get_segmentation_dict(input_dir)
+    # print(seg_dict)
+    rdf_base = build_rdf(rdf, is_data, seg_dict,weight_dict,store_shifted_weights)
+    return rdf_base
+
+# ****** histogram manipulation - from config
 
 def findBinEntry(hist_cfg_dict, var_name):
     """
@@ -30,18 +176,21 @@ def findBinEntry(hist_cfg_dict, var_name):
 
     return matches[0]
 
-def GetBinVec(x_bins):
-    if isinstance(x_bins, dict):
-        return x_bins
-
-    x_bins_vec = None
-    if not isinstance(x_bins, list):
-        n_bins, bin_range = x_bins.split("|")
-        start, stop = bin_range.split(":")
-        x_bins = np.linspace(float(start), float(stop), int(n_bins) + 1).tolist()
-    x_bins_vec = utilities.ListToVector(x_bins, "float")
-    return x_bins_vec
-
+def findNewBins(hist_cfg_dict, var, **keys):
+    cfg = hist_cfg_dict.get(var, {})
+    if 'x_rebin' not in cfg: return cfg.get('x_bins', [])
+    x_rebin = cfg['x_rebin']
+    if isinstance(x_rebin, list): return x_rebin
+    def recursive_search(d, remaining_keys):
+        if isinstance(d, list): return d
+        if not remaining_keys and isinstance(d, dict) and 'other' in d: return d['other']
+        if not isinstance(d, dict): return None
+        for k_name, k_value in remaining_keys.items():
+            if k_value in d:
+                found = recursive_search(d[k_value], {kk: vv for kk, vv in remaining_keys.items() if kk != k_name})
+                if found is not None: return found
+        return d.get('other') if isinstance(d, dict) else None
+    return recursive_search(x_rebin, {k: v for k, v in keys.items() if v is not None}) or cfg.get('x_bins', [])
 
 def GetModel(hist_cfg, var, dims):
     THModel_Inputs = []
@@ -80,7 +229,28 @@ def GetModel(hist_cfg, var, dims):
     return model
 
 
+def getNewBins(bins):
+    if isinstance(bins, list): return bins
+    n_bins_str, bin_range = bins.split('|')
+    start, stop = map(float, bin_range.split(':'))
+    n_bins = int(n_bins_str)
+    return [start + i * (stop - start) / n_bins for i in range(n_bins + 1)]
 
+# ****** histogram manipulation - bins
+
+def GetBinVec(x_bins):
+    if isinstance(x_bins, dict):
+        return x_bins
+
+    x_bins_vec = None
+    if not isinstance(x_bins, list):
+        n_bins, bin_range = x_bins.split("|")
+        start, stop = bin_range.split(":")
+        x_bins = np.linspace(float(start), float(stop), int(n_bins) + 1).tolist()
+    x_bins_vec = utilities.ListToVector(x_bins, "float")
+    return x_bins_vec
+
+# ****** histogram manipulation - histograms
 
 def AdaptBinningToHistogram(hist, desired_binning):
     axis = hist.GetXaxis()
@@ -96,7 +266,6 @@ def AdaptBinningToHistogram(hist, desired_binning):
         adapted.append(closest)
     return sorted(set(adapted))
 
-
 def FixNegativeContributions(histogram):
     orig_integral = histogram.Integral(0, histogram.GetNbinsX() + 1)
     if orig_integral < 0:
@@ -111,7 +280,6 @@ def FixNegativeContributions(histogram):
     if orig_integral > 0: histogram.Scale(1.0)
     return True, "", ""
 
-
 def RebinHisto(hist_initial, new_binning, sample, wantOverflow=True, verbose=False):
     adapted = AdaptBinningToHistogram(hist_initial, new_binning)
     if len(adapted) < 2: raise RuntimeError("Adapted binning < 2 edges!")
@@ -125,212 +293,35 @@ def RebinHisto(hist_initial, new_binning, sample, wantOverflow=True, verbose=Fal
     return new_hist
 
 
-def findNewBins(hist_cfg_dict, var, **keys):
-    cfg = hist_cfg_dict.get(var, {})
-    if 'x_rebin' not in cfg: return cfg.get('x_bins', [])
-    x_rebin = cfg['x_rebin']
-    if isinstance(x_rebin, list): return x_rebin
-    def recursive_search(d, remaining_keys):
-        if isinstance(d, list): return d
-        if not remaining_keys and isinstance(d, dict) and 'other' in d: return d['other']
-        if not isinstance(d, dict): return None
-        for k_name, k_value in remaining_keys.items():
-            if k_value in d:
-                found = recursive_search(d[k_value], {kk: vv for kk, vv in remaining_keys.items() if kk != k_name})
-                if found is not None: return found
-        return d.get('other') if isinstance(d, dict) else None
-    return recursive_search(x_rebin, {k: v for k, v in keys.items() if v is not None}) or cfg.get('x_bins', [])
+def is_valid_histogram(hist, check_overflow=True):
+    """
+    Verifica che l'istogramma sia utilizzabile per il plotting.
+    """
 
+    if hist is None:
+        return False
 
-# def get_all_items_recursive(root_dir, path=()):
-#     items_dict = {}
-#     local_items = {}
+    if not hist.InheritsFrom("TH1"):
+        return False
 
-#     for key in root_dir.GetListOfKeys():
-#         obj = key.ReadObj()
+    n_bins = hist.GetNbinsX()
 
-#         if obj.InheritsFrom("TDirectory"):
-#             items_dict.update(get_all_items_recursive(obj, path + (key.GetName(),)))
-#         elif obj.InheritsFrom("TH1"):
-#             local_items[key.GetName()] = obj
+    total_content = 0.0
 
-#     if local_items:
-#         items_dict[path] = local_items
+    first_bin = 0 if check_overflow else 1
+    last_bin  = n_bins + 1 if check_overflow else n_bins
 
-#     return items_dict
+    for ibin in range(first_bin, last_bin + 1):
 
+        content = hist.GetBinContent(ibin)
+        error   = hist.GetBinError(ibin)
 
-# def load_all_items(file_path):
-#     inFile = ROOT.TFile.Open(file_path, "READ")
-#     if not inFile or inFile.IsZombie():
-#         raise RuntimeError(f"Errore apertura file {file_path}")
-#     items = get_all_items_recursive(inFile)
-#     inFile.Close()
-#     return items
+        if not np.isfinite(content):
+            return False
 
+        if not np.isfinite(error):
+            return False
 
-# def save_items_to_root(items_dict, out_file_path):
-#     outFile = ROOT.TFile(out_file_path, "RECREATE")
-#     for path_tuple, obj in items_dict.items():
-#         dir_path = "/".join(path_tuple[:-1])  # tutto tranne l'ultimo (nome oggetto)
-#         hist_name = path_tuple[-1]
-#         # crea la directory se non esiste
-#         dir_ptr = mkdir_recursive(outFile, dir_path)
-#         obj.SetDirectory(0)  # evita che ROOT lo chiuda prematuramente
-#         dir_ptr.WriteTObject(obj, hist_name, "Overwrite")
-#     outFile.Close()
+        total_content += abs(content)
 
-
-
-# def GetUncNameTypes(unc_cfg_dict):
-#     uncNames = []
-#     uncNames.extend(list(unc_cfg_dict["norm"].keys()))
-#     uncNames.extend([unc for unc in unc_cfg_dict["shape"].keys()])
-#     return uncNames
-
-
-# def createVoidHist(outFileName, hist_cfg_dict, var):
-#     var_entry = findBinEntry(hist_cfg_dict, var)
-#     x_bins = hist_cfg_dict[var_entry]["x_bins"]
-#     if isinstance(hist_cfg_dict["x_bins"], list):
-#         x_bins_vec = utilities.ListToVector(x_bins, "double")
-#         hvoid = ROOT.TH1F("", "", x_bins_vec.size() - 1, x_bins_vec.data())
-#     else:
-#         n_bins, bin_range = x_bins.split("|")
-#         start, stop = bin_range.split(":")
-#         hvoid = ROOT.TH1F("", "", int(n_bins), float(start), float(stop))
-#     outFile = ROOT.TFile(outFileName, "RECREATE")
-#     hvoid.Write()
-#     outFile.Close()
-
-
-# def RenormalizeHistogram(histogram, norm, include_overflows=True):
-#     integral = (
-#         histogram.Integral(0, histogram.GetNbinsX() + 1)
-#         if include_overflows
-#         else histogram.Integral()
-#     )
-#     if integral != 0:
-#         histogram.Scale(norm / integral)
-
-
-# def FixNegativeContributions(histogram):
-#     correction_factor = 0.0
-
-#     ss_debug = ""
-#     ss_negative = ""
-
-#     original_Integral = histogram.Integral(0, histogram.GetNbinsX() + 1)
-#     ss_debug += "\nSubtracted hist for '{}'.\n".format(histogram.GetName())
-#     ss_debug += "Integral after bkg subtraction: {}.\n".format(original_Integral)
-#     if original_Integral < 0:
-#         print(ss_debug)
-#         print(
-#             "Integral after bkg subtraction is negative for histogram '{}'".format(
-#                 histogram.GetName()
-#             )
-#         )
-#         return False, ss_debug, ss_negative
-
-#     for n in range(1, histogram.GetNbinsX() + 1):
-#         if histogram.GetBinContent(n) >= 0:
-#             continue
-#         prefix = (
-#             "WARNING"
-#             if histogram.GetBinContent(n) + histogram.GetBinError(n) >= 0
-#             else "ERROR"
-#         )
-
-#         ss_negative += (
-#             "{}: {} Bin {}, content = {}, error = {}, bin limits=[{},{}].\n".format(
-#                 prefix,
-#                 histogram.GetName(),
-#                 n,
-#                 histogram.GetBinContent(n),
-#                 histogram.GetBinError(n),
-#                 histogram.GetBinLowEdge(n),
-#                 histogram.GetBinLowEdge(n + 1),
-#             )
-#         )
-
-#         error = correction_factor - histogram.GetBinContent(n)
-#         new_error = math.sqrt(
-#             math.pow(error, 2) + math.pow(histogram.GetBinError(n), 2)
-#         )
-#         histogram.SetBinContent(n, correction_factor)
-#         histogram.SetBinError(n, new_error)
-
-#     RenormalizeHistogram(histogram, original_Integral, True)
-#     return True, ss_debug, ss_negative
-
-
-# def RebinHisto(hist_initial, new_binning, sample, wantOverflow=True, verbose=False):
-#     if isinstance(new_binning, dict):
-#         # Prepare data structures for C++ function
-#         y_bin_ranges = ROOT.std.vector("std::pair<float,float>")()
-#         output_bin_edges_vec = ROOT.std.vector("std::vector<float>")()
-
-#         for combined_bin in new_binning["combined_bins"]:
-#             # Parse y_bin range
-#             y_min, y_max = combined_bin["y_bin"]
-#             y_bin_ranges.push_back(ROOT.std.pair("float", "float")(y_min, y_max))
-
-#             # Parse x_bins spec (can be string "nbins|min:max" or list of bin edges)
-#             out_spec = combined_bin["x_bins"]
-#             out_edges = ROOT.std.vector("float")()
-#             if isinstance(out_spec, list):
-#                 for edge in out_spec:
-#                     out_edges.push_back(float(edge))
-#             else:
-#                 n_out_bins, out_range = out_spec.split("|")
-#                 out_min, out_max = map(float, out_range.split(":"))
-#                 n_out_bins = int(n_out_bins)
-#                 # Create uniform bins
-#                 step = (out_max - out_min) / n_out_bins
-#                 for i in range(n_out_bins + 1):
-#                     out_edges.push_back(out_min + i * step)
-#             output_bin_edges_vec.push_back(out_edges)
-
-#         # Create ROOT vectors
-#         # Call the C++ function which returns a new histogram
-#         new_hist = ROOT.analysis.rebinHistogramDict(
-#             hist_initial, y_bin_ranges, output_bin_edges_vec
-#         )
-#         new_hist.SetName(sample)
-
-#     else:
-#         new_binning_array = array.array("d", new_binning)
-#         new_hist = hist_initial.Rebin(len(new_binning) - 1, sample, new_binning_array)
-
-#     if sample == "data":
-#         new_hist.SetBinErrorOption(ROOT.TH1.kPoisson)
-
-#     if wantOverflow:
-#         # Merge overflow into the last bin
-#         n_bins = new_hist.GetNbinsX()
-#         n_finalbin = new_hist.GetBinContent(n_bins)
-#         n_overflow = new_hist.GetBinContent(n_bins + 1)
-#         new_hist.SetBinContent(n_bins, n_finalbin + n_overflow)
-
-#         err_finalbin = new_hist.GetBinError(n_bins)
-#         err_overflow = new_hist.GetBinError(n_bins + 1)
-#         new_hist.SetBinError(n_bins, math.sqrt(err_finalbin**2 + err_overflow**2))
-
-#     if verbose:
-#         for nbin in range(len(new_binning)):
-#             print(
-#                 f"bin {nbin}, content = {new_hist.GetBinContent(nbin)}, error = {new_hist.GetBinError(nbin)}"
-#             )
-
-#     # Fix possible negative bins
-#     fix_ok, debug_info, negative_bins = FixNegativeContributions(new_hist)
-#     if not fix_ok:
-#         print("Negative bins not fixed:", debug_info, negative_bins)
-#         for nbin in range(new_hist.GetNbinsX() + 1):
-#             if new_hist.GetBinContent(nbin) < 0:
-#                 print(
-#                     f"{sample}, bin {nbin} content is < 0: {new_hist.GetBinContent(nbin)}"
-#                 )
-
-#     return new_hist
-
+    return total_content > 0
