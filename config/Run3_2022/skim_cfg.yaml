@@ -27,26 +27,26 @@ dryrun: false
 
 
 process_to_select:
-  # - Data_Muon
+  - Data_Muon
   - DY
   - DYto2Mu_MLL105To160
-  # - TT
-  # - W_NJets
-  # - EWK
-  # - EWK_2Mu2J_MLL_105to160_herwig
-  # - EWK_2Mu2J_MLL_105to160_pythia
-  # - H_mainBckg
-  # - VV
-  # - VVV
-  # - ST
-  # - TW
-  # - TTX
-  # - VBFHto2Mu_m125_amcatnlo
-  # - VBFHto2Mu_M125_powheg
-  # - VBFHto2Mu_m120
-  # - VBFHto2Mu_m130
-  # - VBFHto2Mu_m125_tuneDown
-  # - VBFHto2Mu_m125_tuneUp
-  # - GluGluHto2Mu
+  - TT
+  - W_NJets
+  - EWK
+  - EWK_2Mu2J_MLL_105to160_herwig
+  - EWK_2Mu2J_MLL_105to160_pythia
+  - H_mainBckg
+  - VV
+  - VVV
+  - ST
+  - TW
+  - TTX
+  - VBFHto2Mu_m125_amcatnlo
+  - VBFHto2Mu_M125_powheg
+  - VBFHto2Mu_m120
+  - VBFHto2Mu_m130
+  - VBFHto2Mu_m125_tuneDown
+  - VBFHto2Mu_m125_tuneUp
+  - GluGluHto2Mu
 
 proxy_location: /afs/cern.ch/work/v/vdamante/Hmm_newSkim/data/voms.proxy

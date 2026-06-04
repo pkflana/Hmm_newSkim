@@ -121,7 +121,7 @@ def VBFJetMuonsObservablesDef(df):
 
 def SoftJetCollectionCleaningInVBF(df):
     if "SoftActivityJet_idx" not in df.GetColumnNames():
-        print("SoftActivityJet_idx not in df.GetColumnNames")
+        # print("SoftActivityJet_idx not in df.GetColumnNames")
         df = df.Define(
             f"SoftActivityJet_idx", f"CreateIndexes(SoftActivityJet_pt.size())"
         )

@@ -636,13 +636,13 @@ VBFHto2Mu_M125_amcatnlo:
 
 
 # --- Mass Point: 130 GeV ---
-ggH_Hto2Mu_M130:
+GluGluHto2Mu_M130:
   is_signal: True
   crossSection: GluGluHto2Mu_M130
   generator: amcatnlo
   nanoAOD: /GluGluHto2Mu_Par-M-130_TuneCP5_13p6TeV_amcatnlo-pythia8/RunIII2024Summer24NanoAODv15-150X_mcRun3_2024_realistic_v2-v2/NANOAODSIM
 
-VBF_Hto2Mu_M130:
+VBFHto2Mu_M130:
   is_signal: True
   crossSection: VBFHto2Mu_M130
   generator: amcatnlo

@@ -27,7 +27,7 @@ for header in HEADERS:
 # =========================================================
 # Core Drawing Core (Matplotlib + Mplhep Freedom)
 # =========================================================
-def get_available_histograms(root_file, region_path, recursive=True):
+def get_available_histograms(root_file, region_path, isDY=False, recursive=True):
     """
     Returns:
         [(histogram, hist_name), ...]
@@ -36,6 +36,7 @@ def get_available_histograms(root_file, region_path, recursive=True):
     output = []
 
     directory = root_file.Get(region_path)
+    scale_factor_for_DY_XS = 2094.2/(6688/3) if isDY else 1.
     if not directory:
         return output
 
@@ -45,12 +46,11 @@ def get_available_histograms(root_file, region_path, recursive=True):
 
             obj = key.ReadObj()
             name = key.GetName()
-
             if obj.InheritsFrom("TH1"):
 
                 hist_name = f"{prefix}{name}" if prefix else name
+                obj.Scale(scale_factor_for_DY_XS)
                 output.append((obj, hist_name))
-
             elif recursive and obj.InheritsFrom("TDirectory"):
 
                 new_prefix = f"{prefix}{name}/" if prefix else f"{name}/"
@@ -60,7 +60,7 @@ def get_available_histograms(root_file, region_path, recursive=True):
 
     return output
 
-def get_bins_and_content(root_hist, want_overflow=True):
+def get_bins_and_content(root_hist, want_overflow=True, divide_by_bin_width=False):
     """
     Estrae binedges, contenuti ed errori da un TH1D C++.
     Include nativamente l'overflow e l'underflow se richiesto per preservare gli yield.
@@ -78,6 +78,11 @@ def get_bins_and_content(root_hist, want_overflow=True):
         content[0] += root_hist.GetBinContent(0)
         errors[0] = np.sqrt(errors[0]**2 + root_hist.GetBinError(0)**2)
 
+    if divide_by_bin_width:
+        widths = np.diff(edges)
+        content = np.divide(content, widths, out=np.zeros_like(content), where=widths != 0)
+        errors = np.divide(errors, widths, out=np.zeros_like(errors), where=widths != 0)
+
     return edges, content, errors
 
 
@@ -90,6 +95,8 @@ def make_stacked_plot(samples_dict, config_page, category, variable, out_name, w
     sgn_vals, sgn_colors, sgn_labels = [], [], []
     data_vals, data_errs = None, None
     bin_edges = None
+    hist_cfg = config_page.get(findBinEntry(config_page, variable), {})
+    divide_by_bin_width = hist_cfg.get("divide_by_bin_width", False)
 
     # 1. Separazione e parsing strutturato dei campioni dal dizionario principale
     for sample_id, sample_info in samples_dict.items():
@@ -97,7 +104,7 @@ def make_stacked_plot(samples_dict, config_page, category, variable, out_name, w
             continue
 
         root_hist = sample_info["hists"][category][variable]
-        edges, content, errors = get_bins_and_content(root_hist, want_overflow=True)
+        edges, content, errors = get_bins_and_content(root_hist, want_overflow=True, divide_by_bin_width=divide_by_bin_width)
 
         if bin_edges is None:
             bin_edges = edges
@@ -173,7 +180,7 @@ def make_stacked_plot(samples_dict, config_page, category, variable, out_name, w
             if not sample_info["is_data"] and not sample_info["is_signal"]:
                 if category in sample_info["hists"] and variable in sample_info["hists"][category]:
                     h = sample_info["hists"][category][variable]
-                    _, c, e = get_bins_and_content(h, want_overflow=True)
+                    _, c, e = get_bins_and_content(h, want_overflow=True, divide_by_bin_width=divide_by_bin_width)
                     total_mc_vals += c
                     total_mc_errs2 += e ** 2
 
@@ -257,7 +264,6 @@ def make_stacked_plot(samples_dict, config_page, category, variable, out_name, w
         rax.set_ylabel("Data/MC", fontsize=14)
 
     # 8. Gestione assi, titoli e scalatura
-    hist_cfg = config_page.get(findBinEntry(config_page, variable), {})
     x_label = hist_cfg.get("x_title", variable)
     for mu_idx in [1, 2]:
         if f"mu{mu_idx}" in variable:
@@ -383,10 +389,12 @@ if __name__ == "__main__":
                     'is_signal': process_cfg[process_name].get('is_signal', False),
                     'hists': {region_path: {}}
                 }
-
-                available_hists = get_available_histograms(root_file, region_path)
+                isDY = process_name == "DY"
+                # print(process_name)
+                available_hists = get_available_histograms(root_file, region_path, isDY)
                 for available_hist, hist_name in available_hists:
                     var_entry = findBinEntry(hist_cfg, hist_name)
+                    # print(var_entry)
                     if "x_rebin" in hist_cfg[var_entry]:
                         bins_to_compute = findNewBins(hist_cfg, var_entry, dir_name=region_path)
                         new_bins = getNewBins(bins_to_compute)

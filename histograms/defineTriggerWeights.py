@@ -28,7 +28,7 @@ ROOT.gInterpreter.Declare("""
 
 
 def defineTriggerWeights(df, pt_to_use="pt"):  # needs application region def
-    print(f"using pt = {pt_to_use} for trigger SFs")
+    # print(f"using pt = {pt_to_use} for trigger SFs")
     if f"weight_TrgSF_singleMu_IsoMu24Central" in df.GetColumnNames():
         print(
             "Warning, weight_TrgSF_singleMu_IsoMu24Central already in col names, passing"

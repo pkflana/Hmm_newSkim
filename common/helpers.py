@@ -111,7 +111,7 @@ def build_rdf(rdf, is_data, seg_dict,weight_dict, store_shifted_weights):
         if seg_dict:
             if len(seg_dict) == 1 and "return true;" in seg_dict:
                 total_val = seg_dict["return true;"]
-                print(total_val)
+                # print(total_val)
                 ternary_expr = f"{1.0 / total_val}f" if total_val > 0.0 else "0.f"
             else:
                 # Se ci sono selezioni cinematiche (file DY segmentati presenti nel mix)
@@ -133,7 +133,7 @@ def build_rdf(rdf, is_data, seg_dict,weight_dict, store_shifted_weights):
             if weight_name == 'Central' and scale != 'central': continue
             if weight_name != 'Central' and scale == 'central': continue
             if weight_name != 'Central': weight_name = weight_name.format(scale=scale)
-            print(weight_info['expression'])
+            # print(weight_info['expression'])
             expr = "1.f" if is_data else f"({weight_info['expression']}) * inv_N_orig"
             rdf = rdf.Define(f"weight__{weight_name}", expr)
     rdf = SelectedJetObservablesDef(rdf)
@@ -144,16 +144,51 @@ def build_rdf(rdf, is_data, seg_dict,weight_dict, store_shifted_weights):
     return rdf
 
 
-def GetRdfForDataset(input_dir, is_data, weight_dict, store_shifted_weights, treeName="Events"):
-    input_files = get_valid_root_files(get_root_files(input_dir), treeName)
-    if len(input_files)==0 :
-        print("[WARNING] No valid ROOT files with non-empty Events tree found.")
+def GetRdfForDataset(input_dir, is_data, weight_dict, store_shifted_weights, treeName="Events", explicit_files=None, seg_dict=None, skip_validation=False):
+    """
+    Se explicit_files è una lista di file ROOT, RDataFrame caricherà SOLO quei file (chunk).
+    Il seg_dict può essere fornito esternamente per evitare di ricalcolarlo in ogni chunk.
+    """
+    # 1. Calcola il denominatore globale guardando SEMPRE tutti i file JSON della cartella,
+    #    a meno che non venga fornito già pre-calcolato.
+    if seg_dict is None:
+        seg_dict = get_segmentation_dict(input_dir)
+
+    # 2. Seleziona i file ROOT da processare (tutti o solo il chunk richiesto)
+    if explicit_files is not None:
+        if isinstance(explicit_files, str):
+            files_to_process = [explicit_files]
+        else:
+            files_to_process = explicit_files
+    else:
+        files_to_process = get_root_files(input_dir)
+
+    if skip_validation:
+        valid_files = files_to_process
+    else:
+        valid_files = get_valid_root_files(files_to_process, treeName)
+
+    if len(valid_files) == 0:
+        print("[WARNING] No valid ROOT files found for this chunk.")
         return None
-    rdf = ROOT.RDataFrame("Events", utilities.ListToVector(input_files))
-    seg_dict = get_segmentation_dict(input_dir)
-    # print(seg_dict)
-    rdf_base = build_rdf(rdf, is_data, seg_dict,weight_dict,store_shifted_weights)
+
+    # 3. Inizializza l'RDataFrame solo sul chunk di file desiderato
+    rdf = ROOT.RDataFrame("Events", utilities.ListToVector(valid_files))
+
+    # 4. Applica le definizioni e i pesi (usando il denominatore globale seg_dict)
+    rdf_base = build_rdf(rdf, is_data, seg_dict, weight_dict, store_shifted_weights)
     return rdf_base
+
+# def GetRdfForDataset(input_dir, is_data, weight_dict, store_shifted_weights, treeName="Events"):
+#     input_files = get_valid_root_files(get_root_files(input_dir), treeName)
+#     if len(input_files)==0 :
+#         print("[WARNING] No valid ROOT files with non-empty Events tree found.")
+#         return None
+#     rdf = ROOT.RDataFrame("Events", utilities.ListToVector(input_files))
+#     seg_dict = get_segmentation_dict(input_dir)
+#     # print(seg_dict)
+#     rdf_base = build_rdf(rdf, is_data, seg_dict,weight_dict,store_shifted_weights)
+#     return rdf_base
 
 # ****** histogram manipulation - from config
 

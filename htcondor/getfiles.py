@@ -17,7 +17,7 @@ CONFIG_PATH = os.path.join(ANALYSIS_PATH, "config")
 # =========================================================
 # Load skim configuration
 # =========================================================
-era = "Run3_2022"
+era = "Run3_2024"
 skim_cfg_path = os.path.join(
     CONFIG_PATH,
     era,
