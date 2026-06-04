@@ -60,7 +60,7 @@ proxy_location = skim_config["proxy_location"]
 submit_jobs = skim_config.get("submit", True)
 
 MAX_PARALLEL_JOBS = 6000
-POLL_INTERVAL = 2
+POLL_INTERVAL = 120
 
 WRITE_MISSING_FILES_DRYRUN = True
 
@@ -458,6 +458,7 @@ job = htcondor.Submit({
     "universe": "vanilla",
     "Requirements": '(OpSysAndVer =?= "AlmaLinux9")',
     "+JobFlavour": flavour,
+    "+JobKey": '"$(job_key)"'
     "RequestCpus": cpus,
     "request_memory": memory,
     "request_disk": disk,
@@ -516,42 +517,69 @@ while chunk_idx < len(global_condorinputs):
     }
 
     last_printed_finished = -1
-
     while True:
         counts = get_condor_status_counts(cluster_id)
 
         in_queue = counts["in_queue"]
         finished_for_cluster = num_proc - in_queue
 
-        if finished_for_cluster != last_printed_finished:
-            cluster_percent = 100.0 * finished_for_cluster / num_proc
-            global_projected_finished = global_finished_jobs + finished_for_cluster
-            global_percent = 100.0 * global_projected_finished / total_jobs_to_run
+        cluster_percent = 100.0 * finished_for_cluster / num_proc
+        global_projected_finished = global_finished_jobs + finished_for_cluster
+        global_percent = 100.0 * global_projected_finished / total_jobs_to_run
 
-            print(
-                f"[MONITOR] Cluster {cluster_id}: "
-                f"finished {finished_for_cluster}/{num_proc} "
-                f"({cluster_percent:.1f}%) | "
-                f"idle={counts['idle']} "
-                f"running={counts['running']} "
-                f"held={counts['held']} "
-                f"transferring={counts['transferring']} | "
-                f"global projected {global_projected_finished}/{total_jobs_to_run} "
-                f"({global_percent:.1f}%)"
-            )
-
-            last_printed_finished = finished_for_cluster
+        print(
+            f"[MONITOR] Cluster {cluster_id}: "
+            f"finished {finished_for_cluster}/{num_proc} "
+            f"({cluster_percent:.1f}%) | "
+            f"idle={counts['idle']} "
+            f"running={counts['running']} "
+            f"held={counts['held']} "
+            f"transferring={counts['transferring']} | "
+            f"global projected {global_projected_finished}/{total_jobs_to_run} "
+            f"({global_percent:.1f}%)",
+            flush=True,
+        )
 
         if in_queue == 0:
             break
 
-        if counts["held"] > 0:
-            print(
-                f"[WARNING] Cluster {cluster_id} has {counts['held']} held jobs. "
-                "Check condor_q -hold for details."
-            )
-
         time.sleep(POLL_INTERVAL)
+
+    # while True:
+    #     counts = get_condor_status_counts(cluster_id)
+
+    #     in_queue = counts["in_queue"]
+    #     finished_for_cluster = num_proc - in_queue
+
+    #     if finished_for_cluster != last_printed_finished:
+    #         cluster_percent = 100.0 * finished_for_cluster / num_proc
+    #         global_projected_finished = global_finished_jobs + finished_for_cluster
+    #         global_percent = 100.0 * global_projected_finished / total_jobs_to_run
+
+    #         print(
+    #             f"[MONITOR] Cluster {cluster_id}: "
+    #             f"finished {finished_for_cluster}/{num_proc} "
+    #             f"({cluster_percent:.1f}%) | "
+    #             f"idle={counts['idle']} "
+    #             f"running={counts['running']} "
+    #             f"held={counts['held']} "
+    #             f"transferring={counts['transferring']} | "
+    #             f"global projected {global_projected_finished}/{total_jobs_to_run} "
+    #             f"({global_percent:.1f}%)"
+    #         )
+
+    #         last_printed_finished = finished_for_cluster
+
+    #     if in_queue == 0:
+    #         break
+
+    #     if counts["held"] > 0:
+    #         print(
+    #             f"[WARNING] Cluster {cluster_id} has {counts['held']} held jobs. "
+    #             "Check condor_q -hold for details."
+    #         )
+
+    #     time.sleep(POLL_INTERVAL)
 
     print(f"[VERIFY] Cluster {cluster_id} left the queue. Verifying outputs...")
 
