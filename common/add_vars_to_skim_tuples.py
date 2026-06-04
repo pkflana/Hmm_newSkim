@@ -1,14 +1,17 @@
 
 def SelectedJetObservablesDef(df):
+    columns = {str(col) for col in df.GetColumnNames()}
     jet_names = {
         0: "leading",
         1: "subleading",
         2: "third",
         3: "fourth",
     }
-    sel_jet_cols = ["SelectedJet_area","SelectedJet_btagDeepFlavQG","SelectedJet_btagPNetB","SelectedJet_btagPNetQvG","SelectedJet_eta","SelectedJet_idx","SelectedJet_mass","SelectedJet_phi","SelectedJet_pt"]
+    sel_jet_cols = ["SelectedJet_area","SelectedJet_btagDeepFlavQG","SelectedJet_btagPNetB","SelectedJet_btagPNetQvG","SelectedJet_btagUParTAK4QvG","SelectedJet_eta","SelectedJet_idx","SelectedJet_mass","SelectedJet_phi","SelectedJet_pt"]
     for jet_idx, jet_type in jet_names.items():
         for jet_obs in sel_jet_cols:
+            if jet_obs not in columns:
+                continue
             jet_obs_suff = "_".join(jet_obs.split("_")[1:])
             df = df.Define(
                 f"{jet_type}jet_{jet_obs_suff}",
@@ -25,22 +28,25 @@ def SelectedJetObservablesDef(df):
 
 
 def VBFJetObservablesDef(df):
-    sel_jet_cols = ["SelectedJet_area","SelectedJet_btagDeepFlavQG","SelectedJet_btagPNetB","SelectedJet_btagPNetQvG","SelectedJet_eta","SelectedJet_idx","SelectedJet_mass","SelectedJet_phi","SelectedJet_pt"]
+    columns = {str(col) for col in df.GetColumnNames()}
+    sel_jet_cols = ["SelectedJet_area","SelectedJet_btagDeepFlavQG","SelectedJet_btagPNetB","SelectedJet_btagPNetQvG","SelectedJet_btagUParTAK4QvG","SelectedJet_eta","SelectedJet_idx","SelectedJet_mass","SelectedJet_phi","SelectedJet_pt"]
     for vbfj_idx in [1,2]:
         df = df.Define(
             f"vbfjet{vbfj_idx}_p4",
-            f"(SelectedJet_idx.size()>VBFJetIdx_{vbfj_idx} && VBFJetIdx_{vbfj_idx} > 0 && HasVBF ) ? ROOT::Math::LorentzVector<ROOT::Math::PtEtaPhiM4D<double>>(SelectedJet_pt.at(VBFJetIdx_{vbfj_idx}), SelectedJet_eta.at(VBFJetIdx_{vbfj_idx}),SelectedJet_phi.at(VBFJetIdx_{vbfj_idx}), SelectedJet_mass.at(VBFJetIdx_{vbfj_idx})) : ROOT::Math::LorentzVector<ROOT::Math::PtEtaPhiM4D<double>>(-10000.,-10000.,-10000.,-10000.);",
+            f"(HasVBF && VBFJetIdx_{vbfj_idx} >= 0 && SelectedJet_idx.size()>VBFJetIdx_{vbfj_idx}) ? ROOT::Math::LorentzVector<ROOT::Math::PtEtaPhiM4D<double>>(SelectedJet_pt.at(VBFJetIdx_{vbfj_idx}), SelectedJet_eta.at(VBFJetIdx_{vbfj_idx}),SelectedJet_phi.at(VBFJetIdx_{vbfj_idx}), SelectedJet_mass.at(VBFJetIdx_{vbfj_idx})) : ROOT::Math::LorentzVector<ROOT::Math::PtEtaPhiM4D<double>>(-10000.,-10000.,-10000.,-10000.);",
         )
         for jet_obs in sel_jet_cols:
+            if jet_obs not in columns:
+                continue
             jet_obs_suff = "_".join(jet_obs.split("_")[1:])
             df = df.Define(
                 f"vbfjet{vbfj_idx}_{jet_obs_suff}",
-                f"(SelectedJet_idx.size()>VBFJetIdx_{vbfj_idx} && VBFJetIdx_{vbfj_idx} > 0 && HasVBF) ? {jet_obs}.at(VBFJetIdx_{vbfj_idx}): -1000.f;",
+                f"(HasVBF && VBFJetIdx_{vbfj_idx} >= 0 && SelectedJet_idx.size()>VBFJetIdx_{vbfj_idx}) ? {jet_obs}.at(VBFJetIdx_{vbfj_idx}): -1000.f;",
             )
 
     df = df.Define(
         "m_jj",
-        "if (HasVBF) return static_cast<float>((vbfjet1_p4+vbfjet1_p4).M()); return -1000.f",
+        "if (HasVBF) return static_cast<float>((vbfjet1_p4+vbfjet2_p4).M()); return -1000.f",
     )
     df = df.Define(
         "delta_eta_jj",
@@ -65,6 +71,14 @@ def VBFJetObservablesDef(df):
 
 
 def VBFJetMuonsObservablesDef(df):
+    mu_suff = "ScaRe_FSR" if "mu1_p4_ScaRe_FSR" in df.GetColumnNames() else ""
+    mu_suffix = f"_{mu_suff}" if mu_suff else ""
+    mu1_p4 = f"mu1_p4{mu_suffix}"
+    mu2_p4 = f"mu2_p4{mu_suffix}"
+    pt_mumu_name = f"pt_mumu{mu_suffix}"
+    eta_mumu_name = f"eta_mumu{mu_suffix}"
+    y_mumu_name = f"y_mumu{mu_suffix}"
+
     for mu_idx in [1,2]:
         if f"mu{mu_idx}_p4" not in df.GetColumnNames():
             df = df.Define(f"mu{mu_idx}_p4", f"ROOT::Math::LorentzVector<ROOT::Math::PtEtaPhiM4D<double>>(mu{mu_idx}_pt, mu{mu_idx}_eta, mu{mu_idx}_phi, mu{mu_idx}_mass)")
@@ -72,15 +86,15 @@ def VBFJetMuonsObservablesDef(df):
         df = df.Define("y_mumu", "return (mu1_p4.Rapidity()+mu2_p4.Rapidity())/2.;")
     df = df.Define(
         "Zeppenfeld_Var",
-        f"if (HasVBF) return static_cast<float>((y_mumu - 0.5*(vbfjet1_y+vbfjet2_y))/std::abs(vbfjet1_y - vbfjet2_y)); return -10000.f;",
+        f"if (HasVBF) return static_cast<float>(({y_mumu_name} - 0.5*(vbfjet1_y+vbfjet2_y))/std::abs(vbfjet1_y - vbfjet2_y)); return -10000.f;",
     )
     df = df.Define(
         "pT_all_sum",
-        f"if(HasVBF) return static_cast<float>((mu1_p4+mu2_p4+vbfjet1_p4+vbfjet2_p4).Pt()); return -10000.f;",
+        f"if(HasVBF) return static_cast<float>(({mu1_p4}+{mu2_p4}+vbfjet1_p4+vbfjet2_p4).Pt()); return -10000.f;",
     )
     df = df.Define(
         "pT_single_sum",
-        f"if(HasVBF) return static_cast<float>(mu1_p4.Pt()+mu2_p4.Pt()+vbfjet1_p4.Pt()+vbfjet2_p4.Pt()); return -10000.f;",
+        f"if(HasVBF) return static_cast<float>({mu1_p4}.Pt()+{mu2_p4}.Pt()+vbfjet1_p4.Pt()+vbfjet2_p4.Pt()); return -10000.f;",
     )
     df = df.Define(
         "R_pt",
@@ -96,7 +110,7 @@ def VBFJetMuonsObservablesDef(df):
     )
     df = df.Define(
         "pT_mumu_sum",
-        f"return static_cast<float>((mu1_p4+mu2_p4).Pt());",
+        f"return static_cast<float>(({mu1_p4}+{mu2_p4}).Pt());",
     )
     df = df.Define(
         "pt_centrality",
@@ -105,16 +119,16 @@ def VBFJetMuonsObservablesDef(df):
 
     df = df.Define(
         "minDeltaPhi",
-        f"if(HasVBF) return static_cast<float>(std::min(ROOT::Math::VectorUtil::DeltaPhi( (mu1_p4+mu2_p4), vbfjet1_p4), ROOT::Math::VectorUtil::DeltaPhi((mu1_p4+mu2_p4), vbfjet2_p4) ) )  ; return -10000.f;",
+        f"if(HasVBF) return static_cast<float>(std::min(ROOT::Math::VectorUtil::DeltaPhi( ({mu1_p4}+{mu2_p4}), vbfjet1_p4), ROOT::Math::VectorUtil::DeltaPhi(({mu1_p4}+{mu2_p4}), vbfjet2_p4) ) )  ; return -10000.f;",
     )
     df = df.Define(
         "minDeltaEta",
-        f"if(HasVBF) return static_cast<float>(std::min(std::abs(eta_mumu - vbfjet1_eta),std::abs(eta_mumu - vbfjet2_eta))) ; return -10000.f;",
+        f"if(HasVBF) return static_cast<float>(std::min(std::abs({eta_mumu_name} - vbfjet1_eta),std::abs({eta_mumu_name} - vbfjet2_eta))) ; return -10000.f;",
     )
-    # df = df.Define(
-    #     "minDeltaEtaSigned",
-    #     f"if(HasVBF) return static_cast<float>(std::min((eta_mumu - vbfjet1_eta),(eta_mumu - vbfjet2_eta))) ; return -10000.f;",
-    # )
+    df = df.Define(
+        "minDeltaEtaSigned",
+        f"if(HasVBF) return static_cast<float>(std::min(({eta_mumu_name} - vbfjet1_eta),({eta_mumu_name} - vbfjet2_eta))) ; return -10000.f;",
+    )
 
     return df
 
@@ -228,7 +242,7 @@ def GetAllMuonsObservablesNew(df):
         "cosTheta_CS": "static_cast<float>(std::get<0>(cosTheta_Phi_CS{suff}))",
         "phi_CS": "static_cast<float>(std::get<1>(cosTheta_Phi_CS{suff}))",
     }
-    for pt_suffix in [""
+    for pt_suffix in ["", "_FSR_scale"
         # "_nano",
         # "_bsConstrainedPt",
         # "",  # should be same than bsc_scare

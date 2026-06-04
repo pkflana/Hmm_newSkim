@@ -59,8 +59,8 @@ proxy_location = skim_config["proxy_location"]
 
 submit_jobs = skim_config.get("submit", True)
 
-MAX_PARALLEL_JOBS = 2000
-POLL_INTERVAL = 30
+MAX_PARALLEL_JOBS = 6000
+POLL_INTERVAL = 2
 
 WRITE_MISSING_FILES_DRYRUN = True
 

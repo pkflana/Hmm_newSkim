@@ -1,3 +1,8 @@
+#pragma once
+
+#include <ROOT/RVec.hxx>
+#include <Math/Vector4D.h>
+#include <Math/VectorUtil.h>
 #include <vector>
 
 using RVecB = ROOT::VecOps::RVec<Bool_t>;
@@ -5,7 +10,7 @@ using RVecI = ROOT::VecOps::RVec<Int_t>;
 using RVecUS = ROOT::VecOps::RVec<UShort_t>;
 using RVecF = ROOT::VecOps::RVec<Float_t>;
 
-bool genVBFFilter_func(RVecF &GenJet_pt, RVecF &GenJet_eta, RVecF &GenJet_phi, RVecF &GenJet_mass, RVecF &GenPart_pt, RVecF &GenPart_eta, RVecF &GenPart_phi, RVecF &GenPart_mass, RVecI &GenPart_pdgId, RVecUS &GenPart_statusFlags)
+bool genVBFFilter_func(const RVecF &GenJet_pt, const RVecF &GenJet_eta, const RVecF &GenJet_phi, const RVecF &GenJet_mass, const RVecF &GenPart_pt, const RVecF &GenPart_eta, const RVecF &GenPart_phi, const RVecF &GenPart_mass, const RVecI &GenPart_pdgId, const RVecUS &GenPart_statusFlags)
 {
     std::vector<ROOT::Math::PtEtaPhiMVector> GenLepton;
     for (size_t i = 0; i < GenPart_pt.size(); ++i)

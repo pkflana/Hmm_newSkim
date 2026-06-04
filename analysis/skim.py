@@ -35,6 +35,7 @@ xs_cfg = utilities.get_config(config["crossSectionsFile"])
 nano_version = config.get("nano_version", "v15")
 is_data = dataset_cfg.get("is_data", False)
 is_signal = dataset_cfg.get("is_signal", False)
+process = utilities.process_from_dataset(process_cfg, args.dataset_name) if not is_data else None
 
 want_variations = config.get("want_variations", False) and not is_data
 only_default = sel_config.get("only_default", True)
@@ -58,11 +59,15 @@ df = df.Define("FullEventId",f"eventId::encodeFullEventId({dataset_crc}, {input_
 # default columns to store: #
 cols_to_save.extend(utilities.GetObservablesCols("default", is_data, nano_version))
 
+# apply generator-level stitching filters #
+if not is_data:
+    from analysis.gen_vbf_filter import ApplyGenVBFFilter
+    df = ApplyGenVBFFilter(df, args.era, args.dataset_name, process)
+
 # define weights #
 if not is_data:
     from corrections.general import define_base_weights
     xs_entry = dataset_cfg.get("crossSection", args.dataset_name)
-    process = utilities.process_from_dataset(process_cfg, args.dataset_name)
     process_entry = process_cfg[process]
     df,base_weights,json_dict_to_store = define_base_weights(df, config.get("luminosity", ""), xs_entry, xs_cfg,config,dataset_cfg, process_entry)
     cols_to_save.extend(base_weights)

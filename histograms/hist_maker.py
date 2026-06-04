@@ -23,7 +23,7 @@ def process_single_chunk(args_tuple):
     Funzione eseguita in parallelo dai vari core della CPU.
     Processa un singolo chunk di file e salva un file ROOT temporaneo.
     """
-    chunk_index, chunk_files, args, is_data, syst_cfg, vars_to_make_hist, masses_regions, masses_regions_list, categories, categories_list, hist_cfg, systs_to_run, seg_dict = args_tuple
+    chunk_index, chunk_files, args, is_data, syst_cfg, vars_to_make_hist, masses_regions, masses_regions_list, categories, categories_list, hist_cfg, systs_to_run, seg_dict, dnn_payloads, btag_algo = args_tuple
 
     rdf_base = GetRdfForDataset(
         input_dir=args.input,
@@ -33,7 +33,9 @@ def process_single_chunk(args_tuple):
         treeName="Events",
         explicit_files=chunk_files,
         seg_dict=seg_dict,
-        skip_validation=True
+        skip_validation=True,
+        dnn_payloads=dnn_payloads,
+        btag_algo=btag_algo
     )
 
     tmp_output = f"{args.output_file}.tmp_{chunk_index}"
@@ -79,7 +81,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument( "--era", required=True, type=str)
     parser.add_argument( "--input", required=True, type=str, help="ROOT file or dataset directory")
-    parser.add_argument( "--dataset-name", required=True, type=str)
+    parser.add_argument( "--dataset-name", "--dataset", dest="dataset_name", required=True, type=str)
     parser.add_argument( "--output-file", required=True, type=str)
     parser.add_argument( "--systematics", choices=["central", "all"], default="central")
 
@@ -87,6 +89,9 @@ if __name__ == "__main__":
     parser.add_argument( "--chunk-size", type=int, default=10, help="Quanti file ROOT per ogni chunk")
     parser.add_argument( "--n-cores", type=int, default=4, help="Quanti processi separati usare in parallelo")
     parser.add_argument( "--skip-file-validation", action="store_true", help="Non aprire tutti i file prima di costruire gli istogrammi")
+    parser.add_argument( "--variables", nargs="+", help="Variabili da istogrammare al posto di quelle in maincfg.yaml")
+    parser.add_argument( "--mass-regions", nargs="+", default=["mass_inclusive"], help="Regioni di massa da istogrammare")
+    parser.add_argument( "--categories", nargs="+", default=["baseline", "ggF", "VBF"], help="Categorie da istogrammare")
     args = parser.parse_args()
 
     startTime = time.time()
@@ -101,10 +106,14 @@ if __name__ == "__main__":
 
     masses_regions = sel_cfg["masses_regions"]
     categories = sel_cfg["categories"]
-    masses_regions_list = ["mass_inclusive"]
-    # masses_regions_list = ["Z_sideband"]
-    categories_list = ["baseline", "ggF", "VBF"]
-    vars_to_make_hist = list(dict.fromkeys(main_cfg["variables"]))
+    masses_regions_list = args.mass_regions
+    categories_list = args.categories
+    vars_to_make_hist = list(dict.fromkeys(args.variables or main_cfg["variables"]))
+    dnn_payloads = sorted({
+        var.rsplit("_NNOutput", 1)[0]
+        for var in vars_to_make_hist
+        if var.endswith("_NNOutput")
+    })
 
     systs_to_run = {"Central": syst_cfg["systematics"]["Central"]}
     if args.systematics != 'central':
@@ -130,7 +139,7 @@ if __name__ == "__main__":
     for idx, chunk_files in enumerate(chunks):
         pool_inputs.append((
             idx, chunk_files, args, is_data, syst_cfg, vars_to_make_hist,
-            masses_regions, masses_regions_list, categories, categories_list, hist_cfg, systs_to_run, seg_dict
+            masses_regions, masses_regions_list, categories, categories_list, hist_cfg, systs_to_run, seg_dict, dnn_payloads, main_cfg.get("bTagAlgo", "PNet")
         ))
 
     ctx = get_context('spawn')
@@ -141,7 +150,9 @@ if __name__ == "__main__":
     print("\n[INFO] Tutti i chunk sono stati elaborati con successo.")
     print(f"[INFO] Unisco i {len(tmp_files)} file temporanei in {args.output_file}...")
 
-    os.makedirs(os.path.dirname(args.output_file), exist_ok=True)
+    output_dir = os.path.dirname(args.output_file)
+    if output_dir:
+        os.makedirs(output_dir, exist_ok=True)
     hadd_cmd = f"hadd -f {args.output_file} " + " ".join(tmp_files)
     exit_code = os.system(hadd_cmd)
 
