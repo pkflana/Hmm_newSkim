@@ -17,7 +17,7 @@ CONFIG_PATH = os.path.join(ANALYSIS_PATH, "config")
 # =========================================================
 # Load skim configuration
 # =========================================================
-era = "Run3_2024"
+era = "Run3_2022EE"
 skim_cfg_path = os.path.join(
     CONFIG_PATH,
     era,
@@ -60,6 +60,7 @@ for key in processes.keys():
 # =========================================================
 
 nanoaod = "nanoAOD"
+istance = None
 
 for key in data.keys():
 
@@ -72,7 +73,11 @@ for key in data.keys():
 
     dataset = data[key][nanoaod]
 
+
     query = f'dasgoclient --query="file dataset={dataset}"'
+    if data[key].Get("instance", None):
+        istance= data[key].Get("instance", None)
+        query += f" istance={istance}"
     filelist = os.popen(query).read().splitlines()
 
     resolved_files = []

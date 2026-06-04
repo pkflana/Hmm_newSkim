@@ -952,10 +952,10 @@ DYto2Mu_MLL_6000to13600_powheg_minnlo:
   nanoAOD: /DYto2Mu_Bin-MLL-6000to13600_TuneCP5_13p6TeV_powhegMINNLO-pythia8-photos/RunIII2024Summer24NanoAODv15-150X_mcRun3_2024_realistic_v2-v2/NANOAODSIM
 # to add: minnlo 2E, 2Tau (present but XS not included in the yaml file -- i am lazy )
 # # # DY 2Mu FlashSim
-DYto2Mu_MLL_105to160_amcatnloFXFX_Flashsim:
-  crossSection: DYto2Mu_MLL_105to160_amcatnloFXFX
-  crossSectionStitch: DYto2Mu_MLL_105to160_amcatnloFXFX
-  nanoAOD: /DYto2Mu-2Jets_Bin-MLL-105to160_TuneCP5_13p6TeV_amcatnloFXFX-pythia8/fvaselli-DY2Mu_2Jets_MLL-105to160-RunIII2024Summer24MiniAODv6-150X_mcRun3_2024_realistic_v2-packedTrackGenJetAK4-limit-TrkGJ_eta-to-tracker-66034083b387d860d393385d18a4f59d/USER
+# DYto2Mu_MLL_105to160_amcatnloFXFX_Flashsim:
+#   crossSection: DYto2Mu_MLL_105to160_amcatnloFXFX
+#   crossSectionStitch: DYto2Mu_MLL_105to160_amcatnloFXFX
+#   nanoAOD: /DYto2Mu-2Jets_Bin-MLL-105to160_TuneCP5_13p6TeV_amcatnloFXFX-pythia8/fvaselli-DY2Mu_2Jets_MLL-105to160-RunIII2024Summer24MiniAODv6-150X_mcRun3_2024_realistic_v2-packedTrackGenJetAK4-limit-TrkGJ_eta-to-tracker-66034083b387d860d393385d18a4f59d/USER
 
 
 # ##### EWK Samples #####
@@ -967,10 +967,10 @@ EWK_2L2J_madgraph_herwig_ext1:
   crossSection: EWK_2L2J_MLL50_MJJ120
   generator: madgraph
   nanoAOD: /EWK-2L2J_Bin-MLL-50-MJJ-120_TuneCH3_13p6TeV_madgraph-herwig7/RunIII2024Summer24NanoAODv15-150X_mcRun3_2024_realistic_v2_ext1-v2/NANOAODSIM
-EWK_2Mu2J_MLL_105to160_pythia_Flashsim:
-  crossSection: EWK_2Mu2J_MLL105to160_MJJ120
-  generator: madgraph
-  nanoAOD: /EWK-2Mu2J_Bin-M2Mu-105to160-M2J-120_TuneCP5_13p6TeV_madgraph-pythia8/fvaselli-EWK-2Mu2J_Bin-M2Mu-105to160-M2J-120-RunIII2024Summer24MiniAODv6-150X_mcRun3_2024_realistic_v2-packedTrackGenJetAK4-ace5d3f4ddab40d8fc0f18e7a8dbab44/USER
+# EWK_2Mu2J_MLL_105to160_pythia_Flashsim:
+#   crossSection: EWK_2Mu2J_MLL105to160_MJJ120
+#   generator: madgraph
+#   nanoAOD: /EWK-2Mu2J_Bin-M2Mu-105to160-M2J-120_TuneCP5_13p6TeV_madgraph-pythia8/fvaselli-EWK-2Mu2J_Bin-M2Mu-105to160-M2J-120-RunIII2024Summer24MiniAODv6-150X_mcRun3_2024_realistic_v2-packedTrackGenJetAK4-ace5d3f4ddab40d8fc0f18e7a8dbab44/USER
 EWK_2Mu2J_MLL_105to160_herwig:
   crossSection: EWK_2Mu2J_MLL105to160_MJJ120
   generator: madgraph
@@ -1405,3 +1405,43 @@ WmWmJJ_EWK:
   generator: powheg
   nanoAOD: /WmWmJJ-EWK_TuneCP5_13p6TeV-powheg-pythia8/RunIII2024Summer24NanoAODv15-150X_mcRun3_2024_realistic_v2-v2/NANOAODSIM
 
+############### flashsim
+
+DYto2L_M_50_amcatnloFXFX_Flashsim:
+  crossSection: DYto2L_M_50_amcatnloFXFX_allFlavors
+  crossSectionStitch: DYto2L_M_50_amcatnloFXFX_allFlavors
+  nanoAOD: /DYto2L-2Jets_MLL-50_2J_TuneCP5_13p6TeV_amcatnloFXFX-pythia8/fvaselli-flashsim_DYto2L-2Jets_MLL-50_2J_TuneCP5_13p6TeV_amcatnloFXFX-pythia8-Run3Summer22NanoAODv12-130X_mcRun3_2022_realistic-937767ad549695a10e40fd392f6c3633/USER
+  instance: phys_03
+
+DYto2Mu_MLL_105to160_amcatnloFXFX_Flashsim:
+  crossSection: DYto2Mu_MLL_105to160_amcatnloFXFX
+  crossSectionStitch: DYto2Mu_MLL_105to160_amcatnloFXFX
+  nanoAOD: /DYto2Mu-2Jets_Bin-MLL-105to160_TuneCP5_13p6TeV_amcatnloFXFX-pythia8/fvaselli-DY2Mu_2Jets_MLL-105to160-RunIII2024Summer24MiniAODv6-150X_mcRun3_2024_realistic_v2-packedTrackGenJetAK4-ace5d3f4ddab40d8fc0f18e7a8dbab44/USER  # /DYto2Mu-2Jets_Bin-MLL-105to160_TuneCP5_13p6TeV_amcatnloFXFX-pythia8/fvaselli-DY2Mu_2Jets_MLL-105to160-RunIII2024Summer24MiniAODv6-150X_mcRun3_2024_realistic_v2-addHT1-limit-TrkGJ_eta-to-tracker-c2e672ea58c2aebf452757dd48b38e22/USER # /DYto2Mu-2Jets_Bin-MLL-105to160_TuneCP5_13p6TeV_amcatnloFXFX-pythia8/fvaselli-DY2Mu_2Jets_MLL-105to160-RunIII2024Summer24MiniAODv6-150X_mcRun3_2024_realistic_v2-packedTrackGenJetAK4-limit-TrkGJ_eta-to-tracker-66034083b387d860d393385d18a4f59d/USER
+  istance: phys03
+
+DYto2Mu_M_50_amcatnloFXFX_Flashsim:
+  crossSection: DYto2L_M_50_amcatnloFXFX_singleFlavor
+  crossSectionStitch: DYto2L_M_50_amcatnloFXFX_singleFlavor
+  nanoAOD: /DYto2Mu-2Jets_Bin-MLL-50_TuneCP5_13p6TeV_amcatnloFXFX-pythia8/fvaselli-SoftActivity_NanoAOD_Test_v1-ace5d3f4ddab40d8fc0f18e7a8dbab44/USER
+  instance: phys_03
+
+EWK_2Mu2J_MLL_105to160_pythia_Flashsim:
+  crossSection: EWK_2Mu2J_MLL105to160_MJJ120
+  nanoAOD: /EWK-2Mu2J_Bin-M2Mu-105to160-M2J-120_TuneCP5_13p6TeV_madgraph-pythia8/fvaselli-EWK-2Mu2J_Bin-M2Mu-105to160-M2J-120-RunIII2024Summer24MiniAODv6-150X_mcRun3_2024_realistic_v2-addHT1-c2e672ea58c2aebf452757dd48b38e22/USER # /EWK-2Mu2J_Bin-M2Mu-105to160-M2J-120_TuneCP5_13p6TeV_madgraph-pythia8/fvaselli-EWK-2Mu2J_Bin-M2Mu-105to160-M2J-120-RunIII2024Summer24MiniAODv6-150X_mcRun3_2024_realistic_v2-packedTrackGenJetAK4-ace5d3f4ddab40d8fc0f18e7a8dbab44/USER
+  instance: phys_03
+
+TTto2L2Nu_Flashsim:
+  crossSection: TTto2L2Nu
+  nanoAOD: /TTto2L2Nu_TuneCP5_13p6TeV_powheg-pythia8/fvaselli-TTto2L2Nu_TuneCP5_13p6TeV_powheg-pythia8-RunIII2024Summer24MiniAODv6-150X_mcRun3_2024_realistic_v2-addHT1-c2e672ea58c2aebf452757dd48b38e22/USER
+  instance: phys_03
+
+TT_Flashsim:
+  crossSection: TT
+  nanoAOD: /TT_TuneCH3_13TeV-powheg-herwig7/fvaselli-flashsim_v9-f5e5c27141f6cbae6ce3c7d60feb1683/USER # /TT_TuneCH3_13TeV-powheg-herwig7/fvaselli-flashsim_v9_TT-f5e5c27141f6cbae6ce3c7d60feb1683/USER # /TT_TuneCH3_13TeV-powheg-herwig7/fvaselli-flashsim_v9_TT_herwig7-f5e5c27141f6cbae6ce3c7d60feb1683/USER # /TT_TuneCH3_13TeV-powheg-herwig7/fvaselli-test_flashsim_v9-f5e5c27141f6cbae6ce3c7d60feb1683/USER
+  instance: phys_03
+
+VBFHto2Mu_m125_Flashsim:
+  is_signal: True
+  crossSection: VBFHto2Mu_M125
+  nanoAOD: /VBFH-Hto2Mu_Par-M-125_TuneCP5_13p6TeV_powheg-pythia8/fvaselli-VBFH-Hto2Mu_Par-M-125_TuneCP5_13p6TeV_powheg-pythia8-RunIII2024Summer24MiniAODv6-150X_mcRun3_2024_realistic_v2_ext1-v2-addHT1-c2e672ea58c2aebf452757dd48b38e22/USER
+  istance: phys_03

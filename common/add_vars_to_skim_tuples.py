@@ -33,7 +33,7 @@ def VBFJetObservablesDef(df):
     for vbfj_idx in [1,2]:
         df = df.Define(
             f"vbfjet{vbfj_idx}_p4",
-            f"(HasVBF && VBFJetIdx_{vbfj_idx} >= 0 && SelectedJet_idx.size()>VBFJetIdx_{vbfj_idx}) ? ROOT::Math::LorentzVector<ROOT::Math::PtEtaPhiM4D<double>>(SelectedJet_pt.at(VBFJetIdx_{vbfj_idx}), SelectedJet_eta.at(VBFJetIdx_{vbfj_idx}),SelectedJet_phi.at(VBFJetIdx_{vbfj_idx}), SelectedJet_mass.at(VBFJetIdx_{vbfj_idx})) : ROOT::Math::LorentzVector<ROOT::Math::PtEtaPhiM4D<double>>(-10000.,-10000.,-10000.,-10000.);",
+            f"(HasVBF) ? ROOT::Math::LorentzVector<ROOT::Math::PtEtaPhiM4D<double>>(SelectedJet_pt.at(VBFJetIdx_{vbfj_idx}), SelectedJet_eta.at(VBFJetIdx_{vbfj_idx}),SelectedJet_phi.at(VBFJetIdx_{vbfj_idx}), SelectedJet_mass.at(VBFJetIdx_{vbfj_idx})) : ROOT::Math::LorentzVector<ROOT::Math::PtEtaPhiM4D<double>>(-10000.,-10000.,-10000.,-10000.);",
         )
         for jet_obs in sel_jet_cols:
             if jet_obs not in columns:
@@ -41,13 +41,14 @@ def VBFJetObservablesDef(df):
             jet_obs_suff = "_".join(jet_obs.split("_")[1:])
             df = df.Define(
                 f"vbfjet{vbfj_idx}_{jet_obs_suff}",
-                f"(HasVBF && VBFJetIdx_{vbfj_idx} >= 0 && SelectedJet_idx.size()>VBFJetIdx_{vbfj_idx}) ? {jet_obs}.at(VBFJetIdx_{vbfj_idx}): -1000.f;",
+                f"(HasVBF) ? {jet_obs}.at(VBFJetIdx_{vbfj_idx}): -1000.f;",
             )
 
     df = df.Define(
         "m_jj",
         "if (HasVBF) return static_cast<float>((vbfjet1_p4+vbfjet2_p4).M()); return -1000.f",
     )
+
     df = df.Define(
         "delta_eta_jj",
         "if (HasVBF) return static_cast<float>(abs(vbfjet1_p4.Eta()-vbfjet2_p4.Eta())); return -1000.f",

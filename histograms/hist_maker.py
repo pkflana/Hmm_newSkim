@@ -90,7 +90,7 @@ if __name__ == "__main__":
     parser.add_argument( "--n-cores", type=int, default=4, help="Quanti processi separati usare in parallelo")
     parser.add_argument( "--skip-file-validation", action="store_true", help="Non aprire tutti i file prima di costruire gli istogrammi")
     parser.add_argument( "--variables", nargs="+", help="Variabili da istogrammare al posto di quelle in maincfg.yaml")
-    parser.add_argument( "--mass-regions", nargs="+", default=["mass_inclusive"], help="Regioni di massa da istogrammare")
+    parser.add_argument( "--mass-regions", nargs="+", default=["mass_inclusive", "Z_sideband", "Signal_Fit"], help="Regioni di massa da istogrammare")
     parser.add_argument( "--categories", nargs="+", default=["baseline", "ggF", "VBF"], help="Categorie da istogrammare")
     args = parser.parse_args()
 

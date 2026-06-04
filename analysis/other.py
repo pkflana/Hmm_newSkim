@@ -16,11 +16,11 @@ def applyBadMETfilter(df, badMET_flag_runs, is_data):
         # https://twiki.cern.ch/twiki/bin/view/CMS/MissingETOptionalFiltersRun2#ECal_BadCalibration_Filter_Flag
         df = df.Define(
             f"Flag_badMET_calib",
-            f""" !( PuppiMET_p4.pt()>100 &&
-                                                Any(v_ops::pt(Jet_p4) > 50
-                                                && v_ops::eta(Jet_p4) >= -0.5 && v_ops::eta(Jet_p4) <= -0.1
-                                                && v_ops::phi(Jet_p4) >= -2.1 && v_ops::phi(Jet_p4) <= -1.8
-                                                && abs(PuppiMET_p4.phi() - v_ops::phi(Jet_p4)) > 2.9
+            f""" !( PuppiMET_pt>100 &&
+                                                Any(Jet_pt > 50
+                                                && Jet_eta >= -0.5 && Jet_eta <= -0.1
+                                                && Jet_phi >= -2.1 && Jet_phi <= -1.8
+                                                && abs(PuppiMET_phi - Jet_phi) > 2.9
                                                 && (Jet_neEmEF > 0.9 || Jet_chEmEF > 0.9)
                                                 ) )""",
         )

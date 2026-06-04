@@ -40,6 +40,20 @@ DYto2Mu_MLL105To160_FlashSim:
     - DYto2Mu_MLL_105to160_amcatnloFXFX_Flashsim
 
 
+DYto2Mu_FlashSim:
+  name: "DY"
+  color: "kAzure+7"
+  color_mplhep: dodgerblue
+  datasets:
+    - DYto2Mu_M_50_amcatnloFXFX_Flashsim
+
+DYto2L_FlashSim:
+  name: "DY"
+  color: "kAzure+7"
+  color_mplhep: dodgerblue
+  datasets:
+    - DYto2L_M_50_amcatnloFXFX_Flashsim
+
 DYto2Mu_minnlo:
   name: "DY"
   color: "kAzure+7"
@@ -65,6 +79,13 @@ TT:
     - TTto2L2Nu
     - TTtoLNu2Q
     - TTto4Q
+
+TTto2L2Nu_Flashsim:
+  name: "t $\\bar{t}$"
+  color: "kGreen-3"  # eliminates need for plot.yaml
+  color_mplhep: darkblue  # turquoise
+  datasets:
+    - TTto2L2Nu_Flashsim
 
 ############## WJetsToLNu ##############
 W:
@@ -231,6 +252,12 @@ TTX:
 
 
 ############## VBF signal ##############
+VBFHto2Mu_m125_Flashsim:
+  name: "VBFHto2Mu"
+  color: "kPink"
+  color_mplhep: fuchsia
+  datasets:
+  - VBFHto2Mu_m125_Flashsim
 VBFHto2Mu_M125_amcatnlo:
   name: "VBFHto2Mu"
   color: "kPink"
@@ -427,21 +454,3 @@ Other:
   color: kGray+1
   color_mplhep: slateblue
   datasets: [ ]
-
-custom_CI_background:
-  name: "CI -- Background"
-  color: "kGreen-3"
-  datasets:
-    - EWK_2Mu2J_MLL_105to160_herwig
-
-custom_CI_signal:
-  name: "CI -- signals"
-  color: "kAzure+10"
-  datasets:
-    - VBFHto2Mu_m125_powheg
-
-custom_CI_data:
-  name: "CI -- data"
-  color: "kAzure+10"
-  datasets:
-    - Muon1_Run2024C

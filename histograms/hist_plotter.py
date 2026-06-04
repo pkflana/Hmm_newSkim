@@ -555,6 +555,7 @@ if __name__ == "__main__":
     parser.add_argument("--systematics", action="store_true", help="Include systematic uncertainties")
     parser.add_argument("--wantData", action="store_true", help="Include data in plots and draw ratio")
     parser.add_argument("--wantLogY", action="store_true", help="Set y-axis to log scale")
+    parser.add_argument("--rebin", action="store_true", help="rebin histograms")
     args = parser.parse_args()
 
     startTime = time.time()
@@ -632,13 +633,14 @@ if __name__ == "__main__":
                     new_bins = getNewBins(bins_to_compute)
                 else:
                     new_bins = hist_cfg[var_entry].get("x_bins", [])
-
-                rebinned_hist = RebinHisto(
-                    available_hist,
-                    new_bins,
-                    process_name,
-                    wantOverflow=True,
-                )
+                rebinned_hist=available_hist
+                if args.rebin:
+                    rebinned_hist = RebinHisto(
+                        available_hist,
+                        new_bins,
+                        process_name,
+                        wantOverflow=False,
+                    )
 
                 if rebinned_hist is None:
                     continue
