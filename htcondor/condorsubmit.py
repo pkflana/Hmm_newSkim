@@ -6,15 +6,11 @@ import os
 import time
 import yaml
 import htcondor
-from collections import defaultdict
+from collections import defaultdict, OrderedDict
 
-
-# =========================================================
-# CLI
-# =========================================================
 
 parser = argparse.ArgumentParser(
-    description="Submit skim jobs to HTCondor with continuous queue refill."
+    description="Submit skim jobs to HTCondor with one Condor cluster per dataset."
 )
 parser.add_argument(
     "-e",
@@ -37,11 +33,6 @@ parser.add_argument(
 args = parser.parse_args()
 
 era = args.era
-
-
-# =========================================================
-# Environment & Paths
-# =========================================================
 
 BASE_PATH = os.path.dirname(os.path.abspath(__file__))
 ANALYSIS_PATH = os.environ.get(
@@ -115,6 +106,35 @@ WRITE_MISSING_FILES_DRYRUN = skim_config.get("write_missing_files_dryrun", True)
 
 def valid_file(path):
     return os.path.exists(path) and os.path.getsize(path) > 0
+
+
+def get_dataset_log_dir(dataset):
+    return os.path.join(HTCONDOR_PATH, "log", era, dataset)
+
+
+def get_dataset_skim_log_path(dataset):
+    return os.path.join(get_dataset_log_dir(dataset), "skim.log")
+
+
+def log_dataset_message(dataset, message, also_print=True):
+    """
+    Write a dataset-level status line to:
+        htcondor/log/<era>/<dataset>/skim.log
+
+    This is independent of the HTCondor event logs, which remain job-by-job:
+        htcondor/log/<era>/<dataset>/<filename>.<ClusterId>.<ProcId>.log
+    """
+    log_dir = get_dataset_log_dir(dataset)
+    os.makedirs(log_dir, exist_ok=True)
+
+    timestamp = time.strftime("%Y-%m-%d %H:%M:%S")
+    line = f"[{timestamp}] {message}"
+
+    with open(get_dataset_skim_log_path(dataset), "a") as log_file:
+        log_file.write(line + "\n")
+
+    if also_print:
+        print(line, flush=True)
 
 
 def get_output_paths(infile, dataset):
@@ -203,8 +223,8 @@ def get_active_jobs_count():
     """
     Count jobs that occupy active queue capacity for the current user.
 
-    Here we count idle, running and transferring jobs. Held jobs are reported
-    separately by the cluster monitor and do not consume the refill threshold.
+    Here we count idle, running and transferring jobs.
+    Held jobs are reported separately and do not consume the refill threshold.
     """
     owner = getpass.getuser()
 
@@ -220,7 +240,7 @@ def get_active_jobs_count():
 
 
 def write_missing_files_report(dataset, missing_files):
-    log_dir = os.path.join(HTCONDOR_PATH, "log", era, dataset)
+    log_dir = get_dataset_log_dir(dataset)
     os.makedirs(log_dir, exist_ok=True)
 
     missing_path = os.path.join(log_dir, "missing_files_dryrun.txt")
@@ -291,10 +311,7 @@ def mark_job_completed(job_key, global_job_output_map):
     dataset = expected["dataset"]
 
     completed_files_path = os.path.join(
-        HTCONDOR_PATH,
-        "log",
-        era,
-        dataset,
+        get_dataset_log_dir(dataset),
         "completed_files.txt",
     )
 
@@ -318,10 +335,12 @@ def write_failed_job_report(
     dataset = expected["dataset"]
     filename = expected["filename"]
 
-    log_dir = os.path.join(HTCONDOR_PATH, "log", era, dataset)
-    os.makedirs(log_dir, exist_ok=True)
+    failed_report = os.path.join(
+        get_dataset_log_dir(dataset),
+        "failed_jobs_report.txt",
+    )
 
-    failed_report = os.path.join(log_dir, "failed_jobs_report.txt")
+    os.makedirs(os.path.dirname(failed_report), exist_ok=True)
 
     with open(failed_report, "a") as f:
         f.write(
@@ -339,24 +358,31 @@ def print_cluster_status(active_clusters):
     print("\n[CLUSTERS] Currently tracked clusters:")
 
     for cluster_id, info in active_clusters.items():
+        dataset = info["dataset"]
         counts = get_condor_status_counts(cluster_id)
         finished = info["num_proc"] - counts["in_queue"]
         percent = 100.0 * finished / info["num_proc"] if info["num_proc"] > 0 else 0.0
 
-        print(
-            f"  Cluster {cluster_id}: "
+        message = (
+            f"[CLUSTER] Cluster {cluster_id} -> {dataset}: "
             f"finished={finished}/{info['num_proc']} ({percent:.1f}%) | "
             f"idle={counts['idle']} running={counts['running']} "
             f"held={counts['held']} transferring={counts['transferring']} "
             f"in_queue={counts['in_queue']}"
         )
 
+        log_dataset_message(dataset, message)
+
 
 def verify_finished_cluster(cluster_id, cluster_info, global_job_output_map):
+    dataset = cluster_info["dataset"]
     num_proc = cluster_info["num_proc"]
     proc_to_job_key = cluster_info["proc_to_job_key"]
 
-    print(f"\n[VERIFY] Cluster {cluster_id} left the queue. Verifying outputs...")
+    log_dataset_message(
+        dataset,
+        f"[VERIFY] Cluster {cluster_id} left the queue. Verifying outputs...",
+    )
 
     cluster_success = 0
     cluster_failed = 0
@@ -382,9 +408,9 @@ def verify_finished_cluster(cluster_id, cluster_info, global_job_output_map):
             )
             cluster_failed += 1
 
-    print(f"[CLUSTER SUMMARY] Cluster {cluster_id}")
-    print(f"  successful jobs : {cluster_success}")
-    print(f"  failed jobs     : {cluster_failed}")
+    log_dataset_message(dataset, f"[CLUSTER SUMMARY] Cluster {cluster_id}")
+    log_dataset_message(dataset, f"  successful jobs : {cluster_success}")
+    log_dataset_message(dataset, f"  failed jobs     : {cluster_failed}")
 
     return cluster_success, cluster_failed
 
@@ -396,13 +422,17 @@ def check_and_verify_finished_clusters(active_clusters, global_job_output_map):
     finished = 0
 
     for cluster_id, cluster_info in list(active_clusters.items()):
+        dataset = cluster_info["dataset"]
         counts = get_condor_status_counts(cluster_id)
 
         if counts["in_queue"] != 0:
             if counts["held"] > 0:
-                print(
-                    f"[WARNING] Cluster {cluster_id} has {counts['held']} held jobs. "
-                    "Check condor_q -hold for details."
+                log_dataset_message(
+                    dataset,
+                    (
+                        f"[WARNING] Cluster {cluster_id} has {counts['held']} held jobs. "
+                        "Check condor_q -hold for details."
+                    ),
                 )
             continue
 
@@ -421,6 +451,52 @@ def check_and_verify_finished_clusters(active_clusters, global_job_output_map):
         del active_clusters[cluster_id]
 
     return finished, success, failed
+
+
+def wait_until_dataset_can_be_submitted(dataset, n_jobs, active_clusters, global_job_output_map):
+    """
+    Keep the one-cluster-per-dataset policy.
+
+    If n_jobs <= MAX_PARALLEL_JOBS, this waits until the queue has enough free
+    capacity to submit the whole dataset as a single Condor cluster.
+
+    If n_jobs > MAX_PARALLEL_JOBS, strict one-cluster-per-dataset and strict
+    max-parallel-jobs cannot both be satisfied. In that case we submit the full
+    dataset cluster anyway, with a clear warning in the dataset skim.log.
+    """
+    if n_jobs > MAX_PARALLEL_JOBS:
+        log_dataset_message(
+            dataset,
+            (
+                f"[WARNING] Dataset has {n_jobs} jobs, larger than "
+                f"MAX_PARALLEL_JOBS={MAX_PARALLEL_JOBS}. "
+                "Submitting as one dataset cluster anyway."
+            ),
+        )
+        return
+
+    while True:
+        finished, success, failed = check_and_verify_finished_clusters(
+            active_clusters,
+            global_job_output_map,
+        )
+
+        current_active = get_active_jobs_count()
+        available_slots = MAX_PARALLEL_JOBS - current_active
+
+        if available_slots >= n_jobs:
+            return finished, success, failed
+
+        log_dataset_message(
+            dataset,
+            (
+                f"[QUEUE] Waiting to submit dataset cluster: "
+                f"active={current_active}, available_slots={available_slots}, "
+                f"needed={n_jobs}. Waiting {POLL_INTERVAL}s..."
+            ),
+        )
+        print_cluster_status(active_clusters)
+        time.sleep(POLL_INTERVAL)
 
 
 # =========================================================
@@ -445,7 +521,7 @@ print(f"Datasets to process: {all_datasets}")
 # FASE 1: scan files + dry run information
 # =========================================================
 
-global_condorinputs = []
+dataset_condorinputs = OrderedDict()
 global_job_output_map = {}
 
 dataset_stats = {}
@@ -460,11 +536,15 @@ for dataset in all_datasets:
 
     ensure_dataset_dirs(dataset)
 
+    # Start a fresh dataset-level skim log for this campaign.
+    with open(get_dataset_skim_log_path(dataset), "w") as skim_log:
+        skim_log.write(
+            f"[{time.strftime('%Y-%m-%d %H:%M:%S')}] "
+            f"[START] Dataset {dataset}, era {era}\n"
+        )
+
     completed_files_path = os.path.join(
-        HTCONDOR_PATH,
-        "log",
-        era,
-        dataset,
+        get_dataset_log_dir(dataset),
         "completed_files.txt",
     )
 
@@ -483,6 +563,8 @@ for dataset in all_datasets:
     completed_files_count = 0
     missing_files_count = 0
     jobs_to_run = 0
+
+    dataset_condorinputs[dataset] = []
 
     for i in range(0, len(filelist), chunk_size):
         chunk = filelist[i:i + chunk_size]
@@ -523,7 +605,7 @@ for dataset in all_datasets:
             f"{output_list}"
         )
 
-        global_condorinputs.append({
+        dataset_condorinputs[dataset].append({
             "arguments": arguments,
             "filename": filename_key,
             "dataset": dataset,
@@ -556,7 +638,20 @@ for dataset in all_datasets:
         "missing_report": missing_report,
     }
 
-total_jobs_to_run = len(global_condorinputs)
+    percent = 100.0 * completed_files_count / total_files if total_files > 0 else 0.0
+
+    log_dataset_message(dataset, "[SCAN SUMMARY]")
+    log_dataset_message(dataset, f"  files total      : {total_files}")
+    log_dataset_message(dataset, f"  files completed  : {completed_files_count}")
+    log_dataset_message(dataset, f"  files missing    : {missing_files_count}")
+    log_dataset_message(dataset, f"  completion       : {percent:.1f}%")
+    log_dataset_message(dataset, f"  jobs to submit   : {jobs_to_run}")
+    if missing_report:
+        log_dataset_message(dataset, f"  missing report   : {missing_report}")
+
+total_jobs_to_run = sum(
+    len(condorinputs) for condorinputs in dataset_condorinputs.values()
+)
 
 print_dryrun_summary(dataset_stats)
 
@@ -583,6 +678,7 @@ job = htcondor.Submit({
     "executable": os.path.join(HTCONDOR_PATH, "run_skim.sh"),
     "arguments": "$(arguments)",
 
+    # stdout from the executable, one file per job
     "output": os.path.join(
         HTCONDOR_PATH,
         "output",
@@ -591,6 +687,7 @@ job = htcondor.Submit({
         "$(filename).$(ClusterId).$(ProcId).out",
     ),
 
+    # stderr from the executable, one file per job
     "error": os.path.join(
         HTCONDOR_PATH,
         "error",
@@ -599,6 +696,7 @@ job = htcondor.Submit({
         "$(filename).$(ClusterId).$(ProcId).err",
     ),
 
+    # HTCondor event log, one file per job
     "log": os.path.join(
         HTCONDOR_PATH,
         "log",
@@ -611,25 +709,30 @@ job = htcondor.Submit({
     "Requirements": '(OpSysAndVer =?= "AlmaLinux9")',
     "+JobFlavour": flavour,
     "+JobKey": '"$(job_key)"',
+    "+Dataset": '"$(dataset)"',
     "RequestCpus": str(cpus),
     "request_memory": str(memory),
     "request_disk": str(disk),
     "max_retries": "1",
-    "batch_name": f"Skim_{era}_Global",
+
+    # Since each submission contains one dataset only, this becomes:
+    #   Skim_Run3_2022EE_DYJets
+    #   Skim_Run3_2022EE_TTTo2L2Nu
+    #   ...
+    "batch_name": f"Skim_{era}_$(dataset)",
 })
 
 job["MY.SendCredential"] = "true"
 
 
 # =========================================================
-# FASE 4: continuous submit + monitoring
+# FASE 4: one Condor cluster per dataset + monitoring
 # =========================================================
 
-print("\n[INFO] Starting continuous submission...")
+print("\n[INFO] Starting dataset-wise submission...")
 print(f"[INFO] MAX_PARALLEL_JOBS = {MAX_PARALLEL_JOBS}")
 print(f"[INFO] POLL_INTERVAL     = {POLL_INTERVAL}s")
 
-chunk_idx = 0
 active_clusters = {}
 
 global_submitted_jobs = 0
@@ -637,8 +740,79 @@ global_finished_jobs = 0
 global_success_jobs = 0
 global_failed_jobs = 0
 
-while chunk_idx < len(global_condorinputs) or active_clusters:
+for dataset, condorinputs in dataset_condorinputs.items():
+    if len(condorinputs) == 0:
+        log_dataset_message(dataset, "[INFO] No jobs to submit for this dataset.")
+        continue
 
+    n_jobs = len(condorinputs)
+
+    log_dataset_message(
+        dataset,
+        f"[SUBMIT PREP] Dataset {dataset} has {n_jobs} jobs to submit.",
+    )
+
+    result = wait_until_dataset_can_be_submitted(
+        dataset,
+        n_jobs,
+        active_clusters,
+        global_job_output_map,
+    )
+
+    if result is not None:
+        finished, success, failed = result
+        if finished > 0:
+            global_finished_jobs += finished
+            global_success_jobs += success
+            global_failed_jobs += failed
+
+    current_active = get_active_jobs_count()
+    available_slots = MAX_PARALLEL_JOBS - current_active
+
+    log_dataset_message(
+        dataset,
+        (
+            f"[SUBMIT] Submitting one cluster for dataset {dataset}: "
+            f"active={current_active}, available_slots={available_slots}, jobs={n_jobs}"
+        ),
+    )
+
+    submit_result = schedd.submit(job, itemdata=iter(condorinputs))
+
+    cluster_id = submit_result.cluster()
+    num_proc = submit_result.num_procs()
+
+    proc_to_job_key = {
+        proc_id: condorinputs[proc_id]["job_key"]
+        for proc_id in range(num_proc)
+    }
+
+    active_clusters[cluster_id] = {
+        "dataset": dataset,
+        "num_proc": num_proc,
+        "proc_to_job_key": proc_to_job_key,
+    }
+
+    global_submitted_jobs += num_proc
+
+    log_dataset_message(dataset, f"[SUBMIT] Cluster {cluster_id} -> {dataset}")
+    log_dataset_message(dataset, f"[SUBMIT] Jobs in cluster: {num_proc}")
+
+    print(
+        f"[GLOBAL STATUS] "
+        f"submitted={global_submitted_jobs}/{total_jobs_to_run}, "
+        f"finished={global_finished_jobs}/{total_jobs_to_run}, "
+        f"success={global_success_jobs}, "
+        f"failed={global_failed_jobs}",
+        flush=True,
+    )
+
+
+# =========================================================
+# FASE 5: final monitoring
+# =========================================================
+
+while active_clusters:
     finished, success, failed = check_and_verify_finished_clusters(
         active_clusters,
         global_job_output_map,
@@ -654,66 +828,16 @@ while chunk_idx < len(global_condorinputs) or active_clusters:
             f"submitted={global_submitted_jobs}/{total_jobs_to_run}, "
             f"finished={global_finished_jobs}/{total_jobs_to_run}, "
             f"success={global_success_jobs}, "
-            f"failed={global_failed_jobs}"
+            f"failed={global_failed_jobs}",
+            flush=True,
         )
-
-    if chunk_idx < len(global_condorinputs):
-        current_active = get_active_jobs_count()
-        available_slots = MAX_PARALLEL_JOBS - current_active
-        remaining_jobs = len(global_condorinputs) - chunk_idx
-
-        if available_slots > 0:
-            n_to_submit = min(available_slots, remaining_jobs)
-            sub_chunk = global_condorinputs[chunk_idx:chunk_idx + n_to_submit]
-            chunk_idx += len(sub_chunk)
-
-            print(
-                f"\n[SUBMIT] active={current_active}, "
-                f"available_slots={available_slots}, "
-                f"submitting={len(sub_chunk)}, "
-                f"remaining_after_submit={len(global_condorinputs) - chunk_idx}"
-            )
-
-            submit_result = schedd.submit(job, itemdata=iter(sub_chunk))
-
-            cluster_id = submit_result.cluster()
-            num_proc = submit_result.num_procs()
-
-            proc_to_job_key = {
-                proc_id: sub_chunk[proc_id]["job_key"]
-                for proc_id in range(num_proc)
-            }
-
-            active_clusters[cluster_id] = {
-                "num_proc": num_proc,
-                "proc_to_job_key": proc_to_job_key,
-            }
-
-            global_submitted_jobs += num_proc
-
-            print(f"[SUBMIT] Cluster ID: {cluster_id}")
-            print(f"[SUBMIT] Jobs in cluster: {num_proc}")
-            print(
-                f"[GLOBAL STATUS] "
-                f"submitted={global_submitted_jobs}/{total_jobs_to_run}, "
-                f"finished={global_finished_jobs}/{total_jobs_to_run}, "
-                f"success={global_success_jobs}, "
-                f"failed={global_failed_jobs}"
-            )
-        else:
-            print(
-                f"\n[QUEUE] Queue full: {current_active} active jobs. "
-                f"Waiting {POLL_INTERVAL}s..."
-            )
-            print_cluster_status(active_clusters)
     else:
         print(
-            f"\n[MONITOR] All jobs submitted. "
-            f"Waiting for {len(active_clusters)} active clusters to finish..."
+            f"\n[MONITOR] Waiting for {len(active_clusters)} active dataset clusters to finish..."
         )
         print_cluster_status(active_clusters)
 
-    if chunk_idx < len(global_condorinputs) or active_clusters:
+    if active_clusters:
         time.sleep(POLL_INTERVAL)
 
 
@@ -728,25 +852,62 @@ print(f"successful     : {global_success_jobs}")
 print(f"failed         : {global_failed_jobs}")
 print("===================================\n")
 
+for dataset in dataset_condorinputs:
+    log_dataset_message(dataset, "[FINAL SUMMARY]", also_print=False)
+    log_dataset_message(dataset, f"  submitted jobs : {len(dataset_condorinputs[dataset])}", also_print=False)
+
+
+# #!/usr/bin/env python3
+
+# import argparse
+# import getpass
 # import os
 # import time
 # import yaml
 # import htcondor
 # from collections import defaultdict
 
-# # =========================================================
-# # Environment & Paths
-# # =========================================================
+# parser = argparse.ArgumentParser(
+#     description="Submit skim jobs to HTCondor with continuous queue refill."
+# )
+# parser.add_argument(
+#     "-e",
+#     "--era",
+#     required=True,
+#     help="Era to process, e.g. Run3_2022EE",
+# )
+# parser.add_argument(
+#     "--max-parallel-jobs",
+#     type=int,
+#     default=None,
+#     help="Override MAX_PARALLEL_JOBS from the script/default configuration.",
+# )
+# parser.add_argument(
+#     "--poll-interval",
+#     type=int,
+#     default=None,
+#     help="Override polling interval in seconds.",
+# )
+# args = parser.parse_args()
+
+# era = args.era
 
 # BASE_PATH = os.path.dirname(os.path.abspath(__file__))
-# ANALYSIS_PATH = os.path.abspath(os.path.join(BASE_PATH, ".."))
+# ANALYSIS_PATH = os.environ.get(
+#     "ANALYSIS_PATH",
+#     os.path.abspath(os.path.join(BASE_PATH, "..")),
+# )
 
-# print(f"Environment variable ANALYSIS_PATH is not set, using {ANALYSIS_PATH} as default")
+# if "ANALYSIS_PATH" not in os.environ:
+#     print(
+#         f"Environment variable ANALYSIS_PATH is not set, "
+#         f"using {ANALYSIS_PATH} as default"
+#     )
+# else:
+#     print(f"Using ANALYSIS_PATH={ANALYSIS_PATH}")
 
 # HTCONDOR_PATH = os.path.join(ANALYSIS_PATH, "htcondor")
 # CONFIG_PATH = os.path.join(ANALYSIS_PATH, "config")
-
-# era = "Run3_2022EE"
 
 # skim_cfg_path = os.path.join(CONFIG_PATH, era, "skim_cfg.yaml")
 # processes_yaml = os.path.join(CONFIG_PATH, era, "process_names.yaml")
@@ -761,6 +922,7 @@ print("===================================\n")
 # with open(samples_yaml, "r") as samples_config:
 #     data = yaml.safe_load(samples_config)
 
+
 # # =========================================================
 # # HTCondor setup
 # # =========================================================
@@ -768,6 +930,7 @@ print("===================================\n")
 # schedd = htcondor.Schedd()
 # credd = htcondor.Credd()
 # credd.add_user_cred(htcondor.CredTypes.Kerberos, None)
+
 
 # # =========================================================
 # # Configuration
@@ -789,10 +952,11 @@ print("===================================\n")
 
 # submit_jobs = skim_config.get("submit", True)
 
-# MAX_PARALLEL_JOBS = 6000
-# POLL_INTERVAL = 120
+# MAX_PARALLEL_JOBS = args.max_parallel_jobs or skim_config.get("max_parallel_jobs", 6000)
+# POLL_INTERVAL = args.poll_interval or skim_config.get("poll_interval", 120)
 
-# WRITE_MISSING_FILES_DRYRUN = True
+# WRITE_MISSING_FILES_DRYRUN = skim_config.get("write_missing_files_dryrun", True)
+
 
 # # =========================================================
 # # Helpers
@@ -885,10 +1049,18 @@ print("===================================\n")
 
 
 # def get_active_jobs_count():
+#     """
+#     Count jobs that occupy active queue capacity for the current user.
+
+#     Here we count idle, running and transferring jobs. Held jobs are reported
+#     separately by the cluster monitor and do not consume the refill threshold.
+#     """
+#     owner = getpass.getuser()
+
 #     ads = schedd.query(
 #         constraint=(
-#             f'Owner == "{os.getlogin()}" '
-#             "&& (JobStatus == 1 || JobStatus == 2)"
+#             f'Owner == "{owner}" '
+#             "&& (JobStatus == 1 || JobStatus == 2 || JobStatus == 6)"
 #         ),
 #         projection=["ClusterId"],
 #     )
@@ -984,7 +1156,13 @@ print("===================================\n")
 #             cf.write(f"{jf}\n")
 
 
-# def write_failed_job_report(cluster_id, proc_id, job_key, missing_or_corrupt, global_job_output_map):
+# def write_failed_job_report(
+#     cluster_id,
+#     proc_id,
+#     job_key,
+#     missing_or_corrupt,
+#     global_job_output_map,
+# ):
 #     expected = global_job_output_map[job_key]
 #     dataset = expected["dataset"]
 #     filename = expected["filename"]
@@ -1003,6 +1181,97 @@ print("===================================\n")
 #         )
 
 
+# def print_cluster_status(active_clusters):
+#     if not active_clusters:
+#         return
+
+#     print("\n[CLUSTERS] Currently tracked clusters:")
+
+#     for cluster_id, info in active_clusters.items():
+#         counts = get_condor_status_counts(cluster_id)
+#         finished = info["num_proc"] - counts["in_queue"]
+#         percent = 100.0 * finished / info["num_proc"] if info["num_proc"] > 0 else 0.0
+
+#         print(
+#             f"  Cluster {cluster_id}: "
+#             f"finished={finished}/{info['num_proc']} ({percent:.1f}%) | "
+#             f"idle={counts['idle']} running={counts['running']} "
+#             f"held={counts['held']} transferring={counts['transferring']} "
+#             f"in_queue={counts['in_queue']}"
+#         )
+
+
+# def verify_finished_cluster(cluster_id, cluster_info, global_job_output_map):
+#     num_proc = cluster_info["num_proc"]
+#     proc_to_job_key = cluster_info["proc_to_job_key"]
+
+#     print(f"\n[VERIFY] Cluster {cluster_id} left the queue. Verifying outputs...")
+
+#     cluster_success = 0
+#     cluster_failed = 0
+
+#     for proc_id in range(num_proc):
+#         job_key = proc_to_job_key[proc_id]
+
+#         ok, missing_or_corrupt = verify_job_outputs(
+#             job_key,
+#             global_job_output_map,
+#         )
+
+#         if ok:
+#             mark_job_completed(job_key, global_job_output_map)
+#             cluster_success += 1
+#         else:
+#             write_failed_job_report(
+#                 cluster_id,
+#                 proc_id,
+#                 job_key,
+#                 missing_or_corrupt,
+#                 global_job_output_map,
+#             )
+#             cluster_failed += 1
+
+#     print(f"[CLUSTER SUMMARY] Cluster {cluster_id}")
+#     print(f"  successful jobs : {cluster_success}")
+#     print(f"  failed jobs     : {cluster_failed}")
+
+#     return cluster_success, cluster_failed
+
+
+# def check_and_verify_finished_clusters(active_clusters, global_job_output_map):
+#     finished_cluster_ids = []
+#     success = 0
+#     failed = 0
+#     finished = 0
+
+#     for cluster_id, cluster_info in list(active_clusters.items()):
+#         counts = get_condor_status_counts(cluster_id)
+
+#         if counts["in_queue"] != 0:
+#             if counts["held"] > 0:
+#                 print(
+#                     f"[WARNING] Cluster {cluster_id} has {counts['held']} held jobs. "
+#                     "Check condor_q -hold for details."
+#                 )
+#             continue
+
+#         cluster_success, cluster_failed = verify_finished_cluster(
+#             cluster_id,
+#             cluster_info,
+#             global_job_output_map,
+#         )
+
+#         success += cluster_success
+#         failed += cluster_failed
+#         finished += cluster_info["num_proc"]
+#         finished_cluster_ids.append(cluster_id)
+
+#     for cluster_id in finished_cluster_ids:
+#         del active_clusters[cluster_id]
+
+#     return finished, success, failed
+
+
 # # =========================================================
 # # Dataset selection
 # # =========================================================
@@ -1019,6 +1288,7 @@ print("===================================\n")
 # all_datasets = list(dict.fromkeys(all_datasets))
 
 # print(f"Datasets to process: {all_datasets}")
+
 
 # # =========================================================
 # # FASE 1: scan files + dry run information
@@ -1139,6 +1409,7 @@ print("===================================\n")
 
 # print_dryrun_summary(dataset_stats)
 
+
 # # =========================================================
 # # FASE 2: dry run exit
 # # =========================================================
@@ -1151,6 +1422,7 @@ print("===================================\n")
 # if total_jobs_to_run == 0:
 #     print("[INFO] All files are already completed. No jobs to submit.")
 #     raise SystemExit(0)
+
 
 # # =========================================================
 # # FASE 3: submit description
@@ -1176,7 +1448,6 @@ print("===================================\n")
 #         "$(filename).$(ClusterId).$(ProcId).err",
 #     ),
 
-#     # Condor event log separato job-per-job
 #     "log": os.path.join(
 #         HTCONDOR_PATH,
 #         "log",
@@ -1189,166 +1460,111 @@ print("===================================\n")
 #     "Requirements": '(OpSysAndVer =?= "AlmaLinux9")',
 #     "+JobFlavour": flavour,
 #     "+JobKey": '"$(job_key)"',
-#     "RequestCpus": cpus,
-#     "request_memory": memory,
-#     "request_disk": disk,
+#     "RequestCpus": str(cpus),
+#     "request_memory": str(memory),
+#     "request_disk": str(disk),
 #     "max_retries": "1",
 #     "batch_name": f"Skim_{era}_Global",
 # })
 
 # job["MY.SendCredential"] = "true"
 
+
 # # =========================================================
-# # FASE 4: submit + monitoring via schedd.query
+# # FASE 4: continuous submit + monitoring
 # # =========================================================
 
-# print("\n[INFO] Starting submission...")
+# print("\n[INFO] Starting continuous submission...")
+# print(f"[INFO] MAX_PARALLEL_JOBS = {MAX_PARALLEL_JOBS}")
+# print(f"[INFO] POLL_INTERVAL     = {POLL_INTERVAL}s")
 
 # chunk_idx = 0
+# active_clusters = {}
 
 # global_submitted_jobs = 0
 # global_finished_jobs = 0
 # global_success_jobs = 0
 # global_failed_jobs = 0
 
-# while chunk_idx < len(global_condorinputs):
+# while chunk_idx < len(global_condorinputs) or active_clusters:
 
-#     while True:
-#         current_active = get_active_jobs_count()
-
-#         if current_active < MAX_PARALLEL_JOBS:
-#             available_slots = MAX_PARALLEL_JOBS - current_active
-#             break
-
-#         print(
-#             f"[QUEUE] Queue full: {current_active} active jobs. "
-#             f"Waiting {POLL_INTERVAL}s..."
-#         )
-#         time.sleep(POLL_INTERVAL)
-
-#     sub_chunk = global_condorinputs[chunk_idx:chunk_idx + available_slots]
-#     chunk_idx += len(sub_chunk)
-
-#     print(f"\n[SUBMIT] Submitting block of {len(sub_chunk)} jobs...")
-
-#     submit_result = schedd.submit(job, itemdata=iter(sub_chunk))
-
-#     cluster_id = submit_result.cluster()
-#     num_proc = submit_result.num_procs()
-
-#     global_submitted_jobs += num_proc
-
-#     print(f"[SUBMIT] Cluster ID: {cluster_id}")
-#     print(f"[SUBMIT] Jobs in cluster: {num_proc}")
-
-#     proc_to_job_key = {
-#         proc_id: sub_chunk[proc_id]["job_key"]
-#         for proc_id in range(num_proc)
-#     }
-
-#     last_printed_finished = -1
-#     while True:
-#         counts = get_condor_status_counts(cluster_id)
-
-#         in_queue = counts["in_queue"]
-#         finished_for_cluster = num_proc - in_queue
-
-#         cluster_percent = 100.0 * finished_for_cluster / num_proc
-#         global_projected_finished = global_finished_jobs + finished_for_cluster
-#         global_percent = 100.0 * global_projected_finished / total_jobs_to_run
-
-#         print(
-#             f"[MONITOR] Cluster {cluster_id}: "
-#             f"finished {finished_for_cluster}/{num_proc} "
-#             f"({cluster_percent:.1f}%) | "
-#             f"idle={counts['idle']} "
-#             f"running={counts['running']} "
-#             f"held={counts['held']} "
-#             f"transferring={counts['transferring']} | "
-#             f"global projected {global_projected_finished}/{total_jobs_to_run} "
-#             f"({global_percent:.1f}%)",
-#             flush=True,
-#         )
-
-#         if in_queue == 0:
-#             break
-
-#         time.sleep(POLL_INTERVAL)
-
-#     # while True:
-#     #     counts = get_condor_status_counts(cluster_id)
-
-#     #     in_queue = counts["in_queue"]
-#     #     finished_for_cluster = num_proc - in_queue
-
-#     #     if finished_for_cluster != last_printed_finished:
-#     #         cluster_percent = 100.0 * finished_for_cluster / num_proc
-#     #         global_projected_finished = global_finished_jobs + finished_for_cluster
-#     #         global_percent = 100.0 * global_projected_finished / total_jobs_to_run
-
-#     #         print(
-#     #             f"[MONITOR] Cluster {cluster_id}: "
-#     #             f"finished {finished_for_cluster}/{num_proc} "
-#     #             f"({cluster_percent:.1f}%) | "
-#     #             f"idle={counts['idle']} "
-#     #             f"running={counts['running']} "
-#     #             f"held={counts['held']} "
-#     #             f"transferring={counts['transferring']} | "
-#     #             f"global projected {global_projected_finished}/{total_jobs_to_run} "
-#     #             f"({global_percent:.1f}%)"
-#     #         )
-
-#     #         last_printed_finished = finished_for_cluster
-
-#     #     if in_queue == 0:
-#     #         break
-
-#     #     if counts["held"] > 0:
-#     #         print(
-#     #             f"[WARNING] Cluster {cluster_id} has {counts['held']} held jobs. "
-#     #             "Check condor_q -hold for details."
-#     #         )
-
-#     #     time.sleep(POLL_INTERVAL)
-
-#     print(f"[VERIFY] Cluster {cluster_id} left the queue. Verifying outputs...")
-
-#     cluster_success = 0
-#     cluster_failed = 0
-
-#     for proc_id, job_key in proc_to_job_key.items():
-#         ok, missing_or_corrupt = verify_job_outputs(
-#             job_key,
-#             global_job_output_map,
-#         )
-
-#         if ok:
-#             mark_job_completed(job_key, global_job_output_map)
-#             cluster_success += 1
-#             global_success_jobs += 1
-#         else:
-#             write_failed_job_report(
-#                 cluster_id,
-#                 proc_id,
-#                 job_key,
-#                 missing_or_corrupt,
-#                 global_job_output_map,
-#             )
-#             cluster_failed += 1
-#             global_failed_jobs += 1
-
-#     global_finished_jobs += num_proc
-
-#     print(f"[CLUSTER SUMMARY] Cluster {cluster_id}")
-#     print(f"  successful jobs : {cluster_success}")
-#     print(f"  failed jobs     : {cluster_failed}")
-
-#     print(
-#         f"[GLOBAL STATUS] "
-#         f"finished={global_finished_jobs}/{total_jobs_to_run}, "
-#         f"success={global_success_jobs}, "
-#         f"failed={global_failed_jobs}"
+#     finished, success, failed = check_and_verify_finished_clusters(
+#         active_clusters,
+#         global_job_output_map,
 #     )
+
+#     if finished > 0:
+#         global_finished_jobs += finished
+#         global_success_jobs += success
+#         global_failed_jobs += failed
+
+#         print(
+#             f"[GLOBAL STATUS] "
+#             f"submitted={global_submitted_jobs}/{total_jobs_to_run}, "
+#             f"finished={global_finished_jobs}/{total_jobs_to_run}, "
+#             f"success={global_success_jobs}, "
+#             f"failed={global_failed_jobs}"
+#         )
+
+#     if chunk_idx < len(global_condorinputs):
+#         current_active = get_active_jobs_count()
+#         available_slots = MAX_PARALLEL_JOBS - current_active
+#         remaining_jobs = len(global_condorinputs) - chunk_idx
+
+#         if available_slots > 0:
+#             n_to_submit = min(available_slots, remaining_jobs)
+#             sub_chunk = global_condorinputs[chunk_idx:chunk_idx + n_to_submit]
+#             chunk_idx += len(sub_chunk)
+
+#             print(
+#                 f"\n[SUBMIT] active={current_active}, "
+#                 f"available_slots={available_slots}, "
+#                 f"submitting={len(sub_chunk)}, "
+#                 f"remaining_after_submit={len(global_condorinputs) - chunk_idx}"
+#             )
+
+#             submit_result = schedd.submit(job, itemdata=iter(sub_chunk))
+
+#             cluster_id = submit_result.cluster()
+#             num_proc = submit_result.num_procs()
+
+#             proc_to_job_key = {
+#                 proc_id: sub_chunk[proc_id]["job_key"]
+#                 for proc_id in range(num_proc)
+#             }
+
+#             active_clusters[cluster_id] = {
+#                 "num_proc": num_proc,
+#                 "proc_to_job_key": proc_to_job_key,
+#             }
+
+#             global_submitted_jobs += num_proc
+
+#             print(f"[SUBMIT] Cluster ID: {cluster_id}")
+#             print(f"[SUBMIT] Jobs in cluster: {num_proc}")
+#             print(
+#                 f"[GLOBAL STATUS] "
+#                 f"submitted={global_submitted_jobs}/{total_jobs_to_run}, "
+#                 f"finished={global_finished_jobs}/{total_jobs_to_run}, "
+#                 f"success={global_success_jobs}, "
+#                 f"failed={global_failed_jobs}"
+#             )
+#         else:
+#             print(
+#                 f"\n[QUEUE] Queue full: {current_active} active jobs. "
+#                 f"Waiting {POLL_INTERVAL}s..."
+#             )
+#             print_cluster_status(active_clusters)
+#     else:
+#         print(
+#             f"\n[MONITOR] All jobs submitted. "
+#             f"Waiting for {len(active_clusters)} active clusters to finish..."
+#         )
+#         print_cluster_status(active_clusters)
+
+#     if chunk_idx < len(global_condorinputs) or active_clusters:
+#         time.sleep(POLL_INTERVAL)
+
 
 # # =========================================================
 # # Final summary

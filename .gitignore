@@ -8,3 +8,6 @@ logs/
 htcondor/error/
 htcondor/log/
 htcondor/output/
+prova*
+test/
+plot*/

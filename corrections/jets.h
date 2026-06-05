@@ -46,6 +46,7 @@ namespace correction {
             : corrset_(CorrectionSet::from_file(json_file_name)),
               jersmear_corr_(CorrectionSet::from_file(jetsmear_file_name)->at("JERSmear")),
               corr_jer_sf_(corrset_->at(jer_tag + "_ScaleFactor_" + algo)),
+              corr_jer_sf_shifted_(corrset_->at(jer_tag + "_SFUncertainty_" + algo)),
               corr_jer_res_(corrset_->at(jer_tag + "_PtResolution_" + algo)),
               cmpd_corr_(corrset_->compound().at(other_jec_tag + "_L1L2L3Res_" + algo)),
               corr_l1_(corrset_->at(other_jec_tag + "_L1FastJet_" + algo)),
@@ -337,25 +338,28 @@ namespace correction {
                         }
                     }
 
-                    std::string jer_tag = "nom";
 
-                    if (unc_source == UncSource::JER) {
-
-                        if (unc_scale == UncScale::up) {
-                            jer_tag = "up";
-                        }
-                        else if (unc_scale == UncScale::down) {
-                            jer_tag = "down";
-                        }
-                    }
-
-
-                    const float jer_sf =
+                    // nominal
+                    float jer_sf =
                         corr_jer_sf_->evaluate({
                             eta,
                             corrected_pt,
-                            jer_tag
                         });
+
+                    if (unc_source == UncSource::JER) {
+                        float SF_unc = corr_jer_sf_->evaluate({
+                            eta,
+                            corrected_pt,
+                        });
+                        if (unc_scale == UncScale::up) {
+                            // jer_tag = "up";
+                            jer_sf *=(1+SF_unc);
+                        }
+                        else if (unc_scale == UncScale::down) {
+                            // jer_tag = "down";
+                            jer_sf *=(1-SF_unc);
+                        }
+                    }
 
                     jersmear_factor =
                         jersmear_corr_->evaluate({
@@ -438,6 +442,7 @@ namespace correction {
         Correction::Ref corr_l2_;
         Correction::Ref corr_l2l3res_;
         Correction::Ref corr_jer_sf_;
+        Correction::Ref corr_jer_sf_shifted_;
         Correction::Ref corr_jer_res_;
         CompoundCorrection::Ref cmpd_corr_;
         bool is_data_;

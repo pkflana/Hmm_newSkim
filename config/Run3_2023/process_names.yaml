@@ -1,0 +1,359 @@
+############## DY ##############
+DY:
+  name: "DY"
+  color: dodgerblue
+  # processors: config/dy_xs_stitch_allFlavors.yaml
+  datasets:
+    - DYto2L_M_50_amcatnloFXFX
+    # - DYto2L_M_50_0J_amcatnloFXFX
+    # - DYto2L_M_50_1J_amcatnloFXFX
+    # - DYto2L_M_50_2J_amcatnloFXFX
+    # - DYto2L_M_50_PTLL_40to100_1J_amcatnloFXFX
+    # - DYto2L_M_50_PTLL_100to200_1J_amcatnloFXFX
+    # - DYto2L_M_50_PTLL_200to400_1J_amcatnloFXFX
+    # - DYto2L_M_50_PTLL_400to600_1J_amcatnloFXFX
+    # - DYto2L_M_50_PTLL_600_1J_amcatnloFXFX
+    # - DYto2L_M_50_PTLL_40to100_2J_amcatnloFXFX
+    # - DYto2L_M_50_PTLL_100to200_2J_amcatnloFXFX
+    # - DYto2L_M_50_PTLL_200to400_2J_amcatnloFXFX
+    # - DYto2L_M_50_PTLL_400to600_2J_amcatnloFXFX
+    # - DYto2L_M_50_PTLL_600_2J_amcatnloFXFX
+
+DYto2Mu_MLL105To160:
+  skip_plotting: True
+  name: "DY"
+  color: dodgerblue
+  datasets:
+    - DYto2Mu_MLL_105to160_amcatnloFXFX
+
+DYto2Mu_MLL105To160_FlashSim:
+  skip_plotting: True
+  name: "DY"
+  color: dodgerblue
+  datasets: [ ]
+
+############## TT ##############
+TT:
+  name: "t $\\bar{t}$"
+  color: green  # turquoise
+  sub_processes:
+    - TTto2L2Nu
+    - TTtoLNu2Q
+    - TTto4Q
+
+TTto2L2Nu:
+  skip_plotting: True
+  # processors: *ext_processor
+  datasets:
+    - TTto2L2Nu
+    # - TTto2L2Nu_ext1
+
+TTtoLNu2Q:
+  # processors: *ext_processor
+  skip_plotting: True
+  datasets:
+    - TTtoLNu2Q
+    # - TTtoLNu2Q_ext1
+
+TTto4Q:
+  # processors: *ext_processor
+  skip_plotting: True
+  datasets:
+    - TTto4Q
+    # - TTto4Q_ext1
+
+TT_Inclusive:
+  name: "t#bar{t} Inclusive"
+  skip_plotting: True
+  color: darkgreen  # turquoise
+  datasets:
+    - TT
+
+
+############## WJetsToLNu ##############
+W:
+  name: "W"
+  skip_plotting: True
+  color: navy
+  datasets:
+    - WtoLNu_amcatnloFXFX
+
+W_NJets:
+  name: "W $\\rightarrow \\ell \\nu$+ jets"
+  color: navy
+  datasets:
+    - WtoLNu_0J_amcatnloFXFX
+    - WtoLNu_1J_amcatnloFXFX
+    - WtoLNu_2J_amcatnloFXFX
+
+############## EWK ##############
+EWK_LLJJ:
+  name: "EWK"
+  skip_plotting: True
+  color: lavender
+  datasets: [ ]
+
+EWK:
+  name: "EWK"
+  color: lavender
+  datasets:
+    - EWK_2L2J_madgraph_herwig
+
+EWK_2Mu2J_MLL_105to160_herwig:
+  name: "EWK"
+  skip_plotting: True
+  color: lavender
+  datasets:
+    - EWK_2Mu2J_MLL_105to160_herwig
+
+EWK_2Mu2J_MLL_105to160_pythia:
+  name: "EWK"
+  skip_plotting: True
+  color: lavender
+  datasets:
+    - EWK_2Mu2J_MLL_105to160_pythia
+EWK_2Mu2J_MLL_105to160_pythia_Flashsim:
+  name: "DY"
+  skip_plotting: True
+  color: lavender
+  datasets: [ ]
+############## Other single H  ##############
+H_mainBckg:
+  name: "Single H"
+  color: aqua
+  datasets:
+    - GluGluHto2Tau_UncorrelatedDecay_UnFiltered
+    - GluGluHto2B_M125
+    - VBFHto2B_M125
+    - VBFHto2Tau_UncorrelatedDecay_UnFiltered
+    - GluGluHto2Wto2L2Nu_M125
+
+############## VV ##############
+VV_Inclusive:
+  name: "VV Inclusive"
+  skip_plotting: True
+  color: tomato
+  datasets:
+    - WW
+    - WZ
+    - ZZ
+
+VV:
+  name: "VV"
+  color: tomato
+  datasets:
+    - WWto2L2Nu_powheg
+    - WWto4Q_powheg
+    - WWtoLNu2Q_powheg
+    - WZto3LNu_powheg
+    - WZto2L2Q_powheg
+    - WZtoLNu2Q_powheg
+    - ZZto2L2Nu_powheg
+    - ZZto2L2Q_powheg
+    - ZZto2Nu2Q_powheg
+    - ZZto4L_powheg
+
+############## VH non-inclusive ##############
+VH_inclusive:
+  name: "VH"
+  color: slateblue
+  datasets:
+    - ZH_Hto2B_Zto2L
+    - ZH_Hto2B_Zto2Q
+    - ggZH_Hto2B_Zto2L
+    - ggZH_Hto2B_Zto2Q
+    - WminusH_Hto2B_Wto2Q
+    - WminusH_Hto2B_WtoLNu
+    - WplusH_Hto2B_Wto2Q
+    - WplusH_Hto2B_WtoLNu
+
+############## VVV inclusive ##############
+VVV:
+  name: "VVV"
+  color: plum
+  datasets:
+    - WWW_4F
+    - WWZ_4F
+    - WZZ
+    - ZZZ
+
+############## ST ##############
+ST:
+  name: "ST"
+  color: cyan
+  datasets:
+    - TbarBtoLminusNuB_s_channel_4FS
+    - TBbartoLplusNuBbar_s_channel_4FS
+    - TbarBQ_t_channel_4FS
+    - TBbarQ_t_channel_4FS
+
+
+############## TW ##############
+TW:
+  name: "TW"
+  color: green
+  datasets:
+    - TWminusto2L2Nu
+    - TWminusto4Q
+    - TWminustoLNu2Q
+    - TbarWplusto2L2Nu
+    - TbarWplusto4Q
+    - TbarWplustoLNu2Q
+
+############## TTX ##############
+TTX:
+  name: "TT+X"
+  color: pink
+  datasets:
+    - TTWH
+    - TTWW
+    - TTZH
+    - TTZZ
+    - TTZ_Zto2Q
+
+
+############## VBF signal ##############
+VBFHto2Mu_m125_amcatnlo:
+  name: "VBFHto2Mu_amcatnlo"
+  skip_plotting: True
+  is_signal: true
+  color: fuchsia
+  datasets:
+    - VBFHto2Mu_m125_amcatnlo
+
+VBFHto2Mu_M125_powheg:
+  name: "VBFHto2Mu_powheg"
+  is_signal: true
+  color: fuchsia
+  datasets:
+    - VBFHto2Mu_M125_powheg
+
+VBFHto2Mu_m120:
+  name: "VBFHto2Mu_m120"
+  skip_plotting: True
+  is_signal: true
+  color: fuchsia
+  datasets:
+    - VBFHto2Mu_M120_amcatnlo
+
+VBFHto2Mu_m130:
+  name: "VBFHto2Mu_m130"
+  skip_plotting: True
+  is_signal: true
+  color: fuchsia
+  datasets:
+    - VBFHto2Mu_M130_amcatnlo
+
+VBFHto2Mu_m125_tuneDown:
+  name: "VBFHto2Mu_tuneDown"
+  skip_plotting: True
+  is_signal: true
+  color: fuchsia
+  datasets:
+    - VBFHto2Mu_m125_tuneCP5Down_amcatnlo
+
+VBFHto2Mu_m125_tuneUp:
+  name: "VBFHto2Mu_tuneUp"
+  skip_plotting: True
+  is_signal: true
+  color: fuchsia
+  datasets:
+    - VBFHto2Mu_m125_tuneCP5Up_amcatnlo
+
+VBFHto2Mu_Herwig:
+  name: "VBFHto2Mu_Herwig"
+  skip_plotting: True
+  is_signal: true
+  color: fuchsia
+  datasets:
+    - VBFHto2Mu_M-125_13p6TeV_powheg-herwig7
+    - VBFHto2Mu_M-125_13p6TeV_powheg-herwig7_ext1
+    - VBFHto2Mu_M-125_13p6TeV_powheg-herwig7_ext2
+
+############## ggH signal ##############
+
+GluGluHto2Mu_MiNNLO:
+  name: "GluGluHto2Mu_minnlo"
+  skip_plotting: True
+  is_signal: true
+  color: cyan
+  datasets:
+    - GluGluHto2Mu_MiNNLO
+
+GluGluHto2Mu:
+  name: "GluGluHto2Mu"
+  is_signal: true
+  color: cyan
+  datasets:
+    - GluGluHto2Mu
+
+############## VH signal ##############
+
+VHto2Mu:
+  name: "VHto2Mu"
+  # is_signal: true
+  color: red
+  datasets:
+    - WminusH_Hto2Mu
+    - WplusH_Hto2Mu
+    - ZH_Hto2Mu
+
+############## TTH signal ##############
+
+TTHto2Mu:
+  name: "TTHto2Mu"
+  skip_plotting: True
+  # is_signal: true
+  color: red
+  datasets:
+    - TTH_Hto2Mu
+
+TTH_inclusive:
+  name: "ttH"
+  skip_plotting: True
+  color: red
+  datasets:
+    - TTHtoNon2B_M125
+    - TTHto2B_M125
+
+############### Data ##############
+
+Data_Full:
+  name: "Data"
+  datasets: [ ]
+
+Data_EGamma0:
+  name: "Data EGamma0"
+  datasets:
+    - EGamma0_Run2023C_v1
+    - EGamma0_Run2023C_v2
+    - EGamma0_Run2023C_v3
+    - EGamma0_Run2023C_v4
+
+Data_EGamma1:
+  name: "Data EGamma1"
+  datasets:
+    - EGamma1_Run2023C_v1
+    - EGamma1_Run2023C_v2
+    - EGamma1_Run2023C_v3
+    - EGamma1_Run2023C_v4
+
+Data_Muon:
+  name: "Data Muon "
+  datasets:
+    - Muon0_Run2023C_v1
+    - Muon0_Run2023C_v2
+    - Muon0_Run2023C_v3
+    - Muon0_Run2023C_v4
+    - Muon1_Run2023C_v1
+    - Muon1_Run2023C_v2
+    - Muon1_Run2023C_v3
+    - Muon1_Run2023C_v4
+
+Data_MuonEG:
+  name: "Data MuonEG"
+  datasets:
+    - MuonEG_Run2023C_v1
+    - MuonEG_Run2023C_v2
+    - MuonEG_Run2023C_v3
+    - MuonEG_Run2023C_v4

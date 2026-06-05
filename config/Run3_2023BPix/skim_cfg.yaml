@@ -1,0 +1,48 @@
+
+submit: true
+job_flavour: microcentury
+
+chunk_size: 1        # files per job
+max_files: -1        # -1 = all files
+
+output_dir: /eos/cms/store/group/phys_higgs/cmshmm/vdamante/skim_v1_noUnc/
+
+# ---------------------------------------------------------
+# condor configuration
+# ---------------------------------------------------------
+
+request_cpus: 1
+request_memory: 4GB
+request_disk: 2GB
+
+# ---------------------------------------------------------
+# optional controls
+# ---------------------------------------------------------
+
+# run only subset of datasets (optional override)
+datasets_whitelist: []
+
+# debug mode
+dryrun: false
+
+
+process_to_select:
+  - Data_Muon
+  - DY
+  - DYto2Mu_MLL105To160
+  - TT
+  - W_NJets
+  - EWK
+  - EWK_2Mu2J_MLL_105to160_herwig
+  - EWK_2Mu2J_MLL_105to160_pythia
+  - H_mainBckg
+  - VV
+  - VVV
+  - ST
+  - TW
+  - TTX
+  - VBFHto2Mu_m125_amcatnlo
+  - VBFHto2Mu_M125_powheg 
+  - GluGluHto2Mu
+
+proxy_location: /afs/cern.ch/work/v/vdamante/Hmm_newSkim/data/voms.proxy

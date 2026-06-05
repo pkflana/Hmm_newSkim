@@ -20,6 +20,7 @@ parser.add_argument("--era", required=True)
 parser.add_argument("--input-file", required=True)
 parser.add_argument("--dataset-name", required=True)
 parser.add_argument("--output-file", required=True)
+parser.add_argument("--want-variations", required=False, action="store_true", help="request for variations from command line")
 args = parser.parse_args()
 
 ## all configurations to load ##
@@ -37,7 +38,7 @@ is_data = dataset_cfg.get("is_data", False)
 is_signal = dataset_cfg.get("is_signal", False)
 process = utilities.process_from_dataset(process_cfg, args.dataset_name) if not is_data else None
 
-want_variations = config.get("want_variations", False) and not is_data
+want_variations = (config.get("want_variations", False) or args.want_variations) and not is_data
 only_default = sel_config.get("only_default", True)
 muon_pt_default_suffix = sel_config.get("muon_pt_default_suffix", "")
 
@@ -70,7 +71,7 @@ if not is_data:
     from corrections.general import define_base_weights
     xs_entry = dataset_cfg.get("crossSection", args.dataset_name)
     process_entry = process_cfg[process]
-    df,base_weights,json_dict_to_store = define_base_weights(df, config.get("luminosity", ""), xs_entry, xs_cfg,config,dataset_cfg, process_entry)
+    df,base_weights,json_dict_to_store = define_base_weights(df, config.get("luminosity", ""), xs_entry, xs_cfg,config,dataset_cfg, process_entry,want_variations)
     cols_to_save.extend(base_weights)
 else:
     from corrections.general import apply_golden_json
@@ -78,7 +79,7 @@ else:
 
 # apply corrections --> this time also for data (e.g. JEC/ScaRe) #
 from corrections.general import apply_corrections
-df = apply_corrections(df, config, dataset_cfg, args.dataset_name)
+df = apply_corrections(df, config, dataset_cfg, args.dataset_name, want_variations)
 
 # MET FLAGS
 if "MET_flags" in config:

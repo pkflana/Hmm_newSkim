@@ -130,14 +130,10 @@ periods = {
     "2016postVFP_UL": "2016",
 }
 
-def define_base_weights(df, lumi, xs_entry, xs_cfg,config,dataset_cfg, process_entry, use_genWeight_sign_only=True):
-    want_variations = config.get("want_variations", False)
+def define_base_weights(df, lumi, xs_entry, xs_cfg,config,dataset_cfg, process_entry, want_variations_from_skim=False):
+    want_variations = config.get("want_variations", False) or want_variations_from_skim
     base_weights_to_store = []
     json_dict_to_store = {}
-    from .pu import apply_pu_weights
-    df,pu_branches,json_dict_to_store = apply_pu_weights(df, config, "Pileup_nTrueInt",want_variations)
-    base_weights_to_store.extend(pu_branches)
-
 
     lumi_weight_name = "weight_lumi"
     df = df.Define(lumi_weight_name, f"float({lumi})")
@@ -152,6 +148,9 @@ def define_base_weights(df, lumi, xs_entry, xs_cfg,config,dataset_cfg, process_e
     json_dict_to_store['gen'][f"total"]['selection']= "return true;"
     json_dict_to_store['gen'][f"total"]['value']= df.Sum("genWeight")
 
+    from .pu import apply_pu_weights
+    df,pu_branches,json_dict_to_store = apply_pu_weights(df, config, "Pileup_nTrueInt",want_variations)
+    base_weights_to_store.extend(pu_branches)
 
     weight_xs_name = "weight_xs"
     processor_file = process_entry.get('processors','')
@@ -175,9 +174,9 @@ def apply_golden_json(df, lumiFile_path):
     df = apply_lumi_filter(df, lumiFile_path)
     return df
 
-def apply_corrections(df, config, dataset_cfg, dataset_name):
+def apply_corrections(df, config, dataset_cfg, dataset_name, want_variations_from_skim=False):
     is_data = dataset_cfg.get("is_data", False)
-    want_variations = config.get("want_variations", False)
+    want_variations = config.get("want_variations", False) or want_variations_from_skim
     # muons ScaRe
     from .muon_scare import apply_muon_scare
     df = apply_muon_scare(df, config, dataset_cfg,want_variations)

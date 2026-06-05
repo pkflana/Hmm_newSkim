@@ -6,8 +6,8 @@ import os
 import argparse
 import time
 from multiprocessing import get_context
-
 sys.path.append(os.environ["ANALYSIS_PATH"])
+ROOT.EnableImplicitMT(8)
 
 import common.utilities as utilities
 from common.helpers import GetModel, GetRdfForDataset, get_root_files, get_valid_root_files, get_segmentation_dict
@@ -50,6 +50,8 @@ def process_single_chunk(args_tuple):
             if not mass_info["store"]: continue
             for category, cat_info in categories.items():
                 if category not in categories_list: continue
+                if category not in rdf_base.GetColumnNames():
+                    rdf_base=rdf_base.Define(category, cat_info['expression'])
                 if not cat_info["store"]: continue
 
                 dir_ptr = utilities.mkdir_recursive(outFile, f"{mass_region}_{category}")
@@ -86,7 +88,7 @@ if __name__ == "__main__":
     parser.add_argument( "--systematics", choices=["central", "all"], default="central")
 
     # Nuovi parametri per il controllo locale
-    parser.add_argument( "--chunk-size", type=int, default=10, help="Quanti file ROOT per ogni chunk")
+    parser.add_argument( "--chunk-size", type=int, default=4, help="Quanti file ROOT per ogni chunk")
     parser.add_argument( "--n-cores", type=int, default=4, help="Quanti processi separati usare in parallelo")
     parser.add_argument( "--skip-file-validation", action="store_true", help="Non aprire tutti i file prima di costruire gli istogrammi")
     parser.add_argument( "--variables", nargs="+", help="Variabili da istogrammare al posto di quelle in maincfg.yaml")
@@ -98,8 +100,8 @@ if __name__ == "__main__":
 
     cfg_dir = os.path.join(os.environ["ANALYSIS_PATH"], "config", args.era)
     main_cfg = utilities.get_config(os.path.join(cfg_dir, "maincfg.yaml"))
-    dataset_cfg = utilities.get_config(os.path.join(cfg_dir, "samples.yaml"))[args.dataset_name]
-    is_data = dataset_cfg.get("is_data", False)
+    dataset_cfg = utilities.get_config(os.path.join(cfg_dir, "samples.yaml")).get(args.dataset_name, {})
+    is_data = dataset_cfg.get("is_data", False) or "data" in args.dataset_name or "Data" in args.dataset_name
     sel_cfg = utilities.get_config(os.path.join(cfg_dir, "selections.yaml"))
     syst_cfg = utilities.get_config(os.path.join(cfg_dir, "systematics.yaml"))
     hist_cfg = utilities.get_config(os.path.join(os.environ["ANALYSIS_PATH"], "config", "plot", "histograms.yaml"))

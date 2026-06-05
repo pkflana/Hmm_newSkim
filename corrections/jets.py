@@ -41,34 +41,34 @@ unc_source_enum = {
 }
 
 jer_tag_map = {
-    "2022_Summer22": "Summer22_22Sep2023_JRV1_MC",
-    "2022_Prompt": "JR_Winter22Run3_V1_MC",
-    "2022_Summer22EE": "Summer22EE_22Sep2023_JRV1_MC",
-    "2023_Summer23BPix": "Summer23BPixPrompt23_RunD_JRV1_MC",
-    "2023_Summer23": "Summer23Prompt23_RunCv1234_JRV1_MC",
-    "2024_Summer24": "Summer23BPixPrompt23_RunD_JRV1_MC",
-    "2025_Summer24": "Summer23BPixPrompt23_RunD_JRV1_MC",
-    "2025_Winter25": "Summer23BPixPrompt23_RunD_JRV1_MC",
+    "2022_Summer22": "Summer22_22Sep2023_JRV2_MC",
+    "2022_Prompt": "JR_Winter22Run3_V2_MC",
+    "2022_Summer22EE": "Summer22EE_22Sep2023_JRV2_MC",
+    "2023_Summer23BPix": "Summer23BPixPrompt23_RunD_JRV2_MC",
+    "2023_Summer23": "Summer23Prompt23_RunCv1234_JRV2_MC",
+    "2024_Summer24": "Summer24Prompt24_JRV1_MC",
+    "2025_Summer24": "Summer24Prompt25_JRV1_MC",
+    "2025_Winter25": "Summer24Prompt25_JRV1_MC"
 }
 
 jec_tag_map_mc = {
-    "2022_Prompt": ["Winter22Run3_V3_MC"],
-    "2022_Summer22": ["Summer22_22Sep2023_V3_MC"],
-    "2022_Summer22EE": ["Summer22EE_22Sep2023_V3_MC"],
-    "2023_Summer23BPix": ["Summer23BPixPrompt23_V3_MC"],
-    "2023_Summer23": ["Summer23Prompt23_V3_MC"],
-    "2024_Summer24": ["Summer24Prompt24_V2_MC"],
+    "2022_Prompt": ["Winter22Run3_V4_MC"],
+    "2022_Summer22": ["Summer22_22Sep2023_V4_MC"],
+    "2022_Summer22EE": ["Summer22EE_22Sep2023_V4_MC"],
+    "2023_Summer23BPix": ["Summer23BPixPrompt23_V4_MC"],
+    "2023_Summer23": ["Summer23Prompt23_V4_MC"],
+    "2024_Summer24": ["Summer24Prompt24_V3_MC"],
     "2025_Summer24": ["Winter25Prompt25_V3_MC"],
     "2025_Winter25": ["Winter25Prompt25_V3_MC"],
 }
 
 jec_tag_map_data = {
-    "2022_Prompt": ["Winter22Run3_Run{}_V3_DATA"],
-    "2022_Summer22": ["Summer22_22Sep2023_V3_DATA"],
-    "2022_Summer22EE": ["Summer22EE_22Sep2023_Run{}_V3_DATA", "Summer22EE_22Sep2023_V3_DATA"],
-    "2023_Summer23BPix": ["Summer23BPixPrompt23_Run{}_V3_DATA", "Summer23BPixPrompt23_V3_DATA"],
-    "2023_Summer23": ["Summer23Prompt23_Run{}_V3_DATA", "Summer23Prompt23_V3_DATA"],
-    "2024_Summer24": ["Summer24Prompt24_V2_DATA"],
+    "2022_Prompt": ["Winter22Run3_Run{}_V4_DATA"],
+    "2022_Summer22": ["Summer22_22Sep2023_V4_DATA"],
+    "2022_Summer22EE": ["Summer22EE_22Sep2023_Run{}_V4_DATA", "Summer22EE_22Sep2023_V4_DATA"],
+    "2023_Summer23BPix": ["Summer23BPixPrompt23_Run{}_V4_DATA", "Summer23BPixPrompt23_V4_DATA"],
+    "2023_Summer23": ["Summer23Prompt23_Run{}_V4_DATA", "Summer23Prompt23_V4_DATA"],
+    "2024_Summer24": ["Summer24Prompt24_V3_DATA"],
     "2025_Summer24": ["Winter25Prompt25_Run{}_V3_DATA", "Winter25Prompt25_V3_DATA"],
     "2025_Winter25": ["Winter25Prompt25_Run{}_V3_DATA", "Winter25Prompt25_V3_DATA"],
 }
