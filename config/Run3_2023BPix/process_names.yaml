@@ -206,12 +206,12 @@ TTX:
 
 
 ############## VBF signal ##############
-VBFHto2Mu_m125_amcatnlo:
+VBFHto2Mu_M125_amcatnlo:
   name: "VBFHto2Mu amcatnlo"
   is_signal: true
   color: darkgreen
   datasets:
-    - VBFHto2Mu_m125_amcatnlo
+    - VBFHto2Mu_M125_amcatnlo
 
 VBFHto2Mu_M125_powheg:
   name: "VBFHto2Mu powheg"

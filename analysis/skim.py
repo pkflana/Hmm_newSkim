@@ -21,6 +21,7 @@ parser.add_argument("--input-file", required=True)
 parser.add_argument("--dataset-name", required=True)
 parser.add_argument("--output-file", required=True)
 parser.add_argument("--want-variations", required=False, action="store_true", help="request for variations from command line")
+parser.add_argument("--want_mc_splitting", required=False, action="store_true", help="request for variations from command line")
 args = parser.parse_args()
 
 ## all configurations to load ##
@@ -60,8 +61,17 @@ df = df.Define("FullEventId",f"eventId::encodeFullEventId({dataset_crc}, {input_
 # default columns to store: #
 cols_to_save.extend(utilities.GetObservablesCols("default", is_data, nano_version))
 
-# apply generator-level stitching filters #
 if not is_data:
+    if args.want_mc_splitting:
+        from analysis.mc_splitting import ApplyOrthogonalLumiFilter
+        df, ortho_cols = ApplyOrthogonalLumiFilter(
+            df,
+            args.era,
+            seed=12345,
+            keep_tag_column=True
+        )
+
+        cols_to_save.extend(ortho_cols)
     from analysis.gen_vbf_filter import ApplyGenVBFFilter
     df = ApplyGenVBFFilter(df, args.era, args.dataset_name, process)
 
@@ -135,8 +145,11 @@ cols_to_save.extend(cat_cols)
 ## additional col to store ##
 collections = ["SoftActivityJet"]
 if not is_data:
-    collections.append("LHEWeight")
-    collections.append("LHE")
+    if "LHE_Vpt" in df.GetColumnNames():
+        collections.append("LHE")
+    if "LHEScaleWeight" in df.GetColumnNames():
+        collections.append("LHEWeight")
+
 for c in collections:
     cols_to_save.extend(utilities.GetObservablesCols(c, is_data, nano_version))
 cols_to_save = list(set(cols_to_save))

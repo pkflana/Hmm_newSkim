@@ -13,7 +13,7 @@ if ANALYSIS_PATH is None:
     raise RuntimeError("Environment variable ANALYSIS_PATH is not set")
 
 CONFIG_PATH = os.path.join(ANALYSIS_PATH, "config")
-for era in ["Run3_2022","Run3_2022EE","Run3_2023","Run3_2023BPix", "Run3_2024"]:
+for era in ["Run3_2025"]: # "Run3_2022","Run3_2022EE","Run3_2023","Run3_2023BPix", "Run3_2024"
     print(f"Processing era: {era}")
     skim_cfg_path = os.path.join(
         CONFIG_PATH,

@@ -586,38 +586,67 @@ Tau_Run2024I_v2:
 #### datasets
 
 ############## HIGGS SIGNAL SAMPLES ##############
-
-# --- Mass Point: 120 GeV ---
 GluGluHto2Mu_M120:
   is_signal: True
   crossSection: GluGluHto2Mu_M120
   generator: powheg
-  nanoAOD: /GluGluHto2Mu_Par-M-120_TuneCP5_13p6TeV_amcatnlo-pythia8/RunIII2024Summer24NanoAODv15-150X_mcRun3_2024_realistic_v2-v2/NANOAODSIM
-
-VBFHto2Mu_M120:
-  is_signal: True
-  crossSection: VBFHto2Mu_M120
-  generator: amcatnlo
-  nanoAOD: /VBF-Hto2Mu_Par-M-120_TuneCP5_13p6TeV_amcatnlo-pythia8/RunIII2024Summer24NanoAODv15-150X_mcRun3_2024_realistic_v2-v2/NANOAODSIM
-
-# --- Mass Point: 125 GeV (Nominal) ---
-GluGluHto2Mu_M125:
+  nanoAOD: /GluGluH-Hto2Mu_Par-M-120_TuneCP5_13p6TeV_amcatnloFXFX-pythia8/RunIII2024Summer24NanoAODv15-150X_mcRun3_2024_realistic_v2-v2/NANOAODSIM #/GluGluHto2Mu_Par-M-120_TuneCP5_13p6TeV_amcatnlo-pythia8/RunIII2024Summer24NanoAODv15-150X_mcRun3_2024_realistic_v2-v2/NANOAODSIM
+GluGluHto2Mu:
   is_signal: True
   crossSection: GluGluHto2Mu_M125
   generator: powheg
   nanoAOD: /GluGluH-Hto2Mu_Par-M-125_TuneCP5_13p6TeV_powheg-pythia8/RunIII2024Summer24NanoAODv15-150X_mcRun3_2024_realistic_v2-v2/NANOAODSIM
-
-GluGluHto2Mu_M125_minnlo:
+GluGluHto2Mu_ext1:
+  is_signal: True
+  crossSection: GluGluHto2Mu_M125
+  generator: powheg
+  nanoAOD: /GluGluH-Hto2Mu_Par-M-125_TuneCP5_13p6TeV_powheg-pythia8/RunIII2024Summer24NanoAODv15-150X_mcRun3_2024_realistic_v2_ext1-v2/NANOAODSIM
+GluGluHto2Mu_amcatnlo:
+  is_signal: True
+  crossSection: GluGluHto2Mu_M125
+  generator: powheg
+  nanoAOD: /GluGluH-Hto2Mu_Par-M-125_TuneCP5_13p6TeV_amcatnloFXFX-pythia8/RunIII2024Summer24NanoAODv15-150X_mcRun3_2024_realistic_v2-v2/NANOAODSIM
+GluGluHto2Mu_amcatnlo_ext1:
+  is_signal: True
+  crossSection: GluGluHto2Mu_M125
+  generator: powheg
+  nanoAOD: /GluGluH-Hto2Mu_Par-M-125_TuneCP5_13p6TeV_amcatnloFXFX-pythia8/RunIII2024Summer24NanoAODv15-150X_mcRun3_2024_realistic_v2_ext1-v2/NANOAODSIM
+GluGluHto2Mu_MiNNLO:
   is_signal: True
   crossSection: GluGluHto2Mu_M125
   generator: powheg
   nanoAOD: /GluGluH-Hto2Mu_Par-M-125_TuneCP5_13p6TeV_powhegMINNLO-pythia8/RunIII2024Summer24NanoAODv15-150X_mcRun3_2024_realistic_v2-v2/NANOAODSIM
+GluGluHto2Mu_tuneDown:
+  crossSection: GluGluHto2Mu
+  is_signal: True
+  generator: powheg
+  nanoAOD: /GluGluH-Hto2Mu_Par-M-125_TuneCP5Down_13p6TeV_amcatnloFXFX-pythia8/RunIII2024Summer24NanoAODv15-150X_mcRun3_2024_realistic_v2-v2/NANOAODSIM
+GluGluHto2Mu_tuneUp:
+  crossSection: GluGluHto2Mu
+  is_signal: True
+  generator: powheg
+  nanoAOD: /GluGluH-Hto2Mu_Par-M-125_TuneCP5Up_13p6TeV_amcatnloFXFX-pythia8/RunIII2024Summer24NanoAODv15-150X_mcRun3_2024_realistic_v2-v2/NANOAODSIM
+GluGluHto2Mu_M130:
+  is_signal: True
+  crossSection: GluGluHto2Mu_M130
+  generator: amcatnlo
+  nanoAOD: /GluGluHto2Mu_Par-M-130_TuneCP5_13p6TeV_amcatnlo-pythia8/RunIII2024Summer24NanoAODv15-150X_mcRun3_2024_realistic_v2-v2/NANOAODSIM
+GluGluHto2Mu_M130_ext1:
+  is_signal: True
+  crossSection: GluGluHto2Mu_M130
+  generator: amcatnlo
+  nanoAOD: /GluGluH-Hto2Mu_Par-M-130_TuneCP5_13p6TeV_amcatnloFXFX-pythia8/RunIII2024Summer24NanoAODv15-150X_mcRun3_2024_realistic_v2_ext1-v2/NANOAODSIM
 
 VBFHto2Mu_M125_powheg:
   is_signal: True
   crossSection: VBFHto2Mu_M125
   generator: powheg
   nanoAOD: /VBFH-Hto2Mu_Par-M-125_TuneCP5_13p6TeV_powheg-pythia8/RunIII2024Summer24NanoAODv15-150X_mcRun3_2024_realistic_v2-v2/NANOAODSIM
+VBFHto2Mu_M120:
+  is_signal: True
+  crossSection: VBFHto2Mu_M120
+  generator: amcatnlo
+  nanoAOD: /VBF-Hto2Mu_Par-M-120_TuneCP5_13p6TeV_amcatnlo-pythia8/RunIII2024Summer24NanoAODv15-150X_mcRun3_2024_realistic_v2-v2/NANOAODSIM
 VBFHto2Mu_m125_tuneCP5Up_amcatnlo:
   is_signal: True
   crossSection: VBFHto2Mu_M125
@@ -633,15 +662,6 @@ VBFHto2Mu_M125_amcatnlo:
   crossSection: VBFHto2Mu_M125
   generator: amcatnlo
   nanoAOD: /VBF-Hto2Mu_Par-M-125_TuneCP5_13p6TeV_amcatnlo-pythia8/RunIII2024Summer24NanoAODv15-150X_mcRun3_2024_realistic_v2-v2/NANOAODSIM
-
-
-# --- Mass Point: 130 GeV ---
-GluGluHto2Mu_M130:
-  is_signal: True
-  crossSection: GluGluHto2Mu_M130
-  generator: amcatnlo
-  nanoAOD: /GluGluHto2Mu_Par-M-130_TuneCP5_13p6TeV_amcatnlo-pythia8/RunIII2024Summer24NanoAODv15-150X_mcRun3_2024_realistic_v2-v2/NANOAODSIM
-
 VBFHto2Mu_M130:
   is_signal: True
   crossSection: VBFHto2Mu_M130

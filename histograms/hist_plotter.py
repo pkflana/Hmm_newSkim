@@ -616,7 +616,14 @@ def make_stacked_plot(
     for jet_idx in [1, 2]:
         if f"vbfjet{jet_idx}" in variable:
             x_label = x_label.format(jet_idx=jet_idx)
-
+    if variable.split("_")[0] == "leadingjet":
+        x_label = x_label.format(jname="leading j")
+    if variable.split("_")[0] == "subleadingjet":
+        x_label = x_label.format(jname="subleading j")
+    if variable.split("_")[0] == "thirdjet":
+        x_label = x_label.format(jname="third j")
+    if variable.split("_")[0] == "fourthjet":
+        x_label = x_label.format(jname="fourth j")
     if has_ratio:
         rax.set_xlabel(x_label, fontsize=20)
         ax.get_xaxis().set_visible(False)

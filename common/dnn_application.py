@@ -173,6 +173,7 @@ class DNNApplication:
         if "DNNEntryKey" not in columns:
             df = df.Define("DNNEntryKey", "static_cast<ULong64_t>(rdfentry_)")
 
+
         return df
 
     def apply(self, df):
@@ -186,7 +187,29 @@ class DNNApplication:
         if missing:
             raise RuntimeError(f"Missing DNN input feature columns: {missing}")
 
-        arrays = df.AsNumpy(["DNNEntryKey", "FullEventId"] + self.input_features)
+        # arrays = df.AsNumpy(["DNNEntryKey", "FullEventId"] + self.input_features)
+        cols = ["DNNEntryKey", "FullEventId"] + self.input_features
+
+        available = set(str(c) for c in df.GetColumnNames())
+        missing = [c for c in cols if c not in available]
+        if missing:
+            raise RuntimeError(f"[DNN] Missing columns: {missing}")
+
+        # print(f"[DNN] Testing AsNumpy columns one by one for payload {self.payload_name}")
+
+        arrays = {}
+
+        for col in cols:
+            try:
+                # print(f"[DNN] Reading column: {col}")
+                arr = df.AsNumpy([col])[col]
+                arrays[col] = arr
+                # print(f"[DNN]   OK {col}: dtype={arr.dtype}, shape={arr.shape}")
+            except Exception as e:
+                raise RuntimeError(
+                    f"[DNN] AsNumpy failed on column '{col}' "
+                    f"for payload '{self.payload_name}'. Error: {repr(e)}"
+                )
         n_events = len(arrays["FullEventId"])
         if n_events == 0:
             predictions = np.array([], dtype=np.float32)

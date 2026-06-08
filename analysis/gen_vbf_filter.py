@@ -11,13 +11,15 @@ import common.utilities as utilities
 _INCLUSIVE_SAMPLES = {
     "DYto2Mu_MLL105To160",
     "DYto2Mu_MLL_105to160_amcatnloFXFX",
+    "DYto2Mu_MLL_105to160_amcatnloFXFX_Flashsim",
+    "DYto2Mu_MLL105To160_FlashSim",
 }
 
 _VBF_FILTERED_SAMPLES = {
     "DYto2Mu_MLL105To160_VBFFiltered",
     "DYto2Mu_MLL_105to160_amcatnloFXFX_Fil_VBF",
-}
 
+}
 
 def _declare_gen_vbf_filter():
     header_path = os.path.join(os.environ["ANALYSIS_PATH"], "common", "GenVBFFilter.cpp")
@@ -48,4 +50,4 @@ def ApplyGenVBFFilter(df, era, dataset_name, process_name=None):
         "GenPart_pt, GenPart_eta, GenPart_phi, GenPart_mass, "
         "GenPart_pdgId, GenPart_statusFlags)"
     )
-    return df.Filter(filter_expr, filter_label)
+    return df
