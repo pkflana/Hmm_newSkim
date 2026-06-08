@@ -10,4 +10,8 @@ htcondor/log/
 htcondor/output/
 prova*
 test/
-plot*/
+plots*/
+vdamante.cc
+common/models/
+common/vbfnet_models/
+samples_withfiles.yaml

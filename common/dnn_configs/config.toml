@@ -1,0 +1,61 @@
+
+[meta]
+results_dir = "/afs/cern.ch/user/a/ayeagle/H_mumu/Studies/DNN/results"
+use_cuda = true
+
+[dataloader]
+# Events selection
+selection_cut = '(VBF_JetVeto) & (Signal_Fit)'
+# Event splitting (training_size is what's left)
+valid_size = 0.2
+test_size = 0.0
+# Input vector def
+columns_config = '/afs/cern.ch/user/a/ayeagle/H_mumu/Studies/DNN/configs/columns_config.yaml'
+signal_types = ['VBFHto2Mu', 'GluGluHto2Mu']
+# Binary or multiclass
+classification = 'binary'          
+# Per file stitching
+# file_stitching = '/afs/cern.ch/user/a/ayeagle/H_mumu/Studies/DNN/configs/class_reweights_old_v2.toml'
+renorm_inputs = 'gauss'
+
+
+[preprocess]
+# Reweigh/rebalance options
+uniform_train_weight = true        # If true, all train weights (prenorm) = 1
+zero_negative_weights = false      # Remove the effect of negative weights for training only
+equalize_class_weights = true      # Sets each class weight to be equal (training only!)
+renorm_inputs = 'gauss'            # Apply some scaling/renorm to the input columns. Can be 'no' or 'gauss'
+downsample_upweight = false        # Whether or not to downsample majority classes
+target_ratio = 1                  # New N_{majority_class}/N_{minority_class} ratio (if using downsample)
+use_mass_resolution = false
+
+[kfold]
+k = 4
+
+[network]  
+# Hidden layers only
+# Input layer size pulled from the used columns
+layer_list = [52, 26, 26, 13]
+dropout = 0.0
+
+[training]
+# batch_size = 0 means use the whole set (1 batch per epoch)
+batch_size = 1200
+epochs = 64
+early_stop = true
+early_threshold = 0
+patience = 20
+label_smoothing = 0.0
+
+[optimizer]
+algo = "Adam"   # Currently, SGD and Adam are supported
+lr = 0.0001
+weight_decay = 0.0
+#momentum = 0.7
+#dampening = 0.2
+
+[testing]
+# Number of bins for all histograms
+n_bins = 12
+
+
