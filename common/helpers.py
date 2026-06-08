@@ -136,6 +136,7 @@ def build_rdf(rdf, is_data, seg_dict,weight_dict, store_shifted_weights, dnn_pay
             # print(weight_info['expression'])
             expr = "1.f" if is_data else f"({weight_info['expression']}) * inv_N_orig"
             rdf = rdf.Define(f"weight__{weight_name}", expr)
+            # rdf.Display({f"weight__{weight_name}","inv_N_orig"}).Print()
     rdf = SelectedJetObservablesDef(rdf)
     rdf = VBFJetObservablesDef(rdf)
     rdf = GetAllMuonsObservablesNew(rdf)

@@ -149,7 +149,7 @@ def define_base_weights(df, lumi, xs_entry, xs_cfg,config,dataset_cfg, process_e
     json_dict_to_store['gen'][f"total"]['value']= df.Sum("genWeight")
 
     from .pu import apply_pu_weights
-    df,pu_branches,json_dict_to_store = apply_pu_weights(df, config, "Pileup_nTrueInt",want_variations)
+    df,pu_branches,json_dict_to_store = apply_pu_weights(df, json_dict_to_store, config, "Pileup_nTrueInt",want_variations)
     base_weights_to_store.extend(pu_branches)
 
     weight_xs_name = "weight_xs"

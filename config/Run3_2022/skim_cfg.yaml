@@ -48,5 +48,13 @@ process_to_select:
   - VBFHto2Mu_m125_tuneDown
   - VBFHto2Mu_m125_tuneUp
   - GluGluHto2Mu
-
+  - GluGluHto2Mu_tuneDown
+  - GluGluHto2Mu_tuneUp
+  - GluGluHto2Mu_amcatnlo
+  - GluGluHto2Mu_MiNNLO
+  - GluGluHto2Mu
+  - GluGluHto2Mu_M120
+  - GluGluHto2Mu_M130
+  - VH_inclusive
+  - TTH_inclusive
 proxy_location: /afs/cern.ch/work/v/vdamante/Hmm_newSkim/data/voms.proxy

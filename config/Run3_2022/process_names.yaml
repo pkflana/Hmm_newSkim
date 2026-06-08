@@ -258,11 +258,29 @@ VBFHto2Mu_Herwig:
     - VBFHto2Mu_M-125_13p6TeV_powheg-herwig7_ext2
 
 ############## ggH signal ##############
+GluGluHto2Mu_tuneDown:
+  name: "GluGluHto2Mu_tuneDown"
+  is_signal: true
+  color: cyan
+  datasets:
+    - GluGluHto2Mu_tuneDown
+GluGluHto2Mu_tuneUp:
+  name: "GluGluHto2Mu_tuneUp"
+  is_signal: true
+  color: cyan
+  datasets:
+    - GluGluHto2Mu_tuneUp
+GluGluHto2Mu_amcatnlo:
+  name: "GluGluHto2Mu_amcatnlo"
+  is_signal: true
+  color: cyan
+  datasets:
+    - GluGluHto2Mu_amcatnlo
 
 GluGluHto2Mu_MiNNLO:
-  name: "GluGluHto2Mu minnlo"
+  name: "GluGluHto2Mu_minnlo"
   is_signal: true
-  color: navy
+  color: cyan
   datasets:
     - GluGluHto2Mu_MiNNLO
 
@@ -273,6 +291,20 @@ GluGluHto2Mu:
   datasets:
     - GluGluHto2Mu
 
+
+GluGluHto2Mu_M130:
+  name: "GluGluHto2Mu_M130"
+  is_signal: true
+  color: cyan
+  datasets:
+    - GluGluHto2Mu_M130
+
+GluGluHto2Mu_M120:
+  name: "GluGluHto2Mu_M120"
+  is_signal: true
+  color: cyan
+  datasets:
+    - GluGluHto2Mu_M120
 ############## VH signal ##############
 
 VHto2Mu:

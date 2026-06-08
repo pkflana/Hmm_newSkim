@@ -1252,6 +1252,29 @@ GluGluHto2Mu_MiNNLO:
   crossSection: GluGluHto2Mu
   generator: powheg
   nanoAOD: /GluGluHto2Mu_M-125_TuneCP5_13p6TeV_powhegMiNNLO-pythia8/Run3Summer22NanoAODv12-130X_mcRun3_2022_realistic_v5-v2/NANOAODSIM
+GluGluHto2Mu_tuneDown:
+  crossSection: GluGluHto2Mu
+  generator: powheg
+  nanoAOD: /GluGluHto2Mu_M-125_TuneCP5Down_13p6TeV_amcatnloFXFX-pythia8/Run3Summer22NanoAODv12-130X_mcRun3_2022_realistic_v5-v2/NANOAODSIM
+GluGluHto2Mu_tuneUp:
+  crossSection: GluGluHto2Mu
+  generator: powheg
+  nanoAOD: /GluGluHto2Mu_M-125_TuneCP5Up_13p6TeV_amcatnloFXFX-pythia8/Run3Summer22NanoAODv12-130X_mcRun3_2022_realistic_v5-v2/NANOAODSIM
+GluGluHto2Mu_amcatnlo:
+  crossSection: GluGluHto2Mu
+  generator: amcatnlo
+  nanoAOD: /GluGluHto2Mu_M-125_TuneCP5_13p6TeV_amcatnloFXFX-pythia8/Run3Summer22NanoAODv12-130X_mcRun3_2022_realistic_v5-v2/NANOAODSIM
+
+GluGluHto2Mu_M120:
+  crossSection: GluGluHto2Mu_M120
+  is_signal: True
+  generator: amcatnlo
+  nanoAOD: /GluGluHto2Mu_M-120_TuneCP5_13p6TeV_amcatnloFXFX-pythia8/Run3Summer22NanoAODv12-130X_mcRun3_2022_realistic_v5-v2/NANOAODSIM
+GluGluHto2Mu_M130:
+  crossSection: GluGluHto2Mu_M130
+  is_signal: True
+  generator: amcatnlo
+  nanoAOD: /GluGluHto2Mu_M-130_TuneCP5_13p6TeV_amcatnloFXFX-pythia8/Run3Summer22NanoAODv12-130X_mcRun3_2022_realistic_v5-v2/NANOAODSIM
 
 VBFHto2Mu_M125_powheg:
   crossSection: VBFHto2Mu
@@ -1266,7 +1289,7 @@ VBFHto2Mu_m125_tuneCP5Down_amcatnlo:
   generator: amcatnlo
   nanoAOD: /VBFH_Hto2Mu_M-125_TuneCP5Down_13p6TeV_amcatnlo-pythia8/Run3Summer22NanoAODv12-130X_mcRun3_2022_realistic_v5-v2/NANOAODSIM
 VBFHto2Mu_M120_amcatnlo:
-  crossSection: VBFHto2Mu
+  crossSection: VBFHto2Mu_M120
   generator: amcatnlo
   nanoAOD: /VBFH_Hto2Mu_M-120_TuneCP5_13p6TeV_amcatnlo-pythia8/Run3Summer22NanoAODv12-130X_mcRun3_2022_realistic_v5-v2/NANOAODSIM
 VBFHto2Mu_m125_amcatnlo:
@@ -1274,7 +1297,7 @@ VBFHto2Mu_m125_amcatnlo:
   generator: amcatnlo
   nanoAOD: /VBFH_Hto2Mu_M-125_TuneCP5_13p6TeV_amcatnlo-pythia8/Run3Summer22NanoAODv12-130X_mcRun3_2022_realistic_v5-v2/NANOAODSIM
 VBFHto2Mu_M130_amcatnlo:
-  crossSection: VBFHto2Mu
+  crossSection: VBFHto2Mu_M130
   generator: amcatnlo
   nanoAOD: /VBFH_Hto2Mu_M-130_TuneCP5_13p6TeV_amcatnlo-pythia8/Run3Summer22NanoAODv12-130X_mcRun3_2022_realistic_v5-v2/NANOAODSIM
 ZH_Hto2Mu:

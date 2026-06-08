@@ -25,6 +25,7 @@ golden_json_dict = {
 
 def apply_pu_weights(
     df,
+    json_dict_to_store,
     config,
     pileup_column,
     want_variations,
@@ -96,7 +97,7 @@ def apply_pu_weights(
     if want_variations:
         scales += ["up", "down"]
 
-    json_dict_to_store = {"pu":{},"pu_up":{},"pu_down":{}}
+    # json_dict_to_store = {"pu":{},"pu_up":{},"pu_down":{}}
     for scale in scales:
         branch_name = f"weight_pu"
         if scale != "Central": branch_name += f"_{scale}"
@@ -108,13 +109,17 @@ def apply_pu_weights(
             expr = f"{func_d}({pileup_column})"
         df = df.Define(branch_name, expr)
         branches.append(branch_name)
+    json_dict_to_store['pu'] = {}
     json_dict_to_store['pu'][f"total"] = {}
     json_dict_to_store['pu'][f"total"]['selection']= "return true;"
-    json_dict_to_store['pu'][f"total"]['value']= df.Sum("weight_pu")
+    json_dict_to_store['pu'][f"total"]['value']= df.Define("signed_weight_pu","weight_pu*weight_gen_sign").Sum("signed_weight_pu")
+    json_dict_to_store['pu'][f"total"]['value_unsigned']= df.Sum("weight_pu")
     if want_variations:
         for scale in ["up", "down"]:
+            json_dict_to_store[f"pu_{scale}"] = {}
             json_dict_to_store[f"pu_{scale}"][f"total"] = {}
             json_dict_to_store[f"pu_{scale}"][f"total"]['selection']= "return true;"
-            json_dict_to_store[f"pu_{scale}"][f"total"]['value']= df.Sum(f"weight_pu_{scale}")
+            json_dict_to_store[f"pu_{scale}"][f"total"]['value_unsigned']= df.Sum(f"weight_pu_{scale}")
+            json_dict_to_store[f"pu_{scale}"][f"total"]['value']= df.Define(f"signed_weight_pu_{scale}",f"weight_pu_{scale}*weight_gen_sign").Sum(f"signed_weight_pu_{scale}")
     return df, branches, json_dict_to_store
 

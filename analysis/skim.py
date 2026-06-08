@@ -149,6 +149,8 @@ if not is_data:
         for xs_key,xs_dict in pu_dict.items():
             value_to_extract = xs_dict['value']
             xs_dict['value']=value_to_extract.GetValue()
+            if 'value_unsigned' in xs_dict.keys():
+                xs_dict['value_unsigned']=xs_dict['value_unsigned'].GetValue()
     report_json.update(json_dict_to_store)
 
 json_file = os.path.splitext(args.output_file)[0] + "_report.json"

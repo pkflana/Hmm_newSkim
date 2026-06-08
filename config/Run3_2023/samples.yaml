@@ -1480,15 +1480,35 @@ WmWmJJ_EWK:
 ### Higgs samples ###
 GluGluHto2Mu:
   crossSection: GluGluHto2Mu
-  is_signal: True
   generator: powheg
   nanoAOD: /GluGluHto2Mu_M-125_TuneCP5_13p6TeV_powheg-pythia8/Run3Summer23NanoAODv12-130X_mcRun3_2023_realistic_v15-v2/NANOAODSIM
 GluGluHto2Mu_MiNNLO:
   crossSection: GluGluHto2Mu
-  is_signal: True
   generator: powheg
   nanoAOD: /GluGluHto2Mu_M-125_TuneCP5_13p6TeV_powhegMiNNLO-pythia8/Run3Summer23NanoAODv12-130X_mcRun3_2023_realistic_v15-v2/NANOAODSIM
+GluGluHto2Mu_tuneDown:
+  crossSection: GluGluHto2Mu
+  generator: powheg
+  nanoAOD: /GluGluHto2Mu_M-125_TuneCP5Down_13p6TeV_amcatnloFXFX-pythia8/Run3Summer23NanoAODv12-130X_mcRun3_2023_realistic_v15-v2/NANOAODSIM
+GluGluHto2Mu_tuneUp:
+  crossSection: GluGluHto2Mu
+  generator: powheg
+  nanoAOD: /GluGluHto2Mu_M-125_TuneCP5Up_13p6TeV_amcatnloFXFX-pythia8/Run3Summer23NanoAODv12-130X_mcRun3_2023_realistic_v15-v2/NANOAODSIM
+GluGluHto2Mu_amcatnlo:
+  crossSection: GluGluHto2Mu
+  generator: amcatnlo
+  nanoAOD: /GluGluHto2Mu_M-125_TuneCP5_13p6TeV_amcatnloFXFX-pythia8/Run3Summer23NanoAODv12-130X_mcRun3_2023_realistic_v15-v2/NANOAODSIM
 
+GluGluHto2Mu_M120:
+  crossSection: GluGluHto2Mu_M120
+  is_signal: True
+  generator: amcatnlo
+  nanoAOD: /GluGluHto2Mu_M-120_TuneCP5_13p6TeV_amcatnloFXFX-pythia8/Run3Summer23NanoAODv12-130X_mcRun3_2023_realistic_v15-v2/NANOAODSIM
+GluGluHto2Mu_M130:
+  crossSection: GluGluHto2Mu_M130
+  is_signal: True
+  generator: amcatnlo
+  nanoAOD: /GluGluHto2Mu_M-130_TuneCP5_13p6TeV_amcatnloFXFX-pythia8/Run3Summer23NanoAODv12-130X_mcRun3_2023_realistic_v15-v2/NANOAODSIM
 VBFHto2Mu_M125_powheg:
   crossSection: VBFHto2Mu
   is_signal: True

@@ -7,7 +7,8 @@ import argparse
 import time
 from multiprocessing import get_context
 sys.path.append(os.environ["ANALYSIS_PATH"])
-ROOT.EnableImplicitMT(8)
+# ROOT.EnableImplicitMT(8)
+ROOT.EnableThreadSafety()
 
 import common.utilities as utilities
 from common.helpers import GetModel, GetRdfForDataset, get_root_files, get_valid_root_files, get_segmentation_dict
