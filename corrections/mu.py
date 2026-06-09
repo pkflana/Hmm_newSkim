@@ -336,7 +336,6 @@ def apply_muIDIso_weights(df, config, want_variations):
         os.environ["ANALYSIS_PATH"],
         muIDEff_JsonPath.format(pog_folder_names["MUO"][period_unc]),
     )
-
     # Global registration for access in C++ context
     ROOT.gROOT.ProcessLine(
         f'auto cset = correction::CorrectionSet::from_file("{jsonFile_path}");'
@@ -351,7 +350,6 @@ def apply_muIDIso_weights(df, config, want_variations):
         + MediumMuReco_SF_sources.get(period_unc, [])
         + MediumMuTrg_SF_Sources.get(period_unc, [])
     )
-
     # Dict mapping python scale terminology to correctionlib JSON parameters
     scale_map = {"Central": "nominal", "up": "systup", "down": "systdown"}
 
@@ -395,8 +393,9 @@ def apply_muIDIso_weights(df, config, want_variations):
                             {tightId}, {tkRelIso}, {mediumId}, {looseId},{trg_matching},{trg_path}, event))
                         : 1.0f""",
                 )
+
                 # if source == "NUM_IsoMu24_DEN_CutBasedIdMedium_and_PFIsoMedium":
-                #     df.Display({branch_name}).Print()
+                # df.Display({branch_name}).Print()
 
                 # Control what goes to the downstream storing list:
                 # Always keep Central; only add up/down to track if want_variations is True

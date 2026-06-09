@@ -1,20 +1,9 @@
 import os
 import shutil
 import yaml
+import argparse
 
-# CONFIGURAZIONE
-YAML_FILE = "config/Run3_2022/process_names.yaml"  # Il tuo file YAML
-INPUT_DIR = "/eos/user/v/vdamante/H_mumu/newHists_v1/"  # Cartella file ROOT dei dataset
-OUTPUT_DIR = "/eos/user/v/vdamante/H_mumu/newHists_v1_hadded/"  # Cartella di output
 
-# MODALITÀ DRY-RUN
-# True: Stampa solo la mappa dei file che verranno uniti (senza toccare il disco)
-# False: Esegue l'hadd reale degli istogrammi
-DRY_RUN = False
-
-# Importiamo uproot solo se serve davvero l'elaborazione reale
-if not DRY_RUN:
-    import uproot
 
 def load_yaml_config(yaml_path):
     with open(yaml_path, "r") as stream:
@@ -25,14 +14,17 @@ def load_yaml_config(yaml_path):
             return None
 
 
-def hadd_datasets_to_processes():
-    config = load_yaml_config(YAML_FILE)
-    config_processnames = load_yaml_config(os.path.join("config", "Run3_2022", "skim_cfg.yaml"))["process_to_select"]
+def hadd_datasets_to_processes(era,input_dir, output_dir,dryRun=False):
+    if not dryRun:
+        import uproot
+    yaml_file = f"config/{era}/process_names.yaml"  # Il tuo file YAML
+    config = load_yaml_config(yaml_file)
+    config_processnames = load_yaml_config(os.path.join("config", era, "skim_cfg.yaml"))["process_to_select"]
     if not config:
         return
 
-    if not DRY_RUN and not os.path.exists(OUTPUT_DIR):
-        os.makedirs(OUTPUT_DIR)
+    if not dryRun and not os.path.exists(output_dir):
+        os.makedirs(output_dir)
 
     # 1. Costruiamo la mappatura Processo -> Lista di Dataset associati
     process_mapping = {}
@@ -55,7 +47,7 @@ def hadd_datasets_to_processes():
         process_mapping[process_name].extend(datasets)
     # print(process_mapping)
     # 2. Controllo file ed Esecuzione/Stampa
-    if DRY_RUN:
+    if dryRun:
         print("\n=== [DRY-RUN] PIANO DI ACCOPPIAMENTO (Solo file esistenti) ===")
 
     for process, datasets in process_mapping.items():
@@ -64,7 +56,7 @@ def hadd_datasets_to_processes():
         # Filtra i dataset tenendo solo quelli CHE ESISTONO SUL DISCO
         valid_dataset_files = []
         for dataset in datasets:
-            dataset_file_path = os.path.join(INPUT_DIR, f"{dataset}.root")
+            dataset_file_path = os.path.join(input_dir, f"{dataset}.root")
             if os.path.exists(dataset_file_path):
                 valid_dataset_files.append(dataset_file_path)
 
@@ -72,10 +64,10 @@ def hadd_datasets_to_processes():
         if not valid_dataset_files:
             continue
 
-        output_file_path = os.path.join(OUTPUT_DIR, f"{process}.root")
+        output_file_path = os.path.join(output_dir, f"{process}.root")
 
         # --- SE DRY-RUN: Stampa solo quello che farebbe ---
-        if DRY_RUN:
+        if dryRun:
             print(f"\n📦 File di output previsto: {process}.root")
             print(
                 f"   ↳ Unione (hadd) di {len(valid_dataset_files)}/{len(datasets)} file trovati:"
@@ -119,7 +111,7 @@ def hadd_datasets_to_processes():
                     output_root[key] = merged_hist
 
             print(
-                f"   ✅ Successo! Salvato in: {os.path.basename(output_file_path)}"
+                f"   ✅ Successo! Salvato in: {output_file_path}"
             )
 
         except Exception as e:
@@ -127,11 +119,19 @@ def hadd_datasets_to_processes():
                 f"   ❌ Errore durante l'elaborazione del processo {process}: {e}"
             )
 
-    if DRY_RUN:
+    if dryRun:
         print("\n===============================================================\n")
     else:
         print("\n--- HADDing Completato! ---")
 
 
+
 if __name__ == "__main__":
-    hadd_datasets_to_processes()
+    parser = argparse.ArgumentParser()
+    parser.add_argument( "--era", required=True, type=str)
+    parser.add_argument( "--input-dir", required=True, type=str, help="ROOT file or dataset directory")
+    parser.add_argument( "--output-dir", required=True, type=str, help="ROOT file or dataset directory")
+    parser.add_argument( "--dryRun", action="store_true", help="dryRun only")
+    args = parser.parse_args()
+
+    hadd_datasets_to_processes(args.era,args.input_dir, args.output_dir,args.dryRun)

@@ -1,0 +1,29 @@
+features:
+  - mu1_eta
+  - mu1_pt
+  - mu2_eta
+  - mu2_pt
+  - dR_mumu
+  - m_mumu
+  - eta_mumu
+  - cosTheta_CS
+  - phi_mumu
+  - pt_mumu
+  - y_mumu
+  - phi_CS
+  - R_pt
+  - minDeltaEtaSigned
+  - minDeltaPhi
+  - Zeppenfeld_Var
+  - pt_centrality
+  - vbfjet1_eta
+  - vbfjet1_pt
+  - vbfjet1_btag{algo}QvG
+  - vbfjet2_eta
+  - vbfjet2_pt
+  - vbfjet2_btag{algo}QvG
+  - m_jj
+  - delta_eta_jj
+  - pt_jj
+
+# m_mumu_resolution

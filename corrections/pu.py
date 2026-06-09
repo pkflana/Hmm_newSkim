@@ -11,7 +11,7 @@ _initialized = set()
 # minimal golden json mapping (used to pick the correction key inside the PU JSON)
 golden_json_dict = {
     "2025_Winter25": "",
-    "2025_Summer24": "",
+    "2025_Summer24": "Collisions25_goldenJSON",
     "2024_Summer24": "Collisions24_BCDEFGHI_goldenJSON",
     "2023_Summer23BPix": "Collisions2023_369803_370790_eraD_GoldenJson",
     "2023_Summer23": "Collisions2023_366403_369802_eraBC_GoldenJson",
@@ -25,6 +25,7 @@ golden_json_dict = {
 
 def apply_pu_weights(
     df,
+    json_dict_to_store,
     config,
     pileup_column,
     want_variations,
@@ -38,6 +39,8 @@ def apply_pu_weights(
     period_unc = period_names[era]
     folder_name = pog_folder_names["LUM"][period_unc]
     suffix = "_BCDEFGHI" if period_unc == "2024_Summer24" else ""  # tmp patch
+    if period_unc=="2025_Summer24":
+        suffix="_2025pp_Golden_Summer24_25ns_69200ub"
     pu_path = json_path.format(
         folder=folder_name, suffix=suffix
     )
@@ -96,7 +99,7 @@ def apply_pu_weights(
     if want_variations:
         scales += ["up", "down"]
 
-    json_dict_to_store = {"pu":{},"pu_up":{},"pu_down":{}}
+    # json_dict_to_store = {"pu":{},"pu_up":{},"pu_down":{}}
     for scale in scales:
         branch_name = f"weight_pu"
         if scale != "Central": branch_name += f"_{scale}"
@@ -108,13 +111,17 @@ def apply_pu_weights(
             expr = f"{func_d}({pileup_column})"
         df = df.Define(branch_name, expr)
         branches.append(branch_name)
+    json_dict_to_store['pu'] = {}
     json_dict_to_store['pu'][f"total"] = {}
     json_dict_to_store['pu'][f"total"]['selection']= "return true;"
-    json_dict_to_store['pu'][f"total"]['value']= df.Sum("weight_pu")
+    json_dict_to_store['pu'][f"total"]['value']= df.Define("signed_weight_pu","weight_pu*weight_gen_sign").Sum("signed_weight_pu")
+    json_dict_to_store['pu'][f"total"]['value_unsigned']= df.Sum("weight_pu")
     if want_variations:
         for scale in ["up", "down"]:
+            json_dict_to_store[f"pu_{scale}"] = {}
             json_dict_to_store[f"pu_{scale}"][f"total"] = {}
             json_dict_to_store[f"pu_{scale}"][f"total"]['selection']= "return true;"
-            json_dict_to_store[f"pu_{scale}"][f"total"]['value']= df.Sum(f"weight_pu_{scale}")
+            json_dict_to_store[f"pu_{scale}"][f"total"]['value_unsigned']= df.Sum(f"weight_pu_{scale}")
+            json_dict_to_store[f"pu_{scale}"][f"total"]['value']= df.Define(f"signed_weight_pu_{scale}",f"weight_pu_{scale}*weight_gen_sign").Sum(f"signed_weight_pu_{scale}")
     return df, branches, json_dict_to_store
 

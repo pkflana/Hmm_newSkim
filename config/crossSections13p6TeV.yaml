@@ -48,71 +48,6 @@ BR_Z_nunu:
   reference: https://pdg.lbl.gov/2018/listings/rpp2018-list-z-boson.pdf
   unc:
 
-XtoHHto2B2Wto2B2L2Nu:
-  crossSec: one_pb * 2 * BR_H_bb * BR_H_WW * 3 * BR_W_lnu * 3 * BR_W_lnu
-  reference: "common sense"
-  unc:
-
-XtoHHto2B2Wto2B2Q1L1Nu:
-  crossSec: one_pb * 2 * BR_H_bb * 2 * BR_H_WW * 3 * BR_W_lnu * BR_W_qq
-  reference: "common sense"
-  unc:
-
-XtoHHto2B2Vto2B2JLNu:
-  crossSec: one_pb * 2 * BR_H_bb * 2 * BR_H_WW * 3 * BR_W_lnu * BR_W_qq
-  reference: "common sense"
-  unc:
-
-XtoHHto2B2Vto2B2L2Nu:
-  crossSec: one_pb * 2 * BR_H_bb * ( BR_H_WW * 3 * BR_W_lnu * 3 * BR_W_lnu + 2 * BR_H_ZZ * 3 * BR_Z_ll * BR_Z_nunu )
-  reference: "common sense"
-  unc:
-
-GluGlutoHH_kl_0p00_kt_1p00_c2_0p00:
-  crossSec: 0.075766
-  reference: https://gitlab.cern.ch/hh/recommendations/-/blob/d7ad328c2ca55c75466b0a480af19823b7fa305b/CrossSections.md
-GluGlutoHH_kl_1p00_kt_1p00_c2_0p00:
-  crossSec: 0.034170
-  reference: https://gitlab.cern.ch/hh/recommendations/-/blob/d7ad328c2ca55c75466b0a480af19823b7fa305b/CrossSections.md
-GluGlutoHH_kl_2p45_kt_1p00_c2_0p00:
-  crossSec: 0.014814
-  reference: https://gitlab.cern.ch/hh/recommendations/-/blob/d7ad328c2ca55c75466b0a480af19823b7fa305b/CrossSections.md
-GluGlutoHH_kl_5p00_kt_1p00_c2_0p00:
-  crossSec: 0.097259
-  reference: https://gitlab.cern.ch/hh/recommendations/-/blob/d7ad328c2ca55c75466b0a480af19823b7fa305b/CrossSections.md
-GluGlutoHH_kl_1p00_kt_1p00_c2_3p00:
-  crossSec: 2.900686
-  reference: https://gitlab.cern.ch/hh/recommendations/-/blob/d7ad328c2ca55c75466b0a480af19823b7fa305b/CrossSections.md
-GluGlutoHH_kl_1p00_kt_1p00_c2_0p35:
-  crossSec: 0.010448
-  reference: https://gitlab.cern.ch/hh/recommendations/-/blob/d7ad328c2ca55c75466b0a480af19823b7fa305b/CrossSections.md
-GluGlutoHH_kl_0p00_kt_1p00_c2_1p00:
-  crossSec: 0.146839
-  reference: https://gitlab.cern.ch/hh/recommendations/-/blob/d7ad328c2ca55c75466b0a480af19823b7fa305b/CrossSections.md
-GluGlutoHH_kl_1p00_kt_1p00_c2_0p10:
-  crossSec: 0.017809
-  reference: https://gitlab.cern.ch/hh/recommendations/-/blob/d7ad328c2ca55c75466b0a480af19823b7fa305b/CrossSections.md
-GluGlutoHH_kl_1p00_kt_1p00_c2_m2p00:
-  crossSec: 1.985733
-  reference: https://gitlab.cern.ch/hh/recommendations/-/blob/d7ad328c2ca55c75466b0a480af19823b7fa305b/CrossSections.md
-GluGlutoHHto2B2Tau_kl_0p00_kt_1p00_c2_0p00:
-  crossSec: GluGlutoHH_kl_0p00_kt_1p00_c2_0p00 * 2 * BR_H_tautau * BR_H_bb
-GluGlutoHHto2B2Tau_kl_0p00_kt_1p00_c2_1p00:
-  crossSec: GluGlutoHH_kl_0p00_kt_1p00_c2_1p00 * 2 * BR_H_tautau * BR_H_bb
-GluGlutoHHto2B2Tau_kl_1p00_kt_1p00_c2_0p00:
-  crossSec: GluGlutoHH_kl_1p00_kt_1p00_c2_0p00 * 2 * BR_H_tautau * BR_H_bb
-GluGlutoHHto2B2Tau_kl_1p00_kt_1p00_c2_0p10:
-  crossSec: GluGlutoHH_kl_1p00_kt_1p00_c2_0p10 * 2 * BR_H_tautau * BR_H_bb
-GluGlutoHHto2B2Tau_kl_1p00_kt_1p00_c2_0p35:
-  crossSec: GluGlutoHH_kl_1p00_kt_1p00_c2_0p35 * 2 * BR_H_tautau * BR_H_bb
-GluGlutoHHto2B2Tau_kl_1p00_kt_1p00_c2_3p00:
-  crossSec: GluGlutoHH_kl_1p00_kt_1p00_c2_3p00 * 2 * BR_H_tautau * BR_H_bb
-GluGlutoHHto2B2Tau_kl_1p00_kt_1p00_c2_m2p00:
-  crossSec: GluGlutoHH_kl_1p00_kt_1p00_c2_m2p00 * 2 * BR_H_tautau * BR_H_bb
-GluGlutoHHto2B2Tau_kl_2p45_kt_1p00_c2_0p00:
-  crossSec: GluGlutoHH_kl_2p45_kt_1p00_c2_0p00 * 2 * BR_H_tautau * BR_H_bb
-GluGlutoHHto2B2Tau_kl_5p00_kt_1p00_c2_0p00:
-  crossSec: GluGlutoHH_kl_5p00_kt_1p00_c2_0p00 * 2 * BR_H_tautau * BR_H_bb
 ############## Backgrounds ##############
 DY_NNLO_QCD_NLO_EW:
   crossSec: 2094.2
@@ -158,6 +93,52 @@ DYto2E_MLL_6000_powheg:
   crossSec: 3.519e-08
   reference: XSDB DYto2E_MLL-6000_TuneCP5_13p6TeV_powheg-pythia8 modifiedOn 2024-04-03 19:19:03
   unc: 6.811e-12
+
+DYto2Mu_MLL_50to130_powheg_minnlo:
+  crossSec: 2088
+  reference: XSDB DYto2Mu_Bin-MLL-50to130_TuneCP5_13p6TeV_powhegMINNLO-pythia8-photos modifiedOn 2026-05-06 14:44:54
+  unc: 16.55
+DYto2Mu_MLL_130to200_powheg_minnlo:
+  crossSec: 13.12
+  reference: XSDB DYto2Mu_Bin-MLL-130to200_TuneCP5_13p6TeV_powhegMINNLO-pythia8-photos modifiedOn 2026-05-06 14:44:54
+  unc: 0.04125
+DYto2Mu_MLL_200to400_powheg_minnlo:
+  crossSec: 3.058 # values taken from powheg-pythia
+  reference: XSDB DYto2Mu_MLL-200to400_TuneCP5_13p6TeV_powheg-pythia8 modifiedOn 2024-04-03 19:20:11
+  unc: 0.000465
+DYto2Mu_MLL_400to600_powheg_minnlo:
+  crossSec: 0.2195
+  reference: XSDB DYto2Mu_Bin-MLL-400to600_TuneCP5_13p6TeV_powhegMINNLO-pythia8-photos modifiedOn 2026-05-06 14:46:01
+  unc: 0.0006713
+DYto2Mu_MLL_600to800_powheg_minnlo:
+  crossSec: 0.04258
+  reference: XSDB DYto2Mu_Bin-MLL-600to800_TuneCP5_13p6TeV_powhegMINNLO-pythia8-photos modifiedOn 2026-05-06 14:46:01
+  unc: 0.0001269
+DYto2Mu_MLL_800to1000_powheg_minnlo:
+  crossSec: 0.01222
+  reference: XSDB DYto2Mu_Bin-MLL-800to1000_TuneCP5_13p6TeV_powhegMINNLO-pythia8-photos modifiedOn 2026-05-06 14:46:01
+  unc: 0.00003782
+DYto2Mu_MLL_1000to1500_powheg_minnlo:
+  crossSec: 0.006627
+  reference: XSDB DYto2Mu_Bin-MLL-1000to1500_TuneCP5_13p6TeV_powhegMINNLO-pythia8-photos modifiedOn 2026-05-06 14:44:56
+  unc: 0.00002065
+DYto2Mu_MLL_1500to2000_powheg_minnlo:
+  crossSec: 0.0009183
+  reference: XSDB DYto2Mu_Bin-MLL-1500to2000_TuneCP5_13p6TeV_powhegMINNLO-pythia8-photos modifiedOn 2026-05-06 14:44:44
+  unc: 0.000002853
+DYto2Mu_MLL_2000to4000_powheg_minnlo:
+  crossSec: 0.0002396
+  reference: XSDB DYto2Mu_Bin-MLL-2000to4000_TuneCP5_13p6TeV_powhegMINNLO-pythia8-photos modifiedOn 2026-05-06 14:45:35
+  unc: 7.424e-7
+DYto2Mu_MLL_4000to6000_powheg_minnlo:
+  crossSec: 1.558e-06 # same than powheg as it is missing in XSDB
+  reference: XSDB DYto2Mu_MLL-4000to6000_TuneCP5_13p6TeV_powheg-pythia8 modifiedOn 2024-04-03 19:20:18
+  unc: 2.078e-10
+DYto2Mu_MLL_6000to13600_powheg_minnlo:
+  crossSec: 3.519e-08 # same than powheg as it is missing in XSDB
+  reference: XSDB DYto2Mu_MLL-6000_TuneCP5_13p6TeV_powheg-pythia8 modifiedOn 2024-04-03 19:20:25
+  unc: 6.811e-12
+
 DYto2L_M_10to50_amcatnloFXFX_allFlavors:
   crossSec: 20950.0
   reference: XSDB DYto2L-2Jets_MLL-10to50_TuneCP5_13p6TeV_amcatnloFXFX-pythia8 modifiedOn 2023-03-26 13:56:18
@@ -180,7 +161,6 @@ DYto2L_M_50_0J_amcatnloFXFX_singleFlavor:
   reference: XSDB DYto2L-2Jets_MLL-50_0J_TuneCP5_13p6TeV_amcatnloFXFX-pythia8 modifiedOn 2024-04-03 19:19:07
   unc: 8.007 / 3
   comments: "divided by 3 to account for e, mu, tau"
-
 DYto2Tau_M_50_0J_Filtered_amcatnloFXFX_allFlavors:
   crossSec: 847.035
   reference: GenXSecAnalyzer /DYto2Tau-2Jets_M-50_0J_Filtered_TuneCP5_13p6TeV_amcatnloFXFX-pythia8/Run3Summer22MiniAODv4-130X_mcRun3_2022_realistic_v5-v3/MINIAODSIM
@@ -226,6 +206,7 @@ DYto2Tau_M_50_2J_Filtered_amcatnloFXFX_singleFlavor:
   reference: GenXSecAnalyzer /DYto2Tau-2Jets_M-50_2J_Filtered_TuneCP5_13p6TeV_amcatnloFXFX-pythia8/Run3Summer22MiniAODv4-130X_mcRun3_2022_realistic_v5-v4/MINIAODSIM
   unc: 8.875 / 3
   comments: "divided by 3 to account for e, mu, tau"
+
 DYto2L_M_50_1J_madgraphMLM_allFlavors:
   crossSec: 973.1
   reference: XSDB DYto2L-4Jets_MLL-50_1J_TuneCP5_13p6TeV_madgraphMLM-pythia8 modifiedOn 2024-04-03 19:19:40
@@ -266,7 +247,7 @@ DYto2L_M_50_amcatnloFXFX_singleFlavor:
   crossSec: 6688.0 / 3
   reference: XSDB DYto2L-2Jets_MLL-50_TuneCP5_13p6TeV_amcatnloFXFX-pythia8 modifiedOn 2023-03-26 13:56:19
   unc: 83.99 / 3
-  comments: "allFlavors divided by 3 to account for e, mu, tau"
+  comments: "divided by 3 to account for e, mu, tau"
 DYto2L_M_50_madgraphMLM_allFlavors:
   crossSec: 5467.0
   reference: XSDB DYto2L-4Jets_MLL-50_TuneCP5_13p6TeV_madgraphMLM-pythia8 modifiedOn 2024-04-03 19:19:49
@@ -376,14 +357,20 @@ DYto2L_M_50_PTLL_600_2J_amcatnloFXFX_singleFlavor:
   comments: "divided by 3 to account for e, mu, tau"
 
 DYto2Mu_MLL_105to160_amcatnloFXFX:
-  crossSec: 49.21
+  crossSec: 49.03 # 49.21 from Giorgio
   reference: XSDB DYto2Mu-2Jets_MLL-105To160_TuneCP5_13p6TeV_amcatnloFXFX-pythia8 modifiedOn 2024-12-20 07:59:27
   unc: 0.209
+
+DYto2Mu_MLL_105to160_amcatnloFXFX_VBFFilter:
+  crossSec: 3.105 # from Giorgio, whereas from XSDB 3.11
+  reference: XSDB DYto2Mu-2Jets_Bin-MLL-105to160_Fil-VBF_TuneCP5_13p6TeV_amcatnloFXFX-pythia8 modifiedOn 2026-05-06 14:44:56
+  unc: 0.006282
 
 DYToMuMu-M105-180_13p6TeV_MiNNLO_pythia8:
   crossSec: 48.60
   reference: internal from private prod
   unc: 0.01
+
 DYto2Mu_MLL_10to50_powheg:
   crossSec: 6744.0
   reference: XSDB DYto2Mu_MLL-10to50_TuneCP5_13p6TeV_powheg-pythia8 modifiedOn 2024-04-03 19:20:02
@@ -471,32 +458,43 @@ DYto2TautoMuTauh_M_50_madgraphMLM:
   reference: XSDB DYto2TautoMuTauh_M-50_TuneCP5_13p6TeV_madgraphMLM-pythia8 modifiedOn 2023-03-26 13:56:19
   unc: 0.5212
 
-
 LLJJ_SM_M105-160_MJJ120_13p6TeV_dipole:
   crossSec: 0.06
   reference: internal from private prod
   unc:
-
-
 LLJJ_SM_M105-160_MJJ120_13p6TeV_dipole_vbffilter:
   crossSec: 0.06
   reference: internal from private prod
   unc:
-
 LLJJ_SM_M-50_MJJ120_13p6TeV_dipole:
   crossSec: 0.88
   reference: internal from private prod
   unc:
-
 LLJJ_SM_M-50_MJJ120_13p6TeV_herwig7:
   crossSec: 0.88 # 1.714
   reference: internal from private prod
   unc:
 
+
+GluGluHto2Mu_M120:
+  crossSec: 56.11 * (0.0002423)
+  reference: https://arxiv.org/pdf/2402.09955 for XS and https://twiki.cern.ch/twiki/bin/view/LHCPhysics/CERNYellowReportPageBR for BR
+  unc: +4.6% -6.9% (theory) +-4% (TH Gaussian) +-3.2% (PDF+alpha s) +-1.9% (PDF) +-2.6% (alpha s) for XS ; +1.23% 1.23% (theory) +1.07% -1.09% (mQ) +0.69% -0.70% (alphas) for BR
+
 GluGluHto2Mu:
   crossSec: 52.23 * (0.0002176)
   reference: https://twiki.cern.ch/twiki/bin/view/LHCPhysics/LHCHWG136TeVxsec_extrap and https://twiki.cern.ch/twiki/bin/view/LHCPhysics/CERNYellowReportPageBR for BR
   unc: +4.6% -6.7% (theory) +-3.9 (TH Gaussian) +-3.2 (PDF+alpha s) +-1.9 (PDF) +-2.6 (alpha s) ; +1.23% -1.2% (theory) +0.97% -0.99% (mq) +0.59% -0.64% (alphas)
+
+GluGluHto2Mu_M125:
+  crossSec: 52.23 * (0.0002176)
+  reference: https://twiki.cern.ch/twiki/bin/view/LHCPhysics/LHCHWG136TeVxsec_extrap and https://twiki.cern.ch/twiki/bin/view/LHCPhysics/CERNYellowReportPageBR for BR
+  unc: +4.6% -6.7% (theory) +-3.9 (TH Gaussian) +-3.2 (PDF+alpha s) +-1.9 (PDF) +-2.6 (alpha s) ; +1.23% -1.2% (theory) +0.97% -0.99% (mq) +0.59% -0.64% (alphas)
+
+GluGluHto2Mu_M130:
+  crossSec: 48.75 * (0.0001877)
+  reference: https://arxiv.org/pdf/2402.09955 for XS and https://twiki.cern.ch/twiki/bin/view/LHCPhysics/CERNYellowReportPageBR for BR
+  unc: +4.5% -6.5% (theory) +-3.8% (TH Gaussian) +-3.2% (PDF+alpha s) +-1.8% (PDF) +-2.6% (alpha s) for XS ; +1.22% 1.21% (theory) +0.86% -0.82% (mQ) +0.52% -0.47% (alphas) for BR
 
 GluGluHToTauTau_M125:
   crossSec: 52.23 * (0.06272)
@@ -908,10 +906,20 @@ TTH_Hto2Mu:
   reference: https://twiki.cern.ch/twiki/bin/view/LHCPhysics/LHCHWG136TeVxsec_extrap
   unc: +6% -9.3% (QCD Scale) +-3.5% (PDF alpha s) +-3% (PDF) +-2 (alpha s) ; +1.23% -1.2% (theory) +0.97% -0.99% (mq) +0.59% -0.64% (alphas)
 
-VBFHto2Mu_M125_powheg:
-  crossSec: 4.078 * (0.0002176)
+VBFHto2Mu_M120:
+  crossSec: 4.078 * (0.0002423) # XSDB: 4.539
+  reference: https://arxiv.org/pdf/2402.09955 for XS and https://twiki.cern.ch/twiki/bin/view/LHCPhysics/CERNYellowReportPageBR for BR
+  unc: +0.5% -0.3% (QCD Scale) +-2.1% (PDF alpha s) +-2.1% (PDF) +-0.5 (alpha s) ; +1.23% 1.23% (theory) +1.07% -1.09% (mQ) +0.69% -0.70% (alphas) for BR # XSDB: 0.003671
+
+VBFHto2Mu_M125:
+  crossSec: 4.078 * (0.0002176) # XSDB: 4.359 used for VBFHto2Mu_M125_amcatnlo
   reference: https://twiki.cern.ch/twiki/bin/view/LHCPhysics/LHCHWG136TeVxsec_extrap and https://twiki.cern.ch/twiki/bin/view/LHCPhysics/CERNYellowReportPageBR for BR
-  unc: +0.5% -0.3% (QCD Scale) +-2.1% (PDF alpha s) +-2.1% (PDF) +-0.5 (alpha s) ; +1.23% -1.2% (theory) +0.97% -0.99% (mq) +0.59% -0.64% (alphas)
+  unc: +0.5% -0.3% (QCD Scale) +-2.1% (PDF alpha s) +-2.1% (PDF) +-0.5 (alpha s) ; +1.23% -1.2% (theory) +0.97% -0.99% (mq) +0.59% -0.64% (alphas) # XSDB 0.003732
+
+VBFHto2Mu_M130:
+  crossSec: 4.078 * (0.0001877) # XSDB: 4.208
+  reference: https://arxiv.org/pdf/2402.09955 for XS and https://twiki.cern.ch/twiki/bin/view/LHCPhysics/CERNYellowReportPageBR for BR
+  unc: +0.5% -0.3% (QCD Scale) +-2.1% (PDF alpha s) +-2.1% (PDF) +-0.5 (alpha s) ; +1.22% 1.21% (theory) +0.86% -0.82% (mQ) +0.52% -0.47% (alphas) for BR # XSDB 0.003799
 
 VBFHto2Mu:
   crossSec: 4.078 * (0.0002176)

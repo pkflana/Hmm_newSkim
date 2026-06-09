@@ -1,0 +1,62 @@
+
+[meta]
+results_dir = "/eos/user/a/ayeagle/H_mumu/results/VBFNet"
+use_cuda = true
+
+[dataset]
+equalize_for_training = true
+equalize_per_process = false
+renorm_inputs = true
+signal_types = ['VBFHto2Mu', 'EWK']
+max_jets = 4
+abs_train_weight = false
+data_columns = [
+    'pt_mumu_ScaRe_FSR',
+    'SoftActivityJetHT',
+    'SoftActivityJetHT2',
+    'SoftActivityJetHT5',
+    'FilteredJet_pt_1',
+    'FilteredJet_pt_2',
+    'FilteredJet_pt_3',
+    'FilteredJet_pt_4',
+    'FilteredJet_eta_1',
+    'FilteredJet_eta_2',
+    'FilteredJet_eta_3',
+    'FilteredJet_eta_4',
+    'FilteredJet_btagPNetCvL_1',
+    'FilteredJet_btagPNetCvL_2',
+    'FilteredJet_btagPNetCvL_3',
+    'FilteredJet_btagPNetCvL_4',
+    'FilteredJet_btagPNetQvG_1',
+    'FilteredJet_btagPNetQvG_2',
+    'FilteredJet_btagPNetQvG_3',
+    'FilteredJet_btagPNetQvG_4',
+]
+
+[splitting]
+validation_size = 0.32
+train_types = ['VBFHto2Mu', 'EWK', 'DY', 'GluGluHto2Mu']
+k = 4
+
+[network]
+# Hidden layers only, input layer size pulled from the used columns
+layer_list = [100, 100, 100, 100, 50, 50]
+batch_renorm = true
+dropout = 0.10
+
+[training]
+batch_size = 1000
+epochs = 40
+early_stop = true
+patience = 10
+
+[optimizer]
+algo = "Adam"   # Currently, SGD and Adam are supported
+lr = 0.001
+weight_decay = 0.0
+
+[testing]
+# Number of bins for all histograms
+n_bins = 30
+
+

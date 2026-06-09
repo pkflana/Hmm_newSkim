@@ -129,6 +129,13 @@ categories:
     expression: "baseline{tot_suff} && pt_lessthan30_and_TT{mu_suff} && chi2_sel{mu_suff}"
     store: True
 
+  # baseline_bothTrue:
+  #   store: True
+  #   expression: baseline && mu1_genPartFlav==1 && mu2_genPartFlav==1
+  # baseline_muonFakes:
+  #   store: True
+  #   expression: baseline && !(mu1_genPartFlav==1 && mu2_genPartFlav==1)
+
   # Definizione VBF senza alcuna logica nascosta nel C++
   VBF_def:
     expression: "HasVBF{jet_suff} && SelectedJet_pt{jet_suff}[VBFJetIdx_1{jet_suff}] >= 35 && SelectedJet_pt{jet_suff}[VBFJetIdx_2{jet_suff}] >= 25"
@@ -140,3 +147,10 @@ categories:
   ggF:
     expression: "baseline{tot_suff} && !(VBF_def{tot_suff})"
     store: True
+
+  # VBF_bothTrue:
+  #   store: True
+  #   expression:  VBF && mu1_genPartFlav==1 && mu2_genPartFlav==1
+  # VBF_muonFakes:
+  #   store: True
+  #   expression:  VBF && !(mu1_genPartFlav==1 && mu2_genPartFlav==1)

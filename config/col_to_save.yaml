@@ -386,7 +386,7 @@
             "Jet_btagUParTAK4CvNotB",
             # "Jet_btagUParTAK4Ele",
             # "Jet_btagUParTAK4Mu",
-            # "Jet_btagUParTAK4QvG",
+            "Jet_btagUParTAK4QvG",
             # "Jet_btagUParTAK4SvCB",
             # "Jet_btagUParTAK4SvUDG",
             # "Jet_btagUParTAK4TauVJet",
@@ -784,5 +784,4 @@
         ]
     },
 }
-
 

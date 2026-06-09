@@ -1,0 +1,178 @@
+scales:
+  - up
+  - down
+
+systematics:
+  Central:
+    muon_suffix: ""
+    jet_suffix: ""
+    weight: "weight__Central"
+
+  JER:
+    muon_suffix: ""
+    jet_suffix: "_JER{scale}"
+    weight: "weight__Central"
+    name: "CMS_res_j_{scale}"
+
+  JES_Total:
+    muon_suffix: ""
+    jet_suffix: "_JESTotal{scale}"
+    weight: "weight__Central"
+    name: "CMS_scale_j_{scale}"
+
+  MuonScale:
+    jet_suffix: ""
+    muon_suffix: "_FSR_scale_{scale}"
+    weight: "weight__Central"
+    name: "CMS_scale_m_{scale}"
+
+  MuonRes:
+    jet_suffix: ""
+    muon_suffix: "_FSR_res_{scale}"
+    weight: "weight__Central"
+    name: "CMS_res_m_{scale}"
+
+  # PU:
+  #   jet_suffix: ""
+  #   muon_suffix: ""
+  #   weight: "weight_PU_{scale}"
+  #   name: "CMS_pileup_{scale}"
+
+  # MuonID:
+  #   jet_suffix: ""
+  #   muon_suffix: ""
+  #   weight: "weight__MuonID_{scale}"
+  #   name: CMS_eff_m_id_{}
+  # MuonIso:
+  #   jet_suffix: ""
+  #   muon_suffix: ""
+  #   weight: "weight__MuonIso_{scale}"
+  #   name: CMS_eff_m_id_iso_{scale}
+
+  # singleMuTrigger:
+  #   jet_suffix: ""
+  #   muon_suffix: ""
+  #   weight: "weight__singleMuTrigger_{scale}"
+  #   name: CMS_trig_singleMu_{}
+
+weights:
+  Central:
+    expression: >
+      weight_gen *
+      weight_lumi *
+      weight_xs *
+      weight_pu *
+      weight_mu1_LoosePFIso_MediumID_Central *
+      weight_mu1_MediumID_Trk_Central *
+      weight_mu2_LoosePFIso_MediumID_Central *
+      weight_mu2_MediumID_Trk_Central *
+      weight_TrgSF_singleMu_IsoMu24Central
+
+  # ========================================
+  # Pileup
+  # ========================================
+
+  PU_up:
+    expression: >
+      weight_gen *
+      weight_lumi *
+      weight_xs *
+      weight_pu_up *
+      weight_mu1_LoosePFIso_MediumID_Central *
+      weight_mu1_MediumID_Trk_Central *
+      weight_mu2_LoosePFIso_MediumID_Central *
+      weight_mu2_MediumID_Trk_Central *
+      weight_TrgSF_singleMu_IsoMu24Central
+
+  PU_down:
+    expression: >
+      weight_gen *
+      weight_lumi *
+      weight_xs *
+      weight_pu_down *
+      weight_mu1_LoosePFIso_MediumID_Central *
+      weight_mu1_MediumID_Trk_Central *
+      weight_mu2_LoosePFIso_MediumID_Central *
+      weight_mu2_MediumID_Trk_Central *
+      weight_TrgSF_singleMu_IsoMu24Central
+
+  # ========================================
+  # Muon ID/Iso
+  # ========================================
+
+  MuonID_up:
+    expression: >
+      weight_gen *
+      weight_lumi *
+      weight_xs *
+      weight_pu *
+      weight_mu1_LoosePFIso_MediumID_Central *
+      weight_mu1_MediumID_Trk_up *
+      weight_mu2_LoosePFIso_MediumID_Central *
+      weight_mu2_MediumID_Trk_up *
+      weight_TrgSF_singleMu_IsoMu24Central
+
+  MuonID_down:
+    expression: >
+      weight_gen *
+      weight_lumi *
+      weight_xs *
+      weight_pu *
+      weight_mu1_LoosePFIso_MediumID_Central *
+      weight_mu1_MediumID_Trk_down *
+      weight_mu2_LoosePFIso_MediumID_Central *
+      weight_mu2_MediumID_Trk_down *
+      weight_TrgSF_singleMu_IsoMu24Central
+
+  MuonIso_up:
+    expression: >
+      weight_gen *
+      weight_lumi *
+      weight_xs *
+      weight_pu *
+      weight_mu1_LoosePFIso_MediumID_up *
+      weight_mu1_MediumID_Trk_Central *
+      weight_mu2_LoosePFIso_MediumID_up *
+      weight_mu2_MediumID_Trk_Central *
+      weight_TrgSF_singleMu_IsoMu24Central
+
+  MuonIso_down:
+    expression: >
+      weight_gen *
+      weight_lumi *
+      weight_xs *
+      weight_pu *
+      weight_mu1_LoosePFIso_MediumID_down *
+      weight_mu1_MediumID_Trk_Central *
+      weight_mu2_LoosePFIso_MediumID_down *
+      weight_mu2_MediumID_Trk_Central *
+      weight_TrgSF_singleMu_IsoMu24Central
+
+  # ========================================
+  # Trigger
+  # ========================================
+
+  singleMuTrigger_up:
+    expression: >
+      weight_gen *
+      weight_lumi *
+      weight_xs *
+      weight_pu *
+      weight_mu1_LoosePFIso_MediumID_Central *
+      weight_mu1_MediumID_Trk_Central *
+      weight_mu2_LoosePFIso_MediumID_Central *
+      weight_mu2_MediumID_Trk_Central *
+      weight_TrgSF_singleMu_IsoMu24up
+
+  singleMuTrigger_down:
+    expression: >
+      weight_gen *
+      weight_lumi *
+      weight_xs *
+      weight_pu *
+      weight_mu1_LoosePFIso_MediumID_Central *
+      weight_mu1_MediumID_Trk_Central *
+      weight_mu2_LoosePFIso_MediumID_Central *
+      weight_mu2_MediumID_Trk_Central *
+      weight_TrgSF_singleMu_IsoMu24down
+

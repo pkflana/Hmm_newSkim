@@ -4,7 +4,6 @@ import argparse
 import zlib
 from pathlib import Path
 import ROOT
-import utilities
 import json
 
 if __name__ == "__main__":
@@ -14,12 +13,14 @@ headers_dir = os.path.dirname(os.path.abspath(__file__))
 ROOT.gInterpreter.Declare(
     f'#include "{os.path.join(headers_dir, "AnalysisTools.h")}"'
 )
+import common.utilities as utilities
 
 parser = argparse.ArgumentParser(description="Run the Hmumu skim.")
 parser.add_argument("--era", required=True)
 parser.add_argument("--input-file", required=True)
 parser.add_argument("--dataset-name", required=True)
 parser.add_argument("--output-file", required=True)
+parser.add_argument("--want-variations", required=False, action="store_true", help="request for variations from command line")
 args = parser.parse_args()
 
 ## all configurations to load ##
@@ -35,8 +36,9 @@ xs_cfg = utilities.get_config(config["crossSectionsFile"])
 nano_version = config.get("nano_version", "v15")
 is_data = dataset_cfg.get("is_data", False)
 is_signal = dataset_cfg.get("is_signal", False)
+process = utilities.process_from_dataset(process_cfg, args.dataset_name) if not is_data else None
 
-want_variations = config.get("want_variations", False) and not is_data
+want_variations = (config.get("want_variations", False) or args.want_variations) and not is_data
 only_default = sel_config.get("only_default", True)
 muon_pt_default_suffix = sel_config.get("muon_pt_default_suffix", "")
 
@@ -58,16 +60,28 @@ df = df.Define("FullEventId",f"eventId::encodeFullEventId({dataset_crc}, {input_
 # default columns to store: #
 cols_to_save.extend(utilities.GetObservablesCols("default", is_data, nano_version))
 
+if not is_data:
+    from analysis.mc_splitting import ApplyOrthogonalLumiFilter
+    df, ortho_cols = ApplyOrthogonalLumiFilter(
+        df,
+        args.era,
+        seed=12345,
+        keep_tag_column=True
+    )
+
+    cols_to_save.extend(ortho_cols)
+
+    from analysis.gen_vbf_filter import ApplyGenVBFFilter
+    df,cols_to_save = ApplyGenVBFFilter(df,cols_to_save, args.era, args.dataset_name, process)
+
+
+
 # define weights #
 if not is_data:
     from corrections.general import define_base_weights
     xs_entry = dataset_cfg.get("crossSection", args.dataset_name)
-    process = utilities.process_from_dataset(process_cfg, args.dataset_name)
-    print(process)
-    print(process_cfg)
     process_entry = process_cfg[process]
-    print(config.get("luminosity", ""))
-    df,base_weights,json_dict_to_store = define_base_weights(df, config.get("luminosity", ""), xs_entry, xs_cfg,config,dataset_cfg, process_entry)
+    df,base_weights,json_dict_to_store = define_base_weights(df, config.get("luminosity", ""), xs_entry, xs_cfg,config,dataset_cfg, process_entry,want_variations)
     cols_to_save.extend(base_weights)
 else:
     from corrections.general import apply_golden_json
@@ -75,7 +89,7 @@ else:
 
 # apply corrections --> this time also for data (e.g. JEC/ScaRe) #
 from corrections.general import apply_corrections
-df = apply_corrections(df, config, dataset_cfg, args.dataset_name)
+df = apply_corrections(df, config, dataset_cfg, args.dataset_name, want_variations)
 
 # MET FLAGS
 if "MET_flags" in config:
@@ -131,8 +145,11 @@ cols_to_save.extend(cat_cols)
 ## additional col to store ##
 collections = ["SoftActivityJet"]
 if not is_data:
-    collections.append("LHEWeight")
-    collections.append("LHE")
+    if "LHE_Vpt" in df.GetColumnNames():
+        collections.append("LHE")
+    if "LHEScaleWeight" in df.GetColumnNames():
+        collections.append("LHEWeight")
+
 for c in collections:
     cols_to_save.extend(utilities.GetObservablesCols(c, is_data, nano_version))
 cols_to_save = list(set(cols_to_save))
@@ -145,6 +162,8 @@ if not is_data:
         for xs_key,xs_dict in pu_dict.items():
             value_to_extract = xs_dict['value']
             xs_dict['value']=value_to_extract.GetValue()
+            if 'value_unsigned' in xs_dict.keys():
+                xs_dict['value_unsigned']=xs_dict['value_unsigned'].GetValue()
     report_json.update(json_dict_to_store)
 
 json_file = os.path.splitext(args.output_file)[0] + "_report.json"

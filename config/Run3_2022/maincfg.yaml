@@ -30,65 +30,65 @@ mu_weights_to_store: ["weight_mu1_IsoMu24_CutBasedIdMedium_and_PFIsoMedium_Centr
 
 variables:
   ## muMu system #
-  # - DNN_NNOutput
+  - DNN_NNOutput
   # - VBFNet_NNOutput
   # - PostVBFNetDNN_NNOutput
   - m_mumu
-  # - pt_mumu
-  # - eta_mumu
-  # # - dR_mumu
-  # - mu1_pt
-  # - mu2_pt
-  # - mu1_eta
-  # - mu2_eta
-  # - phi_CS
-  # - cosTheta_CS
+  - pt_mumu
+  - eta_mumu
+  # - dR_mumu
+  - mu1_pt
+  - mu2_pt
+  - mu1_eta
+  - mu2_eta
+  - phi_CS
+  - cosTheta_CS
 
   # ## Jets vars #
-  # # - N_SelectedJets
-  # - leadingjet_pt
-  # - leadingjet_eta
-  # # - leadingjet_phi
-  # # - leadingjet_rapidity
-  # # - SelectedJets_HT
-  # - subleadingjet_pt
-  # - subleadingjet_eta
-  # # - subleadingjet_phi
-  # - delta_eta_jj_ls
-  # - m_jj_ls
-  # # - subleadingjet_rapidity
-  # # - thirdjet_pt
-  # # - thirdjet_eta
-  # # - thirdjet_phi
-  # # - thirdjet_rapidity
-  # # - fourthjet_pt
-  # # - fourthjet_eta
-  # # - fourthjet_phi
-  # # - fourthjet_rapidity
+  # - N_SelectedJets
+  - leadingjet_pt
+  - leadingjet_eta
+  # - leadingjet_phi
+  # - leadingjet_rapidity
+  # - SelectedJets_HT
+  - subleadingjet_pt
+  - subleadingjet_eta
+  # - subleadingjet_phi
+  - delta_eta_jj_ls
+  - m_jj_ls
+  # - subleadingjet_rapidity
+  # - thirdjet_pt
+  # - thirdjet_eta
+  # - thirdjet_phi
+  # - thirdjet_rapidity
+  # - fourthjet_pt
+  # - fourthjet_eta
+  # - fourthjet_phi
+  # - fourthjet_rapidity
 
 
   # ## VBF Jets
-  # - m_jj
-  # - delta_eta_jj
-  # - vbfjet1_pt
-  # - vbfjet2_pt
-  # - vbfjet1_eta
-  # - vbfjet2_eta
-  # - vbfjet1_phi
-  # - vbfjet2_phi
+  - m_jj
+  - delta_eta_jj
+  - vbfjet1_pt
+  - vbfjet2_pt
+  - vbfjet1_eta
+  - vbfjet2_eta
+  - vbfjet1_phi
+  - vbfjet2_phi
 
-  # ## VBF jets + MUON
-  # - Zeppenfeld_Var
-  # - R_pt
-  # - pt_centrality
-  # - minDeltaPhi
-  # - minDeltaEta
+  ## VBF jets + MUON
+  - Zeppenfeld_Var
+  - R_pt
+  - pt_centrality
+  - minDeltaPhi
+  - minDeltaEta
 
-  # ## soft jet activity
-  # - SoftActivityJetHT
-  # - nSoftActivityJet
-  # - SoftJetCleanedActivity_N
-  # - SoftJetCleanedActivity_N
-  # - SoftJetCleanedActivity_ptSum
-  # - SoftJetActivity_NoOverlapWithMuonsAndEtaCleaning_N
-  # - SoftJetActivity_NoOverlapWithMuonsAndEtaCleaning_ptSum
+  ## soft jet activity
+  - SoftActivityJetHT
+  - nSoftActivityJet
+  - SoftJetCleanedActivity_N
+  - SoftJetCleanedActivity_N
+  - SoftJetCleanedActivity_ptSum
+  - SoftJetActivity_NoOverlapWithMuonsAndEtaCleaning_N
+  - SoftJetActivity_NoOverlapWithMuonsAndEtaCleaning_ptSum
