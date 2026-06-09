@@ -86,7 +86,8 @@ pog_folder_names = {
         "2024_Summer24": "Run3-24CDEReprocessingFGHIPrompt-Summer24-NanoAODv15",
         "2025_Summer24": "Run3-25Prompt-Summer24-NanoAODv15",
         "2025_Winter25": "",
-        "2026_Summer24":"Run3-26Prompt-Summer24-NanoAODv15"
+        # "2026_Summer24":"Run3-26Prompt-Summer24-NanoAODv15"
+        "2026_Summer24":"Run3-25Prompt-Summer24-NanoAODv15", # TMP PATCH AS IT IS NOT AVAILABLE FOR 2026
     },
     "TAU": {
         "2016postVFP_UL": "Run2-2016postVFP-UL-NanoAODv15",

@@ -122,7 +122,7 @@ def _format_data_jec_tags(period, sample_name, jec_tag_array):
         tokens = sample_name.split("_")
         sample_version = tokens[-1]
         sample_letter = tokens[-2][-1]
-    if period == "2025_Summer24":
+    if period == "2025_Summer24" or period=="2026_Summer24": # tmp patch as it does not exist for 2026
         sample_version = ""
 
     if sample_letter not in run_letters[period]:
@@ -238,7 +238,7 @@ def define_jet_p4_variations(
 
     wantPhi = (
         "true"
-        if ((period in ["2023_Summer23BPix"] and is_data) or (period in ["2024_Summer24", "2025_Summer24"]))
+        if ((period in ["2023_Summer23BPix"] and is_data) or (period in ["2024_Summer24", "2025_Summer24", "2026_Summer24"])) # tmp patch as it does not exist for 2026
         else "false"
     )
 
