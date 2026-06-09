@@ -1,68 +1,227 @@
 #!/usr/bin/env bash
 
-# --- 1. Core Framework Paths ---
-local_file="$( [ -n "$ZSH_VERSION" ] && echo "${(%):-%x}" || echo "${BASH_SOURCE[0]}" )"
-export ANALYSIS_PATH="$( cd "$( dirname "$local_file" )" && pwd )"
-export ANALYSIS_DATA_PATH="$ANALYSIS_PATH/data"
+# ==========================================================
+# H_mumu env: CMSSW-only, no pip install
+#
+# Usage:
+#   source env.sh
+#   source env.sh --cmssw-version CMSSW_15_0_2
+#   source env.sh --cmssw-version CMSSW_15_3_0
+# ==========================================================
+
+if [ -n "${ZSH_VERSION:-}" ]; then
+    this_file="${(%):-%x}"
+else
+    this_file="${BASH_SOURCE[0]}"
+fi
+
+export ANALYSIS_PATH="$(cd "$(dirname "$this_file")" && pwd)"
+export ANALYSIS_DATA_PATH="${ANALYSIS_PATH}/data"
+export ANALYSIS_SOFT_PATH="${ANALYSIS_PATH}/soft"
 
 mkdir -p "$ANALYSIS_DATA_PATH"
-export PYTHONPATH="$ANALYSIS_PATH:$PYTHONPATH"
+mkdir -p "$ANALYSIS_SOFT_PATH"
 
-# --- 2. Persistent VOMS Proxy Settings ---
-export X509_USER_PROXY="$ANALYSIS_DATA_PATH/voms.proxy"
+export X509_USER_PROXY="${ANALYSIS_DATA_PATH}/voms.proxy"
 
-# --- 3. Light LCG Environment (For Correctionlib, ROOT, & Python) ---
-# Sourced by default to give you immediate access to your analysis tools
-if [ -z "$CMSSW_BASE" ]; then
-    source /cvmfs/sft.cern.ch/lcg/views/LCG_105/x86_64-el9-gcc13-opt/setup.sh
-    source /cvmfs/cms.cern.ch/rucio/setup-py3.sh &> /dev/null
-    echo ">>> Loaded analysis environment (ROOT, correctionlib, Python3)"
-fi
+DEFAULT_CMSSW_VERSION="CMSSW_15_0_2"
+REQUESTED_CMSSW_VERSION="$DEFAULT_CMSSW_VERSION"
+FORCE_REINSTALL=0
 
-# --- 4. Optional HiggsAnalysis Combine Function ---
-# This function is defined but won't run or modify your paths unless triggered.
-setup_combine() {
-    export COMBINE_RELEASES="$ANALYSIS_PATH/soft"
-    local cmssw_ver="CMSSW_14_1_0"
-    local arch="el9_amd64_gcc13"
-
-    if [ ! -d "$COMBINE_RELEASES/$cmssw_ver" ]; then
-        echo ">>> Installing a clean Combine area in $COMBINE_RELEASES..."
-        mkdir -p "$COMBINE_RELEASES" && cd "$COMBINE_RELEASES"
-        source /cvmfs/cms.cern.ch/cmsset_default.sh
-        export SCRAM_ARCH=$arch
-        scramv1 project CMSSW $cmssw_ver
-        cd $cmssw_ver/src && eval `scramv1 runtime -sh`
-
-        echo ">>> Cloning Combine & CombineHarvester..."
-        git clone https://github.com/cms-analysis/HiggsAnalysis-CombinedLimit.git HiggsAnalysis/CombinedLimit
-        git clone https://github.com/cms-analysis/CombineHarvester.git CombineHarvester
-        scram b -j8
-    else
-        source /cvmfs/cms.cern.ch/cmsset_default.sh
-        cd "$COMBINE_RELEASES/$cmssw_ver/src"
-        export SCRAM_ARCH=$arch
-        eval `scramv1 runtime -sh`
-        echo ">>> Environment switched to $cmssw_ver for Combine."
-    fi
-    cd "$ANALYSIS_PATH"
-}
-
-# --- 5. Parse Command Line Arguments ---
-# Allows you to explicitly enable combine on startup if you want to
-LOAD_COMBINE=false
-for arg in "$@"; do
-    if [[ "$arg" == "--combine" || "$arg" == "-c" ]]; then
-        LOAD_COMBINE=true
-    fi
+while [[ $# -gt 0 ]]; do
+    case "$1" in
+        --cmssw-version)
+            REQUESTED_CMSSW_VERSION="$2"
+            shift 2
+            ;;
+        --force-reinstall)
+            FORCE_REINSTALL=1
+            shift
+            ;;
+        *)
+            echo "[ERROR] Unknown option: $1"
+            return 1 2>/dev/null || exit 1
+            ;;
+    esac
 done
 
-if [ "$LOAD_COMBINE" = true ]; then
-    setup_combine
-else
-    # Register an alias so you can still type 'cmsCombineEnv' later in the session if needed
-    alias cmsCombineEnv=setup_combine
-    echo ">>> Combine is currently DISABLED. (Type 'cmsCombineEnv' or source with '--combine' to enable)"
+get_scram_arch() {
+    local cmssw_version="$1"
+
+    case "$cmssw_version" in
+        CMSSW_15_0_*)
+            echo "el9_amd64_gcc12"
+            ;;
+        CMSSW_15_1_*|CMSSW_15_2_*|CMSSW_15_3_*)
+            echo "el9_amd64_gcc13"
+            ;;
+        CMSSW_16_*)
+            echo "el8_amd64_gcc13"
+            ;;
+        *)
+            echo "el9_amd64_gcc13"
+            ;;
+    esac
+}
+
+remove_path_matching() {
+    local var_name="$1"
+    local pattern="$2"
+
+    eval "local old_value=\"\${${var_name}:-}\""
+
+    if [[ -z "$old_value" ]]; then
+        return 0
+    fi
+
+    local new_value
+    new_value="$(echo "$old_value" | tr ':' '\n' | grep -v -E "$pattern" | paste -sd: -)"
+
+    eval "export ${var_name}=\"${new_value}\""
+}
+
+prepend_path() {
+    local var_name="$1"
+    local new_path="$2"
+
+    if [[ -z "$new_path" ]]; then
+        return 0
+    fi
+
+    eval "local old_value=\"\${${var_name}:-}\""
+
+    if [[ -z "$old_value" ]]; then
+        eval "export ${var_name}=\"${new_path}\""
+    else
+        case ":$old_value:" in
+            *":$new_path:"*) ;;
+            *) eval "export ${var_name}=\"${new_path}:${old_value}\"" ;;
+        esac
+    fi
+}
+
+clean_env() {
+    unset PYTHONHOME
+    unset PYTHONSTARTUP
+    unset PYTHONUSERBASE
+    unset ROOTSYS
+
+    # remove LCG
+    remove_path_matching PYTHONPATH "/cvmfs/sft.cern.ch/lcg"
+    remove_path_matching PATH "/cvmfs/sft.cern.ch/lcg"
+    remove_path_matching LD_LIBRARY_PATH "/cvmfs/sft.cern.ch/lcg"
+    remove_path_matching ROOT_INCLUDE_PATH "/cvmfs/sft.cern.ch/lcg"
+    remove_path_matching CMAKE_PREFIX_PATH "/cvmfs/sft.cern.ch/lcg"
+
+    # remove CMS LCG/ROOT fragments
+    remove_path_matching PYTHONPATH "/cvmfs/cms.cern.ch/.*/lcg"
+    remove_path_matching PATH "/cvmfs/cms.cern.ch/.*/lcg"
+    remove_path_matching LD_LIBRARY_PATH "/cvmfs/cms.cern.ch/.*/lcg"
+    remove_path_matching ROOT_INCLUDE_PATH "/cvmfs/cms.cern.ch/.*/lcg"
+    remove_path_matching CMAKE_PREFIX_PATH "/cvmfs/cms.cern.ch/.*/lcg"
+
+    remove_path_matching PYTHONPATH "/cvmfs/cms.cern.ch/.*/root"
+    remove_path_matching PATH "/cvmfs/cms.cern.ch/.*/root"
+    remove_path_matching LD_LIBRARY_PATH "/cvmfs/cms.cern.ch/.*/root"
+    remove_path_matching ROOT_INCLUDE_PATH "/cvmfs/cms.cern.ch/.*/root"
+    remove_path_matching CMAKE_PREFIX_PATH "/cvmfs/cms.cern.ch/.*/root"
+
+    # remove local conda
+    remove_path_matching PATH "/afs/cern.ch/work/v/vdamante/miniconda3"
+    remove_path_matching PYTHONPATH "/afs/cern.ch/work/v/vdamante/miniconda3"
+    remove_path_matching LD_LIBRARY_PATH "/afs/cern.ch/work/v/vdamante/miniconda3"
+
+    # IMPORTANT:
+    # do NOT add /usr/lib64/python3.9/site-packages to PYTHONPATH.
+    # It contains system cppyy/ROOT and crashes against CMSSW ROOT.
+}
+
+run_cmd() {
+    echo "> $*"
+    "$@"
+    local rc=$?
+
+    if [[ "$rc" != "0" ]]; then
+        echo "[ERROR] Command failed:"
+        echo "        $*"
+        return "$rc"
+    fi
+
+    return 0
+}
+
+clean_env
+
+source /cvmfs/cms.cern.ch/cmsset_default.sh
+
+export SCRAM_ARCH="$(get_scram_arch "$REQUESTED_CMSSW_VERSION")"
+export CMSSW_AREA="${ANALYSIS_SOFT_PATH}/${REQUESTED_CMSSW_VERSION}"
+
+if [[ "$FORCE_REINSTALL" == "1" && -d "$CMSSW_AREA" ]]; then
+    echo ">>> Removing existing CMSSW area:"
+    echo ">>>   $CMSSW_AREA"
+    rm -rf "$CMSSW_AREA"
 fi
 
-ulimit -n 4096
+if [[ ! -d "$CMSSW_AREA/src" ]]; then
+    echo ">>> Creating CMSSW area"
+    echo ">>>   CMSSW_VERSION = $REQUESTED_CMSSW_VERSION"
+    echo ">>>   SCRAM_ARCH    = $SCRAM_ARCH"
+    echo ">>>   path          = $CMSSW_AREA"
+
+    mkdir -p "$ANALYSIS_SOFT_PATH"
+    cd "$ANALYSIS_SOFT_PATH" || return 1
+
+    run_cmd scramv1 project CMSSW "$REQUESTED_CMSSW_VERSION" || return 1
+fi
+
+cd "$CMSSW_AREA/src" || return 1
+eval "$(scramv1 runtime -sh)"
+
+prepend_path PYTHONPATH "$ANALYSIS_PATH"
+
+unalias python 2>/dev/null || true
+alias python=python3 2>/dev/null || true
+
+cd "$ANALYSIS_PATH" || return 1
+
+echo "=========================================================="
+echo "[H_mumu env]"
+echo "ANALYSIS_PATH   = $ANALYSIS_PATH"
+echo "CMSSW_BASE      = $CMSSW_BASE"
+echo "SCRAM_ARCH      = $SCRAM_ARCH"
+echo "python3         = $(which python3)"
+echo "root            = $(which root 2>/dev/null || echo not_found)"
+echo "root-config     = $(which root-config 2>/dev/null || echo not_found)"
+echo "PYTHONPATH      = $PYTHONPATH"
+echo "=========================================================="
+
+python3 - <<'PY'
+import sys
+print("Python =", sys.version.split()[0])
+
+try:
+    import ROOT
+    print("ROOT =", ROOT.gROOT.GetVersion())
+except Exception as e:
+    print("[ERROR] ROOT import failed:", repr(e))
+    raise SystemExit(1)
+
+try:
+    import correctionlib
+    print("correctionlib =", correctionlib.__version__)
+except Exception as e:
+    print("[WARNING] correctionlib import failed:", repr(e))
+    print("          If you need correctionlib without pip, use a CMSSW/LCG environment that already provides it.")
+
+try:
+    import htcondor
+    print("htcondor =", htcondor.version())
+except Exception as e:
+    print("[WARNING] htcondor import failed:", repr(e))
+    print("          Do not add /usr/lib64/python3.9/site-packages globally, it breaks ROOT.")
+PY
+
+echo "=========================================================="
+echo ">>> Environment ready."
+echo "=========================================================="

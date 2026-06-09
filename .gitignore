@@ -15,3 +15,4 @@ vdamante.cc
 common/models/
 common/vbfnet_models/
 samples_withfiles.yaml
+soft/

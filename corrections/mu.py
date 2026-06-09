@@ -339,7 +339,7 @@ def apply_muIDIso_weights(df, config, want_variations):
     # Global registration for access in C++ context
     ROOT.gROOT.ProcessLine(
         f'auto cset = correction::CorrectionSet::from_file("{jsonFile_path}");'
-    ) 
+    )
     headers_dir = os.path.dirname(os.path.abspath(__file__))
     header_path = os.path.join(headers_dir, "mu.h")
     ROOT.gInterpreter.Declare(f'#include "{header_path}"')
@@ -350,8 +350,6 @@ def apply_muIDIso_weights(df, config, want_variations):
         + MediumMuReco_SF_sources.get(period_unc, [])
         + MediumMuTrg_SF_Sources.get(period_unc, [])
     )
-
-    print(available_sources)
     # Dict mapping python scale terminology to correctionlib JSON parameters
     scale_map = {"Central": "nominal", "up": "systup", "down": "systdown"}
 
@@ -371,7 +369,7 @@ def apply_muIDIso_weights(df, config, want_variations):
         gen_kind = f"mu{leg_idx}_genPartFlav"
         trg_matching = f"mu{leg_idx}_HasTriggerMatching_singleMu"
         trg_path = "HLT_IsoMu24"
-        print("staleg ", leg_idx)
+
         genMatch_bool = f"{gen_kind} == 1 || {gen_kind} == 15" # for MC matching to status==1 muons: 1 = prompt muon (including gamma*->mu mu), 15 = muon from prompt tau, 5 = muon from b, 4 = muon from c, 3 = muon from light or unknown, 0 = unmatched
 
         for source in available_sources:
@@ -395,9 +393,9 @@ def apply_muIDIso_weights(df, config, want_variations):
                             {tightId}, {tkRelIso}, {mediumId}, {looseId},{trg_matching},{trg_path}, event))
                         : 1.0f""",
                 )
-                print("B")
+
                 # if source == "NUM_IsoMu24_DEN_CutBasedIdMedium_and_PFIsoMedium":
-                df.Display({branch_name}).Print()
+                # df.Display({branch_name}).Print()
 
                 # Control what goes to the downstream storing list:
                 # Always keep Central; only add up/down to track if want_variations is True
