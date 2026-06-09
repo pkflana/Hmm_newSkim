@@ -90,7 +90,7 @@ def process_single_chunk(args_tuple):
 
         chunk_seg_dict = get_segmentation_dict(
             args.input,
-            root_files=chunk_files,
+            # root_files=chunk_files,
         )
 
         print(
@@ -109,6 +109,7 @@ def process_single_chunk(args_tuple):
             skip_validation=True,
             dnn_payloads=dnn_payloads,
             btag_algo=btag_algo,
+            additional_cuts = args.additional_cuts
         )
 
         if rdf_base is None:
@@ -273,6 +274,7 @@ if __name__ == "__main__":
 
     parser.add_argument("--force-multiprocessing-with-dnn", action="store_true")
     parser.add_argument("--multiprocessing-method", choices=["spawn", "fork"], default="spawn")
+    parser.add_argument("--additional-cuts",type=str, default=None)
 
     args = parser.parse_args()
 
@@ -347,26 +349,26 @@ if __name__ == "__main__":
 
     chunks = chunk_list(valid_root_files, args.chunk_size)
 
-    print("\n" + "=" * 80)
-    print("[INFO] Histogram maker configuration")
-    print(f"[INFO] Era:              {args.era}")
-    print(f"[INFO] Dataset:          {args.dataset_name}")
-    print(f"[INFO] Is data:          {is_data}")
-    print(f"[INFO] Input:            {args.input}")
-    print(f"[INFO] Output:           {args.output_file}")
-    print(f"[INFO] Systematics:      {args.systematics}")
-    print(f"[INFO] Chunk size:       {args.chunk_size}")
-    print(f"[INFO] Chunks:           {len(chunks)}")
-    print(f"[INFO] Cores:            {args.n_cores}")
-    print(f"[INFO] Resume:           {args.resume}")
-    print(f"[INFO] Skip failed:      {args.skip_failed_chunks}")
-    print(f"[INFO] Variables:        {vars_to_make_hist}")
-    print(f"[INFO] Mass regions:     {masses_regions_list}")
-    print(f"[INFO] Categories:       {categories_list}")
-    print(f"[INFO] DNN payloads:     {dnn_payloads}")
-    print(f"[INFO] bTag algo:        {btag_algo}")
-    print(f"[INFO] Valid files:      {len(valid_root_files)} / {len(all_root_files)}")
-    print("=" * 80 + "\n")
+    # print("\n" + "=" * 80)
+    # print("[INFO] Histogram maker configuration")
+    # print(f"[INFO] Era:              {args.era}")
+    # print(f"[INFO] Dataset:          {args.dataset_name}")
+    # print(f"[INFO] Is data:          {is_data}")
+    # print(f"[INFO] Input:            {args.input}")
+    # print(f"[INFO] Output:           {args.output_file}")
+    # print(f"[INFO] Systematics:      {args.systematics}")
+    # print(f"[INFO] Chunk size:       {args.chunk_size}")
+    # print(f"[INFO] Chunks:           {len(chunks)}")
+    # print(f"[INFO] Cores:            {args.n_cores}")
+    # print(f"[INFO] Resume:           {args.resume}")
+    # print(f"[INFO] Skip failed:      {args.skip_failed_chunks}")
+    # print(f"[INFO] Variables:        {vars_to_make_hist}")
+    # print(f"[INFO] Mass regions:     {masses_regions_list}")
+    # print(f"[INFO] Categories:       {categories_list}")
+    # print(f"[INFO] DNN payloads:     {dnn_payloads}")
+    # print(f"[INFO] bTag algo:        {btag_algo}")
+    # print(f"[INFO] Valid files:      {len(valid_root_files)} / {len(all_root_files)}")
+    # print("=" * 80 + "\n")
 
     if args.dryrun:
         print("[DRYRUN] Chunks:")
@@ -523,7 +525,7 @@ if __name__ == "__main__":
     print(f"[INFO] Failed chunks:     {len(failed_chunks)}")
     print(f"[INFO] Execution time:    {executionTime:.2f} s")
     print("=" * 80 + "\n")
-    
+
 # #!/usr/bin/env python3
 
 # import ROOT

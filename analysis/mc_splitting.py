@@ -64,7 +64,6 @@ def _declare_once():
 
 def era_to_orthogonal_tag(era):
     era = str(era)
-
     if "2024" in era:
         return 0
     if "2025" in era:

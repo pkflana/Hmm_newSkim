@@ -26,9 +26,9 @@ def _declare_gen_vbf_filter():
     utilities.DeclareHeader(header_path)
 
 
-def ApplyGenVBFFilter(df, era, dataset_name, process_name=None):
-    if era != "Run3_2024":
-        return df
+def ApplyGenVBFFilter(df,cols_to_save, era, dataset_name, process_name=None):
+    if era != "Run3_2024" or era!="Run3_2025" or era != "Run3_2026":
+        return df,cols_to_save
 
     sample_names = {dataset_name}
     if process_name:
@@ -50,4 +50,5 @@ def ApplyGenVBFFilter(df, era, dataset_name, process_name=None):
         "GenPart_pt, GenPart_eta, GenPart_phi, GenPart_mass, "
         "GenPart_pdgId, GenPart_statusFlags)"
     )
-    return df
+    cols_to_save.append("GenVBFFilter")
+    return df,cols_to_save 
