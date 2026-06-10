@@ -27,9 +27,8 @@ def _declare_gen_vbf_filter():
 
 
 def ApplyGenVBFFilter(df,cols_to_save, era, dataset_name, process_name=None):
-    if era != "Run3_2024" or era!="Run3_2025" or era != "Run3_2026":
+    if era != "Run3_2024" and era!="Run3_2025" and era != "Run3_2026":
         return df,cols_to_save
-
     sample_names = {dataset_name}
     if process_name:
         sample_names.add(process_name)
@@ -41,7 +40,7 @@ def ApplyGenVBFFilter(df,cols_to_save, era, dataset_name, process_name=None):
         filter_expr = "GenVBFFilter"
         filter_label = "DY MLL105To160 VBF filtered: keep GenVBFFilter phase space"
     else:
-        return df
+        return df,cols_to_save
 
     _declare_gen_vbf_filter()
     df = df.Define(
@@ -51,4 +50,4 @@ def ApplyGenVBFFilter(df,cols_to_save, era, dataset_name, process_name=None):
         "GenPart_pdgId, GenPart_statusFlags)"
     )
     cols_to_save.append("GenVBFFilter")
-    return df,cols_to_save 
+    return df,cols_to_save

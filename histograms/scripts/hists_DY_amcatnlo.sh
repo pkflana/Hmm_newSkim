@@ -62,6 +62,7 @@ for dataset_name in "${datasets[@]}"; do
     --dataset WJets \
     --dataset-name "${dataset_name}" \
     --input "${input_path}" \
-    --output-file "${output_file}"
+    --output-file "${output_file}"\
+    --chunk-size 20
 
 done

@@ -148,6 +148,7 @@ run_plot() {
 
 SAMPLES_Z=( Data_Muon DY W_NJets TT EWK VV VVV VBFHto2Mu_M125_powheg GluGluHto2Mu)
 SAMPLES_SIGNAL_LEGACY=( Data_Muon DYto2Mu_MLL105To160 W_NJets TT EWK_2Mu2J_MLL_105to160_herwig VV VVV VBFHto2Mu_M125_powheg GluGluHto2Mu)
+SAMPLES_SIGNAL_LEGACY_2024=( Data_Muon DYto2Mu_MLL105To160_nonStitched DYto2Mu_MLL105To160_FlashSim W_NJets TT EWK_2Mu2J_MLL_105to160_herwig VV VVV VBFHto2Mu_M125_powheg GluGluHto2Mu)
 SAMPLES_2024_FLASHSIM=( Data_Muon DYto2Mu_MLL105To160_FlashSim W_NJets TT EWK_2Mu2J_MLL_105to160_pythia_Flashsim VV VVV VBFHto2Mu_M125_powheg GluGluHto2Mu)
 SAMPLES_2024_STITCHED_EWK_PYTHIA=( Data_Muon DYto2Mu_MLL105To160 DYto2Mu_MLL105To160_VBFFiltered W_NJets TT EWK_2Mu2J_MLL_105to160_pythia VV VVV VBFHto2Mu_M125_powheg GluGluHto2Mu)
 SAMPLES_2024_STITCHED_EWK_HERWIG=( Data_Muon DYto2Mu_MLL105To160 DYto2Mu_MLL105To160_VBFFiltered W_NJets TT EWK_2Mu2J_MLL_105to160_herwig VV VVV VBFHto2Mu_M125_powheg GluGluHto2Mu)
@@ -202,6 +203,17 @@ for era in ${ERAS}; do
                     "${FINAL_OUTPUT_BASE}/plots_stitchedVBFFiltered_EWKHerwig/" \
                     "${region}" \
                     "${SAMPLES_2024_STITCHED_EWK_HERWIG[@]}"
+            done
+        fi
+
+
+        if [[ "${MODE}" == "default" || "${MODE}" == "2024_all" || "${MODE}" == "nonStitched" ]]; then
+            for region in ${REGIONS_SIGNAL}; do
+                run_plot \
+                    "${era}" \
+                    "${FINAL_OUTPUT_BASE}/plots_nonStitched_wrong/" \
+                    "${region}" \
+                    "${SAMPLES_SIGNAL_LEGACY_2024[@]}"
             done
         fi
 

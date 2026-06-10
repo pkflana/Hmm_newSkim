@@ -130,7 +130,7 @@ for dataset_name in "${datasets[@]}"; do
 
   python3 histograms/hist_maker.py \
     --era "${era}" \
-    --dataset data \
+    --dataset ${dataset_name} \
     --dataset-name "${dataset_name}" \
     --input "${input_path}" \
     --output-file "${output_file}" \

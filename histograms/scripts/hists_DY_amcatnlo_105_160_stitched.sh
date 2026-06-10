@@ -10,13 +10,13 @@ case "${era}" in
   Run3_2024|Run3_2025|Run3_2026)
     datasets=(
       DYto2Mu_MLL_105to160_amcatnloFXFX
-      DYto2Mu_MLL_105to160_amcatnloFXFX_Fil_VBF
+      # DYto2Mu_MLL_105to160_amcatnloFXFX_Fil_VBF
     )
     ;;
 
   *)
     echo "[ERROR] Unknown era: ${era}"
-    echo "Allowed eras:" 
+    echo "Allowed eras:"
     echo "  Run3_2024"
     echo "  Run3_2025"
     echo "  Run3_2026"
@@ -30,7 +30,7 @@ mkdir -p "${output_dir}"
 for dataset_name in "${datasets[@]}"; do
 
   input_path="/eos/cms/store/group/phys_higgs/cmshmm/vdamante/${input_folder}/${era}/${dataset_name}/"
-  output_file="${output_dir}/${dataset_name}.root"
+  output_file="${output_dir}/${dataset_name}_stitched.root"
 
   echo
   echo "============================================================"
@@ -51,6 +51,7 @@ for dataset_name in "${datasets[@]}"; do
     --dataset WJets \
     --dataset-name "${dataset_name}" \
     --input "${input_path}" \
-    --output-file "${output_file}"
-
+    --output-file "${output_file}"\
+    --additional-cuts "GenVBFFilter==0"\
+    --chunk-size 20
 done

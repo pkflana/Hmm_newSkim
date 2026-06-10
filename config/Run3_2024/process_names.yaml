@@ -25,6 +25,14 @@ DYto2Mu_MLL105_160:
     - DYto2Mu_MLL105To160
     - DYto2Mu_MLL105To160_VBFFiltered
 
+DYto2Mu_MLL105To160_nonStitched:
+  name: "DY - MLL(105-160)"
+  color: "kAzure+7"
+  color_mplhep: dodgerblue
+  datasets:
+    - DYto2Mu_MLL_105to160_amcatnloFXFX
+    # - DYto2Mu_MLL_105to160_amcatnloFXFX_Fil_VBF
+
 DYto2Mu_MLL105To160:
   name: "DY - MLL(105-160)"
   color: "kAzure+7"
@@ -32,6 +40,13 @@ DYto2Mu_MLL105To160:
   datasets:
     - DYto2Mu_MLL_105to160_amcatnloFXFX
     # - DYto2Mu_MLL_105to160_amcatnloFXFX_Fil_VBF
+
+DYto2Mu_MLL105To160_VBFFiltered_nonStitched:
+  name: "DY - MLL(105-160) - VBF Fil"
+  color: "kAzure+7"
+  color_mplhep: lightskyblue
+  datasets:
+    - DYto2Mu_MLL_105to160_amcatnloFXFX_Fil_VBF
 
 DYto2Mu_MLL105To160_VBFFiltered:
   name: "DY - MLL(105-160) - VBF Fil"

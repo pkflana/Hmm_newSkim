@@ -98,9 +98,9 @@ run_letters = {
     "2022_Summer22EE": ["E", "F", "G"],
     "2024_Winter24": ["BCD", "E", "F", "G", "H"],
     "2024_Summer24": ["CDEReprocessing", "FGHIPrompt"],
-    "2025_Winter25": ["C", "D", "E", "F"],
-    "2025_Summer24": ["C", "D", "E", "F"],
-    "2026_Summer24": ["C", "D", "E", "F"],  # tmp patch as there is no JEC for 2026 right now, later they will be ["A", "B", "C", "D"],
+    "2025_Winter25": ["C", "D", "E", "F","G"],
+    "2025_Summer24": ["C", "D", "E", "F", "G"],
+    "2026_Summer24": ["C", "D", "E", "F","G"],  # tmp patch as there is no JEC for 2026 right now, later they will be ["A", "B", "C", "D"],
 }
 
 _jet_correction_state = {
