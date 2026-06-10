@@ -10,7 +10,9 @@ _initialized = set()
 
 # minimal golden json mapping (used to pick the correction key inside the PU JSON)
 golden_json_dict = {
-    "2025_Winter25": "",
+    "2026_Summer24": "Collisions25_goldenJSON", # TMP PATCH AS IT IS NOT AVAILABLE FOR 2026
+
+    "2025_Winter25": "Collisions25_goldenJSON",
     "2025_Summer24": "Collisions25_goldenJSON",
     "2024_Summer24": "Collisions24_BCDEFGHI_goldenJSON",
     "2023_Summer23BPix": "Collisions2023_369803_370790_eraD_GoldenJson",
@@ -38,8 +40,8 @@ def apply_pu_weights(
     era = config.get("era")
     period_unc = period_names[era]
     folder_name = pog_folder_names["LUM"][period_unc]
-    suffix = "_BCDEFGHI" if period_unc == "2024_Summer24" else ""  # tmp patch
-    if period_unc=="2025_Summer24":
+    suffix = "_BCDEFGHI" if period_unc == "2024_Summer24" else ""  # tmp patch ? 
+    if period_unc=="2025_Summer24" or period_unc=="2026_Summer24": # TMP PATCH AS IT IS NOT AVAILABLE FOR 2026
         suffix="_2025pp_Golden_Summer24_25ns_69200ub"
     pu_path = json_path.format(
         folder=folder_name, suffix=suffix

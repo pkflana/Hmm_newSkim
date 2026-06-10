@@ -115,7 +115,7 @@ class DNNApplication:
         self.payload_name = payload_name
         self.btag_algo = btag_algo
         self.base_dir = base_dir or os.environ["ANALYSIS_PATH"]
-        self.models_dir = os.path.join(self.base_dir, "common", "models")
+        self.models_dir = os.path.join(self.base_dir, "common", "dnn_models")
         self.config_dir = os.path.join(self.base_dir, "common", "dnn_configs")
         self.parity, self.input_features = self._load_config()
         self.models = self._load_models()
