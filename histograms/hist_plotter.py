@@ -87,6 +87,173 @@ def classify_sample(sample_name, process_cfg):
     }
 
 
+def expand_requested_samples(requested_samples, plot_groups_cfg):
+    if requested_samples is None:
+        return None
+
+    expanded = set()
+    background_groups = plot_groups_cfg.get("background_groups", {})
+
+    for sample in requested_samples:
+        if sample in background_groups:
+            expanded.update(get_group_members(background_groups[sample]))
+        else:
+            expanded.add(sample)
+
+    return expanded
+
+
+def get_group_members(group_cfg):
+    members = []
+
+    for key in ("processes", "sub_processes", "datasets"):
+        members.extend(group_cfg.get(key, []))
+
+    return members
+
+
+def get_group_color(group_cfg, fallback):
+    return group_cfg.get("color_mplhep", group_cfg.get("color", fallback))
+
+
+def make_group_process(group_name, group_cfg, members, input_processes):
+    output_process = {
+        "input": ",".join(input_processes[name]["input"] for name in members),
+        "color": get_group_color(group_cfg, input_processes[members[0]]["color"]),
+        "name": group_cfg.get("name", group_name),
+        "is_data": False,
+        "is_signal": False,
+        "type": "background",
+        "hists": {},
+    }
+
+    for member_name in members:
+        member_info = input_processes[member_name]
+
+        for category, hists in member_info["hists"].items():
+            output_process["hists"].setdefault(category, {})
+
+            for hist_name, hist in hists.items():
+                group_hists = output_process["hists"][category]
+
+                if hist_name not in group_hists:
+                    clone_name = f"{group_name}_{category}_{hist_name}"
+                    group_hists[hist_name] = clone_hist_for_group(hist, clone_name)
+                else:
+                    group_hists[hist_name].Add(hist)
+
+    return output_process
+
+
+def clone_hist_for_group(hist, name):
+    safe_name = name.replace("/", "_").replace(" ", "_")
+    cloned = hist.Clone(safe_name)
+    cloned.SetDirectory(0)
+    return cloned
+
+
+def apply_signal_styles(input_processes, plot_groups_cfg):
+    signal_styles = plot_groups_cfg.get("signal_styles", {})
+
+    for process_name, style_cfg in signal_styles.items():
+        if process_name not in input_processes:
+            continue
+
+        if "name" in style_cfg:
+            input_processes[process_name]["name"] = style_cfg["name"]
+
+        if "color" in style_cfg:
+            input_processes[process_name]["color"] = style_cfg["color"]
+
+
+def apply_background_groups(input_processes, plot_groups_cfg, active_group_names=None):
+    """
+    Merge background macro-samples into plotting groups.
+
+    Processes not listed in config/plot/process_groups.yaml are kept unchanged.
+    Data and signals are never merged here.
+    """
+    background_groups = plot_groups_cfg.get("background_groups", {})
+
+    if active_group_names is not None:
+        background_groups = {
+            group_name: group_cfg
+            for group_name, group_cfg in background_groups.items()
+            if group_name in active_group_names
+        }
+
+    if not background_groups:
+        return input_processes
+
+    output_processes = {}
+    grouped_processes = set()
+
+    for group_name, group_cfg in background_groups.items():
+        member_names = get_group_members(group_cfg)
+        members = [
+            name
+            for name in member_names
+            if name in input_processes
+            and name not in grouped_processes
+            and not input_processes[name].get("is_data", False)
+            and not input_processes[name].get("is_signal", False)
+        ]
+
+        if len(members) == 0:
+            continue
+
+        grouped_processes.update(members)
+
+        output_processes[group_name] = make_group_process(
+            group_name,
+            group_cfg,
+            members,
+            input_processes,
+        )
+
+    other_group_cfg = plot_groups_cfg.get("other_group", {})
+    use_other_group = (
+        active_group_names is None
+        and other_group_cfg.get("enabled", True)
+    )
+
+    if use_other_group:
+        other_name = other_group_cfg.get("key", "OTHER")
+        other_members = [
+            process_name
+            for process_name, process_info in input_processes.items()
+            if process_name not in grouped_processes
+            and not process_info.get("is_data", False)
+            and not process_info.get("is_signal", False)
+        ]
+
+        if len(other_members) > 0:
+            grouped_processes.update(other_members)
+            output_processes[other_name] = make_group_process(
+                other_name,
+                other_group_cfg,
+                other_members,
+                input_processes,
+            )
+
+    for process_name, process_info in input_processes.items():
+        if process_name in grouped_processes:
+            continue
+
+        output_processes[process_name] = process_info
+
+    return output_processes
+
+
+def apply_plot_groups(input_processes, plot_groups_cfg, active_group_names=None):
+    apply_signal_styles(input_processes, plot_groups_cfg)
+    return apply_background_groups(
+        input_processes,
+        plot_groups_cfg,
+        active_group_names=active_group_names,
+    )
+
+
 # =========================================================
 # Helpers for histogram reading / blinding
 # =========================================================
@@ -775,9 +942,10 @@ if __name__ == "__main__":
         default=None,
         help=(
             "Lista di macro-samples da processare, es: "
-            "DY TT ST Data ggH. "
-            "Il nome deve corrispondere al file ROOT senza .root "
-            "e a una chiave in process_names.yaml."
+            "DY TT SingleTop Data ggH. "
+            "Il nome deve corrispondere al file ROOT senza .root, "
+            "a una chiave in process_names.yaml, oppure a un gruppo "
+            "in config/plot/process_groups.yaml."
         ),
     )
 
@@ -825,6 +993,15 @@ if __name__ == "__main__":
 
     process_cfg = utilities.get_config(
         os.path.join(cfg_dir, "process_names.yaml")
+    )
+
+    plot_groups_cfg = utilities.get_config(
+        os.path.join(
+            os.environ["ANALYSIS_PATH"],
+            "config",
+            "plot",
+            "process_groups.yaml",
+        )
     )
 
     sel_cfg = utilities.get_config(
@@ -877,20 +1054,45 @@ if __name__ == "__main__":
     # =====================================================
 
     requested_samples = None
+    requested_plot_groups = None
 
     if args.samples is not None:
 
-        requested_samples = set(
+        requested_samples_raw = set(
             normalize_sample_name(s)
             for s in args.samples
         )
 
+        requested_plot_groups = {
+            sample
+            for sample in requested_samples_raw
+            if sample in plot_groups_cfg.get("background_groups", {})
+        }
+
+        requested_samples = expand_requested_samples(
+            requested_samples_raw,
+            plot_groups_cfg,
+        )
+
         print("\nRequested macro-samples:")
 
-        for sample in sorted(requested_samples):
+        for sample in sorted(requested_samples_raw):
 
-            if sample not in process_cfg:
-                print(f"  [WARNING] {sample} non è presente in process_names.yaml")
+            if (
+                sample not in process_cfg
+                and sample not in plot_groups_cfg.get("background_groups", {})
+            ):
+                print(
+                    f"  [WARNING] {sample} non è presente in process_names.yaml "
+                    "o process_groups.yaml"
+                )
+                continue
+
+            if sample in plot_groups_cfg.get("background_groups", {}):
+                members = get_group_members(
+                    plot_groups_cfg["background_groups"][sample]
+                )
+                print(f"  {sample}: background group ({', '.join(members)})")
                 continue
 
             info = classify_sample(sample, process_cfg)
@@ -1004,6 +1206,12 @@ if __name__ == "__main__":
                     all_found_variables.add(hist_name)
 
             root_file.Close()
+
+    input_processes = apply_plot_groups(
+        input_processes,
+        plot_groups_cfg,
+        active_group_names=requested_plot_groups,
+    )
 
     # =====================================================
     # Summary
@@ -1751,4 +1959,3 @@ if __name__ == "__main__":
 #             )
 
 #     print(f"\n[SUCCESS] Elaborazione completata in {time.time() - startTime:.2f} secondi.")
-

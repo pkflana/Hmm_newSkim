@@ -1,167 +1,623 @@
-############## data ############## From : https://docs.google.com/presentation/d/1H_WuzeAGkW3xZvo3oN4qGZWfw2eBuUzMhPLeShYAQoU/edit?slide=id.g36971dee1d1_0_0#slide=id.g36971dee1d1_0_0
-Muon0_Run2026A_v1:
-  is_data: True
-  eraLetter: A
-  eraVersion: v1
-  nanoAOD: /Muon0/Run2026A-PromptReco-v1/NANOAOD
-Muon0_Run2026B_v1:
-  is_data: True
-  eraLetter: B
-  eraVersion: v1
-  nanoAOD: /Muon0/Run2026B-PromptReco-v1/NANOAOD
-Muon0_Run2026C_v1:
+
+
+
+#### datasets
+
+############## data ##############
+EGamma0_Run2024C:
   is_data: True
   eraLetter: C
-  eraVersion: v1
-  nanoAOD: /Muon0/Run2026C-PromptReco-v1/NANOAOD
-Muon0_Run2026D_v1:
+  nanoAOD: /EGamma0/Run2024C-MINIv6NANOv15-v1/NANOAOD
+EGamma0_Run2024D:
   is_data: True
   eraLetter: D
-  eraVersion: v1
-  nanoAOD: /Muon0/Run2026D-PromptReco-v1/NANOAOD
-Muon1_Run2026A_v1:
+  nanoAOD: /EGamma0/Run2024D-MINIv6NANOv15-v1/NANOAOD
+EGamma0_Run2024E:
   is_data: True
-  eraLetter: A
-  eraVersion: v1
-  nanoAOD: /Muon1/Run2026A-PromptReco-v1/NANOAOD
-Muon1_Run2026B_v1:
+  eraLetter: E
+  nanoAOD: /EGamma0/Run2024E-MINIv6NANOv15-v1/NANOAOD
+EGamma0_Run2024F:
   is_data: True
-  eraLetter: B
+  eraLetter: F
+  nanoAOD: /EGamma0/Run2024F-MINIv6NANOv15-v1/NANOAOD
+EGamma0_Run2024G:
+  is_data: True
+  eraLetter: G
+  nanoAOD: /EGamma0/Run2024G-MINIv6NANOv15-v2/NANOAOD
+EGamma0_Run2024H:
+  is_data: True
+  eraLetter: H
+  nanoAOD: /EGamma0/Run2024H-MINIv6NANOv15-v2/NANOAOD
+EGamma0_Run2024I_v1:
+  is_data: True
+  eraLetter: I
   eraVersion: v1
-  nanoAOD: /Muon1/Run2026B-PromptReco-v1/NANOAOD
-Muon1_Run2026C_v1:
+  nanoAOD: /EGamma0/Run2024I-MINIv6NANOv15-v1/NANOAOD
+EGamma0_Run2024I_v2:
+  is_data: True
+  eraLetter: I
+  eraVersion: v2
+  nanoAOD: /EGamma0/Run2024I-MINIv6NANOv15_v2-v1/NANOAOD
+EGamma1_Run2024C:
   is_data: True
   eraLetter: C
-  eraVersion: v1
-  nanoAOD: /Muon1/Run2026C-PromptReco-v1/NANOAOD
-Muon1_Run2026D_v1:
+  nanoAOD: /EGamma1/Run2024C-MINIv6NANOv15-v1/NANOAOD
+EGamma1_Run2024D:
   is_data: True
   eraLetter: D
-  eraVersion: v1
-  nanoAOD: /Muon1/Run2026D-PromptReco-v1/NANOAOD
-Muon2_Run2026A_v1:
+  nanoAOD: /EGamma1/Run2024D-MINIv6NANOv15-v1/NANOAOD
+EGamma1_Run2024E:
   is_data: True
-  eraLetter: A
-  eraVersion: v1
-  nanoAOD: /Muon2/Run2026A-PromptReco-v1/NANOAOD
-Muon2_Run2026B_v1:
+  eraLetter: E
+  nanoAOD: /EGamma1/Run2024E-MINIv6NANOv15-v1/NANOAOD
+EGamma1_Run2024F:
   is_data: True
-  eraLetter: B
+  eraLetter: F
+  nanoAOD: /EGamma1/Run2024F-MINIv6NANOv15-v1/NANOAOD
+EGamma1_Run2024G:
+  is_data: True
+  eraLetter: G
+  nanoAOD: /EGamma1/Run2024G-MINIv6NANOv15-v2/NANOAOD
+EGamma1_Run2024H:
+  is_data: True
+  eraLetter: H
+  nanoAOD: /EGamma1/Run2024H-MINIv6NANOv15-v2/NANOAOD
+EGamma1_Run2024I_v1:
+  is_data: True
+  eraLetter: I
   eraVersion: v1
-  nanoAOD: /Muon2/Run2026B-PromptReco-v1/NANOAOD
-Muon2_Run2026C_v1:
+  nanoAOD: /EGamma1/Run2024I-MINIv6NANOv15-v1/NANOAOD
+EGamma1_Run2024I_v2:
+  is_data: True
+  eraLetter: I
+  eraVersion: v2
+  nanoAOD: /EGamma1/Run2024I-MINIv6NANOv15_v2-v1/NANOAOD
+JetMET0_Run2024C:
   is_data: True
   eraLetter: C
-  eraVersion: v1
-  nanoAOD: /Muon2/Run2026C-PromptReco-v1/NANOAOD
-Muon2_Run2026D_v1:
+  nanoAOD: /JetMET0/Run2024C-MINIv6NANOv15-v1/NANOAOD
+JetMET0_Run2024D:
   is_data: True
   eraLetter: D
-  eraVersion: v1
-  nanoAOD: /Muon2/Run2026D-PromptReco-v1/NANOAOD
-Muon3_Run2026A_v1:
+  nanoAOD: /JetMET0/Run2024D-MINIv6NANOv15-v1/NANOAOD
+JetMET0_Run2024E:
   is_data: True
-  eraLetter: A
-  eraVersion: v1
-  nanoAOD: /Muon3/Run2026A-PromptReco-v1/NANOAOD
-Muon3_Run2026B_v1:
+  eraLetter: E
+  nanoAOD: /JetMET0/Run2024E-MINIv6NANOv15-v1/NANOAOD
+JetMET0_Run2024F:
   is_data: True
-  eraLetter: B
+  eraLetter: F
+  nanoAOD: /JetMET0/Run2024F-MINIv6NANOv15-v1/NANOAOD
+JetMET0_Run2024G:
+  is_data: True
+  eraLetter: G
+  nanoAOD: /JetMET0/Run2024G-MINIv6NANOv15-v2/NANOAOD
+JetMET0_Run2024H:
+  is_data: True
+  eraLetter: H
+  nanoAOD: /JetMET0/Run2024H-MINIv6NANOv15-v2/NANOAOD
+JetMET0_Run2024I_v1:
+  is_data: True
+  eraLetter: I
   eraVersion: v1
-  nanoAOD: /Muon3/Run2026B-PromptReco-v1/NANOAOD
-Muon3_Run2026C_v1:
+  nanoAOD: /JetMET0/Run2024I-MINIv6NANOv15-v1/NANOAOD
+JetMET0_Run2024I_v2:
+  is_data: True
+  eraLetter: I
+  eraVersion: v2
+  nanoAOD: /JetMET0/Run2024I-MINIv6NANOv15_v2-v1/NANOAOD
+JetMET1_Run2024C:
   is_data: True
   eraLetter: C
-  eraVersion: v1
-  nanoAOD: /Muon3/Run2026C-PromptReco-v1/NANOAOD
-Muon3_Run2026D_v1:
+  nanoAOD: /JetMET1/Run2024C-MINIv6NANOv15-v1/NANOAOD
+JetMET1_Run2024D:
   is_data: True
   eraLetter: D
-  eraVersion: v1
-  nanoAOD: /Muon3/Run2026D-PromptReco-v1/NANOAOD
-MuonEG_Run2026A_v1:
+  nanoAOD: /JetMET1/Run2024D-MINIv6NANOv15-v1/NANOAOD
+JetMET1_Run2024E:
   is_data: True
-  eraLetter: A
-  eraVersion: v1
-  nanoAOD: /MuonEG/Run2026A-PromptReco-v1/NANOAOD
-MuonEG_Run2026B_v1:
+  eraLetter: E
+  nanoAOD: /JetMET1/Run2024E-MINIv6NANOv15-v1/NANOAOD
+JetMET1_Run2024F:
   is_data: True
-  eraLetter: B
+  eraLetter: F
+  nanoAOD: /JetMET1/Run2024F-MINIv6NANOv15-v1/NANOAOD
+JetMET1_Run2024G:
+  is_data: True
+  eraLetter: G
+  nanoAOD: /JetMET1/Run2024G-MINIv6NANOv15-v2/NANOAOD
+JetMET1_Run2024H:
+  is_data: True
+  eraLetter: H
+  nanoAOD: /JetMET1/Run2024H-MINIv6NANOv15-v2/NANOAOD
+JetMET1_Run2024I_v1:
+  is_data: True
+  eraLetter: I
   eraVersion: v1
-  nanoAOD: /MuonEG/Run2026B-PromptReco-v1/NANOAOD
-MuonEG_Run2026C_v1:
+  nanoAOD: /JetMET1/Run2024I-MINIv6NANOv15-v1/NANOAOD
+JetMET1_Run2024I_v2:
+  is_data: True
+  eraLetter: I
+  eraVersion: v2
+  nanoAOD: /JetMET1/Run2024I-MINIv6NANOv15_v2-v1/NANOAOD
+Muon0_Run2024C:
   is_data: True
   eraLetter: C
-  eraVersion: v1
-  nanoAOD: /MuonEG/Run2026C-PromptReco-v1/NANOAOD
-MuonEG_Run2026D_v1:
+  nanoAOD: /Muon0/Run2024C-MINIv6NANOv15-v1/NANOAOD
+Muon0_Run2024D:
   is_data: True
   eraLetter: D
+  nanoAOD: /Muon0/Run2024D-MINIv6NANOv15-v1/NANOAOD
+Muon0_Run2024E:
+  is_data: True
+  eraLetter: E
+  nanoAOD: /Muon0/Run2024E-MINIv6NANOv15-v1/NANOAOD
+Muon0_Run2024F:
+  is_data: True
+  eraLetter: F
+  nanoAOD: /Muon0/Run2024F-MINIv6NANOv15-v1/NANOAOD
+Muon0_Run2024G:
+  is_data: True
+  eraLetter: G
+  nanoAOD: /Muon0/Run2024G-MINIv6NANOv15-v1/NANOAOD
+Muon0_Run2024H:
+  is_data: True
+  eraLetter: H
+  nanoAOD: /Muon0/Run2024H-MINIv6NANOv15-v1/NANOAOD
+Muon0_Run2024I_v1:
+  is_data: True
+  eraLetter: I
   eraVersion: v1
-  nanoAOD: /MuonEG/Run2026D-PromptReco-v1/NANOAOD
+  nanoAOD: /Muon0/Run2024I-MINIv6NANOv15-v1/NANOAOD
+Muon0_Run2024I_v2:
+  is_data: True
+  eraLetter: I
+  eraVersion: v2
+  nanoAOD: /Muon0/Run2024I-MINIv6NANOv15_v2-v1/NANOAOD
+Muon1_Run2024C:
+  is_data: True
+  eraLetter: C
+  nanoAOD: /Muon1/Run2024C-MINIv6NANOv15-v1/NANOAOD
+Muon1_Run2024D:
+  is_data: True
+  eraLetter: D
+  nanoAOD: /Muon1/Run2024D-MINIv6NANOv15-v1/NANOAOD
+Muon1_Run2024E:
+  is_data: True
+  eraLetter: E
+  nanoAOD: /Muon1/Run2024E-MINIv6NANOv15-v1/NANOAOD
+Muon1_Run2024F:
+  is_data: True
+  eraLetter: F
+  nanoAOD: /Muon1/Run2024F-MINIv6NANOv15-v1/NANOAOD
+Muon1_Run2024G:
+  is_data: True
+  eraLetter: G
+  nanoAOD: /Muon1/Run2024G-MINIv6NANOv15-v2/NANOAOD
+Muon1_Run2024H:
+  is_data: True
+  eraLetter: H
+  nanoAOD: /Muon1/Run2024H-MINIv6NANOv15-v2/NANOAOD
+Muon1_Run2024I_v1:
+  is_data: True
+  eraLetter: I
+  eraVersion: v1
+  nanoAOD: /Muon1/Run2024I-MINIv6NANOv15-v1/NANOAOD
+Muon1_Run2024I_v2:
+  is_data: True
+  eraLetter: I
+  eraVersion: v2
+  nanoAOD: /Muon1/Run2024I-MINIv6NANOv15_v2-v1/NANOAOD
+MuonEG_Run2024C:
+  is_data: True
+  eraLetter: C
+  nanoAOD: /MuonEG/Run2024C-MINIv6NANOv15-v1/NANOAOD
+MuonEG_Run2024D:
+  is_data: True
+  eraLetter: D
+  nanoAOD: /MuonEG/Run2024D-MINIv6NANOv15-v1/NANOAOD
+MuonEG_Run2024E:
+  is_data: True
+  eraLetter: E
+  nanoAOD: /MuonEG/Run2024E-MINIv6NANOv15-v1/NANOAOD
+MuonEG_Run2024F:
+  is_data: True
+  eraLetter: F
+  nanoAOD: /MuonEG/Run2024F-MINIv6NANOv15-v1/NANOAOD
+MuonEG_Run2024G:
+  is_data: True
+  eraLetter: G
+  nanoAOD: /MuonEG/Run2024G-MINIv6NANOv15-v2/NANOAOD
+MuonEG_Run2024H:
+  is_data: True
+  eraLetter: H
+  nanoAOD: /MuonEG/Run2024H-MINIv6NANOv15-v2/NANOAOD
+MuonEG_Run2024I_v1:
+  is_data: True
+  eraLetter: I
+  eraVersion: v1
+  nanoAOD: /MuonEG/Run2024I-MINIv6NANOv15-v1/NANOAOD
+MuonEG_Run2024I_v2:
+  is_data: True
+  eraLetter: I
+  eraVersion: v2
+  nanoAOD: /MuonEG/Run2024I-MINIv6NANOv15_v2-v1/NANOAOD
+ParkingHH_Run2024C:
+  is_data: True
+  eraLetter: C
+  nanoAOD: /ParkingHH/Run2024C-MINIv6NANOv15-v1/NANOAOD
+ParkingHH_Run2024D:
+  is_data: True
+  eraLetter: D
+  nanoAOD: /ParkingHH/Run2024D-MINIv6NANOv15-v1/NANOAOD
+ParkingHH_Run2024E:
+  is_data: True
+  eraLetter: E
+  nanoAOD: /ParkingHH/Run2024E-MINIv6NANOv15-v1/NANOAOD
+ParkingHH_Run2024F:
+  is_data: True
+  eraLetter: F
+  nanoAOD: /ParkingHH/Run2024F-MINIv6NANOv15-v4/NANOAOD
+ParkingHH_Run2024G:
+  is_data: True
+  eraLetter: G
+  nanoAOD: /ParkingHH/Run2024G-MINIv6NANOv15-v3/NANOAOD
+ParkingHH_Run2024H:
+  is_data: True
+  eraLetter: H
+  nanoAOD: /ParkingHH/Run2024H-MINIv6NANOv15-v3/NANOAOD
+ParkingHH_Run2024I_v1:
+  is_data: True
+  eraLetter: I
+  eraVersion: v1
+  nanoAOD: /ParkingHH/Run2024I-MINIv6NANOv15-v3/NANOAOD
+ParkingHH_Run2024I_v2:
+  is_data: True
+  eraLetter: I
+  eraVersion: v2
+  nanoAOD: /ParkingHH/Run2024I-MINIv6NANOv15_v2-v2/NANOAOD
+ParkingVBF0_Run2024C:
+  is_data: True
+  eraLetter: C
+  nanoAOD: /ParkingVBF0/Run2024C-MINIv6NANOv15-v1/NANOAOD
+ParkingVBF0_Run2024D:
+  is_data: True
+  eraLetter: D
+  nanoAOD: /ParkingVBF0/Run2024D-MINIv6NANOv15-v1/NANOAOD
+ParkingVBF0/Run2024E:
+  is_data: True
+  eraLetter: E
+  nanoAOD: /ParkingVBF0/Run2024E-MINIv6NANOv15-v1/NANOAOD
+ParkingVBF0/Run2024F:
+  is_data: True
+  eraLetter: F
+  nanoAOD: /ParkingVBF0/Run2024F-MINIv6NANOv15-v3/NANOAOD
+ParkingVBF0/Run2024G:
+  is_data: True
+  eraLetter: G
+  nanoAOD: /ParkingVBF0/Run2024G-MINIv6NANOv15-v3/NANOAOD
+ParkingVBF0/Run2024H:
+  is_data: True
+  eraLetter: H
+  nanoAOD: /ParkingVBF0/Run2024H-MINIv6NANOv15-v2/NANOAOD
+ParkingVBF0_Run2024I_v1:
+  is_data: True
+  eraLetter: I
+  eraVersion: v1
+  nanoAOD: /ParkingVBF0/Run2024I-MINIv6NANOv15-v2/NANOAOD
+ParkingVBF0_Run2024I_v2:
+  is_data: True
+  eraLetter: I
+  eraVersion: v2
+  nanoAOD: /ParkingVBF0/Run2024I-MINIv6NANOv15_v2-v2/NANOAOD
+ParkingVBF1_Run2024C:
+  is_data: True
+  eraLetter: C
+  nanoAOD: /ParkingVBF1/Run2024C-MINIv6NANOv15-v1/NANOAOD
+ParkingVBF1_Run2024D:
+  is_data: True
+  eraLetter: D
+  nanoAOD: /ParkingVBF1/Run2024D-MINIv6NANOv15-v1/NANOAOD
+ParkingVBF1_Run2024E:
+  is_data: True
+  eraLetter: E
+  nanoAOD: /ParkingVBF1/Run2024E-MINIv6NANOv15-v1/NANOAOD
+ParkingVBF1_Run2024F:
+  is_data: True
+  eraLetter: F
+  nanoAOD: /ParkingVBF1/Run2024F-MINIv6NANOv15-v3/NANOAOD
+ParkingVBF1_Run2024G:
+  is_data: True
+  eraLetter: G
+  nanoAOD: /ParkingVBF1/Run2024G-MINIv6NANOv15-v4/NANOAOD
+ParkingVBF1_Run2024H:
+  is_data: True
+  eraLetter: H
+  nanoAOD: /ParkingVBF1/Run2024H-MINIv6NANOv15-v3/NANOAOD
+ParkingVBF1_Run2024I_v1:
+  is_data: True
+  eraLetter: I
+  eraVersion: v1
+  nanoAOD: /ParkingVBF1/Run2024I-MINIv6NANOv15-v3/NANOAOD
+ParkingVBF1_Run2024I_v2:
+  is_data: True
+  eraLetter: I
+  eraVersion: v2
+  nanoAOD: /ParkingVBF1/Run2024I-MINIv6NANOv15_v2-v3/NANOAOD
+ParkingVBF2_Run2024C:
+  is_data: True
+  eraLetter: C
+  nanoAOD: /ParkingVBF2/Run2024C-MINIv6NANOv15-v1/NANOAOD
+ParkingVBF2_Run2024D:
+  is_data: True
+  eraLetter: D
+  nanoAOD: /ParkingVBF2/Run2024D-MINIv6NANOv15-v2/NANOAOD
+ParkingVBF2_Run2024E:
+  is_data: True
+  eraLetter: E
+  nanoAOD: /ParkingVBF2/Run2024E-MINIv6NANOv15-v1/NANOAOD
+ParkingVBF2_Run2024F:
+  is_data: True
+  eraLetter: F
+  nanoAOD: /ParkingVBF2/Run2024F-MINIv6NANOv15-v3/NANOAOD
+ParkingVBF2_Run2024G:
+  is_data: True
+  eraLetter: G
+  nanoAOD: /ParkingVBF2/Run2024G-MINIv6NANOv15-v3/NANOAOD
+ParkingVBF2_Run2024H:
+  is_data: True
+  eraLetter: H
+  nanoAOD: /ParkingVBF2/Run2024H-MINIv6NANOv15-v3/NANOAOD
+ParkingVBF2_Run2024I_v1:
+  is_data: True
+  eraLetter: I
+  eraVersion: v1
+  nanoAOD: /ParkingVBF2/Run2024I-MINIv6NANOv15-v3/NANOAOD
+ParkingVBF2_Run2024I_v2:
+  is_data: True
+  eraLetter: I
+  eraVersion: v2
+  nanoAOD: /ParkingVBF2/Run2024I-MINIv6NANOv15_v2-v2/NANOAOD
+ParkingVBF3_Run2024C:
+  is_data: True
+  eraLetter: C
+  nanoAOD: /ParkingVBF3/Run2024C-MINIv6NANOv15-v1/NANOAOD
+ParkingVBF3_Run2024D:
+  is_data: True
+  eraLetter: D
+  nanoAOD: /ParkingVBF3/Run2024D-MINIv6NANOv15-v2/NANOAOD
+ParkingVBF3_Run2024E:
+  is_data: True
+  eraLetter: E
+  nanoAOD: /ParkingVBF3/Run2024E-MINIv6NANOv15-v1/NANOAOD
+ParkingVBF3_Run2024F:
+  is_data: True
+  eraLetter: F
+  nanoAOD: /ParkingVBF3/Run2024F-MINIv6NANOv15-v3/NANOAOD
+ParkingVBF3_Run2024G:
+  is_data: True
+  eraLetter: G
+  nanoAOD: /ParkingVBF3/Run2024G-MINIv6NANOv15-v3/NANOAOD
+ParkingVBF3_Run2024H:
+  is_data: True
+  eraLetter: H
+  nanoAOD: /ParkingVBF3/Run2024H-MINIv6NANOv15-v3/NANOAOD
+ParkingVBF3_Run2024I_v1:
+  is_data: True
+  eraLetter: I
+  eraVersion: v1
+  nanoAOD: /ParkingVBF3/Run2024I-MINIv6NANOv15-v3/NANOAOD
+ParkingVBF3_Run2024I_v2:
+  is_data: True
+  eraLetter: I
+  eraVersion: v2
+  nanoAOD: /ParkingVBF3/Run2024I-MINIv6NANOv15_v2-v2/NANOAOD
+ParkingVBF4_Run2024C:
+  is_data: True
+  eraLetter: C
+  nanoAOD: /ParkingVBF4/Run2024C-MINIv6NANOv15-v1/NANOAOD
+ParkingVBF4_Run2024D:
+  is_data: True
+  eraLetter: D
+  nanoAOD: /ParkingVBF4/Run2024D-MINIv6NANOv15-v2/NANOAOD
+ParkingVBF4_Run2024E:
+  is_data: True
+  eraLetter: E
+  nanoAOD: /ParkingVBF4/Run2024E-MINIv6NANOv15-v1/NANOAOD
+ParkingVBF4_Run2024F:
+  is_data: True
+  eraLetter: F
+  nanoAOD: /ParkingVBF4/Run2024F-MINIv6NANOv15-v3/NANOAOD
+ParkingVBF4_Run2024G:
+  is_data: True
+  eraLetter: G
+  nanoAOD: /ParkingVBF4/Run2024G-MINIv6NANOv15-v3/NANOAOD
+ParkingVBF4_Run2024H:
+  is_data: True
+  eraLetter: H
+  nanoAOD: /ParkingVBF4/Run2024H-MINIv6NANOv15-v3/NANOAOD
+ParkingVBF4_Run2024I_v1:
+  is_data: True
+  eraLetter: I
+  eraVersion: v1
+  nanoAOD: /ParkingVBF4/Run2024I-MINIv6NANOv15-v3/NANOAOD
+ParkingVBF4_Run2024I_v2:
+  is_data: True
+  eraLetter: I
+  eraVersion: v2
+  nanoAOD: /ParkingVBF4/Run2024I-MINIv6NANOv15_v2-v2/NANOAOD
+ParkingVBF5_Run2024C:
+  is_data: True
+  eraLetter: C
+  nanoAOD: /ParkingVBF5/Run2024C-MINIv6NANOv15-v1/NANOAOD
+ParkingVBF5_Run2024D:
+  is_data: True
+  eraLetter: D
+  nanoAOD: /ParkingVBF5/Run2024D-MINIv6NANOv15-v2/NANOAOD
+ParkingVBF5_Run2024E:
+  is_data: True
+  eraLetter: E
+  nanoAOD: /ParkingVBF5/Run2024E-MINIv6NANOv15-v1/NANOAOD
+ParkingVBF5_Run2024F:
+  is_data: True
+  eraLetter: F
+  nanoAOD: /ParkingVBF5/Run2024F-MINIv6NANOv15-v3/NANOAOD
+ParkingVBF5_Run2024G:
+  is_data: True
+  eraLetter: G
+  nanoAOD: /ParkingVBF5/Run2024G-MINIv6NANOv15-v3/NANOAOD
+ParkingVBF5_Run2024H:
+  is_data: True
+  eraLetter: H
+  nanoAOD: /ParkingVBF5/Run2024H-MINIv6NANOv15-v3/NANOAOD
+ParkingVBF5_Run2024I_v1:
+  is_data: True
+  eraLetter: I
+  eraVersion: v1
+  nanoAOD: /ParkingVBF5/Run2024I-MINIv6NANOv15-v3/NANOAOD
+ParkingVBF5_Run2024I_v2:
+  is_data: True
+  eraLetter: I
+  eraVersion: v2
+  nanoAOD: /ParkingVBF5/Run2024I-MINIv6NANOv15_v2-v2/NANOAOD
+ParkingVBF6_Run2024C:
+  is_data: True
+  eraLetter: C
+  nanoAOD: /ParkingVBF6/Run2024C-MINIv6NANOv15-v1/NANOAOD
+ParkingVBF6_Run2024D:
+  is_data: True
+  eraLetter: D
+  nanoAOD: /ParkingVBF6/Run2024D-MINIv6NANOv15-v2/NANOAOD
+ParkingVBF6_Run2024E:
+  is_data: True
+  eraLetter: E
+  nanoAOD: /ParkingVBF6/Run2024E-MINIv6NANOv15-v1/NANOAOD
+ParkingVBF6_Run2024F:
+  is_data: True
+  eraLetter: F
+  nanoAOD: /ParkingVBF6/Run2024F-MINIv6NANOv15-v3/NANOAOD
+ParkingVBF6_Run2024G:
+  is_data: True
+  eraLetter: G
+  nanoAOD: /ParkingVBF6/Run2024G-MINIv6NANOv15-v3/NANOAOD
+ParkingVBF6_Run2024H:
+  is_data: True
+  eraLetter: H
+  nanoAOD: /ParkingVBF6/Run2024H-MINIv6NANOv15-v3/NANOAOD
+ParkingVBF6_Run2024I_v1:
+  is_data: True
+  eraLetter: I
+  eraVersion: v1
+  nanoAOD: /ParkingVBF6/Run2024I-MINIv6NANOv15-v3/NANOAOD
+ParkingVBF6_Run2024I_v2:
+  is_data: True
+  eraLetter: I
+  eraVersion: v2
+  nanoAOD: /ParkingVBF6/Run2024I-MINIv6NANOv15_v2-v2/NANOAOD
+ParkingVBF7_Run2024C:
+  is_data: True
+  eraLetter: C
+  nanoAOD: /ParkingVBF7/Run2024C-MINIv6NANOv15-v1/NANOAOD
+ParkingVBF7_Run2024D:
+  is_data: True
+  eraLetter: D
+  nanoAOD: /ParkingVBF7/Run2024D-MINIv6NANOv15-v2/NANOAOD
+ParkingVBF7_Run2024E:
+  is_data: True
+  eraLetter: E
+  nanoAOD: /ParkingVBF7/Run2024E-MINIv6NANOv15-v1/NANOAOD
+ParkingVBF7_Run2024F:
+  is_data: True
+  eraLetter: F
+  nanoAOD: /ParkingVBF7/Run2024F-MINIv6NANOv15-v3/NANOAOD
+ParkingVBF7_Run2024G:
+  is_data: True
+  eraLetter: G
+  nanoAOD: /ParkingVBF7/Run2024G-MINIv6NANOv15-v3/NANOAOD
+ParkingVBF7_Run2024H:
+  is_data: True
+  eraLetter: H
+  nanoAOD: /ParkingVBF7/Run2024H-MINIv6NANOv15-v3/NANOAOD
+ParkingVBF7_Run2024I_v1:
+  is_data: True
+  eraLetter: I
+  eraVersion: v1
+  nanoAOD: /ParkingVBF7/Run2024I-MINIv6NANOv15-v3/NANOAOD
+ParkingVBF7_Run2024I_v2:
+  is_data: True
+  eraLetter: I
+  eraVersion: v2
+  nanoAOD: /ParkingVBF7/Run2024I-MINIv6NANOv15_v2-v2/NANOAOD
+Tau_Run2024C:
+  is_data: True
+  eraLetter: C
+  nanoAOD: /Tau/Run2024C-MINIv6NANOv15-v1/NANOAOD
+Tau_Run2024D:
+  is_data: True
+  eraLetter: D
+  nanoAOD: /Tau/Run2024D-MINIv6NANOv15-v1/NANOAOD
+Tau_Run2024E:
+  is_data: True
+  eraLetter: E
+  nanoAOD: /Tau/Run2024E-MINIv6NANOv15-v1/NANOAOD
+Tau_Run2024F:
+  is_data: True
+  eraLetter: F
+  nanoAOD: /Tau/Run2024F-MINIv6NANOv15-v1/NANOAOD
+Tau_Run2024G:
+  is_data: True
+  eraLetter: G
+  nanoAOD: /Tau/Run2024G-MINIv6NANOv15-v2/NANOAOD
+Tau_Run2024H:
+  is_data: True
+  eraLetter: H
+  nanoAOD: /Tau/Run2024H-MINIv6NANOv15-v2/NANOAOD
+Tau_Run2024I_v1:
+  is_data: True
+  eraLetter: I
+  eraVersion: v1
+  nanoAOD: /Tau/Run2024I-MINIv6NANOv15-v1/NANOAOD
+Tau_Run2024I_v2:
+  is_data: True
+  eraLetter: I
+  eraVersion: v2
+  nanoAOD: /Tau/Run2024I-MINIv6NANOv15_v2-v1/NANOAOD
+
+#### datasets
 
 ############## HIGGS SIGNAL SAMPLES ##############
+
+# --- Mass Point: 120 GeV ---
 GluGluHto2Mu_M120:
   is_signal: True
   crossSection: GluGluHto2Mu_M120
   generator: powheg
-  nanoAOD: /GluGluH-Hto2Mu_Par-M-120_TuneCP5_13p6TeV_amcatnloFXFX-pythia8/RunIII2024Summer24NanoAODv15-150X_mcRun3_2024_realistic_v2-v2/NANOAODSIM #/GluGluHto2Mu_Par-M-120_TuneCP5_13p6TeV_amcatnlo-pythia8/RunIII2024Summer24NanoAODv15-150X_mcRun3_2024_realistic_v2-v2/NANOAODSIM
-GluGluHto2Mu:
+  nanoAOD: /GluGluHto2Mu_Par-M-120_TuneCP5_13p6TeV_amcatnlo-pythia8/RunIII2024Summer24NanoAODv15-150X_mcRun3_2024_realistic_v2-v2/NANOAODSIM
+
+VBFHto2Mu_M120:
+  is_signal: True
+  crossSection: VBFHto2Mu_M120
+  generator: amcatnlo
+  nanoAOD: /VBF-Hto2Mu_Par-M-120_TuneCP5_13p6TeV_amcatnlo-pythia8/RunIII2024Summer24NanoAODv15-150X_mcRun3_2024_realistic_v2-v2/NANOAODSIM
+
+# --- Mass Point: 125 GeV (Nominal) ---
+GluGluHto2Mu_M125:
   is_signal: True
   crossSection: GluGluHto2Mu_M125
   generator: powheg
   nanoAOD: /GluGluH-Hto2Mu_Par-M-125_TuneCP5_13p6TeV_powheg-pythia8/RunIII2024Summer24NanoAODv15-150X_mcRun3_2024_realistic_v2-v2/NANOAODSIM
-GluGluHto2Mu_ext1:
-  is_signal: True
-  crossSection: GluGluHto2Mu_M125
-  generator: powheg
-  nanoAOD: /GluGluH-Hto2Mu_Par-M-125_TuneCP5_13p6TeV_powheg-pythia8/RunIII2024Summer24NanoAODv15-150X_mcRun3_2024_realistic_v2_ext1-v2/NANOAODSIM
-GluGluHto2Mu_amcatnlo:
-  is_signal: True
-  crossSection: GluGluHto2Mu_M125
-  generator: powheg
-  nanoAOD: /GluGluH-Hto2Mu_Par-M-125_TuneCP5_13p6TeV_amcatnloFXFX-pythia8/RunIII2024Summer24NanoAODv15-150X_mcRun3_2024_realistic_v2-v2/NANOAODSIM
-GluGluHto2Mu_amcatnlo_ext1:
-  is_signal: True
-  crossSection: GluGluHto2Mu_M125
-  generator: powheg
-  nanoAOD: /GluGluH-Hto2Mu_Par-M-125_TuneCP5_13p6TeV_amcatnloFXFX-pythia8/RunIII2024Summer24NanoAODv15-150X_mcRun3_2024_realistic_v2_ext1-v2/NANOAODSIM
-GluGluHto2Mu_MiNNLO:
+
+GluGluHto2Mu_M125_minnlo:
   is_signal: True
   crossSection: GluGluHto2Mu_M125
   generator: powheg
   nanoAOD: /GluGluH-Hto2Mu_Par-M-125_TuneCP5_13p6TeV_powhegMINNLO-pythia8/RunIII2024Summer24NanoAODv15-150X_mcRun3_2024_realistic_v2-v2/NANOAODSIM
-GluGluHto2Mu_tuneDown:
-  crossSection: GluGluHto2Mu
-  is_signal: True
-  generator: powheg
-  nanoAOD: /GluGluH-Hto2Mu_Par-M-125_TuneCP5Down_13p6TeV_amcatnloFXFX-pythia8/RunIII2024Summer24NanoAODv15-150X_mcRun3_2024_realistic_v2-v2/NANOAODSIM
-GluGluHto2Mu_tuneUp:
-  crossSection: GluGluHto2Mu
-  is_signal: True
-  generator: powheg
-  nanoAOD: /GluGluH-Hto2Mu_Par-M-125_TuneCP5Up_13p6TeV_amcatnloFXFX-pythia8/RunIII2024Summer24NanoAODv15-150X_mcRun3_2024_realistic_v2-v2/NANOAODSIM
-GluGluHto2Mu_M130:
-  is_signal: True
-  crossSection: GluGluHto2Mu_M130
-  generator: amcatnlo
-  nanoAOD: /GluGluHto2Mu_Par-M-130_TuneCP5_13p6TeV_amcatnlo-pythia8/RunIII2024Summer24NanoAODv15-150X_mcRun3_2024_realistic_v2-v2/NANOAODSIM
-GluGluHto2Mu_M130_ext1:
-  is_signal: True
-  crossSection: GluGluHto2Mu_M130
-  generator: amcatnlo
-  nanoAOD: /GluGluH-Hto2Mu_Par-M-130_TuneCP5_13p6TeV_amcatnloFXFX-pythia8/RunIII2024Summer24NanoAODv15-150X_mcRun3_2024_realistic_v2_ext1-v2/NANOAODSIM
 
 VBFHto2Mu_M125_powheg:
   is_signal: True
   crossSection: VBFHto2Mu_M125
   generator: powheg
   nanoAOD: /VBFH-Hto2Mu_Par-M-125_TuneCP5_13p6TeV_powheg-pythia8/RunIII2024Summer24NanoAODv15-150X_mcRun3_2024_realistic_v2-v2/NANOAODSIM
-VBFHto2Mu_M120:
-  is_signal: True
-  crossSection: VBFHto2Mu_M120
-  generator: amcatnlo
-  nanoAOD: /VBF-Hto2Mu_Par-M-120_TuneCP5_13p6TeV_amcatnlo-pythia8/RunIII2024Summer24NanoAODv15-150X_mcRun3_2024_realistic_v2-v2/NANOAODSIM
 VBFHto2Mu_m125_tuneCP5Up_amcatnlo:
   is_signal: True
   crossSection: VBFHto2Mu_M125
@@ -177,6 +633,15 @@ VBFHto2Mu_M125_amcatnlo:
   crossSection: VBFHto2Mu_M125
   generator: amcatnlo
   nanoAOD: /VBF-Hto2Mu_Par-M-125_TuneCP5_13p6TeV_amcatnlo-pythia8/RunIII2024Summer24NanoAODv15-150X_mcRun3_2024_realistic_v2-v2/NANOAODSIM
+
+
+# --- Mass Point: 130 GeV ---
+GluGluHto2Mu_M130:
+  is_signal: True
+  crossSection: GluGluHto2Mu_M130
+  generator: amcatnlo
+  nanoAOD: /GluGluHto2Mu_Par-M-130_TuneCP5_13p6TeV_amcatnlo-pythia8/RunIII2024Summer24NanoAODv15-150X_mcRun3_2024_realistic_v2-v2/NANOAODSIM
+
 VBFHto2Mu_M130:
   is_signal: True
   crossSection: VBFHto2Mu_M130
@@ -728,7 +1193,8 @@ WtoLNu_1J_madgraphMLM:
 WtoLNu_2J_amcatnloFXFX:
   crossSection: WtoLNu_2J_amcatnloFXFX
   generator: amcatnlo
-  nanoaod:
+  nanoAOD:
+    v15:
 WtoLNu_2J_madgraphMLM:
   crossSection: WtoLNu_2J_madgraphMLM
   generator: madgraphMLM

@@ -140,3 +140,12 @@ categories:
   ggF:
     expression: "baseline{tot_suff} && !(VBF_def{tot_suff})"
     store: True
+
+
+  VBF_lowPtTT:
+    expression: "baseline_lowPtTT{tot_suff} && VBF_def{tot_suff}"
+    store: True
+  ggF_lowPtTT:
+    expression: "baseline_lowPtTT{tot_suff} && !(VBF_def{tot_suff})"
+    store: True
+

@@ -30,6 +30,15 @@ parser.add_argument(
     default=None,
     help="Override polling interval in seconds.",
 )
+parser.add_argument(
+    "--max-submit-jobs",
+    type=int,
+    default=None,
+    help=(
+        "Submit at most this many jobs in total. Useful for quick tests, "
+        "e.g. --max-submit-jobs 1."
+    ),
+)
 args = parser.parse_args()
 
 era = args.era
@@ -91,11 +100,20 @@ process_to_select = skim_config.get("process_to_select", [])
 
 output_directory = os.path.abspath(skim_config["output_dir"])
 proxy_location = skim_config["proxy_location"]
+cmssw_version = skim_config.get("cmssw_version", "CMSSW_15_0_2")
 
 submit_jobs = skim_config.get("submit", True)
 
 MAX_PARALLEL_JOBS = args.max_parallel_jobs or skim_config.get("max_parallel_jobs", 6000)
 POLL_INTERVAL = args.poll_interval or skim_config.get("poll_interval", 120)
+MAX_SUBMIT_JOBS = (
+    args.max_submit_jobs
+    if args.max_submit_jobs is not None
+    else skim_config.get("max_submit_jobs")
+)
+
+if MAX_SUBMIT_JOBS is not None and MAX_SUBMIT_JOBS < 1:
+    raise SystemExit("[ERROR] max_submit_jobs / --max-submit-jobs must be >= 1")
 
 WRITE_MISSING_FILES_DRYRUN = skim_config.get("write_missing_files_dryrun", True)
 
@@ -526,10 +544,15 @@ global_job_output_map = {}
 
 dataset_stats = {}
 missing_files_by_dataset = defaultdict(list)
+selected_submit_jobs = 0
+hit_max_submit_jobs = False
 
 print("\n[INFO] Scanning datasets and checking existing outputs...")
 
 for dataset in all_datasets:
+    if hit_max_submit_jobs:
+        break
+
     if dataset not in data or "filelist" not in data[dataset]:
         print(f"[WARNING] You don't have the filelist for: {dataset}")
         continue
@@ -590,6 +613,10 @@ for dataset in all_datasets:
         if len(input_files) == 0:
             continue
 
+        if MAX_SUBMIT_JOBS is not None and selected_submit_jobs >= MAX_SUBMIT_JOBS:
+            hit_max_submit_jobs = True
+            break
+
         input_list = ",".join(input_files)
         output_list = ",".join(output_files_root)
 
@@ -602,7 +629,8 @@ for dataset in all_datasets:
             f"{era} "
             f"{input_list} "
             f"{dataset} "
-            f"{output_list}"
+            f"{output_list} "
+            f"{cmssw_version}"
         )
 
         dataset_condorinputs[dataset].append({
@@ -621,6 +649,11 @@ for dataset in all_datasets:
         }
 
         jobs_to_run += 1
+        selected_submit_jobs += 1
+
+        if MAX_SUBMIT_JOBS is not None and selected_submit_jobs >= MAX_SUBMIT_JOBS:
+            hit_max_submit_jobs = True
+            break
 
     missing_report = None
 
@@ -649,11 +682,24 @@ for dataset in all_datasets:
     if missing_report:
         log_dataset_message(dataset, f"  missing report   : {missing_report}")
 
+    if hit_max_submit_jobs:
+        log_dataset_message(
+            dataset,
+            f"[INFO] Reached max_submit_jobs={MAX_SUBMIT_JOBS}. "
+            "Stopping job selection here.",
+        )
+
 total_jobs_to_run = sum(
     len(condorinputs) for condorinputs in dataset_condorinputs.values()
 )
 
 print_dryrun_summary(dataset_stats)
+
+if MAX_SUBMIT_JOBS is not None:
+    print(
+        f"[INFO] max_submit_jobs limit enabled: "
+        f"selected {total_jobs_to_run}/{MAX_SUBMIT_JOBS} jobs."
+    )
 
 
 # =========================================================
@@ -707,7 +753,7 @@ job = htcondor.Submit({
 
     "universe": "vanilla",
     "Requirements": '(OpSysAndVer =?= "AlmaLinux9")',
-    "+JobFlavour": flavour,
+    "+JobFlavour": f'"{flavour}"',
     "+JobKey": '"$(job_key)"',
     "+Dataset": '"$(dataset)"',
     "RequestCpus": str(cpus),
@@ -732,6 +778,8 @@ job["MY.SendCredential"] = "true"
 print("\n[INFO] Starting dataset-wise submission...")
 print(f"[INFO] MAX_PARALLEL_JOBS = {MAX_PARALLEL_JOBS}")
 print(f"[INFO] POLL_INTERVAL     = {POLL_INTERVAL}s")
+if MAX_SUBMIT_JOBS is not None:
+    print(f"[INFO] MAX_SUBMIT_JOBS  = {MAX_SUBMIT_JOBS}")
 
 active_clusters = {}
 

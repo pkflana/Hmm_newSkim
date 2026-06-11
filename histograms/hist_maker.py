@@ -79,7 +79,7 @@ def process_single_chunk(args_tuple):
                     if rdf_for_category is not None:
                         available_columns = set(str(c) for c in rdf_for_category.GetColumnNames())
                         if category not in available_columns:
-                            rdf_for_category = rdf_for_category.Define(category,cat_info["expression"])
+                            rdf_for_category = rdf_for_category.Define(category,cat_info["expression"].format(tot_suff=""))
                         rdf_filtered = rdf_for_category.Filter(f"{mass_region} && {category}",f"{mass_region}_{category}")
                     else:
                         rdf_filtered = None

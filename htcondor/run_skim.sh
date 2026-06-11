@@ -1,15 +1,24 @@
 #!/bin/bash
+set -euo pipefail
 
 export XRD_NETWORKSTACK=IPv4
-cd $2
-source /cvmfs/sft.cern.ch/lcg/views/LCG_105a_swan/x86_64-el9-gcc13-opt/setup.sh
-source /cvmfs/cms.cern.ch/cmsset_default.sh
-source env.sh
-export X509_USER_PROXY=$1
 
-IFS=',' read -r -a INPUT_FILES <<< "$4"
-IFS=',' read -r -a OUTPUT_FILES <<< "$6"
+proxy="$1"
+analysis_path="$2"
+era="$3"
+input_list="$4"
+dataset="$5"
+output_list="$6"
+cmssw_version="${7:-CMSSW_15_0_2}"
+
+cd "$analysis_path"
+
+source ./env.sh --cmssw-version "$cmssw_version"
+export X509_USER_PROXY="$proxy"
+
+IFS=',' read -r -a INPUT_FILES <<< "$input_list"
+IFS=',' read -r -a OUTPUT_FILES <<< "$output_list"
 
 for i in "${!INPUT_FILES[@]}"; do
-    python3 analysis/skim.py --era "$3" --input-file "${INPUT_FILES[$i]}" --dataset-name "$5" --output-file "${OUTPUT_FILES[$i]}"
+  python3 analysis/skim.py --era "$era" --input-file "${INPUT_FILES[$i]}" --dataset-name "$dataset" --output-file "${OUTPUT_FILES[$i]}"
 done

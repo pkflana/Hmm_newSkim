@@ -71,7 +71,7 @@ if not is_data:
 
     cols_to_save.extend(ortho_cols)
 
-    from analysis.gen_vbf_filter import ApplyGenVBFFilter
+    from common.gen_vbf_filter import ApplyGenVBFFilter
     df,cols_to_save = ApplyGenVBFFilter(df,cols_to_save, args.era, args.dataset_name, process)
 
 

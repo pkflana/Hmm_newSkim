@@ -10,7 +10,7 @@ jet_pt_min: 20.0
 jet_eta_max: 4.7
 # Espressione complessa specifica per l'anno 2024 (Tabella Run 3 Run Conditions)
 # Nota: 'Jet_p4' è il placeholder che il codice Python sostituirà con 'Jet_p4{suff}'
-jet_horn_veto_expr: "( abs(v_ops::eta(Jet_p4)) >= 2.5 && v_ops::pt(Jet_p4) < 50.0 ) "
+jet_horn_veto_expr: "( ( abs(v_ops::eta(Jet_p4)) >= 2.5 && abs(v_ops::eta(Jet_p4)) < 3.0) && v_ops::pt(Jet_p4) < 50.0 )"
 apply_jetveto_filter: False
 define_electron_cleaning: False
 
@@ -129,13 +129,6 @@ categories:
     expression: "baseline{tot_suff} && pt_lessthan30_and_TT{mu_suff} && chi2_sel{mu_suff}"
     store: True
 
-  # baseline_bothTrue:
-  #   store: True
-  #   expression: baseline && mu1_genPartFlav==1 && mu2_genPartFlav==1
-  # baseline_muonFakes:
-  #   store: True
-  #   expression: baseline && !(mu1_genPartFlav==1 && mu2_genPartFlav==1)
-
   # Definizione VBF senza alcuna logica nascosta nel C++
   VBF_def:
     expression: "HasVBF{jet_suff} && SelectedJet_pt{jet_suff}[VBFJetIdx_1{jet_suff}] >= 35 && SelectedJet_pt{jet_suff}[VBFJetIdx_2{jet_suff}] >= 25"
@@ -147,18 +140,3 @@ categories:
   ggF:
     expression: "baseline{tot_suff} && !(VBF_def{tot_suff})"
     store: True
-
-
-  VBF_lowPtTT:
-    expression: "baseline_lowPtTT{tot_suff} && VBF_def{tot_suff}"
-    store: True
-  ggF_lowPtTT:
-    expression: "baseline_lowPtTT{tot_suff} && !(VBF_def{tot_suff})"
-    store: True
-
-  # VBF_bothTrue:
-  #   store: True
-  #   expression:  VBF && mu1_genPartFlav==1 && mu2_genPartFlav==1
-  # VBF_muonFakes:
-  #   store: True
-  #   expression:  VBF && !(mu1_genPartFlav==1 && mu2_genPartFlav==1)

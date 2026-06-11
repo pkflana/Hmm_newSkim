@@ -1,6 +1,6 @@
 import os
 import yaml
-
+import argparse
 # voms-proxy-init --voms cms --valid 192:00
 
 # =========================================================
@@ -12,8 +12,22 @@ ANALYSIS_PATH = os.environ.get("ANALYSIS_PATH")
 if ANALYSIS_PATH is None:
     raise RuntimeError("Environment variable ANALYSIS_PATH is not set")
 
+parser = argparse.ArgumentParser(
+    description="Submit skim jobs to HTCondor with one Condor cluster per dataset."
+)
+parser.add_argument(
+    "-e",
+    "--era",
+    required=True,
+    help="Era to process, e.g. Run3_2022EE",
+)
+
+args = parser.parse_args()
+
+eras = args.era.split(",")
+
 CONFIG_PATH = os.path.join(ANALYSIS_PATH, "config")
-for era in ["Run3_2025"]: # "Run3_2022","Run3_2022EE","Run3_2023","Run3_2023BPix", "Run3_2024"
+for era in eras: # "Run3_2022","Run3_2022EE","Run3_2023","Run3_2023BPix", "Run3_2024"
     print(f"Processing era: {era}")
     skim_cfg_path = os.path.join(
         CONFIG_PATH,
@@ -39,7 +53,6 @@ for era in ["Run3_2025"]: # "Run3_2022","Run3_2022EE","Run3_2023","Run3_2023BPix
 
         if "datasets" in processes[key]:
             datasetlist.extend(processes[key]["datasets"])
-
         else:
             print(f"{key} has no datasets in process_names.yaml")
 
