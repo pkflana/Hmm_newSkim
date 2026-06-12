@@ -48,6 +48,16 @@ parser.add_argument(
         "print/write the missing-file report. Default: true."
     ),
 )
+parser.add_argument(
+    "--use-ext",
+    action=argparse.BooleanOptionalAction,
+    default=None,
+    help=(
+        "Use all nanoAOD paths listed for each sample, including ext samples, "
+        "when resolving DAS file lists on the fly. Default comes from "
+        "skim_cfg.yaml use_ext, or false if unset."
+    ),
+)
 args = parser.parse_args()
 
 era = args.era
@@ -117,6 +127,9 @@ proxy_location = skim_config["proxy_location"]
 cmssw_version = skim_config.get("cmssw_version", "CMSSW_15_0_2")
 
 submit_jobs = args.submit
+use_ext = args.use_ext
+if use_ext is None:
+    use_ext = skim_config.get("use_ext", False)
 
 MAX_PARALLEL_JOBS = args.max_parallel_jobs or skim_config.get("max_parallel_jobs", 6000)
 POLL_INTERVAL = args.poll_interval or skim_config.get("poll_interval", 120)
@@ -144,6 +157,13 @@ def as_list(value):
     if isinstance(value, list):
         return value
     return [value]
+
+
+def select_nanoaod_paths(nanoaod_paths, use_ext=False):
+    paths = as_list(nanoaod_paths)
+    if use_ext:
+        return paths
+    return paths[:1]
 
 
 def resolve_nanoaod_files(nanoaod_paths, instance=None):
@@ -602,6 +622,7 @@ selected_submit_jobs = 0
 hit_max_submit_jobs = False
 
 print("\n[INFO] Scanning datasets and checking existing outputs...")
+print(f"[INFO] use_ext={use_ext}")
 
 for dataset in all_datasets:
     if hit_max_submit_jobs:
@@ -616,8 +637,18 @@ for dataset in all_datasets:
             print(f"[WARNING] You don't have the filelist or nanoAOD for: {dataset}")
             continue
 
-        data[dataset]["filelist"] = resolve_nanoaod_files(
+        selected_nanoaod_paths = select_nanoaod_paths(
             data[dataset]["nanoAOD"],
+            use_ext=use_ext,
+        )
+        if len(as_list(data[dataset]["nanoAOD"])) > len(selected_nanoaod_paths):
+            print(
+                f"[INFO] {dataset}: use_ext=False, using only first nanoAOD "
+                f"path out of {len(as_list(data[dataset]['nanoAOD']))}."
+            )
+
+        data[dataset]["filelist"] = resolve_nanoaod_files(
+            selected_nanoaod_paths,
             instance=data[dataset].get("instance", None),
         )
 

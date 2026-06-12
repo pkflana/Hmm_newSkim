@@ -22,6 +22,15 @@ parser.add_argument(
     required=True,
     help="Era to process, e.g. Run3_2022EE",
 )
+parser.add_argument(
+    "--use-ext",
+    action=argparse.BooleanOptionalAction,
+    default=None,
+    help=(
+        "Use all nanoAOD paths listed for each sample, including ext samples. "
+        "Default comes from skim_cfg.yaml use_ext, or false if unset."
+    ),
+)
 
 args = parser.parse_args()
 
@@ -34,6 +43,13 @@ def as_list(value):
     if isinstance(value, list):
         return value
     return [value]
+
+
+def select_nanoaod_paths(nanoaod_paths, use_ext=False):
+    paths = as_list(nanoaod_paths)
+    if use_ext:
+        return paths
+    return paths[:1]
 
 
 def resolve_nanoaod_files(nanoaod_paths, instance=None):
@@ -81,6 +97,12 @@ for era in eras: # "Run3_2022","Run3_2022EE","Run3_2023","Run3_2023BPix", "Run3_
     with open(skim_cfg_path, "r") as skimconfig:
         skim_config = yaml.safe_load(skimconfig)
 
+    use_ext = args.use_ext
+    if use_ext is None:
+        use_ext = skim_config.get("use_ext", False)
+
+    print(f"[INFO] use_ext={use_ext}")
+
     samples_yaml = os.path.join(CONFIG_PATH, era, "samples.yaml")
     process_yaml = os.path.join(CONFIG_PATH, era, "process_names.yaml")
 
@@ -111,8 +133,18 @@ for era in eras: # "Run3_2022","Run3_2022EE","Run3_2023","Run3_2023BPix", "Run3_
             print(f"Missing nanoAOD for {key} in samples.yaml")
             continue
 
-        data[key]["filelist"] = resolve_nanoaod_files(
+        selected_nanoaod_paths = select_nanoaod_paths(
             data[key][nanoaod],
+            use_ext=use_ext,
+        )
+        if len(as_list(data[key][nanoaod])) > len(selected_nanoaod_paths):
+            print(
+                f"[INFO] {key}: use_ext=False, using only first nanoAOD path "
+                f"out of {len(as_list(data[key][nanoaod]))}."
+            )
+
+        data[key]["filelist"] = resolve_nanoaod_files(
+            selected_nanoaod_paths,
             instance=data[key].get("instance", None),
         )
 

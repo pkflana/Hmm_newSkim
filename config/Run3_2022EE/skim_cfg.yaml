@@ -4,6 +4,7 @@ job_flavour: microcentury
 
 chunk_size: 1        # files per job
 max_files: -1        # -1 = all files
+use_ext: false     # if true, use all nanoAOD paths in each list; otherwise only the first
 
 output_dir: /eos/cms/store/group/phys_higgs/cmshmm/vdamante/skim_v1_noUnc/
 
@@ -37,11 +38,12 @@ process_to_select:
   - EWK_2Mu2J_MLL_105to160_pythia
   - H_mainBckg
   - VV
+  - VH_inclusive
   - VVV
   - ST
   - TW
   - TTX
-  - VBFHto2Mu_m125_amcatnlo
+  - VBFHto2Mu_M125_amcatnlo
   - VBFHto2Mu_M125_powheg
   - VBFHto2Mu_m120
   - VBFHto2Mu_m130
@@ -55,5 +57,8 @@ process_to_select:
   - GluGluHto2Mu
   - GluGluHto2Mu_M120
   - GluGluHto2Mu_M130
+  - VHto2Mu
+  - TTHto2Mu
+  - TTH_inclusive
 
 proxy_location: /afs/cern.ch/work/v/vdamante/Hmm_newSkim/data/voms.proxy
