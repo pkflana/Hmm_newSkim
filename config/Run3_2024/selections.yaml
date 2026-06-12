@@ -114,19 +114,13 @@ jets_selection:
 
 categories:
   base_sel:
-    expression: "muons_OS_presel_trg{mu_suff} && SelectedJetTagSel{jet_suff}"
+    expression: "muons_OS_presel_trg{mu_suff} && mu_pt_sel{mu_suff} && SelectedJetTagSel{jet_suff}"
     store: True
   baseline:
-    expression: "base_sel{tot_suff} && mu1_ML{mu_suff} && mu2_ML{mu_suff}"
+    expression: "base_sel{tot_suff} && mu1_ML{mu_suff} && mu2_ML{mu_suff} && pt_lessthan30_and_TT{mu_suff}"
     store: True
   baseline_chi2:
     expression: "baseline{tot_suff} && chi2_sel{mu_suff}"
-    store: True
-  baseline_lowPtTT:
-    expression: "baseline{tot_suff} && pt_lessthan30_and_TT{mu_suff}"
-    store: True
-  baseline_chi2_lowPtTT:
-    expression: "baseline{tot_suff} && pt_lessthan30_and_TT{mu_suff} && chi2_sel{mu_suff}"
     store: True
 
   # Definizione VBF senza alcuna logica nascosta nel C++
@@ -139,13 +133,5 @@ categories:
     store: True
   ggF:
     expression: "baseline{tot_suff} && !(VBF_def{tot_suff})"
-    store: True
-
-
-  VBF_lowPtTT:
-    expression: "baseline_lowPtTT{tot_suff} && VBF_def{tot_suff}"
-    store: True
-  ggF_lowPtTT:
-    expression: "baseline_lowPtTT{tot_suff} && !(VBF_def{tot_suff})"
     store: True
 
