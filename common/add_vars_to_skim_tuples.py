@@ -227,6 +227,87 @@ def SoftJetCollectionCleaningInVBF(df):
     return df
 
 
+def _column_names(df):
+    return {str(col) for col in df.GetColumnNames()}
+
+
+def _selection_suffixes(syst_cfg=None, want_variations=False):
+    suffixes = [("", "", "")]
+
+    if not want_variations or not syst_cfg:
+        return suffixes
+
+    scales = syst_cfg.get("scales", ["up", "down"])
+
+    for syst_name, syst_info in syst_cfg.get("systematics", {}).items():
+        if syst_name == "Central":
+            continue
+
+        for scale in scales:
+            suffixes.append(
+                (
+                    f"_{syst_name}{scale.capitalize()}",
+                    syst_info.get("muon_suffix", "").format(scale=scale),
+                    syst_info.get("jet_suffix", "").format(scale=scale),
+                )
+            )
+
+    return suffixes
+
+
+def GetSelectionSuffixForSystematic(syst_name, syst_info=None):
+    if syst_name == "Central" or syst_info is None:
+        return ""
+
+    if not syst_info.get("muon_suffix", "") and not syst_info.get("jet_suffix", ""):
+        return ""
+
+    return f"_{syst_name}"
+
+
+def DefineHistogramSelections(df, sel_config, syst_cfg=None, want_variations=False):
+    """
+    Define mass-region and category columns used by histogram production.
+
+    The variation suffix policy mirrors analysis/other.py:
+      - final selection column: {selection}_{Systematic}{Up/Down}
+      - expression placeholders: {tot_suff}, {mu_suff}, {jet_suff}
+    """
+    selection_defs = {}
+
+    for section in ("masses_regions", "categories"):
+        selection_defs.update(sel_config.get(section, {}))
+
+    defined_columns = _column_names(df)
+
+    for sel_name, sel_content in selection_defs.items():
+        if isinstance(sel_content, dict):
+            base_expression = sel_content.get("expression", "")
+        else:
+            base_expression = sel_content
+
+        if not base_expression:
+            print(f"[WARNING] Empty selection expression for {sel_name}. Skipping.")
+            continue
+
+        for tot_suff, mu_suff, jet_suff in _selection_suffixes(
+            syst_cfg=syst_cfg,
+            want_variations=want_variations,
+        ):
+            column_name = f"{sel_name}{tot_suff}"
+
+            if column_name in defined_columns:
+                continue
+
+            expression = base_expression.format(
+                tot_suff=tot_suff,
+                mu_suff=mu_suff,
+                jet_suff=jet_suff,
+            )
+            df = df.Define(column_name, expression)
+            defined_columns.add(column_name)
+
+    return df
 
 
 def GetAllMuonsObservablesNew(df):

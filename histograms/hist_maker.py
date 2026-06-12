@@ -16,9 +16,12 @@ sys.path.append(os.environ["ANALYSIS_PATH"])
 
 import common.utilities as utilities
 from common.helpers import GetModel,GetRdfForDataset,get_root_files,get_valid_root_files,get_segmentation_dict,is_valid_tmp_root
+from common.add_vars_to_skim_tuples import DefineHistogramSelections, GetSelectionSuffixForSystematic
 HEADERS = ["analysis/AnalysisTools.h"]
 for header in HEADERS:
     utilities.DeclareHeader(f"{os.environ['ANALYSIS_PATH']}/{header}")
+
+DNN_Z_SIDEBAND_SHIFTED_PAYLOAD = "DNNZSidebandMassShift"
 
 def chunk_list(items, chunk_size):
     return [items[i:i + chunk_size] for i in range(0, len(items), chunk_size)]
@@ -31,6 +34,35 @@ def remove_file_if_exists(path):
             os.remove(path)
         except Exception as e:
             print(f"[WARNING] Could not remove file {path}: {e}")
+
+def has_usable_events_tree(path):
+    root_file = ROOT.TFile.Open(path, "READ")
+
+    if not root_file or root_file.IsZombie():
+        return False
+
+    tree = root_file.Get("Events")
+
+    if not tree:
+        root_file.Close()
+        return False
+
+    has_branches = tree.GetListOfBranches().GetEntries() > 0
+    root_file.Close()
+    return has_branches
+
+def filter_usable_chunk_files(chunk_files):
+    usable_files = []
+    skipped_files = []
+
+    for path in chunk_files:
+        if has_usable_events_tree(path):
+            usable_files.append(path)
+        else:
+            skipped_files.append(path)
+
+    return usable_files, skipped_files
+
 def print_chunk_error(chunk_index, chunk_files, error):
     print("\n" + "=" * 80)
     print(f"[ERROR] Chunk {chunk_index} failed")
@@ -44,6 +76,68 @@ def print_chunk_error(chunk_index, chunk_files, error):
     traceback.print_exc()
     print("=" * 80 + "\n")
 
+def format_systematic_info(syst_info, scale=None):
+    formatted = {}
+
+    for key, value in syst_info.items():
+        if isinstance(value, str) and scale is not None:
+            formatted[key] = value.replace("{scale}", scale)
+        else:
+            formatted[key] = value
+
+    return formatted
+
+def get_systs_to_run(syst_cfg, mode):
+    systs_to_run = {
+        "Central": syst_cfg["systematics"]["Central"]
+    }
+
+    if mode == "central":
+        return systs_to_run
+
+    scales = syst_cfg.get("scales", ["up", "down"])
+
+    for syst_name, syst_info in syst_cfg.get("systematics", {}).items():
+        if syst_name == "Central":
+            continue
+
+        for scale in scales:
+            output_name = f"{syst_name}{scale.capitalize()}"
+            systs_to_run[output_name] = format_systematic_info(syst_info, scale=scale)
+
+    for weight_name, weight_info in syst_cfg.get("weights", {}).items():
+        if weight_name == "Central":
+            continue
+
+        if "{scale}" in weight_name:
+            for scale in scales:
+                output_name = weight_name.format(scale=scale)
+                systs_to_run[output_name] = format_systematic_info(weight_info, scale=scale)
+        else:
+            systs_to_run[weight_name] = weight_info
+
+    return systs_to_run
+
+def should_shift_z_sideband_dnn_mass(args, mass_region, variable):
+    return (
+        args.shift_z_sideband_dnn_mass
+        and mass_region == "Z_sideband"
+        and variable == "DNN_NNOutput"
+    )
+
+def apply_z_sideband_mass_shifted_dnn(rdf, btag_algo):
+    from common.dnn_application import ApplyDNN
+
+    shifted_rdf = rdf.Redefine(
+        "m_mumu",
+        "static_cast<float>(115.0 + 0.5 * (m_mumu - 70.0))",
+    )
+    return ApplyDNN(
+        shifted_rdf,
+        [DNN_Z_SIDEBAND_SHIFTED_PAYLOAD],
+        btag_algo=btag_algo,
+    )
+
 def process_single_chunk(args_tuple):
     (chunk_index,n_chunks,chunk_files,args,is_data,syst_cfg,vars_to_make_hist,masses_regions,masses_regions_list,categories,categories_list,hist_cfg,systs_to_run,dnn_payloads,btag_algo) = args_tuple
     tmp_output = f"{args.output_file}.tmp_{chunk_index}.root"
@@ -51,13 +145,34 @@ def process_single_chunk(args_tuple):
         print(f"[CHUNK {chunk_index} / {n_chunks}] Starting with {len(chunk_files)} file(s)")
         # for f in chunk_files:
         #     print(f"[CHUNK {chunk_index}]   {f}")
-        chunk_seg_dict = get_segmentation_dict(args.input)# ,root_files=chunk_files)
-        print(f"[CHUNK {chunk_index} / {n_chunks}] Using {len(chunk_seg_dict)} segmentation entries for {len(chunk_files)} ROOT file(s)")
+        usable_chunk_files, skipped_empty_files = filter_usable_chunk_files(chunk_files)
 
-        rdf_base = GetRdfForDataset(input_dir=args.input,is_data=is_data,weight_dict=syst_cfg["weights"],store_shifted_weights=False,treeName="Events",explicit_files=chunk_files,seg_dict=chunk_seg_dict,skip_validation=True,dnn_payloads=dnn_payloads,btag_algo=btag_algo,additional_cuts = args.additional_cuts)
+        if skipped_empty_files:
+            print(
+                f"[CHUNK {chunk_index} / {n_chunks}] Skipping "
+                f"{len(skipped_empty_files)} file(s) with missing/empty Events branches."
+            )
+
+        chunk_seg_dict = get_segmentation_dict(args.input)# ,root_files=usable_chunk_files)
+        print(f"[CHUNK {chunk_index} / {n_chunks}] Using {len(chunk_seg_dict)} segmentation entries for {len(usable_chunk_files)} ROOT file(s)")
+
+        if usable_chunk_files:
+            rdf_base = GetRdfForDataset(input_dir=args.input,is_data=is_data,weight_dict=syst_cfg["weights"],store_shifted_weights=False,treeName="Events",explicit_files=usable_chunk_files,seg_dict=chunk_seg_dict,skip_validation=True,dnn_payloads=dnn_payloads,btag_algo=btag_algo,additional_cuts = args.additional_cuts)
+        else:
+            rdf_base = None
 
         if rdf_base is None:
             print(f"[CHUNK {chunk_index} / {n_chunks}] WARNING: rdf_base is None. Writing empty histograms.")
+        else:
+            rdf_base = DefineHistogramSelections(
+                rdf_base,
+                {
+                    "masses_regions": masses_regions,
+                    "categories": categories,
+                },
+                syst_cfg=syst_cfg,
+                want_variations=args.systematics != "central",
+            )
 
         outFile = ROOT.TFile(tmp_output, "RECREATE")
         if not outFile or outFile.IsZombie():
@@ -65,6 +180,7 @@ def process_single_chunk(args_tuple):
         booked_hists = []
         for syst_name, syst_info in systs_to_run.items():
             weight_name = syst_info["weight"]
+            selection_suffix = GetSelectionSuffixForSystematic(syst_name, syst_info)
             for mass_region, mass_info in masses_regions.items():
                 if mass_region not in masses_regions_list:
                     continue
@@ -77,10 +193,25 @@ def process_single_chunk(args_tuple):
                         continue
                     rdf_for_category = rdf_base
                     if rdf_for_category is not None:
+                        mass_region_column = f"{mass_region}{selection_suffix}"
+                        category_column = f"{category}{selection_suffix}"
                         available_columns = set(str(c) for c in rdf_for_category.GetColumnNames())
-                        if category not in available_columns:
-                            rdf_for_category = rdf_for_category.Define(category,cat_info["expression"].format(tot_suff=""))
-                        rdf_filtered = rdf_for_category.Filter(f"{mass_region} && {category}",f"{mass_region}_{category}")
+
+                        missing_selection_columns = [
+                            col
+                            for col in (mass_region_column, category_column)
+                            if col not in available_columns
+                        ]
+                        if missing_selection_columns:
+                            raise RuntimeError(
+                                "Missing histogram selection column(s): "
+                                + ", ".join(missing_selection_columns)
+                            )
+
+                        rdf_filtered = rdf_for_category.Filter(
+                            f"{mass_region_column} && {category_column}",
+                            f"{mass_region}_{category}_{syst_name}",
+                        )
                     else:
                         rdf_filtered = None
                     dir_ptr = utilities.mkdir_recursive(outFile,f"{mass_region}_{category}")
@@ -88,8 +219,21 @@ def process_single_chunk(args_tuple):
                         model = GetModel(hist_cfg, var, dims=1)
                         hist_name = var if syst_name == "Central" else f"{var}_{syst_name}"
                         if rdf_filtered is not None:
+                            rdf_for_hist = rdf_filtered
+                            hist_var = var
+
+                            if should_shift_z_sideband_dnn_mass(args, mass_region, var):
+                                rdf_for_hist = apply_z_sideband_mass_shifted_dnn(
+                                    rdf_for_hist,
+                                    btag_algo=btag_algo,
+                                )
+                                hist_var = f"{DNN_Z_SIDEBAND_SHIFTED_PAYLOAD}_NNOutput"
+
                             available_columns = set(str(c) for c in rdf_filtered.GetColumnNames())
-                            if var not in available_columns:
+                            if hist_var not in available_columns:
+                                available_columns = set(str(c) for c in rdf_for_hist.GetColumnNames())
+
+                            if hist_var not in available_columns:
                                 print(f"[CHUNK {chunk_index}] WARNING: variable '{var}' not found. Booking empty histogram.")
                                 hist = ROOT.TH1D(hist_name,hist_name,model.fNbinsX,model.fXLow,model.fXUp)
                                 hist.SetDirectory(0)
@@ -97,7 +241,7 @@ def process_single_chunk(args_tuple):
                                 continue
                             if weight_name not in available_columns:
                                 raise RuntimeError(f"Weight column '{weight_name}' not found for systematic '{syst_name}'")
-                            hist_ptr = rdf_filtered.Histo1D(model, var, weight_name)
+                            hist_ptr = rdf_for_hist.Histo1D(model, hist_var, weight_name)
                             booked_hists.append((dir_ptr, hist_name, hist_ptr, True))
                         else:
                             hist = ROOT.TH1D(hist_name,hist_name,model.fNbinsX,model.fXLow,model.fXUp)
@@ -153,6 +297,14 @@ if __name__ == "__main__":
     parser.add_argument("--force-multiprocessing-with-dnn", action="store_true")
     parser.add_argument("--multiprocessing-method", choices=["spawn", "fork"], default="spawn")
     parser.add_argument("--additional-cuts",type=str, default=None)
+    parser.add_argument(
+        "--shift-z-sideband-dnn-mass",
+        action="store_true",
+        help=(
+            "For Z_sideband DNN_NNOutput histograms, recompute the DNN after "
+            "mapping m_mumu from [70, 110] to [115, 135]."
+        ),
+    )
     args = parser.parse_args()
     startTime = time.time()
     if args.chunk_size < 1:
@@ -179,12 +331,7 @@ if __name__ == "__main__":
     if len(dnn_payloads) > 0 and args.n_cores > 1 and not args.force_multiprocessing_with_dnn:
         print("[WARNING] DNN payloads requested: forcing n_cores = 1.")
         args.n_cores = 1
-    systs_to_run = {
-        "Central": syst_cfg["systematics"]["Central"]
-    }
-    if args.systematics != "central":
-        systs_to_run.update(syst_cfg["systematics"])
-        systs_to_run.update(syst_cfg["weights"])
+    systs_to_run = get_systs_to_run(syst_cfg, args.systematics)
     all_root_files = get_root_files(args.input)
     if args.skip_file_validation:
         valid_root_files = all_root_files
@@ -249,7 +396,7 @@ if __name__ == "__main__":
     if args.n_cores == 1:
         for item in pool_inputs:
             chunk_index = item[0]
-            chunk_files = item[1]
+            chunk_files = item[2]
             tmp_output = f"{args.output_file}.tmp_{chunk_index}.root"
             if args.resume and is_valid_tmp_root(tmp_output):
                 print(f"[RESUME] Chunk {chunk_index} already processed: {tmp_output}")

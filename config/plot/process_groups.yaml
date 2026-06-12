@@ -1,0 +1,228 @@
+# Common plotting groups and colors for all eras.
+#
+# The process names listed here are the ROOT filenames without ".root" after
+# hadd_hists_to_processes.py, and the keys in config/<era>/process_names.yaml.
+
+process_scales:
+  # Apply the historical DY amc@nlo normalization only to selected samples.
+  # MiNNLO samples are intentionally not listed here.
+  DY: 0.9393839712918659
+  DYto2Mu_MLL105To160: 0.9393839712918659
+  DYto2Mu_MLL105To160_VBFFiltered: 0.9393839712918659
+  DYto2Mu_MLL105To160_Flashsim: 0.9393839712918659
+  DYto2Mu_MLL105To160_Flashsim: 0.9393839712918659
+  DYto2Mu_MLL105To160_nonStitched: 0.9393839712918659
+  DYto2Mu_MLL105To160_combined: 0.9393839712918659
+  DYto2Mu_Flashsim: 0.9393839712918659
+  DYto2Mu_Flashsim: 0.9393839712918659
+  DYto2L_Flashsim: 0.9393839712918659
+  DYto2L_Flashsim: 0.9393839712918659
+
+background_groups:
+  DY_amcatnlo:
+    name: "DY - amc@nlo"
+    color_mplhep: dodgerblue
+    processes:
+      - DY
+
+  DY_minnlo:
+    name: "DY - MiNNLO"
+    color_mplhep: dodgerblue
+    processes:
+      - DYto2Mu_minnlo
+
+
+  DYto2Mu_MLL105_160:
+    name: "DY - MLL(105-160)"
+    color_mplhep: dodgerblue
+    processes:
+      - DYto2Mu_MLL105To160
+
+  DYto2Mu_MLL105_160_Flashsim:
+    name: "DY - Flashsim"
+    color_mplhep: dodgerblue
+    processes:
+      - DYto2Mu_MLL105To160_Flashsim
+
+  DYto2Mu_MLL105_160_nonStitched:
+    name: "DY - non stitched"
+    color_mplhep: dodgerblue
+    processes:
+      - DYto2Mu_MLL105To160_nonStitched
+
+  DYto2Mu_MLL105_160_stitched:
+    name: "DY - MLL(105-160)"
+    color_mplhep: dodgerblue
+    processes:
+      - DYto2Mu_MLL105To160
+
+  DYto2Mu_MLL105_160_VBFFiltered_stitched:
+    name: "DY - MLL(105-160) VBF Fil"
+    color_mplhep: lightskyblue
+    processes:
+      - DYto2Mu_MLL105To160_VBFFiltered
+
+  DYto2Mu_MLL105_160_combined:
+    name: "DY - combined"
+    color_mplhep: dodgerblue
+    processes:
+      - DYto2Mu_MLL105To160_combined
+
+  DYto2Mu_Flashsim:
+    name: "DY - M50 - Flashsim"
+    color_mplhep: dodgerblue
+    processes:
+      - DYto2Mu_Flashsim
+      - DYto2Mu_Flashsim
+
+  DYto2L_Flashsim:
+    name: "DY - 2L - Flashsim"
+    color_mplhep: dodgerblue
+    processes:
+      - DYto2L_Flashsim
+      - DYto2L_Flashsim
+
+  EWK_inclusive:
+    name: "EWK inclusive"
+    color_mplhep: darkorchid
+    processes:
+      - EWK
+
+  EWK_MLL105_160_herwig:
+    name: "EWK - MLL(105-160) - Herwig"
+    color_mplhep: red # darkorchid
+    processes:
+      - EWK_2Mu2J_MLL_105to160_herwig
+
+  EWK_MLL105_160_pythia:
+    name: "EWK - MLL(105-160) - Pythia"
+    color_mplhep: navy
+    processes:
+      - EWK_2Mu2J_MLL_105to160_pythia
+
+  EWK_MLL105_160_Flashsim:
+    name: "EWK - MLL(105-160) - Flashsim"
+    color_mplhep: darkorchid
+    processes:
+      - EWK_2Mu2J_MLL_105to160_pythia_Flashsim
+
+  TT:
+    name: "t $\\bar{t}$"
+    color_mplhep: darkgreen
+    processes:
+      - TT
+
+  SingleTop:
+    name: "Single top"
+    color_mplhep: teal
+    processes:
+      - ST
+      - TW
+
+  TTX:
+    name: "TT+X"
+    color_mplhep: forestgreen
+    processes:
+      - TTX
+
+  WJets:
+    name: "W+jets"
+    color_mplhep: lightyellow
+    processes:
+      # - W
+      - W_NJets
+
+  SingleH:
+    name: "Single H"
+    color_mplhep: indigo
+    processes:
+      - H_mainBckg
+
+  DiTriBoson:
+    name: "VV+VVV"
+    color_mplhep: tomato
+    processes:
+      - VV
+      - VVV
+
+other_group:
+  enabled: true
+  key: other
+  name: "other"
+  color_mplhep: crimson
+
+signal_styles:
+  VBFHto2Mu_m125_Flashsim:
+    name: 'VBF H $\rightarrow$ $\mu\mu$ Flashsim'
+    color: deeppink
+  VBFHto2Mu_M125_amcatnlo:
+    name: 'VBF H $\rightarrow$ $\mu\mu$ amcatnlo'
+    color: magenta
+  VBFHto2Mu_m125_amcatnlo:
+    name: 'VBF H $\rightarrow$ $\mu\mu$ amcatnlo'
+    color: fuchsia
+  VBFHto2Mu_M125_powheg:
+    name: 'VBF H $\rightarrow$ $\mu\mu$ powheg'
+    color: mediumvioletred
+  VBFHto2Mu_M120:
+    name: 'VBF H $\rightarrow$ $\mu\mu$ m120'
+    color: orchid
+  VBFHto2Mu_m120:
+    name: 'VBF H $\rightarrow$ $\mu\mu$ m120'
+    color: plum
+  VBFHto2Mu_M130:
+    name: 'VBF H $\rightarrow$ $\mu\mu$ m130'
+    color: hotpink
+  VBFHto2Mu_m130:
+    name: 'VBF H $\rightarrow$ $\mu\mu$ m130'
+    color: violet
+  VBFHto2Mu_m125_tuneDown:
+    name: 'VBF H $\rightarrow$ $\mu\mu$ tune down'
+    color: palevioletred
+  VBFHto2Mu_m125_tuneCP5Up:
+    name: 'VBF H $\rightarrow$ $\mu\mu$ tune up'
+    color: darkmagenta
+  VBFHto2Mu_m125_tuneUp:
+    name: 'VBF H $\rightarrow$ $\mu\mu$ tune up'
+    color: purple
+  VBFHto2Mu_Herwig:
+    name: 'VBF H $\rightarrow$ $\mu\mu$ Herwig'
+    color: mediumorchid
+
+  GluGluHto2Mu_M125_minnlo:
+    name: 'ggH $\rightarrow$ $\mu\mu$ MiNNLO'
+    color: cyan
+  GluGluHto2Mu_MiNNLO:
+    name: 'ggH $\rightarrow$ $\mu\mu$ MiNNLO'
+    color: deepskyblue
+  GluGluHto2Mu_M125:
+    name: 'ggH $\rightarrow$ $\mu\mu$'
+    color: aqua
+  GluGluHto2Mu:
+    name: 'ggH $\rightarrow$ $\mu\mu$'
+    color: turquoise
+  GluGluHto2Mu_amcatnlo:
+    name: 'ggH $\rightarrow$ $\mu\mu$ amcatnlo'
+    color: mediumturquoise
+  GluGluHto2Mu_M120:
+    name: 'ggH $\rightarrow$ $\mu\mu$ m120'
+    color: paleturquoise
+  GluGluHto2Mu_M130:
+    name: 'ggH $\rightarrow$ $\mu\mu$ m130'
+    color: darkturquoise
+  GluGluHto2Mu_tuneDown:
+    name: 'ggH $\rightarrow$ $\mu\mu$ tune down'
+    color: lightseagreen
+  GluGluHto2Mu_tuneUp:
+    name: 'ggH $\rightarrow$ $\mu\mu$ tune up'
+    color: teal
+
+  VHto2Mu:
+    name: 'VH $\rightarrow$ $\mu\mu$'
+    color: red
+  TTHto2Mu:
+    name: 'ttH $\rightarrow$ $\mu\mu$'
+    color: darkorange
+  TTH_inclusive:
+    name: "ttH"
+    color: orangered

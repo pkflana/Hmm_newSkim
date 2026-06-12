@@ -12,6 +12,7 @@ Dataset groups:
   DY_amcatnlo
   DY_amcatnlo_105_160
   DY_amcatnlo_105_160_stitched
+  DY_amcatnlo_105_160_VBFFil
   DY_minnlo
   EWK
   signals
@@ -184,6 +185,17 @@ add_dy_105_160_jobs() {
     add_job "${dataset_name}" 20 "_nonStitched"
   done
 }
+add_dy_105_160_VBFFil_stitched_jobs() {
+  local era="$1"
+
+  case "${era}" in
+    Run3_2024|Run3_2025|Run3_2026) ;;
+    *) die "DY_amcatnlo_105_160_VBF_FIl_stitched is only configured for Run3_2024, Run3_2025, Run3_2026" ;;
+  esac
+
+  add_job DYto2Mu_MLL_105to160_amcatnloFXFX_Fil_VBF 20 "_stitched" --additional-cuts "GenVBFFilter==1"
+}
+
 
 add_dy_105_160_stitched_jobs() {
   local era="$1"
@@ -205,14 +217,14 @@ add_static_group_jobs() {
     DiTriBoson)
       chunk_size=30
       datasets=(
-        WW WWW_4F WWZ_4F WWto2L2Nu_powheg WWto4Q_powheg WWtoLNu2Q_powheg
-        WZ WZZ WZto2L2Q_powheg WZto3LNu_powheg WZtoLNu2Q_powheg
-        ZZ ZZZ ZZto2L2Nu_powheg ZZto2L2Q_powheg ZZto2Nu2Q_powheg ZZto4L_powheg
+        WWW_4F WWZ_4F WWto2L2Nu_powheg WWto4Q_powheg WWtoLNu2Q_powheg
+        WZZ WZto2L2Q_powheg WZto3LNu_powheg WZtoLNu2Q_powheg
+        ZZZ ZZto2L2Nu_powheg ZZto2L2Q_powheg ZZto2Nu2Q_powheg ZZto4L_powheg
       )
       ;;
     DY_minnlo)
       chunk_size=30
-      datasets=(DYto2Mu_MLL_50to130_powheg_minnlo)
+      datasets=( DYto2Mu_MLL_1000to1500_powheg_minnlo  DYto2Mu_MLL_1500to2000_powheg_minnlo DYto2Mu_MLL_2000to4000_powheg_minnlo DYto2Mu_MLL_200to400_powheg_minnlo DYto2Mu_MLL_4000to6000_powheg_minnlo DYto2Mu_MLL_400to600_powheg_minnlo DYto2Mu_MLL_50to130_powheg_minnlo DYto2Mu_MLL_6000to13600_powheg_minnlo DYto2Mu_MLL_600to800_powheg_minnlo DYto2Mu_MLL_130to200_powheg_minnlo)
       ;;
     EWK)
       datasets=(EWK_2L2J_madgraph_herwig EWK_2Mu2J_MLL_105to160_herwig EWK_2Mu2J_MLL_105to160_pythia EWK_2Mu2J_MLL_105to160_pythia_Flashsim)
@@ -244,7 +256,7 @@ add_static_group_jobs() {
       ;;
     TTX)
       chunk_size=10
-      datasets=(TTto4Q TTtoLNu2Q)
+      datasets=(TTH_Hto2Mu TTHto2B_M125 TTHtoNon2B_M125 TTWH TTWW TTZH_ZHto4B TTZ_Zto2Q TTto2L2Nu TTto4Q TTtoLNu2Q)
       ;;
     *)
       die "Internal error: unknown static group '${group}'"
@@ -283,6 +295,7 @@ normalize_group() {
     dy_amcatnlo|DY_amcatnlo) echo "DY_amcatnlo" ;;
     dy_amcatnlo_105_160|DY_amcatnlo_105_160) echo "DY_amcatnlo_105_160" ;;
     dy_amcatnlo_105_160_stitched|DY_amcatnlo_105_160_stitched) echo "DY_amcatnlo_105_160_stitched" ;;
+    DY_amcatnlo_105_160_VBFFil|dy_amcatnlo_105_160_VBFFil) echo "DY_amcatnlo_105_160_VBFFil";;
     dy_minnlo|DY_minnlo) echo "DY_minnlo" ;;
     ewk|EWK) echo "EWK" ;;
     signals|Signals) echo "signals" ;;
@@ -352,7 +365,7 @@ done
 [[ -n "${era}" ]] || die "Missing --era"
 require_known_era "${era}"
 
-all_groups=(data DiTriBoson DY_amcatnlo DY_amcatnlo_105_160 DY_amcatnlo_105_160_stitched DY_minnlo EWK signals SingleH SingleTop TTX W)
+all_groups=(data DiTriBoson DY_amcatnlo DY_amcatnlo_105_160 DY_amcatnlo_105_160_stitched DY_amcatnlo_105_160_VBFFil DY_minnlo EWK signals SingleH SingleTop TTX W)
 normalized_groups=()
 for group in "${dataset_groups[@]}"; do
   group="$(normalize_group "${group}")"
@@ -374,6 +387,7 @@ for group in "${normalized_groups[@]}"; do
     DY_amcatnlo) add_dy_amcatnlo_jobs "${era}" ;;
     DY_amcatnlo_105_160) add_dy_105_160_jobs "${era}" ;;
     DY_amcatnlo_105_160_stitched) add_dy_105_160_stitched_jobs "${era}" ;;
+    DY_amcatnlo_105_160_VBFFil) add_dy_105_160_VBFFil_stitched_jobs "${era}" ;;
     W) add_w_jobs "${era}" ;;
     DiTriBoson|DY_minnlo|EWK|signals|SingleH|SingleTop|TTX) add_static_group_jobs "${group}" ;;
     *) die "Internal error: unhandled group '${group}'" ;;

@@ -2,7 +2,7 @@
 submit: true
 job_flavour: microcentury
 
-chunk_size: 6        # files per job
+chunk_size: 1        # files per job
 max_files: -1        # -1 = all files
 
 output_dir: /eos/cms/store/group/phys_higgs/cmshmm/vdamante/skim_v1_noUnc/
