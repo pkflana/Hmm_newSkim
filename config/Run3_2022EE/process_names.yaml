@@ -77,7 +77,7 @@ W_NJets:
   datasets:
     - WtoLNu_0J_amcatnloFXFX
     - WtoLNu_1J_amcatnloFXFX
-    - WtoLNu_2J_amcatnloFXFX
+    - WtoLNu_2J_amcatnloFXFX 
 
 ############## EWK ##############
 EWK_LLJJ:
@@ -206,7 +206,7 @@ TTX:
 
 
 ############## VBF signal ##############
-VBFHto2Mu_m125_amcatnlo:
+VBFHto2Mu_M125_amcatnlo:
   name: "VBFHto2Mu amcatnlo"
   is_signal: true
   color: darkgreen
@@ -252,10 +252,7 @@ VBFHto2Mu_Herwig:
   name: "VBFHto2Mu H"
   is_signal: true
   color: fuchsia
-  datasets:
-    - VBFHto2Mu_M-125_13p6TeV_powheg-herwig7
-    - VBFHto2Mu_M-125_13p6TeV_powheg-herwig7_ext1
-    - VBFHto2Mu_M-125_13p6TeV_powheg-herwig7_ext2
+  datasets: []
 
 ############## ggH signal ##############
 GluGluHto2Mu_tuneDown:

@@ -44,6 +44,9 @@ page_setup:
     # - channel_label
   legend: legend_mplhep
 
+auto_trim_empty_edges: true
+auto_trim_min_empty_edge_bins: 2
+auto_trim_keep_edge_bins: 0
 
 legend_mplhep:
   pos_ref: inner_left_top

@@ -3,9 +3,10 @@
 import argparse
 import getpass
 import os
+import shlex
+import subprocess
 import time
 import yaml
-import htcondor
 from collections import defaultdict, OrderedDict
 
 
@@ -37,6 +38,25 @@ parser.add_argument(
     help=(
         "Submit at most this many jobs in total. Useful for quick tests, "
         "e.g. --max-submit-jobs 1."
+    ),
+)
+parser.add_argument(
+    "--submit",
+    action=argparse.BooleanOptionalAction,
+    default=True,
+    help=(
+        "Submit jobs after checking missing outputs. Use --no-submit to only "
+        "print/write the missing-file report. Default: true."
+    ),
+)
+parser.add_argument(
+    "--use-ext",
+    action=argparse.BooleanOptionalAction,
+    default=None,
+    help=(
+        "Use all nanoAOD paths listed for each sample, including ext samples, "
+        "when resolving DAS file lists on the fly. Default comes from "
+        "skim_cfg.yaml use_ext, or false if unset."
     ),
 )
 args = parser.parse_args()
@@ -78,9 +98,14 @@ with open(samples_yaml, "r") as samples_config:
 # HTCondor setup
 # =========================================================
 
-schedd = htcondor.Schedd()
-credd = htcondor.Credd()
-credd.add_user_cred(htcondor.CredTypes.Kerberos, None)
+if args.submit:
+    import htcondor
+
+    schedd = htcondor.Schedd()
+    credd = htcondor.Credd()
+    credd.add_user_cred(htcondor.CredTypes.Kerberos, None)
+else:
+    schedd = None
 
 
 # =========================================================
@@ -100,9 +125,22 @@ process_to_select = skim_config.get("process_to_select", [])
 
 output_directory = os.path.abspath(skim_config["output_dir"])
 proxy_location = skim_config["proxy_location"]
+proxy_location = os.path.abspath(os.path.expanduser(proxy_location))
+if "X509_USER_PROXY" not in os.environ:
+    if os.path.exists(proxy_location):
+        os.environ["X509_USER_PROXY"] = proxy_location
+        print(f"Using X509_USER_PROXY={proxy_location}")
+    else:
+        print(
+            f"[WARNING] X509_USER_PROXY is not set and proxy_location does not "
+            f"exist: {proxy_location}"
+        )
 cmssw_version = skim_config.get("cmssw_version", "CMSSW_15_0_2")
 
-submit_jobs = skim_config.get("submit", True)
+submit_jobs = args.submit
+use_ext = args.use_ext
+if use_ext is None:
+    use_ext = skim_config.get("use_ext", False)
 
 MAX_PARALLEL_JOBS = args.max_parallel_jobs or skim_config.get("max_parallel_jobs", 6000)
 POLL_INTERVAL = args.poll_interval or skim_config.get("poll_interval", 120)
@@ -124,6 +162,70 @@ WRITE_MISSING_FILES_DRYRUN = skim_config.get("write_missing_files_dryrun", True)
 
 def valid_file(path):
     return os.path.exists(path) and os.path.getsize(path) > 0
+
+
+def as_list(value):
+    if isinstance(value, list):
+        return value
+    return [value]
+
+
+def select_nanoaod_paths(nanoaod_paths, use_ext=False):
+    paths = as_list(nanoaod_paths)
+    if use_ext:
+        return paths
+    return paths[:1]
+
+
+def resolve_nanoaod_files(nanoaod_paths, instance=None):
+    resolved_files = []
+    seen_files = set()
+
+    for nanoaod_path in as_list(nanoaod_paths):
+        query = f"file dataset={nanoaod_path}"
+        if instance:
+            query += f" instance={instance}"
+
+        command = ["dasgoclient", f"--query={query}"]
+        print(f"[DAS] {shlex.join(command)}")
+
+        result = subprocess.run(
+            command,
+            text=True,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+        )
+        if result.returncode != 0:
+            print("\n[ERROR] DAS query failed")
+            print(f"[ERROR] nanoAOD path : {nanoaod_path}")
+            print(f"[ERROR] query        : {query}")
+            print(f"[ERROR] command      : {shlex.join(command)}")
+            print(f"[ERROR] return code  : {result.returncode}")
+            if result.stdout.strip():
+                print("[ERROR] stdout:")
+                print(result.stdout.strip())
+            if result.stderr.strip():
+                print("[ERROR] stderr:")
+                print(result.stderr.strip())
+            raise SystemExit(result.returncode)
+
+        filelist = result.stdout.splitlines()
+
+        for filepath in filelist:
+            eos_path = f"/eos/cms/{filepath}"
+
+            if os.path.exists(eos_path):
+                resolved_path = eos_path
+            else:
+                resolved_path = f"root://cms-xrd-global.cern.ch/{filepath}"
+
+            if resolved_path in seen_files:
+                continue
+
+            resolved_files.append(resolved_path)
+            seen_files.add(resolved_path)
+
+    return resolved_files
 
 
 def get_dataset_log_dir(dataset):
@@ -548,14 +650,35 @@ selected_submit_jobs = 0
 hit_max_submit_jobs = False
 
 print("\n[INFO] Scanning datasets and checking existing outputs...")
+print(f"[INFO] use_ext={use_ext}")
 
 for dataset in all_datasets:
     if hit_max_submit_jobs:
         break
 
-    if dataset not in data or "filelist" not in data[dataset]:
-        print(f"[WARNING] You don't have the filelist for: {dataset}")
+    if dataset not in data:
+        print(f"[WARNING] You don't have the sample entry for: {dataset}")
         continue
+
+    if "filelist" not in data[dataset]:
+        if "nanoAOD" not in data[dataset]:
+            print(f"[WARNING] You don't have the filelist or nanoAOD for: {dataset}")
+            continue
+
+        selected_nanoaod_paths = select_nanoaod_paths(
+            data[dataset]["nanoAOD"],
+            use_ext=use_ext,
+        )
+        if len(as_list(data[dataset]["nanoAOD"])) > len(selected_nanoaod_paths):
+            print(
+                f"[INFO] {dataset}: use_ext=False, using only first nanoAOD "
+                f"path out of {len(as_list(data[dataset]['nanoAOD']))}."
+            )
+
+        data[dataset]["filelist"] = resolve_nanoaod_files(
+            selected_nanoaod_paths,
+            instance=data[dataset].get("instance", None),
+        )
 
     ensure_dataset_dirs(dataset)
 
@@ -707,7 +830,7 @@ if MAX_SUBMIT_JOBS is not None:
 # =========================================================
 
 if not submit_jobs:
-    print("[DRY RUN] submit: False")
+    print("[DRY RUN] --no-submit")
     print("[DRY RUN] No jobs submitted.")
     raise SystemExit(0)
 

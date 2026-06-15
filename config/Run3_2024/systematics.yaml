@@ -44,10 +44,10 @@ weights:
       weight_lumi *
       weight_xs *
       weight_pu *
-      weight_mu1_LoosePFIso_MediumID_Central *
-      weight_mu1_MediumID_Trk_Central *
-      weight_mu2_LoosePFIso_MediumID_Central *
-      weight_mu2_MediumID_Trk_Central *
+      ((mu1_pt < 30) ? weight_mu1_TightPFIso_TightID_Central : weight_mu1_LoosePFIso_MediumID_Central) *
+      ((mu1_pt < 30) ? weight_mu1_TightID_Trk_Central : weight_mu1_MediumID_Trk_Central) *
+      ((mu2_pt < 30) ? weight_mu2_TightPFIso_TightID_Central : weight_mu2_LoosePFIso_MediumID_Central) *
+      ((mu2_pt < 30) ? weight_mu2_TightID_Trk_Central : weight_mu2_MediumID_Trk_Central) *
       weight_TrgSF_singleMu_IsoMu24Central
 
   # ========================================
@@ -64,10 +64,10 @@ weights:
       weight_lumi *
       weight_xs *
       weight_pu_{scale} *
-      weight_mu1_LoosePFIso_MediumID_Central *
-      weight_mu1_MediumID_Trk_Central *
-      weight_mu2_LoosePFIso_MediumID_Central *
-      weight_mu2_MediumID_Trk_Central *
+      ((mu1_pt < 30) ? weight_mu1_TightPFIso_TightID_Central : weight_mu1_LoosePFIso_MediumID_Central) *
+      ((mu1_pt < 30) ? weight_mu1_TightID_Trk_Central : weight_mu1_MediumID_Trk_Central) *
+      ((mu2_pt < 30) ? weight_mu2_TightPFIso_TightID_Central : weight_mu2_LoosePFIso_MediumID_Central) *
+      ((mu2_pt < 30) ? weight_mu2_TightID_Trk_Central : weight_mu2_MediumID_Trk_Central) *
       weight_TrgSF_singleMu_IsoMu24Central
 
   # ========================================
@@ -84,10 +84,10 @@ weights:
       weight_lumi *
       weight_xs *
       weight_pu *
-      weight_mu1_LoosePFIso_MediumID_Central *
-      weight_mu1_MediumID_Trk_{scale} *
-      weight_mu2_LoosePFIso_MediumID_Central *
-      weight_mu2_MediumID_Trk_{scale} *
+      ((mu1_pt < 30) ? weight_mu1_TightPFIso_TightID_Central : weight_mu1_LoosePFIso_MediumID_Central) *
+      ((mu1_pt < 30) ? weight_mu1_TightID_Trk_{scale} : weight_mu1_MediumID_Trk_{scale}) *
+      ((mu2_pt < 30) ? weight_mu2_TightPFIso_TightID_Central : weight_mu2_LoosePFIso_MediumID_Central) *
+      ((mu2_pt < 30) ? weight_mu2_TightID_Trk_{scale} : weight_mu2_MediumID_Trk_{scale}) *
       weight_TrgSF_singleMu_IsoMu24Central
 
   MuonIso_{scale}:
@@ -100,10 +100,10 @@ weights:
       weight_lumi *
       weight_xs *
       weight_pu *
-      weight_mu1_LoosePFIso_MediumID_{scale} *
-      weight_mu1_MediumID_Trk_Central *
-      weight_mu2_LoosePFIso_MediumID_{scale} *
-      weight_mu2_MediumID_Trk_Central *
+      ((mu1_pt < 30) ? weight_mu1_TightPFIso_TightID_{scale} : weight_mu1_LoosePFIso_MediumID_{scale}) *
+      ((mu1_pt < 30) ? weight_mu1_TightID_Trk_Central : weight_mu1_MediumID_Trk_Central) *
+      ((mu2_pt < 30) ? weight_mu2_TightPFIso_TightID_{scale} : weight_mu2_LoosePFIso_MediumID_{scale}) *
+      ((mu2_pt < 30) ? weight_mu2_TightID_Trk_Central : weight_mu2_MediumID_Trk_Central) *
       weight_TrgSF_singleMu_IsoMu24Central
 
   # ========================================
@@ -120,9 +120,8 @@ weights:
       weight_lumi *
       weight_xs *
       weight_pu *
-      weight_mu1_LoosePFIso_MediumID_Central *
-      weight_mu1_MediumID_Trk_Central *
-      weight_mu2_LoosePFIso_MediumID_Central *
-      weight_mu2_MediumID_Trk_Central *
+      ((mu1_pt < 30) ? weight_mu1_TightPFIso_TightID_Central : weight_mu1_LoosePFIso_MediumID_Central) *
+      ((mu1_pt < 30) ? weight_mu1_TightID_Trk_Central : weight_mu1_MediumID_Trk_Central) *
+      ((mu2_pt < 30) ? weight_mu2_TightPFIso_TightID_Central : weight_mu2_LoosePFIso_MediumID_Central) *
+      ((mu2_pt < 30) ? weight_mu2_TightID_Trk_Central : weight_mu2_MediumID_Trk_Central) *
       weight_TrgSF_singleMu_IsoMu24{scale}
-

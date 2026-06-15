@@ -34,7 +34,7 @@ DYto2Mu_MLL105To160_FlashSim:
 TT:
   name: "t $\\bar{t}$"
   color: green  # turquoise
-  sub_processes:
+  datasets:
     - TTto2L2Nu
     - TTtoLNu2Q
     - TTto4Q
@@ -77,7 +77,7 @@ W_NJets:
   datasets:
     - WtoLNu_0J_amcatnloFXFX
     - WtoLNu_1J_amcatnloFXFX
-    - WtoLNu_2J_amcatnloFXFX
+    - WtoLNu_2J_amcatnloFXFX 
 
 ############## EWK ##############
 EWK_LLJJ:
@@ -120,6 +120,7 @@ H_mainBckg:
     - GluGluHto2B_M125
     - VBFHto2B_M125
     - VBFHto2Tau_UncorrelatedDecay_UnFiltered
+    - VBFHto2Wto2L2Nu_M125
     - GluGluHto2Wto2L2Nu_M125
 
 ############## VV ##############
@@ -206,7 +207,7 @@ TTX:
 
 
 ############## VBF signal ##############
-VBFHto2Mu_m125_amcatnlo:
+VBFHto2Mu_M125_amcatnlo:
   name: "VBFHto2Mu amcatnlo"
   is_signal: true
   color: darkgreen
@@ -252,10 +253,7 @@ VBFHto2Mu_Herwig:
   name: "VBFHto2Mu H"
   is_signal: true
   color: fuchsia
-  datasets:
-    - VBFHto2Mu_M-125_13p6TeV_powheg-herwig7
-    - VBFHto2Mu_M-125_13p6TeV_powheg-herwig7_ext1
-    - VBFHto2Mu_M-125_13p6TeV_powheg-herwig7_ext2
+  datasets: [ ]
 
 ############## ggH signal ##############
 GluGluHto2Mu_tuneDown:

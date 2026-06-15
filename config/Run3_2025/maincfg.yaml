@@ -32,22 +32,23 @@ mu_weights_to_store: ["weight_mu1_IsoMu24_CutBasedIdMedium_and_PFIsoMedium_Centr
 
 variables:
   ## muMu system #
-  - DNN_NNOutput
+  # - DNN_NNOutput
   # - VBFNet_NNOutput
   # - PostVBFNetDNN_NNOutput
   - m_mumu
+  - m_mumu_noCorr
   - pt_mumu
   - eta_mumu
-  # - dR_mumu
+  - dR_mumu
   - mu1_pt
   - mu2_pt
   - mu1_eta
   - mu2_eta
-  - phi_CS
-  - cosTheta_CS
+  # - phi_CS
+  # - cosTheta_CS
 
   # ## Jets vars #
-  # - N_SelectedJets
+  - N_SelectedJets
   - leadingjet_pt
   - leadingjet_eta
   # - leadingjet_phi
@@ -80,11 +81,11 @@ variables:
   - vbfjet2_phi
 
   ## VBF jets + MUON
-  - Zeppenfeld_Var
-  - R_pt
-  - pt_centrality
-  - minDeltaPhi
-  - minDeltaEta
+  # - Zeppenfeld_Var
+  # - R_pt
+  # - pt_centrality
+  # - minDeltaPhi
+  # - minDeltaEta
 
   ## soft jet activity
   - SoftActivityJetHT

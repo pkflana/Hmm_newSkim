@@ -88,8 +88,9 @@ def is_valid_tmp_root(path):
 
 def get_segmentation_dict(input_dir, node="gen"):
     global_segmentation = {}
+    search_dir = os.path.dirname(input_dir) if input_dir.endswith(".root") else input_dir
 
-    for root, _, files in os.walk(input_dir):
+    for root, _, files in os.walk(search_dir):
         for f in files:
             if not f.endswith(".json"):
                 continue
@@ -127,6 +128,9 @@ def get_segmentation_dict(input_dir, node="gen"):
                 init_val = info["Initial"]
                 val = float(init_val) if not isinstance(init_val, dict) else sum(float(v) for v in init_val.values())
                 global_segmentation["return true;"] = global_segmentation.get("return true;", 0.0) + val
+
+    if not global_segmentation:
+        print(f"[WARNING] No segmentation JSON information found under: {search_dir}")
 
     return global_segmentation
 

@@ -6,7 +6,7 @@ DNN_NNOutput:
   x_rebin: [ 0.0, 0.22, 0.39, 0.51, 0.61, 0.7, 0.77, 0.82, 0.87, 0.91, 0.94, 0.96, 0.99, 1.0 ]
   blind_range:
     Signal_Fit_VBF: [ 0.8, 1. ]
-  max_y_sf: 1.8
+  max_y_sf: 1.
   divide_by_bin_width: False
 
 VBFNet_NNOutput:
@@ -15,7 +15,7 @@ VBFNet_NNOutput:
   x_rebin: [ 0.0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0 ]
   y_title: Events
   use_log_y: True
-  max_y_sf: 1.8
+  max_y_sf: 1.
   divide_by_bin_width: False
 
 PostVBFNetDNN_NNOutput:
@@ -24,7 +24,7 @@ PostVBFNetDNN_NNOutput:
   x_rebin: [ 0.0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0 ]
   y_title: Events
   use_log_y: True
-  max_y_sf: 1.8
+  max_y_sf: 1.
   divide_by_bin_width: False
 
 ########## \mu\mu BEGIN ##########
@@ -50,7 +50,7 @@ m_mumu(_.*)?:
   y_title: "$\\frac{\\mathrm{Events}}{\\mathrm{bin\\ width}}, \\left( \\frac{1}{\\mathrm{GeV}}\\right)$"
   use_log_x: False
   use_log_y: False
-  max_y_sf: 1.5
+  max_y_sf: 1.
   divide_by_bin_width: True
 
 pt_mumu(_.*)?:
@@ -60,7 +60,7 @@ pt_mumu(_.*)?:
   y_title: "$\\frac{\\mathrm{Events}}{\\mathrm{bin\\ width}}\\, \\left(\\frac{1}{\\mathrm{GeV}}\\right)$"
   use_log_x: False
   use_log_y: False
-  max_y_sf: 5.
+  max_y_sf: 1.
   divide_by_bin_width: True
 
 eta_mumu(_.*)?:
@@ -69,7 +69,7 @@ eta_mumu(_.*)?:
   x_title: "$\\eta(\\mu\\mu)$"
   y_title: Events
   use_log_y: False
-  max_y_sf: 5.
+  max_y_sf: 1.
   divide_by_bin_width: False
 
 
@@ -79,7 +79,7 @@ y_mumu(_.*)?:
   x_title: "$y(\\mu\\mu)$"
   y_title: Events
   use_log_y: False
-  max_y_sf: 5.
+  max_y_sf: 1.
   divide_by_bin_width: False
 
 
@@ -89,7 +89,7 @@ dR_mumu(_.*)?:
   x_title: "$\\Delta R(\\mu\\mu)$"
   y_title: Events
   use_log_y: False
-  max_y_sf: 2.
+  max_y_sf: 1.
   divide_by_bin_width: False
 
 phi_mumu(_.*)?:
@@ -98,7 +98,7 @@ phi_mumu(_.*)?:
   x_title: "$\\phi(\\mu\\mu)$"
   y_title: Events
   use_log_y: False
-  max_y_sf: 2.
+  max_y_sf: 1.
   divide_by_bin_width: False
 
 phi_CS(_.*)?:
@@ -107,7 +107,7 @@ phi_CS(_.*)?:
   x_title: "$\\phi_{CS}$"
   y_title: Events
   use_log_y: False
-  max_y_sf: 2.
+  max_y_sf: 1.
   divide_by_bin_width: False
 
 cosTheta_CS(_.*)?:
@@ -116,7 +116,7 @@ cosTheta_CS(_.*)?:
   x_title: "cos($\\theta_{CS}$)"
   y_title: Events
   use_log_y: False
-  max_y_sf: 2.
+  max_y_sf: 1.
   divide_by_bin_width: False
 
 
@@ -126,7 +126,7 @@ m_mumu_resolution(_.*)?:
   x_title: "$\\sigma_{m_{\\mu\\mu}}/m_{\\mu\\mu}$)"
   y_title: Events
   use_log_y: False
-  max_y_sf: 2.
+  max_y_sf: 1.
   divide_by_bin_width: False
 
 ########## \mu\mu END ##########
@@ -140,7 +140,7 @@ mu[0-9]+_pt(_.*)?:
   x_title: "$p_T(\\mu_{mu_idx}) (\\mathrm{{GeV}})$"
   y_title: "$\\frac{\\mathrm{Events}}{\\mathrm{bin\\ width}}\\, \\left(\\frac{1}{\\mathrm{{GeV}}}\\right)$"
   use_log_y: False
-  max_y_sf: 5.
+  max_y_sf: 1.
   divide_by_bin_width: True
 
 mu[0-9]+_bsConstrainedPt:
@@ -150,7 +150,7 @@ mu[0-9]+_bsConstrainedPt:
   y_title: "$\\frac{\\mathrm{Events}}{\\mathrm{bin\\ width}}\\, \\left(\\frac{1}{\\mathrm{{GeV}}}\\right)$"
   # y_title: Events
   use_log_y: False
-  max_y_sf: 5.
+  max_y_sf: 1.
   divide_by_bin_width: True
 
 mu[0-9]+_dxy(_.*)?:
@@ -159,7 +159,7 @@ mu[0-9]+_dxy(_.*)?:
   x_title: "$d_{{xy}}(\\mu_{mu_idx})$"
   y_title: Events
   use_log_y: False
-  max_y_sf: 2.
+  max_y_sf: 1.
   divide_by_bin_width: False
 
 mu[0-9]+_dz(_.*)?:
@@ -168,7 +168,7 @@ mu[0-9]+_dz(_.*)?:
   x_title: "$d_z(\\mu_{mu_idx})$"
   y_title: Events
   use_log_y: False
-  max_y_sf: 2.
+  max_y_sf: 1.
   divide_by_bin_width: False
 
 mu[0-9]+_eta(_.*)?:
@@ -177,7 +177,7 @@ mu[0-9]+_eta(_.*)?:
   x_title: "$\\eta(\\mu_{mu_idx})$"
   y_title: Events
   use_log_y: False
-  max_y_sf: 10.
+  max_y_sf: 1.
   divide_by_bin_width: False
 
 mu[0-9]+_phi(_.*)?:
@@ -186,7 +186,7 @@ mu[0-9]+_phi(_.*)?:
   x_title: "$\\phi(\\mu_{mu_idx})$"
   y_title: Events
   use_log_y: False
-  max_y_sf: 2.
+  max_y_sf: 1.
   divide_by_bin_width: False
 
 ########## \mu END ##########
@@ -198,7 +198,7 @@ N_SelectedJets:
   x_title: "$N_j$"
   y_title: Events
   use_log_y: False
-  max_y_sf: 2.
+  max_y_sf: 1.
   divide_by_bin_width: False
 
 SelectedJets_HT:
@@ -207,16 +207,16 @@ SelectedJets_HT:
   x_title: "Jet HT $"
   y_title: "$\\frac{Events}{bin width} \\left(\\frac{1}{GeV}\\right)$"
   use_log_y: False
-  max_y_sf: 2.
+  max_y_sf: 1.
   divide_by_bin_width: True
 
 (leading|subleading|third|fourth)jet_pt(_.*)?:
   x_bins: "1300|0:455"
-  x_rebin: [25.0, 30.0, 35.0, 40.0, 45.0, 50.0, 55.0, 60.0, 65.0, 70.0, 75.0, 80.0, 85.0, 90.0, 95.0, 100.0, 105.0, 110.0, 115.0, 120.0, 125.0, 130.0, 135.0, 140.0, 145.0, 150.0, 155.0, 160.0, 165.0, 170.0, 175.0, 180.0, 185.0, 190.0, 195.0, 200.0]
+  x_rebin: [ 25.0, 26.75, 28.5, 30.25, 32.0, 33.75, 35.5, 37.25, 39.0, 40.75, 42.5, 44.25, 46.0, 47.75, 49.5, 51.25, 53.0, 54.75, 56.5, 58.25, 60.0, 61.75, 63.5, 65.25, 67.0, 68.75, 70.5, 72.25, 74.0, 75.75, 77.5, 79.25, 81.0, 82.75, 84.5, 86.25, 88.0, 89.75, 91.5, 93.25, 95.0, 96.75, 98.5, 100.25, 102.0, 103.75, 105.5, 107.25, 109.0, 110.75, 112.5, 114.25, 116.0, 117.75, 119.5, 121.25, 123.0, 124.75, 126.5, 128.25, 130.0, 131.75, 133.5, 135.25, 137.0, 138.75, 140.5, 142.25, 144.0, 145.75, 147.5, 149.25, 151.0, 152.75, 154.5, 156.25, 158.0, 159.75, 161.5, 163.25, 165.0, 166.75, 168.5, 170.25, 172.0, 173.75, 175.5, 177.25, 179.0, 180.75, 182.5, 184.25, 186.0, 187.75, 189.5, 191.25, 193.0, 194.75, 196.5, 198.25, 200.0 ] # [25.0, 30.0, 35.0, 40.0, 45.0, 50.0, 55.0, 60.0, 65.0, 70.0, 75.0, 80.0, 85.0, 90.0, 95.0, 100.0, 105.0, 110.0, 115.0, 120.0, 125.0, 130.0, 135.0, 140.0, 145.0, 150.0, 155.0, 160.0, 165.0, 170.0, 175.0, 180.0, 185.0, 190.0, 195.0, 200.0]
   x_title: "$p_{{T}}({jname} jet) (GeV)$"
   y_title: "$\\frac{Events}{bin width} \\left(\\frac{1}{GeV}\\right)$"
   use_log_y: False
-  max_y_sf: 2.
+  max_y_sf: 1.
   divide_by_bin_width: True
 
 (leading|subleading|third|fourth)jet_eta(_.*)?:
@@ -225,7 +225,7 @@ SelectedJets_HT:
   x_title: "$\\eta({jname} jet)$"
   y_title: Events
   use_log_y: False
-  max_y_sf: 2.
+  max_y_sf: 1.
   divide_by_bin_width: False
 
 (leading|subleading|third|fourth)jet_phi(_.*)?:
@@ -234,7 +234,7 @@ SelectedJets_HT:
   x_title: "$\\phi({jname} jet)$"
   y_title: Events
   use_log_y: False
-  max_y_sf: 2.
+  max_y_sf: 1.
   divide_by_bin_width: False
 
 ########## jets BEGIN ##########
@@ -242,11 +242,11 @@ SelectedJets_HT:
 ########## VBFJets BEGIN ##########
 vbfjet[0-9]+_pt(_.*)?:
   x_bins: "1300|0:455"
-  x_rebin: [20.0,25.0, 30.0, 35.0, 40.0, 45.0, 50.0, 55.0, 60.0, 65.0, 70.0, 75.0, 80.0, 85.0, 90.0, 95.0, 100.0, 105.0, 110.0, 115.0, 120.0, 125.0, 130.0, 135.0, 140.0, 145.0, 150.0, 155.0, 160.0, 165.0, 170.0, 175.0, 180.0, 185.0, 190.0, 195.0, 200.0] #[ 25.0, 26.75, 28.5, 30.25, 32.0, 33.75, 35.5, 37.25, 39.0, 40.75, 42.5, 44.25, 46.0, 47.75, 49.5, 51.25, 53.0, 54.75, 56.5, 58.25, 60.0, 61.75, 63.5, 65.25, 67.0, 68.75, 70.5, 72.25, 74.0, 75.75, 77.5, 79.25, 81.0, 82.75, 84.5, 86.25, 88.0, 89.75, 91.5, 93.25, 95.0, 96.75, 98.5, 100.25, 102.0, 103.75, 105.5, 107.25, 109.0, 110.75, 112.5, 114.25, 116.0, 117.75, 119.5, 121.25, 123.0, 124.75, 126.5, 128.25, 130.0, 131.75, 133.5, 135.25, 137.0, 138.75, 140.5, 142.25, 144.0, 145.75, 147.5, 149.25, 151.0, 152.75, 154.5, 156.25, 158.0, 159.75, 161.5, 163.25, 165.0, 166.75, 168.5, 170.25, 172.0, 173.75, 175.5, 177.25, 179.0, 180.75, 182.5, 184.25, 186.0, 187.75, 189.5, 191.25, 193.0, 194.75, 196.5, 198.25, 200.0 ]
+  x_rebin: [ 25.0, 26.75, 28.5, 30.25, 32.0, 33.75, 35.5, 37.25, 39.0, 40.75, 42.5, 44.25, 46.0, 47.75, 49.5, 51.25, 53.0, 54.75, 56.5, 58.25, 60.0, 61.75, 63.5, 65.25, 67.0, 68.75, 70.5, 72.25, 74.0, 75.75, 77.5, 79.25, 81.0, 82.75, 84.5, 86.25, 88.0, 89.75, 91.5, 93.25, 95.0, 96.75, 98.5, 100.25, 102.0, 103.75, 105.5, 107.25, 109.0, 110.75, 112.5, 114.25, 116.0, 117.75, 119.5, 121.25, 123.0, 124.75, 126.5, 128.25, 130.0, 131.75, 133.5, 135.25, 137.0, 138.75, 140.5, 142.25, 144.0, 145.75, 147.5, 149.25, 151.0, 152.75, 154.5, 156.25, 158.0, 159.75, 161.5, 163.25, 165.0, 166.75, 168.5, 170.25, 172.0, 173.75, 175.5, 177.25, 179.0, 180.75, 182.5, 184.25, 186.0, 187.75, 189.5, 191.25, 193.0, 194.75, 196.5, 198.25, 200.0 ]
   x_title: "$p_{{T}}(vbfj_{jet_idx}) (GeV)$"
   y_title: "$\\frac{Events}{bin width} \\left(\\frac{1}{GeV}\\right)$"
   use_log_y: False
-  max_y_sf: 2.
+  max_y_sf: 1.
   divide_by_bin_width: True
 
 vbfjet[0-9]+_eta(_.*)?:
@@ -255,7 +255,7 @@ vbfjet[0-9]+_eta(_.*)?:
   x_title: "$\\eta(vbfj_{jet_idx})$"
   y_title: Events
   use_log_y: False
-  max_y_sf: 2.
+  max_y_sf: 1.
   divide_by_bin_width: False
 
 vbfjet[0-9]+_phi(_.*)?:
@@ -264,7 +264,7 @@ vbfjet[0-9]+_phi(_.*)?:
   x_title: "$\\phi(vbfj_{jet_idx})$"
   y_title: Events
   use_log_y: False
-  max_y_sf: 2.
+  max_y_sf: 1.
   divide_by_bin_width: False
 
 ########## VBFJets END ##########
@@ -281,16 +281,16 @@ m_jj(_.*)?:
   y_title: "$\\frac{Events}{bin width} \\left(\\frac{1}{GeV}\\right)$"
   use_log_x: False
   use_log_y: False
-  max_y_sf: 2.
+  max_y_sf: 1.
   divide_by_bin_width: True
 
 delta_eta_jj(_.*)?:
   x_bins: "400|-10.:10."
-  x_rebin: [2.4, 2.5, 2.6, 2.7, 2.8, 2.9, 3.0, 3.1, 3.2, 3.3, 3.4, 3.5, 3.6, 3.7, 3.8, 3.9, 4.0, 4.1, 4.2, 4.3, 4.4, 4.5, 4.6, 4.7, 4.8, 4.9, 5.0, 5.1, 5.2, 5.3, 5.4, 5.5, 5.6, 5.7, 5.8, 5.9, 6.0, 6.1, 6.2, 6.3, 6.4, 6.5, 6.6, 6.7, 6.8, 6.9, 7.0, 7.1, 7.2, 7.3, 7.4, 7.5, 7.6, 7.7, 7.8, 7.9, 8.0, 8.1, 8.2, 8.3, 8.4, 8.5, 8.6, 8.7, 8.8, 8.9, 9.0, 9.1, 9.2, 9.3, 9.4, 9.5, 9.6, 9.7, 9.8, 9.9, 10.0] #[ -9.0, -8.75, -8.5, -8.25, -8.0, -7.75, -7.5, -7.25, -7.0, -6.75, -6.5, -6.25, -6.0, -5.75, -5.5, -5.25, -5.0, -4.75, -4.5, -4.25, -4.0, -3.75, -3.5, -3.25, -3.0, -2.75, -2.5, -2.25, -2.0, -1.75, -1.5, -1.25, -1.0, -0.75, -0.5, -0.25, 0.0, 0.25, 0.5, 0.75, 1.0, 1.25, 1.5, 1.75, 2.0, 2.25, 2.5, 2.75, 3.0, 3.25, 3.5, 3.75, 4.0, 4.25, 4.5, 4.75, 5.0, 5.25, 5.5, 5.75, 6.0, 6.25, 6.5, 6.75, 7.0, 7.25, 7.5, 7.75, 8.0, 8.25, 8.5, 8.75, 9.0 ]
+  x_rebin: [0.0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0, 1.1, 1.2, 1.3, 1.4, 1.5, 1.6, 1.7, 1.8, 1.9, 2.0, 2.1, 2.2, 2.3, 2.4, 2.5, 2.6, 2.7, 2.8, 2.9, 3.0, 3.1, 3.2, 3.3, 3.4, 3.5, 3.6, 3.7, 3.8, 3.9, 4.0, 4.1, 4.2, 4.3, 4.4, 4.5, 4.6, 4.7, 4.8, 4.9, 5.0, 5.1, 5.2, 5.3, 5.4, 5.5, 5.6, 5.7, 5.8, 5.9, 6.0, 6.1, 6.2, 6.3, 6.4, 6.5, 6.6, 6.7, 6.8, 6.9, 7.0, 7.1, 7.2, 7.3, 7.4, 7.5, 7.6, 7.7, 7.8, 7.9, 8.0]
   x_title: "$\\Delta\\eta$(j1,j2)"
   y_title: Events
   use_log_y: False
-  max_y_sf: 2.
+  max_y_sf: 1.
   divide_by_bin_width: False
 
 Zeppenfeld_Var:
@@ -301,7 +301,7 @@ Zeppenfeld_Var:
   y_title: "$\\frac{\\mathrm{Events}}{\\mathrm{bin\\ width}}$"
   use_log_x: False
   use_log_y: False
-  max_y_sf: 2.
+  max_y_sf: 1.
   divide_by_bin_width: True
 
 pt_centrality:
@@ -311,7 +311,7 @@ pt_centrality:
   y_title: "$\\frac{\\mathrm{Events}}{\\mathrm{bin\\ width}}$"
   use_log_x: False
   use_log_y: False
-  max_y_sf: 2.
+  max_y_sf: 1.
   divide_by_bin_width: True
 
 R_pt:
@@ -321,7 +321,7 @@ R_pt:
   y_title: "$\\frac{\\mathrm{Events}}{\\mathrm{bin\\ width}}$"
   use_log_x: False
   use_log_y: False
-  max_y_sf: 2.
+  max_y_sf: 1.
   divide_by_bin_width: False
 
 minDeltaEta:
@@ -330,7 +330,7 @@ minDeltaEta:
   x_title: "min($\\Delta\\eta(\\mu\\mu, vbfj)$)"
   y_title: Events
   use_log_y: False
-  max_y_sf: 2.
+  max_y_sf: 1.
   divide_by_bin_width: False
 
 
@@ -340,7 +340,7 @@ minDeltaPhi:
   x_title: "min($\\Delta\\phi(\\mu\\mu, vbfj)$)"
   y_title: Events
   use_log_y: False
-  max_y_sf: 2.
+  max_y_sf: 1.
   divide_by_bin_width: False
 
 
@@ -350,7 +350,7 @@ SoftJetCleanedActivity_N:
   x_title: "SoftJetCleanedActivity - N "
   y_title: Events
   use_log_y: False
-  max_y_sf: 2.
+  max_y_sf: 1.
   divide_by_bin_width: False
 
 SoftActivityJetHT:
@@ -359,7 +359,7 @@ SoftActivityJetHT:
   x_title: "SoftActivityJetHT"
   y_title: "$\\frac{Events}{bin width} \\left(\\frac{1}{GeV}\\right)$"
   use_log_y: False
-  max_y_sf: 2.
+  max_y_sf: 1.
   divide_by_bin_width: True
 
 nSoftActivityJet:
@@ -368,7 +368,7 @@ nSoftActivityJet:
   x_title: "nSoftActivityJet"
   y_title: Events
   use_log_y: False
-  max_y_sf: 2.
+  max_y_sf: 1.
   divide_by_bin_width: False
 
 SoftJetActivity_NoOverlapWithMuonsAndEtaCleaning_N:
@@ -377,7 +377,7 @@ SoftJetActivity_NoOverlapWithMuonsAndEtaCleaning_N:
   x_title: "SoftJetCleanedAndEtaActivity - N "
   y_title: Events
   use_log_y: False
-  max_y_sf: 2.
+  max_y_sf: 1.
   divide_by_bin_width: False
 
 SoftJetCleanedActivity_ptSum:
@@ -386,7 +386,7 @@ SoftJetCleanedActivity_ptSum:
   x_title: "SoftJetCleanedActivity HT"
   y_title: "$\\frac{Events}{bin width} \\left(\\frac{1}{GeV}\\right)$"
   use_log_y: False
-  max_y_sf: 2.
+  max_y_sf: 1.
   divide_by_bin_width: True
 
 SoftJetActivity_NoOverlapWithMuonsAndEtaCleaning_ptSum:
@@ -395,5 +395,5 @@ SoftJetActivity_NoOverlapWithMuonsAndEtaCleaning_ptSum:
   x_title: "SoftJetActivity_NoOverlapWithMuonsAndEtaCleaning HT"
   y_title: "$\\frac{Events}{bin width} \\left(\\frac{1}{GeV}\\right)$"
   use_log_y: False
-  max_y_sf: 2.
+  max_y_sf: 1.
   divide_by_bin_width: True

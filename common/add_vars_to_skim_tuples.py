@@ -21,8 +21,8 @@ def SelectedJetObservablesDef(df):
             f"{jet_type}jet_p4",
             f"(SelectedJet_idx.size()>{jet_idx} && !SelectedJet_IsInsideHorn[{jet_idx}]) ? ROOT::Math::LorentzVector<ROOT::Math::PtEtaPhiM4D<double>>(SelectedJet_pt.at({jet_idx}), SelectedJet_eta.at({jet_idx}),SelectedJet_phi.at({jet_idx}), SelectedJet_mass.at({jet_idx})) : ROOT::Math::LorentzVector<ROOT::Math::PtEtaPhiM4D<double>>(-10000.,-10000.,-10000.,-10000.);",
         )
-    df = df.Define(f"delta_eta_jj_ls", "std::abs(leadingjet_eta - subleadingjet_eta)")
-    df = df.Define(f"m_jj_ls", "(leadingjet_p4+subleadingjet_p4).M()")
+    df = df.Define(f"delta_eta_jj_ls", "leadingjet_eta >=0 && subleadingjet_eta >=0? std::abs(leadingjet_eta - subleadingjet_eta) : -1000.f")
+    df = df.Define(f"m_jj_ls", "leadingjet_p4.M()>=0 && subleadingjet_p4.M() >=0 ? (leadingjet_p4+subleadingjet_p4).M(): -1000.f")
 
     return df
 
@@ -227,6 +227,96 @@ def SoftJetCollectionCleaningInVBF(df):
     return df
 
 
+def _column_names(df):
+    return {str(col) for col in df.GetColumnNames()}
+
+
+def _selection_suffixes(syst_cfg=None, want_variations=False):
+    suffixes = [("", "", "")]
+
+    if not want_variations or not syst_cfg:
+        return suffixes
+
+    scales = syst_cfg.get("scales", ["up", "down"])
+
+    for syst_name, syst_info in syst_cfg.get("systematics", {}).items():
+        if syst_name == "Central":
+            continue
+
+        for scale in scales:
+            suffixes.append(
+                (
+                    f"_{syst_name}{scale.capitalize()}",
+                    syst_info.get("muon_suffix", "").format(scale=scale),
+                    syst_info.get("jet_suffix", "").format(scale=scale),
+                )
+            )
+
+    return suffixes
+
+
+def GetSelectionSuffixForSystematic(syst_name, syst_info=None):
+    if syst_name == "Central" or syst_info is None:
+        return ""
+
+    if not syst_info.get("muon_suffix", "") and not syst_info.get("jet_suffix", ""):
+        return ""
+
+    return f"_{syst_name}"
+
+
+def DefineHistogramSelections(df, sel_config, syst_cfg=None, want_variations=False):
+    """
+    Define mass-region and category columns used by histogram production.
+
+    The variation suffix policy mirrors analysis/other.py:
+      - final selection column: {selection}_{Systematic}{Up/Down}
+      - expression placeholders: {tot_suff}, {mu_suff}, {jet_suff}
+    """
+    defined_columns = _column_names(df)
+
+    section_suffix_key = {
+        "masses_regions": "tot",
+        "muons_selection": "mu",
+        "jets_selection": "jet",
+        "categories": "tot",
+    }
+
+    for section, suffix_key in section_suffix_key.items():
+        for sel_name, sel_content in sel_config.get(section, {}).items():
+            if isinstance(sel_content, dict):
+                base_expression = sel_content.get("expression", "")
+            else:
+                base_expression = sel_content
+
+            if not base_expression:
+                print(f"[WARNING] Empty selection expression for {sel_name}. Skipping.")
+                continue
+
+            for tot_suff, mu_suff, jet_suff in _selection_suffixes(
+                syst_cfg=syst_cfg,
+                want_variations=want_variations,
+            ):
+                output_suff = {
+                    "tot": tot_suff,
+                    "mu": mu_suff,
+                    "jet": jet_suff,
+                }[suffix_key]
+                column_name = f"{sel_name}{output_suff}"
+
+                expression = base_expression.format(
+                    tot_suff=tot_suff,
+                    mu_suff=mu_suff,
+                    jet_suff=jet_suff,
+                )
+                if column_name in defined_columns:
+                    if section != "muons_selection":
+                        df = df.Redefine(column_name, expression)
+                else:
+                    df = df.Define(column_name, expression)
+                    defined_columns.add(column_name)
+
+    return df
 
 
 def GetAllMuonsObservablesNew(df):
@@ -282,6 +372,33 @@ def GetAllMuonsObservablesNew(df):
                     suff=pt_suffix,
                 ),
             )
+
+    columns = _column_names(df)
+    has_no_corr_pts = all(
+        f"mu{mu_idx}_pt_noCorr" in columns for mu_idx in [1, 2]
+    )
+
+    if has_no_corr_pts:
+        for mu_idx in [1, 2]:
+            p4_name = f"mu{mu_idx}_p4_noCorr"
+            if p4_name not in columns:
+                df = df.Define(
+                    p4_name,
+                    (
+                        f"ROOT::Math::LorentzVector<ROOT::Math::PtEtaPhiM4D<double>>"
+                        f"(mu{mu_idx}_pt_noCorr, mu{mu_idx}_eta, "
+                        f"mu{mu_idx}_phi, mu{mu_idx}_mass)"
+                    ),
+                )
+                columns.add(p4_name)
+
+        if "m_mumu_noCorr" not in columns:
+            df = df.Define(
+                "m_mumu_noCorr",
+                "(mu1_p4_noCorr + mu2_p4_noCorr).M()",
+            )
+            columns.add("m_mumu_noCorr")
+
     # for mu_idx in [1, 2]:
     #     df = df.Define(
     #         f"mu{mu_idx}_p4_noCorr",

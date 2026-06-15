@@ -14,12 +14,18 @@ def load_yaml_config(yaml_path):
             return None
 
 
+def hist_sum_value(histogram):
+    total = histogram.sum(flow=True)
+    return float(getattr(total, "value", total))
+
+
 def hadd_datasets_to_processes(era,input_dir, output_dir,dryRun=False):
     if not dryRun:
         import uproot
     yaml_file = f"config/{era}/process_names.yaml"  # Il tuo file YAML
     config = load_yaml_config(yaml_file)
     config_processnames = load_yaml_config(os.path.join("config", era, "skim_cfg.yaml"))["process_to_select"]
+    # print(config_processnames)
     if not config:
         return
 
@@ -87,24 +93,39 @@ def hadd_datasets_to_processes(era,input_dir, output_dir,dryRun=False):
             continue
 
         try:
-            with uproot.open(valid_dataset_files[0]) as first_file:
-                histo_keys = [k.split(";")[0] for k in first_file.keys()]
+            histo_keys = []
+            seen_keys = set()
+            for file_path in valid_dataset_files:
+                with uproot.open(file_path) as current_file:
+                    for key in current_file.keys():
+                        clean_key = key.split(";")[0]
+                        if clean_key in seen_keys:
+                            continue
+                        try:
+                            histo = current_file[clean_key]
+                        except Exception:
+                            continue
+                        if hasattr(histo, "to_numpy") or "TH" in str(type(histo)):
+                            histo_keys.append(clean_key)
+                            seen_keys.add(clean_key)
 
             summed_histograms = {}
 
             for file_path in valid_dataset_files:
                 with uproot.open(file_path) as current_file:
                     for key in histo_keys:
-                        if key in current_file:
+                        try:
                             histo = current_file[key]
-                            if (
-                                hasattr(histo, "to_numpy")
-                                or "TH" in str(type(histo))
-                            ):
-                                if key not in summed_histograms:
-                                    summed_histograms[key] = histo.to_hist()
-                                else:
-                                    summed_histograms[key] += histo.to_hist()
+                        except Exception:
+                            continue
+                        if hasattr(histo, "to_numpy") or "TH" in str(type(histo)):
+                            current_hist = histo.to_hist()
+                            if key not in summed_histograms:
+                                summed_histograms[key] = current_hist
+                            elif hist_sum_value(summed_histograms[key]) == 0.0 and hist_sum_value(current_hist) != 0.0:
+                                summed_histograms[key] = current_hist
+                            else:
+                                summed_histograms[key] = summed_histograms[key] + current_hist
 
             with uproot.recreate(output_file_path) as output_root:
                 for key, merged_hist in summed_histograms.items():

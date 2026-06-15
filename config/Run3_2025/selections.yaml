@@ -10,7 +10,9 @@ jet_pt_min: 20.0
 jet_eta_max: 4.7
 # Espressione complessa specifica per l'anno 2024 (Tabella Run 3 Run Conditions)
 # Nota: 'Jet_p4' è il placeholder che il codice Python sostituirà con 'Jet_p4{suff}'
-jet_horn_veto_expr: "abs(v_ops::eta(Jet_p4)) < 0" # no jet veto horn for 2025.. so always false
+# jet_horn_veto_expr: "false" # no jet veto horn for 2025.. so always false
+jet_horn_veto_expr: "(abs(v_ops::eta(Jet_p4)) < 0)" # no jet veto horn for 2025.. so always false
+# jet_horn_veto_expr: "abs(v_ops::eta(Jet_p4)) >= 0" # no jet veto horn for 2025.. so always false
 apply_jetveto_filter: False
 define_electron_cleaning: False
 
@@ -114,19 +116,13 @@ jets_selection:
 
 categories:
   base_sel:
-    expression: "muons_OS_presel_trg{mu_suff} && SelectedJetTagSel{jet_suff}"
+    expression: "muons_OS_presel_trg{mu_suff} && mu_pt_sel{mu_suff} && SelectedJetTagSel{jet_suff}"
     store: True
   baseline:
-    expression: "base_sel{tot_suff} && mu1_ML{mu_suff} && mu2_ML{mu_suff}"
+    expression: "base_sel{tot_suff} && mu1_ML{mu_suff} && mu2_ML{mu_suff} && pt_lessthan30_and_TT{mu_suff}"
     store: True
   baseline_chi2:
     expression: "baseline{tot_suff} && chi2_sel{mu_suff}"
-    store: True
-  baseline_lowPtTT:
-    expression: "baseline{tot_suff} && pt_lessthan30_and_TT{mu_suff}"
-    store: True
-  baseline_chi2_lowPtTT:
-    expression: "baseline{tot_suff} && pt_lessthan30_and_TT{mu_suff} && chi2_sel{mu_suff}"
     store: True
 
   # Definizione VBF senza alcuna logica nascosta nel C++
@@ -139,4 +135,28 @@ categories:
     store: True
   ggF:
     expression: "baseline{tot_suff} && !(VBF_def{tot_suff})"
+    store: True
+  ggF_0J:
+    expression: "ggF{tot_suff} && N_SelectedJets{jet_suff} == 0"
+    store: True
+  ggF_1J:
+    expression: "ggF{tot_suff} && N_SelectedJets{jet_suff} == 1"
+    store: True
+  ggF_ge2J:
+    expression: "ggF{tot_suff} && N_SelectedJets{jet_suff} >= 2"
+    store: True
+  VBF_ge2J:
+    expression: "VBF{tot_suff} && N_SelectedJets{jet_suff} >= 2"
+    store: True
+  ggF_Z_0J:
+    expression: "ggF_0J{tot_suff}"
+    store: True
+  ggF_Z_1J:
+    expression: "ggF_1J{tot_suff}"
+    store: True
+  ggF_Z_ge2J:
+    expression: "ggF_ge2J{tot_suff}"
+    store: True
+  VBF_Z_ge2J:
+    expression: "VBF_ge2J{tot_suff}"
     store: True
