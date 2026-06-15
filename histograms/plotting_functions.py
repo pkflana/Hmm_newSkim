@@ -288,6 +288,9 @@ def make_stacked_plot(
     do_stack=True,
     fill_hists=True,
     ratio_reference=None,
+    normalize_dy_to_data=False,
+    normalize_mc_to_data=False,
+    dy_normalization_sample="DY",
 ):
     """
     Genera uno stacked plot con:
@@ -435,6 +438,97 @@ def make_stacked_plot(
     if bin_edges is None:
         print(f"  [WARNING] Istogramma vuoto o mancante: {variable}")
         return
+
+    if normalize_mc_to_data:
+        if data_vals is None:
+            print(
+                f"  [WARNING] MC normalization requested for {variable}, "
+                "but data is not available."
+            )
+        elif not mc_vals:
+            print(
+                f"  [WARNING] MC normalization requested for {variable}, "
+                "but no background MC is available."
+            )
+        else:
+            normalization_bins = np.isfinite(data_vals)
+            data_integral = np.sum(data_vals[normalization_bins])
+            mc_integral = np.sum(
+                [np.sum(values[normalization_bins]) for values in mc_vals]
+            )
+
+            if mc_integral <= 0:
+                print(
+                    f"  [WARNING] MC normalization skipped for {variable}: "
+                    f"MC integral is {mc_integral:.6g}."
+                )
+            else:
+                mc_scale = data_integral / mc_integral
+
+                for idx, sample_key in enumerate(mc_keys):
+                    mc_vals[idx] = mc_vals[idx] * mc_scale
+                    mc_errs[idx] = mc_errs[idx] * mc_scale
+                    mc_integrals[idx] = mc_integrals[idx] * mc_scale
+
+                    sample_label = ratio_candidates[sample_key]["name"]
+                    mc_labels[idx] = (
+                        f"{sample_label} [{mc_integrals[idx]:.2f}]"
+                        f" x {mc_scale:.4g}"
+                    )
+                    ratio_candidates[sample_key]["values"] = mc_vals[idx]
+                    ratio_candidates[sample_key]["errors"] = mc_errs[idx]
+
+                print(
+                    f"  [MC NORM] {variable}: "
+                    f"scale all backgrounds by {mc_scale:.6g} "
+                    f"({mc_integral:.6g} -> {data_integral:.6g})"
+                )
+
+    if normalize_dy_to_data:
+        if data_vals is None:
+            print(
+                f"  [WARNING] DY normalization requested for {variable}, "
+                "but data is not available."
+            )
+        else:
+            dy_key = resolve_ratio_reference(dy_normalization_sample, ratio_candidates)
+
+            if dy_key is None or dy_key not in mc_keys:
+                print(
+                    f"  [WARNING] DY normalization sample "
+                    f"'{dy_normalization_sample}' not found among backgrounds "
+                    f"for {variable}."
+                )
+            else:
+                dy_idx = mc_keys.index(dy_key)
+                normalization_bins = np.isfinite(data_vals)
+                data_integral = np.sum(data_vals[normalization_bins])
+                dy_integral = np.sum(mc_vals[dy_idx][normalization_bins])
+
+                if dy_integral <= 0:
+                    print(
+                        f"  [WARNING] DY normalization skipped for {variable}: "
+                        f"DY integral is {dy_integral:.6g}."
+                    )
+                else:
+                    dy_scale = data_integral / dy_integral
+                    mc_vals[dy_idx] = mc_vals[dy_idx] * dy_scale
+                    mc_errs[dy_idx] = mc_errs[dy_idx] * dy_scale
+                    mc_integrals[dy_idx] = mc_integrals[dy_idx] * dy_scale
+
+                    dy_label = ratio_candidates[dy_key]["name"]
+                    mc_labels[dy_idx] = (
+                        f"{dy_label} [{mc_integrals[dy_idx]:.2f}]"
+                        f" x {dy_scale:.4g}"
+                    )
+                    ratio_candidates[dy_key]["values"] = mc_vals[dy_idx]
+                    ratio_candidates[dy_key]["errors"] = mc_errs[dy_idx]
+
+                    print(
+                        f"  [DY NORM] {variable}: "
+                        f"scale {dy_key} by {dy_scale:.6g} "
+                        f"({dy_integral:.6g} -> {data_integral:.6g})"
+                    )
 
     # =====================================================
     # Sort backgrounds by yield

@@ -17,6 +17,7 @@ sys.path.append(os.environ["ANALYSIS_PATH"])
 import common.utilities as utilities
 from common.helpers import GetModel,GetRdfForDataset,get_root_files,get_valid_root_files,get_segmentation_dict,is_valid_tmp_root
 from common.add_vars_to_skim_tuples import DefineHistogramSelections, GetSelectionSuffixForSystematic
+from common.dy_ptll_reweight import ApplyDYPtLLNJetsReweight
 HEADERS = ["analysis/AnalysisTools.h"]
 for header in HEADERS:
     utilities.DeclareHeader(f"{os.environ['ANALYSIS_PATH']}/{header}")
@@ -139,7 +140,7 @@ def apply_z_sideband_mass_shifted_dnn(rdf, btag_algo):
     )
 
 def process_single_chunk(args_tuple):
-    (chunk_index,n_chunks,chunk_files,args,is_data,syst_cfg,vars_to_make_hist,masses_regions,masses_regions_list,categories,categories_list,hist_cfg,systs_to_run,dnn_payloads,btag_algo) = args_tuple
+    (chunk_index,n_chunks,chunk_files,args,is_data,sel_cfg,syst_cfg,vars_to_make_hist,masses_regions,masses_regions_list,categories,categories_list,hist_cfg,systs_to_run,dnn_payloads,btag_algo) = args_tuple
     tmp_output = f"{args.output_file}.tmp_{chunk_index}.root"
     try:
         print(f"[CHUNK {chunk_index} / {n_chunks}] Starting with {len(chunk_files)} file(s)")
@@ -158,20 +159,30 @@ def process_single_chunk(args_tuple):
 
         if usable_chunk_files:
             rdf_base = GetRdfForDataset(input_dir=args.input,is_data=is_data,weight_dict=syst_cfg["weights"],store_shifted_weights=False,treeName="Events",explicit_files=usable_chunk_files,seg_dict=chunk_seg_dict,skip_validation=True,dnn_payloads=dnn_payloads,btag_algo=btag_algo,additional_cuts = args.additional_cuts)
+            # print(rdf_base.GetColumnNames())
         else:
             rdf_base = None
-
         if rdf_base is None:
             print(f"[CHUNK {chunk_index} / {n_chunks}] WARNING: rdf_base is None. Writing empty histograms.")
         else:
             rdf_base = DefineHistogramSelections(
                 rdf_base,
-                {
-                    "masses_regions": masses_regions,
-                    "categories": categories,
-                },
+                sel_cfg,
                 syst_cfg=syst_cfg,
                 want_variations=args.systematics != "central",
+            )
+            weight_columns = sorted(
+                {
+                    syst_info["weight"]
+                    for syst_info in systs_to_run.values()
+                    if "weight" in syst_info
+                }
+            )
+            rdf_base = ApplyDYPtLLNJetsReweight(
+                rdf_base,
+                args.dataset_name,
+                args.dy_ptll_njets_reweight_json,
+                weight_columns,
             )
 
         outFile = ROOT.TFile(tmp_output, "RECREATE")
@@ -298,6 +309,14 @@ if __name__ == "__main__":
     parser.add_argument("--multiprocessing-method", choices=["spawn", "fork"], default="spawn")
     parser.add_argument("--additional-cuts",type=str, default=None)
     parser.add_argument(
+        "--dy-ptll-njets-reweight-json",
+        default=None,
+        help=(
+            "JSON produced by histograms/derive_dy_ptll_njets_reweight.py. "
+            "When provided, only DY datasets get an extra pt(ll)/NJets weight."
+        ),
+    )
+    parser.add_argument(
         "--shift-z-sideband-dnn-mass",
         action="store_true",
         help=(
@@ -339,9 +358,16 @@ if __name__ == "__main__":
         valid_root_files = get_valid_root_files(all_root_files, tree_name="Events")
     valid_root_files = [os.path.abspath(f) for f in valid_root_files]
     if len(valid_root_files) == 0:
-        print("[ERROR] No valid ROOT files found. Exiting.")
-        sys.exit(1)
-    chunks = chunk_list(valid_root_files, args.chunk_size)
+        if len(all_root_files) == 0:
+            print("[ERROR] No ROOT files found. Exiting.")
+            sys.exit(1)
+        print(
+            "[WARNING] No ROOT files with a usable Events tree found. "
+            "Producing empty histograms."
+        )
+        chunks = [[]]
+    else:
+        chunks = chunk_list(valid_root_files, args.chunk_size)
     # print("\n" + "=" * 80)
     # print("[INFO] Histogram maker configuration")
     # print(f"[INFO] Era:              {args.era}")
@@ -366,7 +392,7 @@ if __name__ == "__main__":
         print("[DRYRUN] Chunks:")
         for idx, chunk_files in enumerate(chunks):
             print(f"\n[DRYRUN] Chunk {idx}: {len(chunk_files)} file(s)")
-            chunk_seg_dict = get_segmentation_dict(args.input, root_files=chunk_files)
+            chunk_seg_dict = get_segmentation_dict(args.input)
             print(f"[DRYRUN] Segmentation entries: {len(chunk_seg_dict)}")
             for f in chunk_files:
                 print(f"  {f}")
@@ -384,7 +410,7 @@ if __name__ == "__main__":
     pool_inputs = []
     n_chunks = len(chunks)
     for idx, chunk_files in enumerate(chunks):
-        pool_inputs.append((idx,n_chunks,chunk_files,args,is_data,syst_cfg,vars_to_make_hist,masses_regions,masses_regions_list,categories,categories_list,hist_cfg,systs_to_run,dnn_payloads,btag_algo))
+        pool_inputs.append((idx,n_chunks,chunk_files,args,is_data,sel_cfg,syst_cfg,vars_to_make_hist,masses_regions,masses_regions_list,categories,categories_list,hist_cfg,systs_to_run,dnn_payloads,btag_algo))
     tmp_files = []
     failed_chunks = []
     print("\n[INFO] Starting chunk processing...\n")

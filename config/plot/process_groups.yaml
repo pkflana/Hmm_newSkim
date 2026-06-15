@@ -37,30 +37,37 @@ background_groups:
     color_mplhep: dodgerblue
     processes:
       - DYto2Mu_MLL105To160
+      - DYto2Mu_MLL_105to160_amcatnloFXFX
+      - DYto2Mu_MLL_105to160_amcatnloFXFX_stitched
 
   DYto2Mu_MLL105_160_Flashsim:
     name: "DY - Flashsim"
     color_mplhep: dodgerblue
     processes:
       - DYto2Mu_MLL105To160_Flashsim
+      - DYto2Mu_MLL_105to160_amcatnloFXFX_Flashsim_nonStitched
+      - DYto2Mu_MLL_105to160_amcatnloFXFX_Flashsim
 
-  DYto2Mu_MLL105_160_nonStitched:
-    name: "DY - non stitched"
-    color_mplhep: dodgerblue
-    processes:
-      - DYto2Mu_MLL105To160_nonStitched
+  # DYto2Mu_MLL105_160_nonStitched:
+  #   name: "DY - non stitched"
+  #   color_mplhep: dodgerblue
+  #   processes:
+  #     - DYto2Mu_MLL105To160_nonStitched
+  #     - DYto2Mu_MLL_105to160_amcatnloFXFX_nonStitched
 
-  DYto2Mu_MLL105_160_stitched:
-    name: "DY - MLL(105-160)"
-    color_mplhep: dodgerblue
-    processes:
-      - DYto2Mu_MLL105To160
+  # DYto2Mu_MLL105_160_VBFFiltered_nonStitched:
+  #   name: "DY - MLL(105-160) VBF Fil"
+  #   color_mplhep: lightskyblue
+  #   processes:
+  #     - DYto2Mu_MLL105To160_VBFFiltered
+  #     - DYto2Mu_MLL_105to160_amcatnloFXFX_Fil_VBF_nonStitched
 
-  DYto2Mu_MLL105_160_VBFFiltered_stitched:
+  DYto2Mu_MLL105_160_VBFFiltered:
     name: "DY - MLL(105-160) VBF Fil"
     color_mplhep: lightskyblue
     processes:
       - DYto2Mu_MLL105To160_VBFFiltered
+      - DYto2Mu_MLL_105to160_amcatnloFXFX_Fil_VBF_stitched
 
   DYto2Mu_MLL105_160_combined:
     name: "DY - combined"
@@ -73,16 +80,14 @@ background_groups:
     color_mplhep: dodgerblue
     processes:
       - DYto2Mu_Flashsim
-      - DYto2Mu_Flashsim
 
   DYto2L_Flashsim:
     name: "DY - 2L - Flashsim"
     color_mplhep: dodgerblue
     processes:
       - DYto2L_Flashsim
-      - DYto2L_Flashsim
 
-  EWK_inclusive:
+  EWK:
     name: "EWK inclusive"
     color_mplhep: darkorchid
     processes:
@@ -90,7 +95,7 @@ background_groups:
 
   EWK_MLL105_160_herwig:
     name: "EWK - MLL(105-160) - Herwig"
-    color_mplhep: darkorchid # red # 
+    color_mplhep: darkorchid # red #
     processes:
       - EWK_2Mu2J_MLL_105to160_herwig
 

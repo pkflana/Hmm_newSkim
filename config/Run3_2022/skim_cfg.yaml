@@ -32,7 +32,7 @@ process_to_select:
   - DY
   - DYto2Mu_MLL105To160
   - TT
-  - W
+  # - W
   - W_NJets
   - EWK
   - EWK_2Mu2J_MLL_105to160_herwig
@@ -60,5 +60,5 @@ process_to_select:
   - VHto2Mu
   - TTHto2Mu
   - TTH_inclusive
-  
+
 proxy_location: /afs/cern.ch/work/v/vdamante/Hmm_newSkim/data/voms.proxy

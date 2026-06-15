@@ -43,6 +43,19 @@ def normalize_sample_name(name):
     return os.path.splitext(os.path.basename(name))[0]
 
 
+def parse_comma_separated_list(value):
+    if value is None:
+        return None
+
+    items = []
+    for item in value.split(","):
+        item = item.strip()
+        if item:
+            items.append(item)
+
+    return items
+
+
 def classify_sample(sample_name, process_cfg):
     """
     Classifica il sample usando process_names.yaml.
@@ -487,7 +500,57 @@ if __name__ == "__main__":
         ),
     )
 
+    parser.add_argument(
+        "--normalize-dy-to-data",
+        action="store_true",
+        help=(
+            "Scale one DY sample/group in each plot so that its integral "
+            "matches the data integral."
+        ),
+    )
+
+    parser.add_argument(
+        "--normalize-mc-to-data",
+        action="store_true",
+        help=(
+            "Scale all background MC samples in each plot with one common "
+            "factor so that the sum of MC integrals matches the data integral."
+        ),
+    )
+
+    parser.add_argument(
+        "--dy-normalization-sample",
+        default="DY",
+        type=str,
+        help=(
+            "Sample or plotting group to scale when --normalize-dy-to-data "
+            "is used. Default: DY. Examples: DY, DY_amcatnlo."
+        ),
+    )
+
+    parser.add_argument(
+        "--vars",
+        "--variables",
+        default=None,
+        type=str,
+        help=(
+            "Comma-separated list of variables to plot, "
+            "for example: --vars m_mumu,DNN_NNOutput. "
+            "If omitted, all variables found in the selected region are plotted."
+        ),
+    )
+
+
     args = parser.parse_args()
+    if args.normalize_dy_to_data and args.normalize_mc_to_data:
+        parser.error(
+            "--normalize-dy-to-data and --normalize-mc-to-data are mutually exclusive"
+        )
+
+    requested_variables = parse_comma_separated_list(args.vars)
+    requested_variables_set = (
+        set(requested_variables) if requested_variables is not None else None
+    )
 
     startTime = time.time()
 
@@ -690,6 +753,12 @@ if __name__ == "__main__":
 
             for available_hist, hist_name in available_hists:
 
+                if (
+                    requested_variables_set is not None
+                    and hist_name not in requested_variables_set
+                ):
+                    continue
+
                 var_entry = findBinEntry(hist_cfg, hist_name)
 
                 if var_entry is None or var_entry not in hist_cfg:
@@ -758,6 +827,12 @@ if __name__ == "__main__":
 
     if len(all_found_variables) == 0:
 
+        if requested_variables is not None:
+            print(
+                "[ERROR] None of the requested variables were found: "
+                f"{', '.join(requested_variables)}"
+            )
+
         print(
             f"[ERROR] Nessun istogramma valido trovato "
             f"per la regione {region_path}."
@@ -773,12 +848,33 @@ if __name__ == "__main__":
 
         os.makedirs(output_dir_path, exist_ok=True)
 
+        variables_to_plot = sorted(all_found_variables)
+
+        if requested_variables is not None:
+            missing_variables = [
+                variable
+                for variable in requested_variables
+                if variable not in all_found_variables
+            ]
+
+            if missing_variables:
+                print(
+                    "[WARNING] Requested variables not found in "
+                    f"{region_path}: {', '.join(missing_variables)}"
+                )
+
+            variables_to_plot = [
+                variable
+                for variable in requested_variables
+                if variable in all_found_variables
+            ]
+
         print(
-            f"\n--> Generazione di {len(all_found_variables)} "
+            f"\n--> Generazione di {len(variables_to_plot)} "
             f"plot strutturati in corso..."
         )
 
-        for variable in sorted(all_found_variables):
+        for variable in variables_to_plot:
 
             plot_base_path = os.path.join(
                 output_dir_path,
@@ -800,6 +896,9 @@ if __name__ == "__main__":
                 do_stack=args.do_stack,
                 fill_hists=args.fill_hists,
                 ratio_reference=args.ratio_reference,
+                normalize_dy_to_data=args.normalize_dy_to_data,
+                normalize_mc_to_data=args.normalize_mc_to_data,
+                dy_normalization_sample=args.dy_normalization_sample,
             )
 
     print(

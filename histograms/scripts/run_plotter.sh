@@ -5,6 +5,7 @@ set -e
 # ./run_plotter.sh
 # ./run_plotter.sh --eras "Run3_2022 Run3_2022EE" --output plots_test/
 # ./run_plotter.sh --eras "Run3_2024" --mode 2024_all
+# ./run_plotter.sh --eras "Run3_2024" --input-tag-template newHists_ERA_newCats_hadded
 # ./run_plotter.sh --dryrun
 # ./run_plotter.sh --web
 # ./run_plotter.sh --combined
@@ -37,6 +38,10 @@ while [[ $# -gt 0 ]]; do
             ;;
         --input-base)
             INPUT_BASE="$2"
+            shift 2
+            ;;
+        --input-tag-template)
+            INPUT_TAG_TEMPLATE="$2"
             shift 2
             ;;
         --output)
@@ -90,6 +95,7 @@ echo "[INFO] Eras:        ${ERAS}"
 echo "[INFO] Mode:        ${MODE}"
 echo "[INFO] Combined:    ${COMBINED}"
 echo "[INFO] Input base:  ${INPUT_BASE}"
+echo "[INFO] Input tag:   ${INPUT_TAG_TEMPLATE}"
 echo "[INFO] Output base: ${FINAL_OUTPUT_BASE}"
 echo "[INFO] Dryrun:      ${DRYRUN}"
 echo "=========================================================="
@@ -108,7 +114,8 @@ run_cmd() {
 
 get_input_dir() {
     local era=$1
-    echo "${INPUT_BASE}/newHists_${era}_hadded/"
+    local input_tag=${INPUT_TAG_TEMPLATE/ERA/${era}}
+    echo "${INPUT_BASE}/${input_tag}/"
 }
 copy_index_if_web() {
     local outdir=$1

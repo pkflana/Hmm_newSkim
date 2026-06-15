@@ -3,6 +3,7 @@
 import argparse
 import getpass
 import os
+import shlex
 import subprocess
 import time
 import yaml
@@ -124,6 +125,16 @@ process_to_select = skim_config.get("process_to_select", [])
 
 output_directory = os.path.abspath(skim_config["output_dir"])
 proxy_location = skim_config["proxy_location"]
+proxy_location = os.path.abspath(os.path.expanduser(proxy_location))
+if "X509_USER_PROXY" not in os.environ:
+    if os.path.exists(proxy_location):
+        os.environ["X509_USER_PROXY"] = proxy_location
+        print(f"Using X509_USER_PROXY={proxy_location}")
+    else:
+        print(
+            f"[WARNING] X509_USER_PROXY is not set and proxy_location does not "
+            f"exist: {proxy_location}"
+        )
 cmssw_version = skim_config.get("cmssw_version", "CMSSW_15_0_2")
 
 submit_jobs = args.submit
@@ -176,12 +187,29 @@ def resolve_nanoaod_files(nanoaod_paths, instance=None):
             query += f" instance={instance}"
 
         command = ["dasgoclient", f"--query={query}"]
-        print(f"[DAS] {' '.join(command)}")
+        print(f"[DAS] {shlex.join(command)}")
 
-        filelist = subprocess.check_output(
+        result = subprocess.run(
             command,
             text=True,
-        ).splitlines()
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+        )
+        if result.returncode != 0:
+            print("\n[ERROR] DAS query failed")
+            print(f"[ERROR] nanoAOD path : {nanoaod_path}")
+            print(f"[ERROR] query        : {query}")
+            print(f"[ERROR] command      : {shlex.join(command)}")
+            print(f"[ERROR] return code  : {result.returncode}")
+            if result.stdout.strip():
+                print("[ERROR] stdout:")
+                print(result.stdout.strip())
+            if result.stderr.strip():
+                print("[ERROR] stderr:")
+                print(result.stderr.strip())
+            raise SystemExit(result.returncode)
+
+        filelist = result.stdout.splitlines()
 
         for filepath in filelist:
             eos_path = f"/eos/cms/{filepath}"

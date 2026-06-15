@@ -136,4 +136,27 @@ categories:
   ggF:
     expression: "baseline{tot_suff} && !(VBF_def{tot_suff})"
     store: True
-
+  ggF_0J:
+    expression: "ggF{tot_suff} && N_SelectedJets{jet_suff} == 0"
+    store: True
+  ggF_1J:
+    expression: "ggF{tot_suff} && N_SelectedJets{jet_suff} == 1"
+    store: True
+  ggF_ge2J:
+    expression: "ggF{tot_suff} && N_SelectedJets{jet_suff} >= 2"
+    store: True
+  VBF_ge2J:
+    expression: "VBF{tot_suff} && N_SelectedJets{jet_suff} >= 2"
+    store: True
+  ggF_Z_0J:
+    expression: "ggF_0J{tot_suff}"
+    store: True
+  ggF_Z_1J:
+    expression: "ggF_1J{tot_suff}"
+    store: True
+  ggF_Z_ge2J:
+    expression: "ggF_ge2J{tot_suff}"
+    store: True
+  VBF_Z_ge2J:
+    expression: "VBF_ge2J{tot_suff}"
+    store: True
