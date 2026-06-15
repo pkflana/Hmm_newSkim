@@ -992,7 +992,7 @@ DYto2Mu_MLL_105to160_amcatnloFXFX_Flashsim:
   crossSection: DYto2Mu_MLL_105to160_amcatnloFXFX
   crossSectionStitch: DYto2Mu_MLL_105to160_amcatnloFXFX
   nanoAOD:
-  - /DYto2Mu-2Jets_Bin-MLL-105to160_TuneCP5_13p6TeV_amcatnloFXFX-pythia8/fvaselli-DY2Mu_2Jets_MLL-105to160-RunIII2024Summer24MiniAODv6-150X_mcRun3_2024_realistic_v2-packedTrackGenJetAK4-ace5d3f4ddab40d8fc0f18e7a8dbab44/USER
+  - /DYto2Mu-2Jets_Bin-MLL-105to160_TuneCP5_13p6TeV_amcatnloFXFX-pythia8/fvaselli-DY2Mu_2Jets_MLL-105to160-RunIII2024Summer24MiniAODv6-150X_mcRun3_2024_realistic_v2-packedTrackGenJetAK4-limit-TrkGJ_eta-to-tracker-66034083b387d860d393385d18a4f59d/USER
   instance: prod/phys03
 DYto2Mu_M_50_amcatnloFXFX_Flashsim:
   crossSection: DYto2L_M_50_amcatnloFXFX_singleFlavor
