@@ -59,6 +59,16 @@ parser.add_argument(
         "skim_cfg.yaml use_ext, or false if unset."
     ),
 )
+parser.add_argument(
+    "--use-2024-jerc-for-2025-mc",
+    action=argparse.BooleanOptionalAction,
+    default=None,
+    help=(
+        "Use Run3_2024 JEC/JER for Run3_2025 MC skim jobs. "
+        "Default comes from skim_cfg.yaml use_2024_jerc_for_2025_mc, "
+        "or false if unset."
+    ),
+)
 args = parser.parse_args()
 
 era = args.era
@@ -141,6 +151,10 @@ submit_jobs = args.submit
 use_ext = args.use_ext
 if use_ext is None:
     use_ext = skim_config.get("use_ext", False)
+
+use_2024_jerc_for_2025_mc = args.use_2024_jerc_for_2025_mc
+if use_2024_jerc_for_2025_mc is None:
+    use_2024_jerc_for_2025_mc = skim_config.get("use_2024_jerc_for_2025_mc", False)
 
 MAX_PARALLEL_JOBS = args.max_parallel_jobs or skim_config.get("max_parallel_jobs", 6000)
 POLL_INTERVAL = args.poll_interval or skim_config.get("poll_interval", 120)
@@ -753,7 +767,8 @@ for dataset in all_datasets:
             f"{input_list} "
             f"{dataset} "
             f"{output_list} "
-            f"{cmssw_version}"
+            f"{cmssw_version} "
+            f"{int(use_2024_jerc_for_2025_mc)}"
         )
 
         dataset_condorinputs[dataset].append({

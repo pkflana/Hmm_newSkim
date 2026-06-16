@@ -329,7 +329,7 @@ def make_stacked_plot(
     include_overflow = hist_cfg.get("include_overflow", False)
     auto_trim_empty_edges = hist_cfg.get(
         "auto_trim_empty_edges",
-        config_page.get("auto_trim_empty_edges", True),
+        config_page.get("auto_trim_empty_edges", False),
     )
     auto_trim_min_empty_edge_bins = hist_cfg.get(
         "auto_trim_min_empty_edge_bins",
