@@ -813,6 +813,121 @@ python3 histograms/hadd_hists_to_processes.py \
   --dryRun
 ```
 
+## DY pt(ll) Reweighting JSON
+
+This workflow derives DY weights from the hadded process files. It reads one ROOT
+file per contribution, as `hist_plotter.py` does, and expects this structure:
+
+```text
+Data_Muon.root:/Z_sideband_ggF_0J/pt_mumu
+Data_Muon.root:/Z_sideband_ggF_1J/pt_mumu
+Data_Muon.root:/Z_sideband_ggF_ge2J/pt_mumu
+Data_Muon.root:/Z_sideband_VBF_ge2J/pt_mumu
+```
+
+The same directories must exist in `DY.root` and in the other MC contribution
+files to subtract.
+
+Produce the input histograms:
+
+```bash
+python3 htcondor/hist_condorsubmit.py \
+  --eras Run3_2024 \
+  --datasets data,DY_amcatnlo,EWK,SingleTop,TTX,W,DiTriBoson,SingleH,signals,other_signals \
+  --condor \
+  --submit-missing \
+  --output-suffix _ptllRW \
+  -- \
+  --variables pt_mumu \
+  --mass-regions Z_sideband \
+  --categories ggF_0J ggF_1J ggF_ge2J VBF_ge2J \
+  --skip-file-validation
+```
+
+Hadd them to process files:
+
+```bash
+era=Run3_2024
+suffix=_ptllRW
+
+python3 histograms/hadd_hists_to_processes.py \
+  --input-dir /eos/user/v/vdamante/H_mumu/newHists_${era}${suffix}/ \
+  --output-dir /eos/user/v/vdamante/H_mumu/newHists_${era}${suffix}_hadded/ \
+  --era ${era}
+```
+
+Derive the JSON. By default the script first uses the `x_rebin` entry for
+`pt_mumu` from `config/plot/histograms.yaml`, then smart-merges neighboring bins
+until the ratio bin has enough DY yield, enough `(Data - nonDY)`, and a stable
+relative uncertainty. The ratio, fit, and diagnostic plots all use these final
+smart bins. To override the starting binning, pass
+`--rebin-edges 0,10,20,30,50,80,120,200,350`.
+For each category it writes both `*_before` plots with the config/fallback
+binning and `*_after` plots with the final smart binning used in the fit. The
+upper pads are log-y and show only Data, DY, and non-DY MC; the ratio pad is
+rebinned consistently with each plot.
+
+```bash
+era=Run3_2024
+suffix=_ptllRW
+
+python3 histograms/derive_dy_ptll_njets_reweight.py \
+  --era ${era} \
+  --input-dir /eos/user/v/vdamante/H_mumu/newHists_${era}${suffix}_hadded/ \
+  --output-dir dy_ptll_reweight/${era}/plots \
+  --output-json dy_ptll_reweight/${era}/dy_ptll_reweight.json \
+  --output-root dy_ptll_reweight/${era}/dy_ptll_reweight.root
+```
+
+To disable the histogram-config rebinning and use a simple integer factor:
+
+```bash
+--no-config-rebin --rebin 2
+```
+
+To tune or disable the smart merging:
+
+```bash
+--smart-min-dy 100 --smart-min-target 20 --smart-max-rel-unc 0.15
+--no-smart-rebin
+```
+
+By default the ratio is `(Data_Muon - all MC files except DY) / DY`. To keep
+specific files out of the subtraction:
+
+```bash
+--exclude-samples GluGluHto2Mu VBFHto2Mu_M125_powheg
+```
+
+Apply the JSON to DY histogram production:
+
+```bash
+python3 histograms/hist_maker.py \
+  --era Run3_2024 \
+  --dataset-name DYto2Mu_M_50_amcatnloFXFX \
+  --input /eos/cms/store/group/phys_higgs/cmshmm/vdamante/skim_v1_noUnc/Run3_2024/DYto2Mu_M_50_amcatnloFXFX/ \
+  --output-file /tmp/vdamante/test_dy_ptll_rw.root \
+  --dy-ptll-njets-reweight-json dy_ptll_reweight/Run3_2024/dy_ptll_reweight.json \
+  --skip-file-validation
+```
+
+The JSON is also evaluable with the logical inputs `category`, `nSelectedJets`,
+and `ptll`:
+
+```python
+from common.dy_ptll_reweight import DYPtLLNJetsReweighter
+
+rw = DYPtLLNJetsReweighter.from_json(
+    "dy_ptll_reweight/Run3_2024/dy_ptll_reweight.json"
+)
+
+weight = rw.evaluate(
+    category="ggF",
+    nSelectedJets=1,
+    ptll=42.0,
+)
+```
+
 ## Merge Hadded Eras
 
 After running `hadd_hists_to_processes.py` for each era, you can merge already-hadded process files across eras with ROOT `hadd`.
