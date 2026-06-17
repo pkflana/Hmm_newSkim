@@ -16,6 +16,38 @@ from common.helpers import RebinHisto, findBinEntry, findNewBins, getNewBins
 
 
 DEFAULT_CATEGORIES = ["ggF_0J", "ggF_1J", "ggF_ge2J", "VBF_ge2J"]
+NON_DY_SUBTRACT_SAMPLES = [
+    "EWK",
+    # "EWK_2Mu2J_MLL_105to160_herwig",
+    # "EWK_2Mu2J_MLL_105to160_pythia",
+    # "EWK_2Mu2J_MLL_105to160_pythia_Flashsim",
+    "H_mainBckg",
+    "ST",
+    "TT",
+    "TTX",
+    "TW",
+    "VV",
+    "VVV",
+    "W",
+    # "GluGluHto2Mu",
+    # "GluGluHto2Mu_amcatnlo",
+    # "GluGluHto2Mu_M120",
+    # "GluGluHto2Mu_M130",
+    # "GluGluHto2Mu_MiNNLO",
+    # "GluGluHto2Mu_tuneDown",
+    # "GluGluHto2Mu_tuneUp",
+    # "VBFHto2Mu_M125_amcatnlo",
+    # "VBFHto2Mu_M125_powheg",
+    # "VBFHto2Mu_m120",
+    # "VBFHto2Mu_m125_Flashsim",
+    # "VBFHto2Mu_m125_tuneDown",
+    # "VBFHto2Mu_m125_tuneUp",
+    # "VBFHto2Mu_m130",
+    # "TTH_inclusive",
+    # "TTHto2Mu",
+    # "VH_inclusive",
+    # "VHto2Mu",
+]
 FIT_FORMULA = (
     "[0]"
     " + [1]*TMath::Gaus(x,[2],[3],false)"
@@ -35,6 +67,113 @@ PARAMETER_NAMES = [
     "power_exponent",
 ]
 
+CORRECTIONLIB_PTLL_FORMULA = (
+    "[0]"
+    " + [1]*exp(-0.5*((x-[2])/[3])^2)"
+    " + [4]*exp(-0.5*((x-[5])/[6])^2)"
+    " + [7]*pow(max(x,[8])/[8],-[9])"
+)
+
+
+def correctionlib_variable(name, var_type, description):
+    return {
+        "name": name,
+        "type": var_type,
+        "description": description,
+    }
+
+
+def constant_node(value):
+    return float(value)
+
+
+def formula_node(category_payload):
+    return {
+        "nodetype": "formula",
+        "expression": CORRECTIONLIB_PTLL_FORMULA,
+        "parser": "TFormula",
+        "variables": ["ptll"],
+        "parameters": [
+            float(value)
+            for value in category_payload["fit"]["parameters"]
+        ],
+    }
+
+
+def ptll_category_node(categories, category_name):
+    category_payload = categories.get(category_name)
+    if category_payload is None:
+        return constant_node(1.0)
+    return formula_node(category_payload)
+
+
+def make_ptll_correctionlib_payload(legacy_payload):
+    categories = legacy_payload["categories"]
+    ggF_node = {
+        "nodetype": "binning",
+        "input": "N_selectedJets",
+        "edges": [-0.5, 0.5, 1.5, 999.5],
+        "content": [
+            ptll_category_node(categories, "ggF_0J"),
+            ptll_category_node(categories, "ggF_1J"),
+            ptll_category_node(categories, "ggF_ge2J"),
+        ],
+        "flow": "clamp",
+    }
+    vbf_node = {
+        "nodetype": "binning",
+        "input": "N_selectedJets",
+        "edges": [-0.5, 0.5, 1.5, 999.5],
+        "content": [
+            constant_node(1.0),
+            constant_node(1.0),
+            ptll_category_node(categories, "VBF_ge2J"),
+        ],
+        "flow": "clamp",
+    }
+
+    return {
+        "schema_version": 2,
+        "corrections": [
+            {
+                "name": "dy_ptll_reweight",
+                "description": "DY pt(ll) reweighting from (Data - nonDY) / DY.",
+                "version": 1,
+                "inputs": [
+                    correctionlib_variable(
+                        "isVBF",
+                        "int",
+                        "VBF category flag: 1 for VBF, 0 for ggF.",
+                    ),
+                    correctionlib_variable(
+                        "N_selectedJets",
+                        "real",
+                        "Number of selected jets.",
+                    ),
+                    correctionlib_variable(
+                        "ptll",
+                        "real",
+                        "Dilepton transverse momentum.",
+                    ),
+                ],
+                "output": {
+                    "name": "weight",
+                    "type": "real",
+                    "description": "DY pt(ll) event weight.",
+                },
+                "data": {
+                    "nodetype": "category",
+                    "input": "isVBF",
+                    "content": [
+                        {"key": 0, "value": ggF_node},
+                        {"key": 1, "value": vbf_node},
+                    ],
+                    "default": 1.0,
+                },
+            }
+        ],
+    }
+
 
 def root_path(input_dir, sample):
     return os.path.join(input_dir, f"{sample}.root")
@@ -46,6 +185,20 @@ def get_sample_names(input_dir):
         for path in Path(input_dir).glob("*.root")
         if path.is_file()
     )
+
+
+def get_non_dy_subtract_samples(samples, input_dir):
+    missing_samples = [
+        sample for sample in NON_DY_SUBTRACT_SAMPLES
+        if sample not in samples
+    ]
+    if missing_samples:
+        raise RuntimeError(
+            f"Samples listed in NON_DY_SUBTRACT_SAMPLES not found in {input_dir}: "
+            f"{missing_samples}"
+        )
+
+    return list(NON_DY_SUBTRACT_SAMPLES)
 
 
 def open_sample(input_dir, sample):
@@ -144,6 +297,20 @@ def apply_rebin(hist, name, rebin_factor=1, rebin_edges=None):
 def bin_edges(hist):
     axis = hist.GetXaxis()
     return [axis.GetBinLowEdge(idx) for idx in range(1, axis.GetNbins() + 2)]
+
+
+def extend_rebin_edges_to_xmax(edges, hist, x_max):
+    if not edges:
+        return edges
+
+    last_edge = float(edges[-1])
+    target_edge = min(float(x_max), float(hist.GetXaxis().GetXmax()))
+    if target_edge <= last_edge:
+        return edges
+
+    extended_edges = list(edges)
+    extended_edges.append(target_edge)
+    return extended_edges
 
 
 def ratio_bin_quality(data, dy, other, data_err2, dy_err2, other_err2, min_dy):
@@ -325,26 +492,44 @@ def fit_ratio(ratio_hist, category, x_min, x_max):
     }
 
 
-def plot_category(
+def make_after_reweight_ratio(ratio_hist, fit_func, name):
+    after = ratio_hist.Clone(name)
+    after.Reset("ICES")
+    after.SetDirectory(0)
+
+    for bin_idx in range(1, ratio_hist.GetNbinsX() + 1):
+        x = ratio_hist.GetBinCenter(bin_idx)
+        ratio = ratio_hist.GetBinContent(bin_idx)
+        ratio_err = ratio_hist.GetBinError(bin_idx)
+        weight = fit_func.Eval(x)
+        if weight <= 0.0 or not math.isfinite(weight):
+            continue
+
+        after.SetBinContent(bin_idx, ratio / weight)
+        after.SetBinError(bin_idx, ratio_err / weight)
+
+    return after
+
+
+def plot_data_mc_with_fit(
     output_dir,
     category,
-    suffix,
     data_hist,
     dy_hist,
     other_hist,
     ratio_hist,
-    fit_func=None,
-    logy=True,
+    fit_func,
+    x_min=0.0,
+    x_max=200.0,
 ):
     ROOT.gStyle.SetOptStat(0)
-    canvas = ROOT.TCanvas(f"c_{category}_{suffix}", f"{category}_{suffix}", 900, 900)
+    canvas = ROOT.TCanvas(f"c_ptll_data_mc_fit_{category}", category, 900, 900)
     canvas.Divide(1, 2)
 
     upper = canvas.cd(1)
     upper.SetPad(0.0, 0.35, 1.0, 1.0)
     upper.SetBottomMargin(0.02)
-    if logy:
-        upper.SetLogy()
+    upper.SetLogy()
 
     data_hist.SetMarkerStyle(20)
     data_hist.SetMarkerColor(ROOT.kBlack)
@@ -354,18 +539,11 @@ def plot_category(
     other_hist.SetLineColor(ROOT.kOrange + 7)
     other_hist.SetFillColorAlpha(ROOT.kOrange + 7, 0.25)
 
-    ymax = max(
-        data_hist.GetMaximum(),
-        dy_hist.GetMaximum(),
-        other_hist.GetMaximum(),
-        1.0,
-    )
-    if logy:
-        data_hist.SetMinimum(0.1)
-        data_hist.SetMaximum(100.0 * ymax)
-    else:
-        data_hist.SetMaximum(1.4 * ymax)
+    ymax = max(data_hist.GetMaximum(), dy_hist.GetMaximum(), other_hist.GetMaximum(), 1.0)
+    data_hist.SetMinimum(0.1)
+    data_hist.SetMaximum(100.0 * ymax)
     data_hist.SetTitle(f"{category};p_{{T}}(ll) [GeV];Events")
+    data_hist.GetXaxis().SetRangeUser(x_min, x_max)
     data_hist.Draw("E")
     dy_hist.Draw("HIST SAME")
     other_hist.Draw("HIST SAME")
@@ -388,6 +566,7 @@ def plot_category(
     ratio_hist.SetMarkerColor(ROOT.kBlack)
     ratio_hist.SetLineColor(ROOT.kBlack)
     ratio_hist.SetTitle(";p_{T}(ll) [GeV];(Data-nonDY)/DY")
+    ratio_hist.GetXaxis().SetRangeUser(x_min, x_max)
     ratio_hist.GetYaxis().SetTitleSize(0.08)
     ratio_hist.GetYaxis().SetTitleOffset(0.55)
     ratio_hist.GetYaxis().SetLabelSize(0.07)
@@ -396,15 +575,124 @@ def plot_category(
     ratio_hist.SetMinimum(0.0)
     ratio_hist.SetMaximum(max(2.0, 1.4 * ratio_hist.GetMaximum()))
     ratio_hist.Draw("E")
-    if fit_func is not None:
-        fit_func.SetLineColor(ROOT.kRed + 1)
-        fit_func.SetLineWidth(2)
-        fit_func.Draw("SAME")
+
+    fit_func.SetLineColor(ROOT.kRed)
+    fit_func.SetLineWidth(2)
+    fit_func.Draw("SAME")
 
     output_dir = Path(output_dir)
     output_dir.mkdir(parents=True, exist_ok=True)
-    canvas.SaveAs(str(output_dir / f"{category}_ptll_reweight_{suffix}.png"))
-    canvas.SaveAs(str(output_dir / f"{category}_ptll_reweight_{suffix}.pdf"))
+    canvas.SaveAs(str(output_dir / f"{category}_ptll_data_mc_fit.png"))
+    canvas.SaveAs(str(output_dir / f"{category}_ptll_data_mc_fit.pdf"))
+
+
+def plot_fit_ratio(
+    output_dir,
+    category,
+    ratio_hist,
+    fit_func,
+    x_min=0.0,
+    x_max=200.0,
+):
+    ROOT.gStyle.SetOptStat(0)
+    canvas = ROOT.TCanvas(f"c_ptll_fit_{category}", category, 900, 700)
+
+    ratio_hist.SetMarkerStyle(20)
+    ratio_hist.SetMarkerColor(ROOT.kBlack)
+    ratio_hist.SetLineColor(ROOT.kBlack)
+    ratio_hist.SetTitle(f"Reweighting factor {category};ptll;Data / DY")
+    ratio_hist.GetXaxis().SetRangeUser(x_min, x_max)
+    ratio_hist.GetXaxis().SetTitleSize(0.045)
+    ratio_hist.GetYaxis().SetTitleSize(0.045)
+    ratio_hist.GetYaxis().SetTitleOffset(1.1)
+    ratio_hist.SetMinimum(0.5)
+    ratio_hist.SetMaximum(max(1.5, 1.2 * ratio_hist.GetMaximum()))
+    ratio_hist.Draw("E")
+
+    fit_func.SetLineColor(ROOT.kRed)
+    fit_func.SetLineWidth(2)
+    fit_func.Draw("SAME")
+
+    output_dir = Path(output_dir)
+    output_dir.mkdir(parents=True, exist_ok=True)
+    canvas.SaveAs(str(output_dir / f"{category}_ptll_reweight_fit.png"))
+    canvas.SaveAs(str(output_dir / f"{category}_ptll_reweight_fit.pdf"))
+
+
+def plot_reweighting_factor(
+    output_dir,
+    category,
+    ratio_hist,
+    fit_func,
+    x_min=0.0,
+    x_max=200.0,
+):
+    ROOT.gStyle.SetOptStat(0)
+    canvas = ROOT.TCanvas(f"c_reweighting_factor_{category}", category, 900, 900)
+    canvas.Divide(1, 2)
+
+    upper = canvas.cd(1)
+    upper.SetPad(0.0, 0.52, 1.0, 1.0)
+    upper.SetBottomMargin(0.03)
+
+    ratio_hist.SetMarkerStyle(20)
+    ratio_hist.SetMarkerColor(ROOT.kBlack)
+    ratio_hist.SetLineColor(ROOT.kBlack)
+    ratio_hist.SetTitle(f"Reweighting factor {category};ptll;Data / DY")
+    ratio_hist.GetXaxis().SetRangeUser(x_min, x_max)
+    ratio_hist.GetXaxis().SetLabelSize(0.0)
+    ratio_hist.GetYaxis().SetTitleSize(0.055)
+    ratio_hist.GetYaxis().SetTitleOffset(0.85)
+    ratio_hist.SetMinimum(0.5)
+    ratio_hist.SetMaximum(max(1.5, 1.2 * ratio_hist.GetMaximum()))
+    ratio_hist.Draw("E")
+
+    fit_func.SetLineColor(ROOT.kRed)
+    fit_func.SetLineWidth(2)
+    fit_func.Draw("SAME")
+
+    before = ratio_hist.Clone(f"before_reweight_{category}")
+    before.SetDirectory(0)
+    after = make_after_reweight_ratio(
+        ratio_hist,
+        fit_func,
+        f"after_reweight_{category}",
+    )
+
+    lower = canvas.cd(2)
+    lower.SetPad(0.0, 0.0, 1.0, 0.48)
+    lower.SetTopMargin(0.06)
+    lower.SetBottomMargin(0.16)
+
+    before.SetMarkerStyle(20)
+    before.SetMarkerColor(ROOT.kBlack)
+    before.SetLineColor(ROOT.kBlack)
+    before.SetTitle(";ptll;Reweighted Data / MC")
+    before.GetXaxis().SetRangeUser(x_min, x_max)
+    before.GetXaxis().SetTitleSize(0.055)
+    before.GetXaxis().SetLabelSize(0.045)
+    before.GetYaxis().SetTitleSize(0.055)
+    before.GetYaxis().SetTitleOffset(0.85)
+    before.SetMinimum(0.8)
+    before.SetMaximum(1.2)
+    before.Draw("E")
+
+    after.SetMarkerStyle(20)
+    after.SetMarkerColor(ROOT.kRed)
+    after.SetLineColor(ROOT.kRed)
+    after.Draw("E SAME")
+
+    legend = ROOT.TLegend(0.12, 0.78, 0.32, 0.94)
+    legend.SetBorderSize(1)
+    legend.SetFillStyle(0)
+    legend.AddEntry(before, "Before", "lep")
+    legend.AddEntry(after, "After", "lep")
+    legend.Draw()
+
+    output_dir = Path(output_dir)
+    output_dir.mkdir(parents=True, exist_ok=True)
+    canvas.SaveAs(str(output_dir / f"{category}_ptll_reweight_diagnostic.png"))
+    canvas.SaveAs(str(output_dir / f"{category}_ptll_reweight_diagnostic.pdf"))
 
 
 def derive(args):
@@ -434,9 +722,7 @@ def derive(args):
     if args.dy_sample not in samples:
         raise RuntimeError(f"DY sample '{args.dy_sample}' not found in {input_dir}")
 
-    exclude = set(args.exclude_samples or [])
-    exclude.update([args.data_sample, args.dy_sample])
-    other_samples = [sample for sample in samples if sample not in exclude]
+    other_samples = get_non_dy_subtract_samples(samples, input_dir)
 
     payload = {
         "type": "dy_ptll_njets_reweight",
@@ -444,13 +730,12 @@ def derive(args):
         "x_variable": args.variable,
         "inputs": [
             {
-                "name": "category",
-                "type": "string",
-                "allowed": ["ggF", "VBF"],
-                "description": "Production category passed at evaluate time.",
+                "name": "isVBF",
+                "type": "bool",
+                "description": "VBF category flag passed at evaluate time.",
             },
             {
-                "name": "nSelectedJets",
+                "name": "N_selectedJets",
                 "type": "int",
                 "description": "N_SelectedJets passed at evaluate time.",
             },
@@ -516,6 +801,8 @@ def derive(args):
         if data_hist is None or dy_hist is None:
             print(f"[WARNING] Missing histograms for {category}: {directory_path}/{args.variable}")
             continue
+
+        rebin_edges = extend_rebin_edges_to_xmax(rebin_edges, data_hist, args.fit_max)
 
         original_bins = data_hist.GetNbinsX()
         preliminary_data = apply_rebin(
@@ -604,27 +891,32 @@ def derive(args):
             args.fit_max,
         )
 
-        plot_category(
+        plot_data_mc_with_fit(
             output_dir,
             category,
-            "before",
-            preliminary_data,
-            preliminary_dy,
-            preliminary_other,
-            preliminary_ratio,
-            fit_func=None,
-            logy=True,
-        )
-        plot_category(
-            output_dir,
-            category,
-            "after",
             data_hist,
             dy_hist,
             other_hist,
             ratio_hist,
             fit_func,
-            logy=True,
+            x_min=args.fit_min,
+            x_max=args.fit_max,
+        )
+        plot_fit_ratio(
+            output_dir,
+            category,
+            ratio_hist,
+            fit_func,
+            x_min=args.fit_min,
+            x_max=args.fit_max,
+        )
+        plot_reweighting_factor(
+            output_dir,
+            category,
+            ratio_hist,
+            fit_func,
+            x_min=args.fit_min,
+            x_max=args.fit_max,
         )
 
         output_root.cd()
@@ -665,7 +957,7 @@ def derive(args):
 
     Path(args.output_json).parent.mkdir(parents=True, exist_ok=True)
     with open(args.output_json, "w") as handle:
-        json.dump(payload, handle, indent=2, sort_keys=True)
+        json.dump(make_ptll_correctionlib_payload(payload), handle, indent=2, sort_keys=True)
 
     print(f"[INFO] Wrote JSON: {args.output_json}")
     print(f"[INFO] Wrote ROOT: {args.output_root}")
@@ -684,15 +976,6 @@ def parse_args():
     parser.add_argument("--data-sample", default="Data_Muon")
     parser.add_argument("--dy-sample", default="DY")
     parser.add_argument("--categories", nargs="+", default=DEFAULT_CATEGORIES)
-    parser.add_argument(
-        "--exclude-samples",
-        nargs="*",
-        default=None,
-        help=(
-            "Samples not to subtract in addition to data and DY. "
-            "By default every other ROOT file in the hadded directory is subtracted."
-        ),
-    )
     parser.add_argument(
         "--histogram-config",
         default=None,
@@ -748,7 +1031,7 @@ def parse_args():
         help="Maximum relative uncertainty allowed for each ratio fit bin.",
     )
     parser.add_argument("--fit-min", type=float, default=0.0)
-    parser.add_argument("--fit-max", type=float, default=250.0)
+    parser.add_argument("--fit-max", type=float, default=200.0)
     parser.add_argument("--min-dy", type=float, default=1e-9)
     parser.add_argument("--min-weight", type=float, default=0.0)
     parser.add_argument("--max-weight", type=float, default=5.0)
