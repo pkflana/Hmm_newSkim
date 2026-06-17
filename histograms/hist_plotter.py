@@ -123,7 +123,7 @@ def expand_requested_samples(requested_samples, plot_groups_cfg):
 def get_group_members(group_cfg):
     members = []
 
-    for key in ("processes", "sub_processes", "datasets"):
+    for key in ("processes", "sub_processes", "datasets", "aliases"):
         members.extend(group_cfg.get(key, []))
 
     return members
@@ -171,7 +171,9 @@ def get_process_scale_factors(plot_groups_cfg):
 def classify_plot_sample(sample_name, process_cfg, plot_groups_cfg):
     sample_info = classify_sample(sample_name, process_cfg)
 
-    if sample_info is not None:
+    if sample_info is not None and (
+        sample_info["is_data"] or sample_info["is_signal"]
+    ):
         return sample_info
 
     signal_styles = plot_groups_cfg.get("signal_styles", {})
@@ -195,8 +197,11 @@ def classify_plot_sample(sample_name, process_cfg, plot_groups_cfg):
             "is_data": False,
             "is_signal": False,
             "color": get_group_color(group_cfg, "black"),
-            "name": sample_name,
+            "name": group_cfg.get("name", sample_name),
         }
+
+    if sample_info is not None:
+        return sample_info
 
     return None
 
@@ -267,6 +272,8 @@ def apply_signal_styles(input_processes, plot_groups_cfg):
 
         if "color" in style_cfg:
             input_processes[process_name]["color"] = style_cfg["color"]
+        if "color_mplhep" in style_cfg:
+            input_processes[process_name]["color"] = style_cfg["color_mplhep"]
 
 
 def apply_background_groups(input_processes, plot_groups_cfg, active_group_names=None):
@@ -666,6 +673,7 @@ if __name__ == "__main__":
             normalize_sample_name(s)
             for s in args.samples
         )
+        group_member_info = get_group_member_info(plot_groups_cfg)
 
         requested_plot_groups = {
             sample
@@ -675,6 +683,13 @@ if __name__ == "__main__":
                 or sample == plot_groups_cfg.get("other_group", {}).get("key", "OTHER")
             )
         }
+        requested_plot_groups.update(
+            group_member_info[sample]["group"]
+            for sample in requested_samples_raw
+            if sample in group_member_info
+        )
+        if len(requested_plot_groups) == 0:
+            requested_plot_groups = None
 
         requested_samples = expand_requested_samples(
             requested_samples_raw,

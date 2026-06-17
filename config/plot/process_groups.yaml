@@ -28,7 +28,7 @@ background_groups:
 
   DY_minnlo:
     name: "DY - MiNNLO"
-    color_mplhep: dodgerblue
+    color_mplhep: violet #dodgerblue
     processes:
       - DYto2Mu_minnlo
       - DYto2Mu_minnlo_weighted
@@ -39,10 +39,11 @@ background_groups:
     color_mplhep: dodgerblue
     processes:
       - DYto2Mu_MLL105To160
+      - DYto2Mu_MLL_105To160
       - DYto2Mu_MLL_105to160_amcatnloFXFX
       - DYto2Mu_MLL_105to160_amcatnloFXFX_stitched
 
-
+      - DYto2Mu_MLL_105to160_weighted
       - DYto2Mu_MLL105To160_weighted
       - DYto2Mu_MLL_105to160_amcatnloFXFX_weighted
       - DYto2Mu_MLL_105to160_amcatnloFXFX_stitched_weighted
@@ -79,6 +80,8 @@ background_groups:
     processes:
       - DYto2Mu_MLL105To160_VBFFiltered_weighted
       - DYto2Mu_MLL105To160_VBFFiltered
+      - DYto2Mu_MLL_105to160_amcatnloFXFX_Fil_VBF_stitched
+      - DYto2Mu_MLL_105to160_amcatnloFXFX_Fil_VBF_stitched_weighted
       - DYto2Mu_MLL_105to160_amcatnloFXFX_Fil_VBF_nonStitched
 
   DYto2Mu_MLL105_160_combined:
@@ -114,7 +117,7 @@ background_groups:
 
   EWK_MLL105_160_pythia:
     name: "EWK - MLL(105-160) - Pythia"
-    color_mplhep: navy
+    color_mplhep: darkorchid
     processes:
       - EWK_2Mu2J_MLL_105to160_pythia
 
@@ -147,7 +150,7 @@ background_groups:
     name: "W+jets"
     color_mplhep: lightyellow
     processes:
-      # - W
+      - W
       - W_NJets
 
   SingleH:

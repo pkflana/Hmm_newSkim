@@ -9,43 +9,67 @@ from pathlib import Path
 import ROOT
 
 ROOT.gROOT.SetBatch(True)
+ROOT.gStyle.SetOptStat(0)
+
+import common.utilities as utilities
 
 
 DEFAULT_CATEGORIES = ["ggF", "VBF"]
 CORRECTIONLIB_NJETS_MAX_EDGE = 999.5
 NON_DY_SUBTRACT_SAMPLES = [
     "EWK",
-    # "EWK_2Mu2J_MLL_105to160_herwig",
-    # "EWK_2Mu2J_MLL_105to160_pythia",
-    # "EWK_2Mu2J_MLL_105to160_pythia_Flashsim",
     "H_mainBckg",
     "ST",
     "TT",
     "TTX",
-    "TW",
+    # "TW",
     "VV",
     "VVV",
-    # "W",
-    "W_NJets",
-    # "GluGluHto2Mu",
-    # "GluGluHto2Mu_amcatnlo",
-    # "GluGluHto2Mu_M120",
-    # "GluGluHto2Mu_M130",
-    # "GluGluHto2Mu_MiNNLO",
-    # "GluGluHto2Mu_tuneDown",
-    # "GluGluHto2Mu_tuneUp",
-    # "VBFHto2Mu_M125_amcatnlo",
-    # "VBFHto2Mu_M125_powheg",
-    # "VBFHto2Mu_m120",
-    # "VBFHto2Mu_m125_Flashsim",
-    # "VBFHto2Mu_m125_tuneDown",
-    # "VBFHto2Mu_m125_tuneUp",
-    # "VBFHto2Mu_m130",
-    # "TTH_inclusive",
-    # "TTHto2Mu",
-    # "VH_inclusive",
-    # "VHto2Mu",
+    # "W_NJets",
+    "W",
 ]
+
+
+def set_cms_style():
+    ROOT.gStyle.SetOptStat(0)
+    ROOT.gStyle.SetPadTickX(1)
+    ROOT.gStyle.SetPadTickY(1)
+    ROOT.gStyle.SetTitleBorderSize(0)
+    ROOT.gStyle.SetTitleFillColor(0)
+    ROOT.gStyle.SetLegendBorderSize(0)
+
+
+def format_lumi_label(luminosity_pb):
+    if luminosity_pb is None:
+        return ""
+    return f"{luminosity_pb / 1000.0:.1f} fb^{{-1}} (13.6 TeV)"
+
+
+def get_luminosity_label(era):
+    analysis_path = os.environ.get("ANALYSIS_PATH", os.getcwd())
+    cfg_path = os.path.join(analysis_path, "config", era, "maincfg.yaml")
+    if not os.path.exists(cfg_path):
+        return ""
+    cfg = utilities.get_config(cfg_path)
+    return format_lumi_label(cfg.get("luminosity"))
+
+
+def draw_cms_label(lumi_label="", extra_label=""):
+    latex = ROOT.TLatex()
+    latex.SetNDC()
+    latex.SetTextFont(42)
+    latex.SetTextSize(0.04)
+    latex.SetTextAlign(11)
+    latex.DrawLatex(0.12, 0.94, "#bf{CMS} #it{Preliminary}")
+    if lumi_label:
+        latex.SetTextSize(0.035)
+        latex.SetTextAlign(31)
+        latex.DrawLatex(0.94, 0.94, lumi_label)
+    if extra_label:
+        latex.SetTextSize(0.032)
+        latex.SetTextAlign(11)
+        latex.DrawLatex(0.12, 0.89, extra_label)
+    return latex
 
 
 def correctionlib_variable(name, var_type, description):
@@ -285,14 +309,15 @@ def make_njets_correctionlib_payload(category_payloads):
     }
 
 
-def plot_data_mc(output_dir, category, data_hist, dy_hist, other_hist, total_mc_hist, ratio_hist):
-    ROOT.gStyle.SetOptStat(0)
+def plot_data_mc(output_dir, era, region, category, data_hist, dy_hist, other_hist, total_mc_hist, ratio_hist, lumi_label=""):
+    set_cms_style()
     canvas = ROOT.TCanvas(f"c_njets_{category}", category, 900, 900)
     canvas.Divide(1, 2)
 
     upper = canvas.cd(1)
     upper.SetPad(0.0, 0.35, 1.0, 1.0)
     upper.SetBottomMargin(0.02)
+    upper.SetTopMargin(0.12)
     upper.SetLogy()
 
     data_hist.SetMarkerStyle(20)
@@ -323,6 +348,7 @@ def plot_data_mc(output_dir, category, data_hist, dy_hist, other_hist, total_mc_
     legend.AddEntry(dy_hist, "DY", "f")
     legend.AddEntry(other_hist, "non-DY MC", "f")
     legend.Draw()
+    draw_cms_label(lumi_label, f"{region}/{category}")
 
     lower = canvas.cd(2)
     lower.SetPad(0.0, 0.0, 1.0, 0.35)
@@ -365,25 +391,27 @@ def make_after_reweight_ratio(ratio_hist, name):
     return after
 
 
-def plot_diagnostic(output_dir, category, ratio_hist, after_hist):
-    ROOT.gStyle.SetOptStat(0)
+def plot_diagnostic(output_dir, era, region, category, ratio_hist, after_hist, lumi_label=""):
+    set_cms_style()
     canvas = ROOT.TCanvas(f"c_njets_diagnostic_{category}", category, 900, 900)
     canvas.Divide(1, 2)
 
     upper = canvas.cd(1)
     upper.SetPad(0.0, 0.52, 1.0, 1.0)
     upper.SetBottomMargin(0.03)
+    upper.SetTopMargin(0.14)
 
     ratio_hist.SetMarkerStyle(20)
     ratio_hist.SetMarkerColor(ROOT.kBlack)
     ratio_hist.SetLineColor(ROOT.kBlack)
-    ratio_hist.SetTitle(f"Reweighting factor {category};N_{{selected jets}};Data / DY")
+    ratio_hist.SetTitle(";N_{selected jets};(Data - non-DY) / DY")
     ratio_hist.GetXaxis().SetLabelSize(0.0)
     ratio_hist.GetYaxis().SetTitleSize(0.055)
     ratio_hist.GetYaxis().SetTitleOffset(0.85)
     ratio_hist.SetMinimum(0.0)
     ratio_hist.SetMaximum(max(2.0, 1.4 * ratio_hist.GetMaximum()))
     ratio_hist.Draw("E")
+    draw_cms_label(lumi_label, f"{region}/{category}")
 
     before = ratio_hist.Clone(f"before_reweight_{category}")
     before.SetDirectory(0)
@@ -396,7 +424,7 @@ def plot_diagnostic(output_dir, category, ratio_hist, after_hist):
     before.SetMarkerStyle(20)
     before.SetMarkerColor(ROOT.kBlack)
     before.SetLineColor(ROOT.kBlack)
-    before.SetTitle(";N_{selected jets};Reweighted Data / MC")
+    before.SetTitle(";N_{selected jets};Closure ratio")
     before.GetXaxis().SetTitleSize(0.055)
     before.GetXaxis().SetLabelSize(0.045)
     before.GetYaxis().SetTitleSize(0.055)
@@ -411,7 +439,6 @@ def plot_diagnostic(output_dir, category, ratio_hist, after_hist):
     after_hist.Draw("E SAME")
 
     legend = ROOT.TLegend(0.12, 0.78, 0.32, 0.94)
-    legend.SetBorderSize(1)
     legend.SetFillStyle(0)
     legend.AddEntry(before, "Before", "lep")
     legend.AddEntry(after_hist, "After", "lep")
@@ -425,6 +452,7 @@ def plot_diagnostic(output_dir, category, ratio_hist, after_hist):
 
 def derive(args):
     input_dir = os.path.abspath(args.input_dir)
+    lumi_label = get_luminosity_label(args.era)
     samples = get_sample_names(input_dir)
     if args.data_sample not in samples:
         raise RuntimeError(f"Data sample '{args.data_sample}' not found in {input_dir}")
@@ -453,6 +481,7 @@ def derive(args):
         "max_weight": args.max_weight,
         "data_sample": args.data_sample,
         "dy_sample": args.dy_sample,
+        "dy_scale": args.dy_scale,
         "subtracted_samples": other_samples,
         "categories": {},
     }
@@ -472,6 +501,8 @@ def derive(args):
         if data_hist is None or dy_hist is None:
             print(f"[WARNING] Missing histograms for {category}: {hist_path}")
             continue
+
+        dy_hist.Scale(args.dy_scale)
 
         other_hist, used_samples = sum_samples(
             input_dir,
@@ -500,14 +531,25 @@ def derive(args):
         )
         plot_data_mc(
             args.output_dir,
+            args.era,
+            args.region,
             category,
             data_hist,
             dy_hist,
             other_hist,
             total_mc_hist,
             data_over_mc_hist,
+            lumi_label=lumi_label,
         )
-        plot_diagnostic(args.output_dir, category, ratio_hist, after_hist)
+        plot_diagnostic(
+            args.output_dir,
+            args.era,
+            args.region,
+            category,
+            ratio_hist,
+            after_hist,
+            lumi_label=lumi_label,
+        )
 
         output_root.cd()
         category_dir = output_root.mkdir(category)
@@ -556,6 +598,12 @@ def parse_args():
     parser.add_argument("--dy-sample", default="DY")
     parser.add_argument("--categories", nargs="+", default=DEFAULT_CATEGORIES)
     parser.add_argument("--min-dy", type=float, default=1e-9)
+    parser.add_argument(
+        "--dy-scale",
+        type=float,
+        default=0.9393839712918659,
+        help="Scale factor applied to the DY histogram before computing (Data - nonDY) / DY.",
+    )
     parser.add_argument("--min-weight", type=float, default=0.0)
     parser.add_argument("--max-weight", type=float, default=5.0)
     return parser.parse_args()

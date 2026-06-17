@@ -10,6 +10,7 @@ from pathlib import Path
 import ROOT
 
 ROOT.gROOT.SetBatch(True)
+ROOT.gStyle.SetOptStat(0)
 
 import common.utilities as utilities
 from common.helpers import RebinHisto, findBinEntry, findNewBins, getNewBins
@@ -18,9 +19,6 @@ from common.helpers import RebinHisto, findBinEntry, findNewBins, getNewBins
 DEFAULT_CATEGORIES = ["ggF_0J", "ggF_1J", "ggF_ge2J", "VBF_ge2J"]
 NON_DY_SUBTRACT_SAMPLES = [
     "EWK",
-    # "EWK_2Mu2J_MLL_105to160_herwig",
-    # "EWK_2Mu2J_MLL_105to160_pythia",
-    # "EWK_2Mu2J_MLL_105to160_pythia_Flashsim",
     "H_mainBckg",
     "ST",
     "TT",
@@ -28,25 +26,8 @@ NON_DY_SUBTRACT_SAMPLES = [
     "TW",
     "VV",
     "VVV",
+    "W_NJets",
     "W",
-    # "GluGluHto2Mu",
-    # "GluGluHto2Mu_amcatnlo",
-    # "GluGluHto2Mu_M120",
-    # "GluGluHto2Mu_M130",
-    # "GluGluHto2Mu_MiNNLO",
-    # "GluGluHto2Mu_tuneDown",
-    # "GluGluHto2Mu_tuneUp",
-    # "VBFHto2Mu_M125_amcatnlo",
-    # "VBFHto2Mu_M125_powheg",
-    # "VBFHto2Mu_m120",
-    # "VBFHto2Mu_m125_Flashsim",
-    # "VBFHto2Mu_m125_tuneDown",
-    # "VBFHto2Mu_m125_tuneUp",
-    # "VBFHto2Mu_m130",
-    # "TTH_inclusive",
-    # "TTHto2Mu",
-    # "VH_inclusive",
-    # "VHto2Mu",
 ]
 FIT_FORMULA = (
     "[0]"
@@ -73,6 +54,48 @@ CORRECTIONLIB_PTLL_FORMULA = (
     " + [4]*exp(-0.5*((x-[5])/[6])^2)"
     " + [7]*pow(max(x,[8])/[8],-[9])"
 )
+
+
+def set_cms_style():
+    ROOT.gStyle.SetOptStat(0)
+    ROOT.gStyle.SetPadTickX(1)
+    ROOT.gStyle.SetPadTickY(1)
+    ROOT.gStyle.SetTitleBorderSize(0)
+    ROOT.gStyle.SetTitleFillColor(0)
+    ROOT.gStyle.SetLegendBorderSize(0)
+
+
+def format_lumi_label(luminosity_pb):
+    if luminosity_pb is None:
+        return ""
+    return f"{luminosity_pb / 1000.0:.1f} fb^{{-1}} (13.6 TeV)"
+
+
+def get_luminosity_label(era):
+    analysis_path = os.environ.get("ANALYSIS_PATH", os.getcwd())
+    cfg_path = os.path.join(analysis_path, "config", era, "maincfg.yaml")
+    if not os.path.exists(cfg_path):
+        return ""
+    cfg = utilities.get_config(cfg_path)
+    return format_lumi_label(cfg.get("luminosity"))
+
+
+def draw_cms_label(lumi_label="", extra_label=""):
+    latex = ROOT.TLatex()
+    latex.SetNDC()
+    latex.SetTextFont(42)
+    latex.SetTextSize(0.04)
+    latex.SetTextAlign(11)
+    latex.DrawLatex(0.12, 0.94, "#bf{CMS} #it{Preliminary}")
+    if lumi_label:
+        latex.SetTextSize(0.035)
+        latex.SetTextAlign(31)
+        latex.DrawLatex(0.94, 0.94, lumi_label)
+    if extra_label:
+        latex.SetTextSize(0.032)
+        latex.SetTextAlign(11)
+        latex.DrawLatex(0.12, 0.89, extra_label)
+    return latex
 
 
 def correctionlib_variable(name, var_type, description):
@@ -192,13 +215,12 @@ def get_non_dy_subtract_samples(samples, input_dir):
         sample for sample in NON_DY_SUBTRACT_SAMPLES
         if sample not in samples
     ]
-    if missing_samples:
-        raise RuntimeError(
-            f"Samples listed in NON_DY_SUBTRACT_SAMPLES not found in {input_dir}: "
-            f"{missing_samples}"
-        )
-
-    return list(NON_DY_SUBTRACT_SAMPLES)
+    # if missing_samples:
+    #     raise RuntimeError(
+    #         f"Samples listed in NON_DY_SUBTRACT_SAMPLES not found in {input_dir}: "
+    #         f"{missing_samples}"
+    #     )
+    return [x for x in list(NON_DY_SUBTRACT_SAMPLES) if x not in missing_samples]
 
 
 def open_sample(input_dir, sample):
@@ -511,96 +533,24 @@ def make_after_reweight_ratio(ratio_hist, fit_func, name):
     return after
 
 
-def plot_data_mc_with_fit(
-    output_dir,
-    category,
-    data_hist,
-    dy_hist,
-    other_hist,
-    ratio_hist,
-    fit_func,
-    x_min=0.0,
-    x_max=200.0,
-):
-    ROOT.gStyle.SetOptStat(0)
-    canvas = ROOT.TCanvas(f"c_ptll_data_mc_fit_{category}", category, 900, 900)
-    canvas.Divide(1, 2)
-
-    upper = canvas.cd(1)
-    upper.SetPad(0.0, 0.35, 1.0, 1.0)
-    upper.SetBottomMargin(0.02)
-    upper.SetLogy()
-
-    data_hist.SetMarkerStyle(20)
-    data_hist.SetMarkerColor(ROOT.kBlack)
-    data_hist.SetLineColor(ROOT.kBlack)
-    dy_hist.SetLineColor(ROOT.kAzure + 1)
-    dy_hist.SetFillColorAlpha(ROOT.kAzure + 1, 0.25)
-    other_hist.SetLineColor(ROOT.kOrange + 7)
-    other_hist.SetFillColorAlpha(ROOT.kOrange + 7, 0.25)
-
-    ymax = max(data_hist.GetMaximum(), dy_hist.GetMaximum(), other_hist.GetMaximum(), 1.0)
-    data_hist.SetMinimum(0.1)
-    data_hist.SetMaximum(100.0 * ymax)
-    data_hist.SetTitle(f"{category};p_{{T}}(ll) [GeV];Events")
-    data_hist.GetXaxis().SetRangeUser(x_min, x_max)
-    data_hist.Draw("E")
-    dy_hist.Draw("HIST SAME")
-    other_hist.Draw("HIST SAME")
-    data_hist.Draw("E SAME")
-
-    legend = ROOT.TLegend(0.58, 0.62, 0.88, 0.88)
-    legend.SetBorderSize(0)
-    legend.SetFillStyle(0)
-    legend.AddEntry(data_hist, "Data", "lep")
-    legend.AddEntry(dy_hist, "DY", "f")
-    legend.AddEntry(other_hist, "non-DY MC", "f")
-    legend.Draw()
-
-    lower = canvas.cd(2)
-    lower.SetPad(0.0, 0.0, 1.0, 0.35)
-    lower.SetTopMargin(0.03)
-    lower.SetBottomMargin(0.3)
-
-    ratio_hist.SetMarkerStyle(20)
-    ratio_hist.SetMarkerColor(ROOT.kBlack)
-    ratio_hist.SetLineColor(ROOT.kBlack)
-    ratio_hist.SetTitle(";p_{T}(ll) [GeV];(Data-nonDY)/DY")
-    ratio_hist.GetXaxis().SetRangeUser(x_min, x_max)
-    ratio_hist.GetYaxis().SetTitleSize(0.08)
-    ratio_hist.GetYaxis().SetTitleOffset(0.55)
-    ratio_hist.GetYaxis().SetLabelSize(0.07)
-    ratio_hist.GetXaxis().SetTitleSize(0.09)
-    ratio_hist.GetXaxis().SetLabelSize(0.08)
-    ratio_hist.SetMinimum(0.0)
-    ratio_hist.SetMaximum(max(2.0, 1.4 * ratio_hist.GetMaximum()))
-    ratio_hist.Draw("E")
-
-    fit_func.SetLineColor(ROOT.kRed)
-    fit_func.SetLineWidth(2)
-    fit_func.Draw("SAME")
-
-    output_dir = Path(output_dir)
-    output_dir.mkdir(parents=True, exist_ok=True)
-    canvas.SaveAs(str(output_dir / f"{category}_ptll_data_mc_fit.png"))
-    canvas.SaveAs(str(output_dir / f"{category}_ptll_data_mc_fit.pdf"))
-
-
 def plot_fit_ratio(
     output_dir,
+    era,
+    region,
     category,
     ratio_hist,
     fit_func,
+    lumi_label="",
     x_min=0.0,
     x_max=200.0,
 ):
-    ROOT.gStyle.SetOptStat(0)
+    set_cms_style()
     canvas = ROOT.TCanvas(f"c_ptll_fit_{category}", category, 900, 700)
 
     ratio_hist.SetMarkerStyle(20)
     ratio_hist.SetMarkerColor(ROOT.kBlack)
     ratio_hist.SetLineColor(ROOT.kBlack)
-    ratio_hist.SetTitle(f"Reweighting factor {category};ptll;Data / DY")
+    ratio_hist.SetTitle(";p_{T}(ll) [GeV];(Data - non-DY) / DY")
     ratio_hist.GetXaxis().SetRangeUser(x_min, x_max)
     ratio_hist.GetXaxis().SetTitleSize(0.045)
     ratio_hist.GetYaxis().SetTitleSize(0.045)
@@ -612,33 +562,44 @@ def plot_fit_ratio(
     fit_func.SetLineColor(ROOT.kRed)
     fit_func.SetLineWidth(2)
     fit_func.Draw("SAME")
+    draw_cms_label(lumi_label, f"{region}/{category}")
+
+    legend = ROOT.TLegend(0.62, 0.76, 0.88, 0.88)
+    legend.SetFillStyle(0)
+    legend.AddEntry(ratio_hist, "(Data - non-DY) / DY", "lep")
+    legend.AddEntry(fit_func, "Fit", "l")
+    legend.Draw()
 
     output_dir = Path(output_dir)
     output_dir.mkdir(parents=True, exist_ok=True)
-    canvas.SaveAs(str(output_dir / f"{category}_ptll_reweight_fit.png"))
-    canvas.SaveAs(str(output_dir / f"{category}_ptll_reweight_fit.pdf"))
+    canvas.SaveAs(str(output_dir / f"{category}_ptll_ratio_fit.png"))
+    canvas.SaveAs(str(output_dir / f"{category}_ptll_ratio_fit.pdf"))
 
 
 def plot_reweighting_factor(
     output_dir,
+    era,
+    region,
     category,
     ratio_hist,
     fit_func,
+    lumi_label="",
     x_min=0.0,
     x_max=200.0,
 ):
-    ROOT.gStyle.SetOptStat(0)
+    set_cms_style()
     canvas = ROOT.TCanvas(f"c_reweighting_factor_{category}", category, 900, 900)
     canvas.Divide(1, 2)
 
     upper = canvas.cd(1)
     upper.SetPad(0.0, 0.52, 1.0, 1.0)
     upper.SetBottomMargin(0.03)
+    upper.SetTopMargin(0.14)
 
     ratio_hist.SetMarkerStyle(20)
     ratio_hist.SetMarkerColor(ROOT.kBlack)
     ratio_hist.SetLineColor(ROOT.kBlack)
-    ratio_hist.SetTitle(f"Reweighting factor {category};ptll;Data / DY")
+    ratio_hist.SetTitle(";p_{T}(ll) [GeV];(Data - non-DY) / DY")
     ratio_hist.GetXaxis().SetRangeUser(x_min, x_max)
     ratio_hist.GetXaxis().SetLabelSize(0.0)
     ratio_hist.GetYaxis().SetTitleSize(0.055)
@@ -650,6 +611,7 @@ def plot_reweighting_factor(
     fit_func.SetLineColor(ROOT.kRed)
     fit_func.SetLineWidth(2)
     fit_func.Draw("SAME")
+    draw_cms_label(lumi_label, f"{region}/{category}")
 
     before = ratio_hist.Clone(f"before_reweight_{category}")
     before.SetDirectory(0)
@@ -667,7 +629,7 @@ def plot_reweighting_factor(
     before.SetMarkerStyle(20)
     before.SetMarkerColor(ROOT.kBlack)
     before.SetLineColor(ROOT.kBlack)
-    before.SetTitle(";ptll;Reweighted Data / MC")
+    before.SetTitle(";p_{T}(ll) [GeV];Closure ratio")
     before.GetXaxis().SetRangeUser(x_min, x_max)
     before.GetXaxis().SetTitleSize(0.055)
     before.GetXaxis().SetLabelSize(0.045)
@@ -683,7 +645,6 @@ def plot_reweighting_factor(
     after.Draw("E SAME")
 
     legend = ROOT.TLegend(0.12, 0.78, 0.32, 0.94)
-    legend.SetBorderSize(1)
     legend.SetFillStyle(0)
     legend.AddEntry(before, "Before", "lep")
     legend.AddEntry(after, "After", "lep")
@@ -699,6 +660,7 @@ def derive(args):
     input_dir = os.path.abspath(args.input_dir)
     output_dir = os.path.abspath(args.output_dir)
     categories = args.categories
+    lumi_label = get_luminosity_label(args.era)
     manual_rebin_edges = parse_rebin_edges(args.rebin_edges)
     hist_cfg = None
     hist_cfg_source = None
@@ -760,6 +722,7 @@ def derive(args):
         "max_weight": args.max_weight,
         "data_sample": args.data_sample,
         "dy_sample": args.dy_sample,
+        "dy_scale": args.dy_scale,
         "subtracted_samples": other_samples,
         "rebin": {
             "histogram_config": hist_cfg_source,
@@ -802,53 +765,48 @@ def derive(args):
             print(f"[WARNING] Missing histograms for {category}: {directory_path}/{args.variable}")
             continue
 
+        dy_hist.Scale(args.dy_scale)
+
         rebin_edges = extend_rebin_edges_to_xmax(rebin_edges, data_hist, args.fit_max)
 
         original_bins = data_hist.GetNbinsX()
-        preliminary_data = apply_rebin(
+        config_data = apply_rebin(
             data_hist,
-            f"data_{category}_preliminary",
+            f"data_{category}_config_rebin",
             rebin_factor=args.rebin,
             rebin_edges=rebin_edges,
         )
-        preliminary_dy = apply_rebin(
+        config_dy = apply_rebin(
             dy_hist,
-            f"dy_{category}_preliminary",
+            f"dy_{category}_config_rebin",
             rebin_factor=args.rebin,
             rebin_edges=rebin_edges,
         )
-        preliminary_other, _ = sum_samples(
+        config_other, _ = sum_samples(
             input_dir,
             other_samples,
             directory_path,
             args.variable,
-            preliminary_data,
-            f"other_{category}_preliminary",
+            config_data,
+            f"other_{category}_config_rebin",
             args.rebin,
             rebin_edges,
-        )
-        preliminary_target, preliminary_ratio = build_ratio_hist(
-            preliminary_data,
-            preliminary_dy,
-            preliminary_other,
-            f"ratio_{category}_before",
-            args.min_dy,
         )
 
         final_rebin_edges = rebin_edges
         final_rebin_source = rebin_source
         if args.smart_rebin:
             final_rebin_edges = make_smart_rebin_edges(
-                preliminary_data,
-                preliminary_dy,
-                preliminary_other,
+                config_data,
+                config_dy,
+                config_other,
                 args.smart_min_dy,
                 args.smart_min_target,
                 args.smart_max_rel_unc,
             )
             final_rebin_source = f"{rebin_source}+smart"
 
-        config_bins = preliminary_data.GetNbinsX()
+        config_bins = config_data.GetNbinsX()
         data_hist = apply_rebin(
             data_hist,
             f"data_{category}_rebinned",
@@ -881,7 +839,7 @@ def derive(args):
         final_bins = data_hist.GetNbinsX()
         print(
             f"[REBIN] {category}: original={original_bins}, "
-            f"config/fallback={config_bins}, final_fit={final_bins}, "
+            f"hist_plotter_like={config_bins}, final_fit={final_bins}, "
             f"source={final_rebin_source}"
         )
         fit_func, fit_payload = fit_ratio(
@@ -891,30 +849,25 @@ def derive(args):
             args.fit_max,
         )
 
-        plot_data_mc_with_fit(
-            output_dir,
-            category,
-            data_hist,
-            dy_hist,
-            other_hist,
-            ratio_hist,
-            fit_func,
-            x_min=args.fit_min,
-            x_max=args.fit_max,
-        )
         plot_fit_ratio(
             output_dir,
+            args.era,
+            args.region,
             category,
             ratio_hist,
             fit_func,
+            lumi_label=lumi_label,
             x_min=args.fit_min,
             x_max=args.fit_max,
         )
         plot_reweighting_factor(
             output_dir,
+            args.era,
+            args.region,
             category,
             ratio_hist,
             fit_func,
+            lumi_label=lumi_label,
             x_min=args.fit_min,
             x_max=args.fit_max,
         )
@@ -923,11 +876,9 @@ def derive(args):
         category_dir = output_root.mkdir(category)
         category_dir.cd()
         for hist in [
-            preliminary_data,
-            preliminary_dy,
-            preliminary_other,
-            preliminary_target,
-            preliminary_ratio,
+            config_data,
+            config_dy,
+            config_other,
             data_hist,
             dy_hist,
             other_hist,
@@ -1006,12 +957,16 @@ def parse_args():
         help="Comma-separated variable bin edges overriding the histogram config",
     )
     parser.add_argument(
-        "--no-smart-rebin",
+        "--smart-rebin",
         dest="smart_rebin",
-        action="store_false",
-        help="Disable the statistical bin merging used for the ratio fit.",
+        action="store_true",
+        help=(
+            "After the histogram-config rebinning, merge neighboring bins "
+            "until the ratio has enough statistics. Disabled by default so "
+            "the nominal binning matches hist_plotter --rebin."
+        ),
     )
-    parser.set_defaults(smart_rebin=True)
+    parser.set_defaults(smart_rebin=False)
     parser.add_argument(
         "--smart-min-dy",
         type=float,
@@ -1033,6 +988,12 @@ def parse_args():
     parser.add_argument("--fit-min", type=float, default=0.0)
     parser.add_argument("--fit-max", type=float, default=200.0)
     parser.add_argument("--min-dy", type=float, default=1e-9)
+    parser.add_argument(
+        "--dy-scale",
+        type=float,
+        default=0.9393839712918659,
+        help="Scale factor applied to the DY histogram before computing (Data - nonDY) / DY.",
+    )
     parser.add_argument("--min-weight", type=float, default=0.0)
     parser.add_argument("--max-weight", type=float, default=5.0)
     return parser.parse_args()

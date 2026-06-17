@@ -885,16 +885,16 @@ python3 histograms/hadd_hists_to_processes.py \
   --era ${era}
 ```
 
-Derive the JSON. By default the script first uses the `x_rebin` entry for
-`pt_mumu` from `config/plot/histograms.yaml`, then smart-merges neighboring bins
-until the ratio bin has enough DY yield, enough `(Data - nonDY)`, and a stable
-relative uncertainty. The ratio, fit, and diagnostic plots all use these final
-smart bins. To override the starting binning, pass
+Derive the JSON. By default the script uses the same `x_rebin` entry for
+`pt_mumu` from `config/plot/histograms.yaml` that `hist_plotter.py --rebin`
+uses, via the same `RebinHisto(..., wantOverflow=False)` helper. The DY
+histogram is scaled by `--dy-scale`, whose default is `0.9393839712918659`.
+To override the config binning, pass
 `--rebin-edges 0,10,20,30,50,80,120,200,350`.
-For each category it writes Data/DY/non-DY plots with the fit overlaid in the
-ratio pad (`*_ptll_data_mc_fit.*`), fit-only plots
-(`*_ptll_reweight_fit.*`), and diagnostic plots
-(`*_ptll_reweight_diagnostic.*`).
+For each category it writes only the fit/ratio plot
+(`*_ptll_ratio_fit.*`) and the before/after diagnostic plot
+(`*_ptll_reweight_diagnostic.*`). Both plots include CMS-style labels with
+era and `region/category`.
 
 ```bash
 era=Run3_2024
@@ -903,9 +903,10 @@ suffix=_ptllRW
 python3 histograms/derive_dy_ptll_njets_reweight.py \
   --era ${era} \
   --input-dir /eos/user/v/vdamante/H_mumu/newHists_${era}${suffix}_hadded/ \
-  --output-dir dy_ptll_reweight/${era}/plots \
-  --output-json dy_ptll_reweight/${era}/dy_ptll_reweight.json \
-  --output-root dy_ptll_reweight/${era}/dy_ptll_reweight.root
+  --output-dir reweights/dy_ptll_reweight/${era}/plots \
+  --output-json reweights/dy_ptll_reweight/${era}/dy_ptll_reweight.json \
+  --output-root reweights/dy_ptll_reweight/${era}/dy_ptll_reweight.root \
+  --dy-scale 0.9393839712918659
 ```
 
 To disable the histogram-config rebinning and use a simple integer factor:
@@ -914,11 +915,11 @@ To disable the histogram-config rebinning and use a simple integer factor:
 --no-config-rebin --rebin 2
 ```
 
-To tune or disable the smart merging:
+To enable and tune an extra statistical merging on top of the histogram-config
+binning:
 
 ```bash
---smart-min-dy 100 --smart-min-target 20 --smart-max-rel-unc 0.15
---no-smart-rebin
+--smart-rebin --smart-min-dy 100 --smart-min-target 20 --smart-max-rel-unc 0.15
 ```
 
 The non-DY samples to subtract are defined in `NON_DY_SUBTRACT_SAMPLES` at the
@@ -954,7 +955,7 @@ python3 htcondor/hist_condorsubmit.py \
   --variables N_SelectedJets \
   --mass-regions Z_sideband \
   --categories ggF VBF \
-  --dy-ptll-reweight-json dy_ptll_reweight/Run3_2024/dy_ptll_reweight.json \
+  --dy-ptll-reweight-json reweights/dy_ptll_reweight/Run3_2024/dy_ptll_reweight.json \
   --skip-file-validation
 ```
 
@@ -970,7 +971,9 @@ python3 histograms/hadd_hists_to_processes.py \
   --era ${era}
 ```
 
-Derive the NJets JSON:
+Derive the NJets JSON. The DY histogram is scaled by `--dy-scale`, whose
+default is `0.9393839712918659`, before computing the bin-by-bin
+`(Data - nonDY) / DY` factors.
 
 ```bash
 era=Run3_2024
@@ -979,9 +982,10 @@ suffix=_njetsRW
 python3 histograms/derive_dy_njets_reweight.py \
   --era ${era} \
   --input-dir /eos/user/v/vdamante/H_mumu/newHists_${era}${suffix}_hadded/ \
-  --output-dir dy_njets_reweight/${era}/plots \
-  --output-json dy_njets_reweight/${era}/dy_njets_reweight.json \
-  --output-root dy_njets_reweight/${era}/dy_njets_reweight.root
+  --output-dir reweights/dy_njets_reweight/${era}/plots \
+  --output-json reweights/dy_njets_reweight/${era}/dy_njets_reweight.json \
+  --output-root reweights/dy_njets_reweight/${era}/dy_njets_reweight.root \
+  --dy-scale 0.9393839712918659
 ```
 
 The NJets correction has no fitted function: every output value is the bin
@@ -1008,8 +1012,8 @@ python3 histograms/hist_maker.py \
   --dataset-name DYto2Mu_M_50_amcatnloFXFX \
   --input /eos/cms/store/group/phys_higgs/cmshmm/vdamante/skim_v1_noUnc/Run3_2024/DYto2Mu_M_50_amcatnloFXFX/ \
   --output-file /tmp/vdamante/test_dy_rw.root \
-  --dy-ptll-reweight-json dy_ptll_reweight/Run3_2024/dy_ptll_reweight.json \
-  --dy-njets-reweight-json dy_njets_reweight/Run3_2024/dy_njets_reweight.json \
+  --dy-ptll-reweight-json reweights/dy_ptll_reweight/Run3_2024/dy_ptll_reweight.json \
+  --dy-njets-reweight-json reweights/dy_njets_reweight/Run3_2024/dy_njets_reweight.json \
   --skip-file-validation
 ```
 
@@ -1019,7 +1023,7 @@ The pt(ll) JSON is also evaluable with correctionlib:
 import correctionlib
 
 cset = correctionlib.CorrectionSet.from_file(
-    "dy_ptll_reweight/Run3_2024/dy_ptll_reweight.json"
+    "reweights/dy_ptll_reweight/Run3_2024/dy_ptll_reweight.json"
 )
 rw = cset["dy_ptll_reweight"]
 
@@ -1032,7 +1036,7 @@ The NJets JSON is evaluable with only `isVBF` and `nSelectedJets`:
 import correctionlib
 
 cset = correctionlib.CorrectionSet.from_file(
-    "dy_njets_reweight/Run3_2024/dy_njets_reweight.json"
+    "reweights/dy_njets_reweight/Run3_2024/dy_njets_reweight.json"
 )
 rw = cset["dy_njets_reweight"]
 
