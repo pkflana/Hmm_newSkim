@@ -60,13 +60,21 @@ parser.add_argument(
     ),
 )
 parser.add_argument(
+    "--jerc-2025-mc-mode",
+    choices=["2025", "jec2024_jer2025", "2024"],
+    default=None,
+    help=(
+        "JEC/JER payload mode for Run3_2025 MC skim jobs. "
+        "Choices: 2025 = JEC/JER 2025, jec2024_jer2025 = JEC 2024 and JER 2025, "
+        "2024 = JEC/JER 2024. Default comes from skim_cfg.yaml jerc_2025_mc_mode, "
+    ),
+)
+parser.add_argument(
     "--use-2024-jerc-for-2025-mc",
     action=argparse.BooleanOptionalAction,
     default=None,
     help=(
-        "Use Run3_2024 JEC/JER for Run3_2025 MC skim jobs. "
-        "Default comes from skim_cfg.yaml use_2024_jerc_for_2025_mc, "
-        "or false if unset."
+        "Deprecated alias for --jerc-2025-mc-mode jec2024_jer2025."
     ),
 )
 args = parser.parse_args()
@@ -152,9 +160,15 @@ use_ext = args.use_ext
 if use_ext is None:
     use_ext = skim_config.get("use_ext", False)
 
-use_2024_jerc_for_2025_mc = args.use_2024_jerc_for_2025_mc
-if use_2024_jerc_for_2025_mc is None:
-    use_2024_jerc_for_2025_mc = skim_config.get("use_2024_jerc_for_2025_mc", False)
+jerc_2025_mc_mode = args.jerc_2025_mc_mode
+if jerc_2025_mc_mode is None:
+    jerc_2025_mc_mode = skim_config.get("jerc_2025_mc_mode", "2025") 
+jerc_2025_mc_mode = str(jerc_2025_mc_mode)
+
+if jerc_2025_mc_mode not in ("config", "2025", "jec2024_jer2025", "2024"):
+    raise SystemExit(
+        "[ERROR] jerc_2025_mc_mode must be one of: 2025, jec2024_jer2025, 2024"
+    )
 
 MAX_PARALLEL_JOBS = args.max_parallel_jobs or skim_config.get("max_parallel_jobs", 6000)
 POLL_INTERVAL = args.poll_interval or skim_config.get("poll_interval", 120)
@@ -768,7 +782,7 @@ for dataset in all_datasets:
             f"{dataset} "
             f"{output_list} "
             f"{cmssw_version} "
-            f"{int(use_2024_jerc_for_2025_mc)}"
+            f"{jerc_2025_mc_mode}"
         )
 
         dataset_condorinputs[dataset].append({

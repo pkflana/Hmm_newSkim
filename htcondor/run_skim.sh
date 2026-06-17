@@ -10,7 +10,7 @@ input_list="$4"
 dataset="$5"
 output_list="$6"
 cmssw_version="${7:-CMSSW_15_0_2}"
-use_2024_jerc_for_2025_mc="${8:-0}"
+jerc_2025_mc_mode="${8:-config}"
 
 cd "$analysis_path"
 
@@ -21,8 +21,17 @@ IFS=',' read -r -a INPUT_FILES <<< "$input_list"
 IFS=',' read -r -a OUTPUT_FILES <<< "$output_list"
 
 skim_extra_opts=()
-if [[ "$use_2024_jerc_for_2025_mc" == "1" || "$use_2024_jerc_for_2025_mc" == "true" ]]; then
-  skim_extra_opts+=(--use-2024-jerc-for-2025-mc)
+case "$jerc_2025_mc_mode" in
+  1|true)
+    jerc_2025_mc_mode="jec2024_jer2025"
+    ;;
+  0|false)
+    jerc_2025_mc_mode="config"
+    ;;
+esac
+
+if [[ "$jerc_2025_mc_mode" != "config" ]]; then
+  skim_extra_opts+=(--jerc-2025-mc-mode "$jerc_2025_mc_mode")
 fi
 
 for i in "${!INPUT_FILES[@]}"; do

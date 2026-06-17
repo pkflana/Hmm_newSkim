@@ -8,6 +8,11 @@ jsonPath_btag = "/cvmfs/cms-griddata.cern.ch/cat/metadata/BTV/{}/btagging.json.g
 jet_jsonPath = "/cvmfs/cms-griddata.cern.ch/cat/metadata/JME/{}/latest/jet_jerc.json.gz"
 jetsmear_jsonFile = "/cvmfs/cms-griddata.cern.ch/cat/metadata/JME/JER-Smearing/latest/jer_smear.json.gz"
 jet_algorithm = "AK4PFPuppi"
+JERC_2025_MC_MODES = {
+    "2025": ("Run3_2025", "Run3_2025"),
+    "jec2024_jer2025": ("Run3_2024", "Run3_2025"),
+    "2024": ("Run3_2024", "Run3_2024"),
+}
 uncSources_minimal = ["Total"]
 unc_sources_regrouped = [
     "RelativeBal",
@@ -106,6 +111,8 @@ run_letters = {
 _jet_correction_state = {
     "initialized": False,
     "period": None,
+    "jec_period": None,
+    "jer_period": None,
     "is_data": False,
     "use_regrouped": False,
     "sample_name": None,
@@ -156,10 +163,17 @@ def initialize_jet_corrections(
     is_data,
     sample_name,
     use_regrouped=False,
+    jec_period=None,
+    jer_period=None,
 ):
+    jec_period = jec_period or period
+    jer_period = jer_period or period
+
     if _jet_correction_state["initialized"]:
         same_state = (
             _jet_correction_state["period"] == period
+            and _jet_correction_state["jec_period"] == jec_period
+            and _jet_correction_state["jer_period"] == jer_period
             and _jet_correction_state["is_data"] == is_data
             and _jet_correction_state["sample_name"] == sample_name
             and _jet_correction_state["use_regrouped"] == use_regrouped
@@ -171,6 +185,8 @@ def initialize_jet_corrections(
         )
 
     _jet_correction_state["period"] = period
+    _jet_correction_state["jec_period"] = jec_period
+    _jet_correction_state["jer_period"] = jer_period
     _jet_correction_state["is_data"] = is_data
     _jet_correction_state["use_regrouped"] = use_regrouped
     _jet_correction_state["sample_name"] = sample_name
@@ -178,18 +194,20 @@ def initialize_jet_corrections(
         ["JER"] + unc_sources_regrouped if use_regrouped else ["JER"] + uncSources_minimal
     )
 
-    jet_jsonFile = jet_jsonPath.format(pog_folder_names["JERC"][period])
+    jec_jsonFile = jet_jsonPath.format(pog_folder_names["JERC"][jec_period])
+    jer_jsonFile = jet_jsonPath.format(pog_folder_names["JERC"][jer_period])
 
     year = period.split("_")[0]
+    jec_year = jec_period.split("_")[0]
 
     jec_tag_map = jec_tag_map_data if is_data else jec_tag_map_mc
-    jec_tag_array = jec_tag_map[period]
+    jec_tag_array = jec_tag_map[jec_period]
     if is_data:
-        jec_tag_array = _format_data_jec_tags(period, sample_name, jec_tag_array)
+        jec_tag_array = _format_data_jec_tags(jec_period, sample_name, jec_tag_array)
 
     jec_tag = jec_tag_array[0]
     other_jec_tag = jec_tag_array[1] if len(jec_tag_array) > 1 else jec_tag_array[0]
-    jer_tag = jer_tag_map[period]
+    jer_tag = jer_tag_map[jer_period]
 
     headers_dir = os.path.dirname(os.path.abspath(__file__))
     header_path = os.path.join(headers_dir, "jets.h")
@@ -201,13 +219,15 @@ def initialize_jet_corrections(
 
     ROOT.gInterpreter.ProcessLine(
         f"""::correction::JetCorrectionProvider::Initialize(\
-            \"{jet_jsonFile}\",\
+            \"{jec_jsonFile}\",\
+            \"{jer_jsonFile}\",\
             \"{jetsmear_jsonFile}\",\
             \"{jec_tag}\",\
             \"{other_jec_tag}\",\
             \"{jer_tag}\",\
             \"{jet_algorithm}\",\
             \"{year}\",\
+            \"{jec_year}\",\
             {is_data_str},\
             {regrouped_str},\
             {apply_compound})"""
@@ -313,27 +333,63 @@ def define_jet_p4_variations(
 
     return df
 
+def get_2025_mc_jerc_mode(config, is_data):
+    era = config.get("era")
+    if is_data or era != "Run3_2025":
+        return "2025"
+
+    mode = config.get("jerc_2025_mc_mode")
+    if mode is None:
+        mode = "2025"
+
+    mode = str(mode)
+
+    if mode not in JERC_2025_MC_MODES:
+        choices = ", ".join(JERC_2025_MC_MODES)
+        raise ValueError(f"Unsupported jerc_2025_mc_mode={mode!r}. Choose one of: {choices}")
+
+    return mode
+
+
 def get_jet_correction_period(config, is_data):
     era = config.get("era")
     period = period_names[era]
 
-    use_2024_jerc_for_2025_mc = config.get("use_2024_jerc_for_2025_mc", False)
-    if use_2024_jerc_for_2025_mc and not is_data and era == "Run3_2025":
+    mode = get_2025_mc_jerc_mode(config, is_data)
+    if mode in ("jec2024_jer2025", "2024"):
         return period_names["Run3_2024"]
 
     return period
 
+
+def get_jet_correction_periods(config, is_data):
+    era = config.get("era")
+    period = period_names[era]
+    mode = get_2025_mc_jerc_mode(config, is_data)
+    jec_era, jer_era = JERC_2025_MC_MODES[mode]
+    jec_period = period_names[jec_era] if era == "Run3_2025" and not is_data else period
+    jer_period = period_names[jer_era] if era == "Run3_2025" and not is_data else period
+    return period, jec_period, jer_period
+
+
 def apply_jet_corrections(df, config, dataset_cfg, dataset_name, want_variations):
     # Extract configuration parameters
     is_data = dataset_cfg.get("is_data", False)
-    period = get_jet_correction_period(config, is_data)
+    period, jec_period, jer_period = get_jet_correction_periods(config, is_data)
     apply_JER = config.get("apply_JER", True)
     apply_JES = config.get("apply_JES", True)
     use_regrouped = config.get("use_regrouped", False)
     apply_forward_jet_horns_fix = config.get("apply_forward_jet_horns_fix", False)
 
     # Apply jet corrections
-    initialize_jet_corrections(period, is_data, dataset_name, use_regrouped)
+    initialize_jet_corrections(
+        period,
+        is_data,
+        dataset_name,
+        use_regrouped,
+        jec_period,
+        jer_period,
+    )
     df = define_jet_p4_variations(
         df,
         want_variations,
@@ -347,6 +403,8 @@ def apply_jet_corrections(df, config, dataset_cfg, dataset_name, want_variations
 __all__ = [
     "initialize_jet_corrections",
     "define_jet_p4_variations",
+    "get_2025_mc_jerc_mode",
     "get_jet_correction_period",
+    "get_jet_correction_periods",
     "apply_jet_corrections",
 ]

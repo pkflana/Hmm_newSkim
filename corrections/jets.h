@@ -33,27 +33,31 @@ namespace correction {
 
         // algo - type of jet algorithm
         // e.g. AK4PFPuppi
-        JetCorrectionProvider(std::string const& json_file_name,
+        JetCorrectionProvider(std::string const& jec_json_file_name,
+                              std::string const& jer_json_file_name,
                               std::string const& jetsmear_file_name,
                               std::string const& jec_tag,
                               std::string const& other_jec_tag,
                               std::string const& jer_tag,
                               std::string const& algo,
                               std::string const& year,
+                              std::string const& jec_year,
                               bool is_data,
                               bool use_regrouped,
                               bool use_cmpd_jec)
-            : corrset_(CorrectionSet::from_file(json_file_name)),
+            : corrset_jec_(CorrectionSet::from_file(jec_json_file_name)),
+              corrset_jer_(CorrectionSet::from_file(jer_json_file_name)),
               jersmear_corr_(CorrectionSet::from_file(jetsmear_file_name)->at("JERSmear")),
-              corr_jer_sf_(corrset_->at(jer_tag + "_ScaleFactor_" + algo)),
-              corr_jer_sf_shifted_(corrset_->at(jer_tag + "_SFUncertainty_" + algo)),
-              corr_jer_res_(corrset_->at(jer_tag + "_PtResolution_" + algo)),
-              cmpd_corr_(corrset_->compound().at(other_jec_tag + "_L1L2L3Res_" + algo)),
-              corr_l1_(corrset_->at(other_jec_tag + "_L1FastJet_" + algo)),
-              corr_l2_(corrset_->at(other_jec_tag + "_L2Relative_" + algo)),
-              corr_l2l3res_(corrset_->at(other_jec_tag + "_L2L3Residual_" + algo)),
+              corr_jer_sf_(corrset_jer_->at(jer_tag + "_ScaleFactor_" + algo)),
+              corr_jer_sf_shifted_(corrset_jer_->at(jer_tag + "_SFUncertainty_" + algo)),
+              corr_jer_res_(corrset_jer_->at(jer_tag + "_PtResolution_" + algo)),
+              cmpd_corr_(corrset_jec_->compound().at(other_jec_tag + "_L1L2L3Res_" + algo)),
+              corr_l1_(corrset_jec_->at(other_jec_tag + "_L1FastJet_" + algo)),
+              corr_l2_(corrset_jec_->at(other_jec_tag + "_L2Relative_" + algo)),
+              corr_l2l3res_(corrset_jec_->at(other_jec_tag + "_L2L3Residual_" + algo)),
               is_data_(is_data),
               year_(year),
+              jec_year_(jec_year),
               use_cmpd_jec_(use_cmpd_jec) {
             // map with uncertainty sources should only be filled for MC
             std::cout << "JetCorrectionProvider: init" << std::endl;
@@ -65,7 +69,7 @@ namespace correction {
                     full_name += unc_name;
                     full_name += '_';
                     if (year_dep_map.at(unc_source)) {
-                        full_name += year;
+                        full_name += jec_year;
                         full_name += '_';
                     }
                     full_name += algo;
@@ -263,7 +267,7 @@ namespace correction {
                     const float mass_raw = Jet_mass[i] * raw_sf;
 
                     const bool is2024Eta2To2p5 =
-                        (year_ == "2024" &&
+                        (jec_year_ == "2024" &&
                         abs_eta > 2.f &&
                         abs_eta < 2.5f);
 
@@ -399,7 +403,7 @@ namespace correction {
                 ) {
 
                     const auto corr =
-                        corrset_->at(
+                        corrset_jec_->at(
                             unc_map_.at(unc_source)
                         );
 
@@ -436,7 +440,8 @@ namespace correction {
 
       private:
         std::map<UncSource, std::string> unc_map_;
-        std::unique_ptr<CorrectionSet> corrset_;
+        std::unique_ptr<CorrectionSet> corrset_jec_;
+        std::unique_ptr<CorrectionSet> corrset_jer_;
         Correction::Ref jersmear_corr_;  // aka shared_ptr<Correction const>, sizeof = 8
         Correction::Ref corr_l1_;
         Correction::Ref corr_l2_;
@@ -447,6 +452,7 @@ namespace correction {
         CompoundCorrection::Ref cmpd_corr_;
         bool is_data_;
         std::string year_;
+        std::string jec_year_;
         bool use_cmpd_jec_;
 
         inline static const std::map<UncSource, std::string> unc_map_total = {{UncSource::Total, "Total"},
