@@ -813,10 +813,36 @@ python3 histograms/hadd_hists_to_processes.py \
   --dryRun
 ```
 
-## DY pt(ll) Reweighting JSON
+## DY pt(ll) And NJets Reweighting JSON
 
-This workflow derives DY weights from the hadded process files. It reads one ROOT
-file per contribution, as `hist_plotter.py` does, and expects this structure:
+There are two independent DY reweights:
+
+- `pt(ll)`: evaluated with `isVBF`, `N_selectedJets`, and `ptll`
+- `NJets`: evaluated with `isVBF` and `nSelectedJets`
+
+The intended nominal workflow is sequential:
+
+1. derive the `pt(ll)` JSON from un-reweighted histograms;
+2. produce the `N_SelectedJets` histograms with the `pt(ll)` JSON already
+   applied to DY;
+3. derive the `NJets` JSON from those pt(ll)-reweighted histograms;
+4. produce the final histograms with both the `pt(ll)` and `NJets` JSONs
+   applied to DY.
+
+If both JSON arguments are passed to `hist_maker.py`, the two factors are
+multiplied into the DY event weights. The implementation applies these weights
+to DY datasets only. EWK is not reweighted by these options; applying the same
+factors to EWK would be a separate physics choice and would require a dedicated
+code/config change.
+
+The JSON files are correctionlib-style `CorrectionSet`s. Use `isVBF=1` for VBF
+and `isVBF=0` for ggF when evaluating them directly with correctionlib.
+
+### pt(ll)
+
+This workflow derives DY pt(ll) weights from the hadded process files. It reads
+one ROOT file per contribution, as `hist_plotter.py` does, and expects this
+structure:
 
 ```text
 Data_Muon.root:/Z_sideband_ggF_0J/pt_mumu
@@ -844,6 +870,9 @@ python3 htcondor/hist_condorsubmit.py \
   --skip-file-validation
 ```
 
+These histograms should be produced without any DY reweighting applied. They
+are used only to derive the first, `pt(ll)`, correction.
+
 Hadd them to process files:
 
 ```bash
@@ -862,10 +891,10 @@ until the ratio bin has enough DY yield, enough `(Data - nonDY)`, and a stable
 relative uncertainty. The ratio, fit, and diagnostic plots all use these final
 smart bins. To override the starting binning, pass
 `--rebin-edges 0,10,20,30,50,80,120,200,350`.
-For each category it writes both `*_before` plots with the config/fallback
-binning and `*_after` plots with the final smart binning used in the fit. The
-upper pads are log-y and show only Data, DY, and non-DY MC; the ratio pad is
-rebinned consistently with each plot.
+For each category it writes Data/DY/non-DY plots with the fit overlaid in the
+ratio pad (`*_ptll_data_mc_fit.*`), fit-only plots
+(`*_ptll_reweight_fit.*`), and diagnostic plots
+(`*_ptll_reweight_diagnostic.*`).
 
 ```bash
 era=Run3_2024
@@ -892,40 +921,122 @@ To tune or disable the smart merging:
 --no-smart-rebin
 ```
 
-By default the ratio is `(Data_Muon - all MC files except DY) / DY`. To keep
-specific files out of the subtraction:
+The non-DY samples to subtract are defined in `NON_DY_SUBTRACT_SAMPLES` at the
+top of `histograms/derive_dy_ptll_njets_reweight.py`. Edit that Python list to
+change the subtraction.
 
-```bash
---exclude-samples GluGluHto2Mu VBFHto2Mu_M125_powheg
+### NJets
+
+The NJets-only JSON reads hadded process histograms in the normal inclusive
+analysis categories:
+
+```text
+Data_Muon.root:/Z_sideband_ggF/N_SelectedJets
+Data_Muon.root:/Z_sideband_VBF/N_SelectedJets
 ```
 
-Apply the JSON to DY histogram production:
+The same directories must exist in `DY.root` and in the other MC contribution
+files to subtract.
+
+Produce the input histograms on top of the `pt(ll)` reweighting. This means the
+DY jobs in this campaign must receive `--dy-ptll-reweight-json`, while the data
+and non-DY MC jobs are unchanged. The output of this step is used only to derive
+the second, `NJets`, correction.
+
+```bash
+python3 htcondor/hist_condorsubmit.py \
+  --eras Run3_2024 \
+  --datasets data,DY_amcatnlo,EWK,SingleTop,TTX,W,DiTriBoson,SingleH,signals,other_signals \
+  --condor \
+  --submit-missing \
+  --output-suffix _njetsRW \
+  -- \
+  --variables N_SelectedJets \
+  --mass-regions Z_sideband \
+  --categories ggF VBF \
+  --dy-ptll-reweight-json dy_ptll_reweight/Run3_2024/dy_ptll_reweight.json \
+  --skip-file-validation
+```
+
+Hadd them to process files:
+
+```bash
+era=Run3_2024
+suffix=_njetsRW
+
+python3 histograms/hadd_hists_to_processes.py \
+  --input-dir /eos/user/v/vdamante/H_mumu/newHists_${era}${suffix}/ \
+  --output-dir /eos/user/v/vdamante/H_mumu/newHists_${era}${suffix}_hadded/ \
+  --era ${era}
+```
+
+Derive the NJets JSON:
+
+```bash
+era=Run3_2024
+suffix=_njetsRW
+
+python3 histograms/derive_dy_njets_reweight.py \
+  --era ${era} \
+  --input-dir /eos/user/v/vdamante/H_mumu/newHists_${era}${suffix}_hadded/ \
+  --output-dir dy_njets_reweight/${era}/plots \
+  --output-json dy_njets_reweight/${era}/dy_njets_reweight.json \
+  --output-root dy_njets_reweight/${era}/dy_njets_reweight.root
+```
+
+The NJets correction has no fitted function: every output value is the bin
+content of the `(Data - nonDY) / DY` ratio for that `N_SelectedJets` bin.
+The non-DY samples to subtract are defined in `NON_DY_SUBTRACT_SAMPLES` at the
+top of `histograms/derive_dy_njets_reweight.py`. Edit that Python list to
+change the subtraction.
+The script also writes stacked Data/MC plots named
+`ggF_njets_data_mc.*` and `VBF_njets_data_mc.*`, with `Data/all MC` in the
+ratio pad. It writes diagnostic plots named
+`ggF_njets_reweight_diagnostic.*` and `VBF_njets_reweight_diagnostic.*`,
+with the bin-by-bin factor in the upper pad and before/after closure in the
+lower pad.
+
+### Apply
+
+The final nominal DY histogram production should apply both JSONs. These
+options are ignored for non-DY datasets by the current implementation, so the
+weights are applied to DY only.
 
 ```bash
 python3 histograms/hist_maker.py \
   --era Run3_2024 \
   --dataset-name DYto2Mu_M_50_amcatnloFXFX \
   --input /eos/cms/store/group/phys_higgs/cmshmm/vdamante/skim_v1_noUnc/Run3_2024/DYto2Mu_M_50_amcatnloFXFX/ \
-  --output-file /tmp/vdamante/test_dy_ptll_rw.root \
-  --dy-ptll-njets-reweight-json dy_ptll_reweight/Run3_2024/dy_ptll_reweight.json \
+  --output-file /tmp/vdamante/test_dy_rw.root \
+  --dy-ptll-reweight-json dy_ptll_reweight/Run3_2024/dy_ptll_reweight.json \
+  --dy-njets-reweight-json dy_njets_reweight/Run3_2024/dy_njets_reweight.json \
   --skip-file-validation
 ```
 
-The JSON is also evaluable with the logical inputs `category`, `nSelectedJets`,
-and `ptll`:
+The pt(ll) JSON is also evaluable with correctionlib:
 
 ```python
-from common.dy_ptll_reweight import DYPtLLNJetsReweighter
+import correctionlib
 
-rw = DYPtLLNJetsReweighter.from_json(
+cset = correctionlib.CorrectionSet.from_file(
     "dy_ptll_reweight/Run3_2024/dy_ptll_reweight.json"
 )
+rw = cset["dy_ptll_reweight"]
 
-weight = rw.evaluate(
-    category="ggF",
-    nSelectedJets=1,
-    ptll=42.0,
+weight = rw.evaluate(0, 1.0, 42.0)  # isVBF, N_selectedJets, ptll
+```
+
+The NJets JSON is evaluable with only `isVBF` and `nSelectedJets`:
+
+```python
+import correctionlib
+
+cset = correctionlib.CorrectionSet.from_file(
+    "dy_njets_reweight/Run3_2024/dy_njets_reweight.json"
 )
+rw = cset["dy_njets_reweight"]
+
+weight = rw.evaluate(1, 3.0)  # isVBF, nSelectedJets
 ```
 
 ## Merge Hadded Eras
