@@ -201,6 +201,24 @@ def classify_plot_sample(sample_name, process_cfg, plot_groups_cfg):
     return None
 
 
+def make_custom_sample_info(sample_name, index=0):
+    colors = [
+        "black",
+        "red",
+        "dodgerblue",
+        "darkorange",
+        "forestgreen",
+        "purple",
+    ]
+    return {
+        "type": "signal",
+        "is_data": False,
+        "is_signal": True,
+        "color": colors[index % len(colors)],
+        "name": sample_name,
+    }
+
+
 def make_group_process(group_name, group_cfg, members, input_processes):
     output_process = {
         "input": ",".join(input_processes[name]["input"] for name in members),
@@ -499,6 +517,14 @@ if __name__ == "__main__":
             "Example: --ratio-reference EWK_Herwig"
         ),
     )
+    parser.add_argument(
+        "--allow-custom-samples",
+        action="store_true",
+        help=(
+            "Allow ROOT file names not present in process_names.yaml or "
+            "process_groups.yaml. Useful for direct file-to-file comparisons."
+        ),
+    )
 
     parser.add_argument(
         "--normalize-dy-to-data",
@@ -666,6 +692,9 @@ if __name__ == "__main__":
                 and sample not in get_group_member_info(plot_groups_cfg)
                 and sample not in plot_groups_cfg.get("signal_styles", {})
             ):
+                if args.allow_custom_samples:
+                    print(f"  {sample}: custom sample")
+                    continue
                 print(
                     f"  [WARNING] {sample} non è presente in process_names.yaml "
                     "o process_groups.yaml"
@@ -711,6 +740,11 @@ if __name__ == "__main__":
                 continue
 
             sample_info = classify_plot_sample(process_name, process_cfg, plot_groups_cfg)
+            if sample_info is None and args.allow_custom_samples:
+                sample_info = make_custom_sample_info(
+                    process_name,
+                    index=len(input_processes),
+                )
 
             if sample_info is None:
                 print(

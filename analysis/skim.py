@@ -21,10 +21,18 @@ parser.add_argument("--input-file", required=True)
 parser.add_argument("--dataset-name", required=True)
 parser.add_argument("--output-file", required=True)
 parser.add_argument("--want-variations", required=False, action="store_true", help="request for variations from command line")
+parser.add_argument(
+    "--use-2024-jerc-for-2025-mc",
+    action=argparse.BooleanOptionalAction,
+    default=None,
+    help="Override config use_2024_jerc_for_2025_mc.",
+)
 args = parser.parse_args()
 
 ## all configurations to load ##
 config = utilities.get_config(os.path.join(os.environ["ANALYSIS_PATH"], "config", args.era, "maincfg.yaml"))
+if args.use_2024_jerc_for_2025_mc is not None:
+    config["use_2024_jerc_for_2025_mc"] = args.use_2024_jerc_for_2025_mc
 dataset_cfg = utilities.get_config(os.path.join(os.environ["ANALYSIS_PATH"], "config", args.era, "samples.yaml"))[args.dataset_name]
 sel_config = utilities.get_config(os.path.join(os.environ["ANALYSIS_PATH"], "config", args.era, "selections.yaml"))
 trigger_config = utilities.get_config(os.path.join(os.environ["ANALYSIS_PATH"], "config", args.era, "triggers.yaml"))

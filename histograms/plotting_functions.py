@@ -326,10 +326,10 @@ def make_stacked_plot(
     hist_cfg = config_page.get(hist_entry, {}) if hist_entry is not None else {}
 
     divide_by_bin_width = hist_cfg.get("divide_by_bin_width", False)
-    include_overflow = hist_cfg.get("include_overflow", False)
+    include_overflow = False # hist_cfg.get("include_overflow", False)
     auto_trim_empty_edges = hist_cfg.get(
         "auto_trim_empty_edges",
-        config_page.get("auto_trim_empty_edges", True),
+        config_page.get("auto_trim_empty_edges", False),
     )
     auto_trim_min_empty_edge_bins = hist_cfg.get(
         "auto_trim_min_empty_edge_bins",
@@ -452,11 +452,12 @@ def make_stacked_plot(
             )
         else:
             normalization_bins = np.isfinite(data_vals)
-            data_integral = np.sum(data_vals[normalization_bins])
+            data_integral = np.sum(data_vals[normalization_bins][1:])
             mc_integral = np.sum(
-                [np.sum(values[normalization_bins]) for values in mc_vals]
+                [np.sum(values[normalization_bins][1:]) for values in mc_vals]
             )
-
+            print(data_integral)
+            print(mc_integral)
             if mc_integral <= 0:
                 print(
                     f"  [WARNING] MC normalization skipped for {variable}: "
@@ -472,8 +473,8 @@ def make_stacked_plot(
 
                     sample_label = ratio_candidates[sample_key]["name"]
                     mc_labels[idx] = (
-                        f"{sample_label} [{mc_integrals[idx]:.2f}]"
-                        f" x {mc_scale:.4g}"
+                        f"{sample_label} [{mc_integrals[idx]*mc_scale:.2f}]"
+                        # f" x {mc_scale:.4g}"
                     )
                     ratio_candidates[sample_key]["values"] = mc_vals[idx]
                     ratio_candidates[sample_key]["errors"] = mc_errs[idx]

@@ -24,12 +24,14 @@ background_groups:
     color_mplhep: dodgerblue
     processes:
       - DY
+      - DY_weighted
 
   DY_minnlo:
     name: "DY - MiNNLO"
     color_mplhep: dodgerblue
     processes:
       - DYto2Mu_minnlo
+      - DYto2Mu_minnlo_weighted
 
 
   DYto2Mu_MLL105_160:
@@ -40,6 +42,11 @@ background_groups:
       - DYto2Mu_MLL_105to160_amcatnloFXFX
       - DYto2Mu_MLL_105to160_amcatnloFXFX_stitched
 
+
+      - DYto2Mu_MLL105To160_weighted
+      - DYto2Mu_MLL_105to160_amcatnloFXFX_weighted
+      - DYto2Mu_MLL_105to160_amcatnloFXFX_stitched_weighted
+
   DYto2Mu_MLL105_160_Flashsim:
     name: "DY - Flashsim"
     color_mplhep: dodgerblue
@@ -47,6 +54,10 @@ background_groups:
       - DYto2Mu_MLL105To160_Flashsim
       - DYto2Mu_MLL_105to160_amcatnloFXFX_Flashsim_nonStitched
       - DYto2Mu_MLL_105to160_amcatnloFXFX_Flashsim
+
+      - DYto2Mu_MLL105To160_Flashsim_weighted
+      - DYto2Mu_MLL_105to160_amcatnloFXFX_Flashsim_nonStitched_weighted
+      - DYto2Mu_MLL_105to160_amcatnloFXFX_Flashsim_weighted
 
   # DYto2Mu_MLL105_160_nonStitched:
   #   name: "DY - non stitched"
@@ -66,14 +77,16 @@ background_groups:
     name: "DY - MLL(105-160) VBF Fil"
     color_mplhep: lightskyblue
     processes:
+      - DYto2Mu_MLL105To160_VBFFiltered_weighted
       - DYto2Mu_MLL105To160_VBFFiltered
-      - DYto2Mu_MLL_105to160_amcatnloFXFX_Fil_VBF_stitched
+      - DYto2Mu_MLL_105to160_amcatnloFXFX_Fil_VBF_nonStitched
 
   DYto2Mu_MLL105_160_combined:
     name: "DY - combined"
     color_mplhep: dodgerblue
     processes:
       - DYto2Mu_MLL105To160_combined
+      - DYto2Mu_MLL105To160_combined_weighted
 
   DYto2Mu_Flashsim:
     name: "DY - M50 - Flashsim"

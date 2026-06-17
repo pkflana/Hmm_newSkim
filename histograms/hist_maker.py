@@ -17,7 +17,7 @@ sys.path.append(os.environ["ANALYSIS_PATH"])
 import common.utilities as utilities
 from common.helpers import GetModel,GetRdfForDataset,get_root_files,get_valid_root_files,get_segmentation_dict,is_valid_tmp_root
 from common.add_vars_to_skim_tuples import DefineHistogramSelections, GetSelectionSuffixForSystematic
-from common.dy_ptll_reweight import ApplyDYPtLLNJetsReweight
+from common.dy_ptll_reweight import ApplyDYNJetsReweight, ApplyDYPtLLReweight
 HEADERS = ["analysis/AnalysisTools.h"]
 for header in HEADERS:
     utilities.DeclareHeader(f"{os.environ['ANALYSIS_PATH']}/{header}")
@@ -178,12 +178,20 @@ def process_single_chunk(args_tuple):
                     if "weight" in syst_info
                 }
             )
-            rdf_base = ApplyDYPtLLNJetsReweight(
-                rdf_base,
-                args.dataset_name,
-                args.dy_ptll_njets_reweight_json,
-                weight_columns,
-            )
+            if args.dy_ptll_njets_reweight_json:
+                rdf_base = ApplyDYPtLLReweight(
+                    rdf_base,
+                    args.dataset_name,
+                    args.dy_ptll_njets_reweight_json,
+                    weight_columns,
+                )
+            if args.dy_njets_reweight_json:
+                rdf_base = ApplyDYNJetsReweight(
+                    rdf_base,
+                    args.dataset_name,
+                    args.dy_njets_reweight_json,
+                    weight_columns,
+                )
 
         outFile = ROOT.TFile(tmp_output, "RECREATE")
         if not outFile or outFile.IsZombie():
@@ -310,10 +318,27 @@ if __name__ == "__main__":
     parser.add_argument("--additional-cuts",type=str, default=None)
     parser.add_argument(
         "--dy-ptll-njets-reweight-json",
+        "--dy-ptll-njets-reweight",
+        "--dy-ptll-reweight-json",
+        "--dy-ptll-reweight",
+        "--dy-reweight-json",
+        dest="dy_ptll_njets_reweight_json",
         default=None,
         help=(
             "JSON produced by histograms/derive_dy_ptll_njets_reweight.py. "
-            "When provided, only DY datasets get an extra pt(ll)/NJets weight."
+            "When provided, only DY datasets get an extra pt(ll) weight "
+            "evaluated with isVBF, N_SelectedJets, and pt_mumu."
+        ),
+    )
+    parser.add_argument(
+        "--dy-njets-reweight-json",
+        "--dy-njets-reweight",
+        dest="dy_njets_reweight_json",
+        default=None,
+        help=(
+            "JSON produced by histograms/derive_dy_njets_reweight.py. "
+            "When provided, only DY datasets get an extra NJets weight "
+            "evaluated with isVBF and N_SelectedJets."
         ),
     )
     parser.add_argument(

@@ -313,11 +313,20 @@ def define_jet_p4_variations(
 
     return df
 
-def apply_jet_corrections(df, config, dataset_cfg, dataset_name, want_variations):
-    # Extract configuration parameters
+def get_jet_correction_period(config, is_data):
     era = config.get("era")
     period = period_names[era]
+
+    use_2024_jerc_for_2025_mc = config.get("use_2024_jerc_for_2025_mc", False)
+    if use_2024_jerc_for_2025_mc and not is_data and era == "Run3_2025":
+        return period_names["Run3_2024"]
+
+    return period
+
+def apply_jet_corrections(df, config, dataset_cfg, dataset_name, want_variations):
+    # Extract configuration parameters
     is_data = dataset_cfg.get("is_data", False)
+    period = get_jet_correction_period(config, is_data)
     apply_JER = config.get("apply_JER", True)
     apply_JES = config.get("apply_JES", True)
     use_regrouped = config.get("use_regrouped", False)
@@ -338,5 +347,6 @@ def apply_jet_corrections(df, config, dataset_cfg, dataset_name, want_variations
 __all__ = [
     "initialize_jet_corrections",
     "define_jet_p4_variations",
+    "get_jet_correction_period",
     "apply_jet_corrections",
 ]
