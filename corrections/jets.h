@@ -210,7 +210,6 @@ namespace correction {
         bool require_run_number,
         const unsigned int run,
         bool wantPhi,
-        bool apply_forward_jet_horns_fix,
         const RVecF& GenJet_pt = {},
         const RVecF& GenJet_eta = {},
         const RVecF& GenJet_phi = {},
@@ -263,7 +262,7 @@ namespace correction {
                     const float mass_raw = Jet_mass[i] * raw_sf;
 
                     const bool is2024Eta2To2p5 =
-                        (year_ == "2024" &&
+                        ((year_ == "2024" || year_=="2025") &&
                         abs_eta > 2.f &&
                         abs_eta < 2.5f);
 
@@ -381,10 +380,8 @@ namespace correction {
                         (genjet_pt > 0.f);
 
                     if (
-                        apply_forward_jet_horns_fix &&
                         is_jet_in_horn &&
-                        !has_gen_match &&
-                        year_ != "2025"
+                        !has_gen_match
                     ) {
                         jersmear_factor = 1.f;
                     }

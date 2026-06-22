@@ -611,6 +611,8 @@ def make_stacked_plot(
         "draw_ratio",
         config_page.get("draw_ratio", True),
     )
+    # print(ratio_candidates)
+    # print(ratio_reference)
     ratio_reference_key = resolve_ratio_reference(ratio_reference, ratio_candidates)
     has_default_ratio = data_vals is not None and len(mc_vals) > 0
     has_sample_ratio = ratio_reference is not None and ratio_reference_key is not None

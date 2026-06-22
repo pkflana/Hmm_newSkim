@@ -32,7 +32,8 @@ Dataset groups:
 Options:
   --datasets GROUPS       Comma-separated list of groups, or "all".
   --dataset-name NAME     Run one explicit dataset instead of a group.
-  --chunk-size N          Chunk size for --dataset-name. Default: 20.
+  --chunk-size N          Override chunk size for selected jobs. Default: group-specific;
+                          for --dataset-name default is 20.
   --era ERA              Era to run, e.g. Run3_2022.
   --input-folder NAME    Input skim folder. Default: skim_v1_noUnc.
   --output-suffix TEXT   Suffix appended to newHists_${era}.
@@ -403,6 +404,7 @@ normalize_group() {
 dataset_groups=()
 single_dataset_name=""
 single_dataset_chunk_size=20
+chunk_size_override=""
 era=""
 input_folder="skim_v1_noUnc"
 output_suffix=""
@@ -439,6 +441,7 @@ while [[ $# -gt 0 ]]; do
       single_dataset_chunk_size="$2"
       [[ "${single_dataset_chunk_size}" =~ ^[0-9]+$ ]] || die "$1 must be a positive integer"
       [[ "${single_dataset_chunk_size}" -ge 1 ]] || die "$1 must be >= 1"
+      chunk_size_override="${single_dataset_chunk_size}"
       shift 2
       ;;
     --era)
@@ -587,6 +590,12 @@ else
 fi
 
 [[ ${#job_datasets[@]} -gt 0 ]] || die "No jobs selected"
+
+if [[ -n "${chunk_size_override}" ]]; then
+  for i in "${!job_chunk_sizes[@]}"; do
+    job_chunk_sizes[$i]="${chunk_size_override}"
+  done
+fi
 
 output_dir="/eos/user/v/vdamante/H_mumu/newHists_${era}${output_suffix}"
 if [[ ${dry_run} -eq 0 ]]; then

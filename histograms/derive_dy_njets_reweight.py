@@ -6,10 +6,18 @@ import math
 import os
 from pathlib import Path
 
+os.environ.setdefault("MPLCONFIGDIR", "/tmp/vdamante/matplotlib")
+
+import matplotlib
+matplotlib.use("Agg")
+import matplotlib.pyplot as plt
+import mplhep as hep
+import numpy as np
 import ROOT
 
 ROOT.gROOT.SetBatch(True)
 ROOT.gStyle.SetOptStat(0)
+plt.style.use(hep.style.CMS)
 
 import common.utilities as utilities
 
@@ -45,6 +53,21 @@ def format_lumi_label(luminosity_pb):
     return f"{luminosity_pb / 1000.0:.1f} fb^{{-1}} (13.6 TeV)"
 
 
+def format_lumi_fb(luminosity_pb):
+    if luminosity_pb is None:
+        return None
+    return float(luminosity_pb) / 1000.0
+
+
+def get_luminosity_fb(era):
+    analysis_path = os.environ.get("ANALYSIS_PATH", os.getcwd())
+    cfg_path = os.path.join(analysis_path, "config", era, "maincfg.yaml")
+    if not os.path.exists(cfg_path):
+        return None
+    cfg = utilities.get_config(cfg_path)
+    return format_lumi_fb(cfg.get("luminosity"))
+
+
 def get_luminosity_label(era):
     analysis_path = os.environ.get("ANALYSIS_PATH", os.getcwd())
     cfg_path = os.path.join(analysis_path, "config", era, "maincfg.yaml")
@@ -58,18 +81,53 @@ def draw_cms_label(lumi_label="", extra_label=""):
     latex = ROOT.TLatex()
     latex.SetNDC()
     latex.SetTextFont(42)
-    latex.SetTextSize(0.04)
     latex.SetTextAlign(11)
-    latex.DrawLatex(0.12, 0.94, "#bf{CMS} #it{Preliminary}")
+    latex.SetTextSize(0.052)
+    latex.DrawLatex(0.12, 0.94, "#bf{CMS}")
+    latex.SetTextSize(0.043)
+    latex.DrawLatex(0.235, 0.94, "#it{Preliminary}")
+    if extra_label:
+        latex.SetTextSize(0.037)
+        latex.DrawLatex(0.405, 0.94, extra_label)
     if lumi_label:
-        latex.SetTextSize(0.035)
+        latex.SetTextSize(0.044)
         latex.SetTextAlign(31)
         latex.DrawLatex(0.94, 0.94, lumi_label)
-    if extra_label:
-        latex.SetTextSize(0.032)
-        latex.SetTextAlign(11)
-        latex.DrawLatex(0.12, 0.89, extra_label)
     return latex
+
+
+def hist_to_arrays(hist):
+    edges = []
+    values = []
+    errors = []
+    for bin_idx in range(1, hist.GetNbinsX() + 1):
+        if bin_idx == 1:
+            edges.append(hist.GetXaxis().GetBinLowEdge(bin_idx))
+        edges.append(hist.GetXaxis().GetBinUpEdge(bin_idx))
+        value = hist.GetBinContent(bin_idx)
+        error = hist.GetBinError(bin_idx)
+        values.append(value if math.isfinite(value) else 0.0)
+        errors.append(error if math.isfinite(error) else 0.0)
+    return np.asarray(edges), np.asarray(values), np.asarray(errors)
+
+
+def hist_to_points(hist):
+    edges, values, errors = hist_to_arrays(hist)
+    centers = 0.5 * (edges[:-1] + edges[1:])
+    xerr = np.asarray([centers - edges[:-1], edges[1:] - centers])
+    return centers, xerr, values, errors
+
+
+def draw_mplhep_cms_label(ax, lumi_fb, region, category):
+    label = f"Preliminary {region}/{category}"
+    kwargs = {"ax": ax, "data": True, "label": label, "com": 13.6}
+    if lumi_fb is not None:
+        kwargs["lumi"] = lumi_fb
+    try:
+        hep.cms.label(**kwargs)
+    except TypeError:
+        kwargs.pop("label", None)
+        hep.cms.label(label, **kwargs)
 
 
 def correctionlib_variable(name, var_type, description):
@@ -309,69 +367,59 @@ def make_njets_correctionlib_payload(category_payloads):
     }
 
 
-def plot_data_mc(output_dir, era, region, category, data_hist, dy_hist, other_hist, total_mc_hist, ratio_hist, lumi_label=""):
-    set_cms_style()
-    canvas = ROOT.TCanvas(f"c_njets_{category}", category, 900, 900)
-    canvas.Divide(1, 2)
-
-    upper = canvas.cd(1)
-    upper.SetPad(0.0, 0.35, 1.0, 1.0)
-    upper.SetBottomMargin(0.02)
-    upper.SetTopMargin(0.12)
-    upper.SetLogy()
-
-    data_hist.SetMarkerStyle(20)
-    data_hist.SetMarkerColor(ROOT.kBlack)
-    data_hist.SetLineColor(ROOT.kBlack)
-    dy_hist.SetLineColor(ROOT.kAzure + 1)
-    dy_hist.SetFillColorAlpha(ROOT.kAzure + 1, 0.25)
-    other_hist.SetLineColor(ROOT.kOrange + 7)
-    other_hist.SetFillColorAlpha(ROOT.kOrange + 7, 0.25)
-
-    stack = ROOT.THStack(f"stack_njets_{category}", "")
-    stack.Add(dy_hist, "HIST")
-    stack.Add(other_hist, "HIST")
-
-    ymax = max(data_hist.GetMaximum(), total_mc_hist.GetMaximum(), 1.0)
-    stack.SetMinimum(0.1)
-    stack.SetMaximum(100.0 * ymax)
-    stack.Draw("HIST")
-    stack.SetTitle(f"{category};N_{{selected jets}};Events")
-    stack.GetYaxis().SetTitle("Events")
-    stack.GetXaxis().SetTitle("N_{selected jets}")
-    data_hist.Draw("E SAME")
-
-    legend = ROOT.TLegend(0.58, 0.62, 0.88, 0.88)
-    legend.SetBorderSize(0)
-    legend.SetFillStyle(0)
-    legend.AddEntry(data_hist, "Data", "lep")
-    legend.AddEntry(dy_hist, "DY", "f")
-    legend.AddEntry(other_hist, "non-DY MC", "f")
-    legend.Draw()
-    draw_cms_label(lumi_label, f"{region}/{category}")
-
-    lower = canvas.cd(2)
-    lower.SetPad(0.0, 0.0, 1.0, 0.35)
-    lower.SetTopMargin(0.03)
-    lower.SetBottomMargin(0.3)
-
-    ratio_hist.SetMarkerStyle(20)
-    ratio_hist.SetMarkerColor(ROOT.kBlack)
-    ratio_hist.SetLineColor(ROOT.kBlack)
-    ratio_hist.SetTitle(";N_{selected jets};Data/all MC")
-    ratio_hist.GetYaxis().SetTitleSize(0.08)
-    ratio_hist.GetYaxis().SetTitleOffset(0.55)
-    ratio_hist.GetYaxis().SetLabelSize(0.07)
-    ratio_hist.GetXaxis().SetTitleSize(0.09)
-    ratio_hist.GetXaxis().SetLabelSize(0.08)
-    ratio_hist.SetMinimum(0.0)
-    ratio_hist.SetMaximum(max(2.0, 1.4 * ratio_hist.GetMaximum()))
-    ratio_hist.Draw("E")
-
+def plot_data_mc(output_dir, era, region, category, data_hist, dy_hist, other_hist, total_mc_hist, ratio_hist, lumi_label="", lumi_fb=None):
     output_dir = Path(output_dir)
     output_dir.mkdir(parents=True, exist_ok=True)
-    canvas.SaveAs(str(output_dir / f"{category}_njets_data_mc.png"))
-    canvas.SaveAs(str(output_dir / f"{category}_njets_data_mc.pdf"))
+
+    edges, dy_vals, _ = hist_to_arrays(dy_hist)
+    _, other_vals, _ = hist_to_arrays(other_hist)
+    data_x, data_xerr, data_vals, data_errs = hist_to_points(data_hist)
+    ratio_x, ratio_xerr, ratio_vals, ratio_errs = hist_to_points(ratio_hist)
+
+    fig, (ax_top, ax_bottom) = plt.subplots(
+        2,
+        1,
+        figsize=(9, 9),
+        sharex=True,
+        gridspec_kw={"height_ratios": [2.0, 1.0], "hspace": 0.08},
+    )
+    widths = np.diff(edges)
+    ax_top.bar(edges[:-1], dy_vals, widths, align="edge", color="#8ecaff", edgecolor="#2b7bff", label="DY")
+    ax_top.bar(
+        edges[:-1],
+        other_vals,
+        
+        widths,
+        align="edge",
+        bottom=dy_vals,
+        color="#ffbf91",
+        edgecolor="#ff7f0e",
+        label="non-DY MC",
+    )
+    ax_top.errorbar(data_x, data_vals, xerr=data_xerr, yerr=data_errs, fmt="o", color="black", label="Data")
+    ax_top.set_yscale("log")
+    ax_top.set_ylabel("Events")
+    ax_top.set_ylim(0.1, max(1.0, 100.0 * max(np.max(data_vals), np.max(dy_vals + other_vals))))
+    ax_top.legend(loc="upper right")
+    draw_mplhep_cms_label(ax_top, lumi_fb, region, category)
+
+    ax_bottom.errorbar(
+        ratio_x,
+        ratio_vals,
+        xerr=ratio_xerr,
+        yerr=ratio_errs,
+        fmt="o",
+        color="black",
+        markersize=4,
+    )
+    ax_bottom.axhline(1.0, color="gray", linestyle="--", linewidth=1)
+    ax_bottom.set_ylabel("Data/all MC")
+    ax_bottom.set_xlabel(r"$N_{\mathrm{selected\ jets}}$")
+    ax_bottom.set_ylim(0.0, max(2.0, 1.4 * float(np.nanmax(ratio_vals)) if ratio_vals.size else 2.0))
+    fig.tight_layout()
+    fig.savefig(output_dir / f"{category}_njets_data_mc.png")
+    fig.savefig(output_dir / f"{category}_njets_data_mc.pdf")
+    plt.close(fig)
 
 
 def make_after_reweight_ratio(ratio_hist, name):
@@ -391,68 +439,45 @@ def make_after_reweight_ratio(ratio_hist, name):
     return after
 
 
-def plot_diagnostic(output_dir, era, region, category, ratio_hist, after_hist, lumi_label=""):
-    set_cms_style()
-    canvas = ROOT.TCanvas(f"c_njets_diagnostic_{category}", category, 900, 900)
-    canvas.Divide(1, 2)
-
-    upper = canvas.cd(1)
-    upper.SetPad(0.0, 0.52, 1.0, 1.0)
-    upper.SetBottomMargin(0.03)
-    upper.SetTopMargin(0.14)
-
-    ratio_hist.SetMarkerStyle(20)
-    ratio_hist.SetMarkerColor(ROOT.kBlack)
-    ratio_hist.SetLineColor(ROOT.kBlack)
-    ratio_hist.SetTitle(";N_{selected jets};(Data - non-DY) / DY")
-    ratio_hist.GetXaxis().SetLabelSize(0.0)
-    ratio_hist.GetYaxis().SetTitleSize(0.055)
-    ratio_hist.GetYaxis().SetTitleOffset(0.85)
-    ratio_hist.SetMinimum(0.0)
-    ratio_hist.SetMaximum(max(2.0, 1.4 * ratio_hist.GetMaximum()))
-    ratio_hist.Draw("E")
-    draw_cms_label(lumi_label, f"{region}/{category}")
-
+def plot_diagnostic(output_dir, era, region, category, ratio_hist, after_hist, lumi_label="", lumi_fb=None):
     before = ratio_hist.Clone(f"before_reweight_{category}")
     before.SetDirectory(0)
-
-    lower = canvas.cd(2)
-    lower.SetPad(0.0, 0.0, 1.0, 0.48)
-    lower.SetTopMargin(0.06)
-    lower.SetBottomMargin(0.16)
-
-    before.SetMarkerStyle(20)
-    before.SetMarkerColor(ROOT.kBlack)
-    before.SetLineColor(ROOT.kBlack)
-    before.SetTitle(";N_{selected jets};Closure ratio")
-    before.GetXaxis().SetTitleSize(0.055)
-    before.GetXaxis().SetLabelSize(0.045)
-    before.GetYaxis().SetTitleSize(0.055)
-    before.GetYaxis().SetTitleOffset(0.85)
-    before.SetMinimum(0.5)
-    before.SetMaximum(1.5)
-    before.Draw("E")
-
-    after_hist.SetMarkerStyle(20)
-    after_hist.SetMarkerColor(ROOT.kRed)
-    after_hist.SetLineColor(ROOT.kRed)
-    after_hist.Draw("E SAME")
-
-    legend = ROOT.TLegend(0.12, 0.78, 0.32, 0.94)
-    legend.SetFillStyle(0)
-    legend.AddEntry(before, "Before", "lep")
-    legend.AddEntry(after_hist, "After", "lep")
-    legend.Draw()
-
     output_dir = Path(output_dir)
     output_dir.mkdir(parents=True, exist_ok=True)
-    canvas.SaveAs(str(output_dir / f"{category}_njets_reweight_diagnostic.png"))
-    canvas.SaveAs(str(output_dir / f"{category}_njets_reweight_diagnostic.pdf"))
+
+    x, xerr, y, yerr = hist_to_points(ratio_hist)
+    xb, xerrb, yb, yerrb = hist_to_points(before)
+    xa, xerra, ya, yerra = hist_to_points(after_hist)
+
+    fig, (ax_top, ax_bottom) = plt.subplots(
+        2,
+        1,
+        figsize=(9, 9),
+        sharex=True,
+        gridspec_kw={"height_ratios": [1.05, 1.0], "hspace": 0.08},
+    )
+    ax_top.errorbar(x, y, xerr=xerr, yerr=yerr, fmt="o", color="black", markersize=5)
+    ax_top.set_ylabel("(Data - non-DY) / DY")
+    ax_top.set_ylim(0.0, max(2.0, 1.4 * float(np.nanmax(y)) if y.size else 2.0))
+    draw_mplhep_cms_label(ax_top, lumi_fb, region, category)
+
+    ax_bottom.errorbar(xb, yb, xerr=xerrb, yerr=yerrb, fmt="o", color="black", markersize=5, label="Before")
+    ax_bottom.errorbar(xa, ya, xerr=xerra, yerr=yerra, fmt="o", color="red", markersize=5, label="After")
+    ax_bottom.axhline(1.0, color="gray", linestyle="--", linewidth=1)
+    ax_bottom.set_ylabel("Closure ratio")
+    ax_bottom.set_xlabel(r"$N_{\mathrm{selected\ jets}}$")
+    ax_bottom.set_ylim(0.5, 1.5)
+    ax_bottom.legend(loc="upper left")
+    fig.tight_layout()
+    fig.savefig(output_dir / f"{category}_njets_reweight_diagnostic.png")
+    fig.savefig(output_dir / f"{category}_njets_reweight_diagnostic.pdf")
+    plt.close(fig)
 
 
 def derive(args):
     input_dir = os.path.abspath(args.input_dir)
     lumi_label = get_luminosity_label(args.era)
+    lumi_fb = get_luminosity_fb(args.era)
     samples = get_sample_names(input_dir)
     if args.data_sample not in samples:
         raise RuntimeError(f"Data sample '{args.data_sample}' not found in {input_dir}")
@@ -481,7 +506,6 @@ def derive(args):
         "max_weight": args.max_weight,
         "data_sample": args.data_sample,
         "dy_sample": args.dy_sample,
-        "dy_scale": args.dy_scale,
         "subtracted_samples": other_samples,
         "categories": {},
     }
@@ -501,8 +525,6 @@ def derive(args):
         if data_hist is None or dy_hist is None:
             print(f"[WARNING] Missing histograms for {category}: {hist_path}")
             continue
-
-        dy_hist.Scale(args.dy_scale)
 
         other_hist, used_samples = sum_samples(
             input_dir,
@@ -540,6 +562,7 @@ def derive(args):
             total_mc_hist,
             data_over_mc_hist,
             lumi_label=lumi_label,
+            lumi_fb=lumi_fb,
         )
         plot_diagnostic(
             args.output_dir,
@@ -549,6 +572,7 @@ def derive(args):
             ratio_hist,
             after_hist,
             lumi_label=lumi_label,
+            lumi_fb=lumi_fb,
         )
 
         output_root.cd()
@@ -598,12 +622,6 @@ def parse_args():
     parser.add_argument("--dy-sample", default="DY")
     parser.add_argument("--categories", nargs="+", default=DEFAULT_CATEGORIES)
     parser.add_argument("--min-dy", type=float, default=1e-9)
-    parser.add_argument(
-        "--dy-scale",
-        type=float,
-        default=0.9393839712918659,
-        help="Scale factor applied to the DY histogram before computing (Data - nonDY) / DY.",
-    )
     parser.add_argument("--min-weight", type=float, default=0.0)
     parser.add_argument("--max-weight", type=float, default=5.0)
     return parser.parse_args()

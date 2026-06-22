@@ -24,6 +24,7 @@ background_groups:
     color_mplhep: dodgerblue
     processes:
       - DY
+      - DY_ptll
       - DY_weighted
 
   DY_minnlo:
@@ -50,7 +51,7 @@ background_groups:
 
   DYto2Mu_MLL105_160_Flashsim:
     name: "DY - Flashsim"
-    color_mplhep: dodgerblue
+    color_mplhep: red
     processes:
       - DYto2Mu_MLL105To160_Flashsim
       - DYto2Mu_MLL_105to160_amcatnloFXFX_Flashsim_nonStitched
@@ -84,7 +85,7 @@ background_groups:
       - DYto2Mu_MLL_105to160_amcatnloFXFX_Fil_VBF_stitched_weighted
       - DYto2Mu_MLL_105to160_amcatnloFXFX_Fil_VBF_nonStitched
 
-  DYto2Mu_MLL105_160_combined:
+  DYto2Mu_MLL105To160_combined:
     name: "DY - combined"
     color_mplhep: dodgerblue
     processes:
@@ -117,13 +118,13 @@ background_groups:
 
   EWK_MLL105_160_pythia:
     name: "EWK - MLL(105-160) - Pythia"
-    color_mplhep: darkorchid
+    color_mplhep: dodgerblue
     processes:
       - EWK_2Mu2J_MLL_105to160_pythia
 
   EWK_MLL105_160_Flashsim:
     name: "EWK - MLL(105-160) - Flashsim"
-    color_mplhep: darkorchid
+    color_mplhep: red
     processes:
       - EWK_2Mu2J_MLL_105to160_pythia_Flashsim
 
@@ -175,7 +176,7 @@ other_group:
 signal_styles:
   VBFHto2Mu_m125_Flashsim:
     name: 'VBF H $\rightarrow$ $\mu\mu$ Flashsim'
-    color: deeppink
+    color: red
   VBFHto2Mu_M125_amcatnlo:
     name: 'VBF H $\rightarrow$ $\mu\mu$ amcatnlo'
     color: magenta
@@ -184,7 +185,7 @@ signal_styles:
     color: fuchsia
   VBFHto2Mu_M125_powheg:
     name: 'VBF H $\rightarrow$ $\mu\mu$ powheg'
-    color: mediumvioletred
+    color: dodgerblue
   VBFHto2Mu_M120:
     name: 'VBF H $\rightarrow$ $\mu\mu$ m120'
     color: orchid
@@ -224,7 +225,7 @@ signal_styles:
     color: turquoise
   GluGluHto2Mu_amcatnlo:
     name: 'ggH $\rightarrow$ $\mu\mu$ amcatnlo'
-    color: mediumturquoise
+    color: cyan
   GluGluHto2Mu_M120:
     name: 'ggH $\rightarrow$ $\mu\mu$ m120'
     color: paleturquoise

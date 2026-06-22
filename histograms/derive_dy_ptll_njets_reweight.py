@@ -7,10 +7,18 @@ import math
 import os
 from pathlib import Path
 
+os.environ.setdefault("MPLCONFIGDIR", "/tmp/vdamante/matplotlib")
+
+import matplotlib
+matplotlib.use("Agg")
+import matplotlib.pyplot as plt
+import mplhep as hep
+import numpy as np
 import ROOT
 
 ROOT.gROOT.SetBatch(True)
 ROOT.gStyle.SetOptStat(0)
+plt.style.use(hep.style.CMS)
 
 import common.utilities as utilities
 from common.helpers import RebinHisto, findBinEntry, findNewBins, getNewBins
@@ -71,6 +79,21 @@ def format_lumi_label(luminosity_pb):
     return f"{luminosity_pb / 1000.0:.1f} fb^{{-1}} (13.6 TeV)"
 
 
+def format_lumi_fb(luminosity_pb):
+    if luminosity_pb is None:
+        return None
+    return float(luminosity_pb) / 1000.0
+
+
+def get_luminosity_fb(era):
+    analysis_path = os.environ.get("ANALYSIS_PATH", os.getcwd())
+    cfg_path = os.path.join(analysis_path, "config", era, "maincfg.yaml")
+    if not os.path.exists(cfg_path):
+        return None
+    cfg = utilities.get_config(cfg_path)
+    return format_lumi_fb(cfg.get("luminosity"))
+
+
 def get_luminosity_label(era):
     analysis_path = os.environ.get("ANALYSIS_PATH", os.getcwd())
     cfg_path = os.path.join(analysis_path, "config", era, "maincfg.yaml")
@@ -84,18 +107,70 @@ def draw_cms_label(lumi_label="", extra_label=""):
     latex = ROOT.TLatex()
     latex.SetNDC()
     latex.SetTextFont(42)
-    latex.SetTextSize(0.04)
     latex.SetTextAlign(11)
-    latex.DrawLatex(0.12, 0.94, "#bf{CMS} #it{Preliminary}")
+    latex.SetTextSize(0.052)
+    latex.DrawLatex(0.12, 0.94, "#bf{CMS}")
+    latex.SetTextSize(0.043)
+    latex.DrawLatex(0.235, 0.94, "#it{Preliminary}")
+    if extra_label:
+        latex.SetTextSize(0.037)
+        latex.DrawLatex(0.405, 0.94, extra_label)
     if lumi_label:
-        latex.SetTextSize(0.035)
+        latex.SetTextSize(0.044)
         latex.SetTextAlign(31)
         latex.DrawLatex(0.94, 0.94, lumi_label)
-    if extra_label:
-        latex.SetTextSize(0.032)
-        latex.SetTextAlign(11)
-        latex.DrawLatex(0.12, 0.89, extra_label)
     return latex
+
+
+def hist_to_arrays(hist, x_min=None, x_max=None):
+    centers = []
+    xerr_low = []
+    xerr_high = []
+    values = []
+    errors = []
+
+    for bin_idx in range(1, hist.GetNbinsX() + 1):
+        low = hist.GetXaxis().GetBinLowEdge(bin_idx)
+        high = hist.GetXaxis().GetBinUpEdge(bin_idx)
+        center = hist.GetBinCenter(bin_idx)
+        if x_min is not None and high <= x_min:
+            continue
+        if x_max is not None and low >= x_max:
+            continue
+        value = hist.GetBinContent(bin_idx)
+        error = hist.GetBinError(bin_idx)
+        if not (math.isfinite(value) and math.isfinite(error)):
+            continue
+        centers.append(center)
+        xerr_low.append(center - low)
+        xerr_high.append(high - center)
+        values.append(value)
+        errors.append(error)
+
+    return (
+        np.asarray(centers),
+        np.asarray([xerr_low, xerr_high]),
+        np.asarray(values),
+        np.asarray(errors),
+    )
+
+
+def draw_mplhep_cms_label(ax, lumi_fb, region, category):
+    label = f"Preliminary"
+    kwargs = {"ax": ax, "data": True, "label": label, "com": 13.6, 'fontsize':20}
+    if lumi_fb is not None:
+        kwargs["lumi"] = round(lumi_fb, 2)
+    try:
+        hep.cms.label(**kwargs)
+        ax.text(0.04, 0.95, category,
+        transform=ax.transAxes,
+        verticalalignment='top',
+        horizontalalignment='left',
+        fontsize=14)
+
+    except TypeError:
+        kwargs.pop("label", None)
+        hep.cms.label(label, **kwargs)
 
 
 def correctionlib_variable(name, var_type, description):
@@ -541,39 +616,40 @@ def plot_fit_ratio(
     ratio_hist,
     fit_func,
     lumi_label="",
+    lumi_fb=None,
     x_min=0.0,
     x_max=200.0,
 ):
-    set_cms_style()
-    canvas = ROOT.TCanvas(f"c_ptll_fit_{category}", category, 900, 700)
-
-    ratio_hist.SetMarkerStyle(20)
-    ratio_hist.SetMarkerColor(ROOT.kBlack)
-    ratio_hist.SetLineColor(ROOT.kBlack)
-    ratio_hist.SetTitle(";p_{T}(ll) [GeV];(Data - non-DY) / DY")
-    ratio_hist.GetXaxis().SetRangeUser(x_min, x_max)
-    ratio_hist.GetXaxis().SetTitleSize(0.045)
-    ratio_hist.GetYaxis().SetTitleSize(0.045)
-    ratio_hist.GetYaxis().SetTitleOffset(1.1)
-    ratio_hist.SetMinimum(0.5)
-    ratio_hist.SetMaximum(max(1.5, 1.2 * ratio_hist.GetMaximum()))
-    ratio_hist.Draw("E")
-
-    fit_func.SetLineColor(ROOT.kRed)
-    fit_func.SetLineWidth(2)
-    fit_func.Draw("SAME")
-    draw_cms_label(lumi_label, f"{region}/{category}")
-
-    legend = ROOT.TLegend(0.62, 0.76, 0.88, 0.88)
-    legend.SetFillStyle(0)
-    legend.AddEntry(ratio_hist, "(Data - non-DY) / DY", "lep")
-    legend.AddEntry(fit_func, "Fit", "l")
-    legend.Draw()
-
     output_dir = Path(output_dir)
     output_dir.mkdir(parents=True, exist_ok=True)
-    canvas.SaveAs(str(output_dir / f"{category}_ptll_ratio_fit.png"))
-    canvas.SaveAs(str(output_dir / f"{category}_ptll_ratio_fit.pdf"))
+
+    x, xerr, y, yerr = hist_to_arrays(ratio_hist, x_min=x_min, x_max=x_max)
+    x_fit = np.linspace(x_min, x_max, 600)
+    y_fit = np.asarray([fit_func.Eval(float(value)) for value in x_fit])
+
+    fig, ax = plt.subplots(figsize=(9, 7))
+    ax.errorbar(
+        x,
+        y,
+        xerr=xerr,
+        yerr=yerr,
+        fmt="o",
+        color="black",
+        markersize=4,
+        linewidth=1,
+        label="(Data - non-DY) / DY",
+    )
+    ax.plot(x_fit, y_fit, color="blue", linewidth=2, label="Fit")
+    ax.set_xlim(x_min, x_max)
+    ax.set_ylim(0.5, max(1.5, 1.2 * float(np.nanmax(y)) if y.size else 1.5))
+    ax.set_xlabel(r"$p_{T}(\ell\ell)$ [GeV]", fontsize=15)
+    ax.set_ylabel("(Data - non-DY) / DY", fontsize=15)
+    ax.legend(loc="upper right",fontsize='xx-small')
+    draw_mplhep_cms_label(ax, lumi_fb, region, category)
+    # fig.tight_layout()
+    fig.savefig(output_dir / f"{category}_ptll_ratio_fit.png")
+    fig.savefig(output_dir / f"{category}_ptll_ratio_fit.pdf")
+    plt.close(fig)
 
 
 def plot_reweighting_factor(
@@ -584,35 +660,10 @@ def plot_reweighting_factor(
     ratio_hist,
     fit_func,
     lumi_label="",
+    lumi_fb=None,
     x_min=0.0,
     x_max=200.0,
 ):
-    set_cms_style()
-    canvas = ROOT.TCanvas(f"c_reweighting_factor_{category}", category, 900, 900)
-    canvas.Divide(1, 2)
-
-    upper = canvas.cd(1)
-    upper.SetPad(0.0, 0.52, 1.0, 1.0)
-    upper.SetBottomMargin(0.03)
-    upper.SetTopMargin(0.14)
-
-    ratio_hist.SetMarkerStyle(20)
-    ratio_hist.SetMarkerColor(ROOT.kBlack)
-    ratio_hist.SetLineColor(ROOT.kBlack)
-    ratio_hist.SetTitle(";p_{T}(ll) [GeV];(Data - non-DY) / DY")
-    ratio_hist.GetXaxis().SetRangeUser(x_min, x_max)
-    ratio_hist.GetXaxis().SetLabelSize(0.0)
-    ratio_hist.GetYaxis().SetTitleSize(0.055)
-    ratio_hist.GetYaxis().SetTitleOffset(0.85)
-    ratio_hist.SetMinimum(0.5)
-    ratio_hist.SetMaximum(max(1.5, 1.2 * ratio_hist.GetMaximum()))
-    ratio_hist.Draw("E")
-
-    fit_func.SetLineColor(ROOT.kRed)
-    fit_func.SetLineWidth(2)
-    fit_func.Draw("SAME")
-    draw_cms_label(lumi_label, f"{region}/{category}")
-
     before = ratio_hist.Clone(f"before_reweight_{category}")
     before.SetDirectory(0)
     after = make_after_reweight_ratio(
@@ -621,39 +672,71 @@ def plot_reweighting_factor(
         f"after_reweight_{category}",
     )
 
-    lower = canvas.cd(2)
-    lower.SetPad(0.0, 0.0, 1.0, 0.48)
-    lower.SetTopMargin(0.06)
-    lower.SetBottomMargin(0.16)
-
-    before.SetMarkerStyle(20)
-    before.SetMarkerColor(ROOT.kBlack)
-    before.SetLineColor(ROOT.kBlack)
-    before.SetTitle(";p_{T}(ll) [GeV];Closure ratio")
-    before.GetXaxis().SetRangeUser(x_min, x_max)
-    before.GetXaxis().SetTitleSize(0.055)
-    before.GetXaxis().SetLabelSize(0.045)
-    before.GetYaxis().SetTitleSize(0.055)
-    before.GetYaxis().SetTitleOffset(0.85)
-    before.SetMinimum(0.8)
-    before.SetMaximum(1.2)
-    before.Draw("E")
-
-    after.SetMarkerStyle(20)
-    after.SetMarkerColor(ROOT.kRed)
-    after.SetLineColor(ROOT.kRed)
-    after.Draw("E SAME")
-
-    legend = ROOT.TLegend(0.12, 0.78, 0.32, 0.94)
-    legend.SetFillStyle(0)
-    legend.AddEntry(before, "Before", "lep")
-    legend.AddEntry(after, "After", "lep")
-    legend.Draw()
-
     output_dir = Path(output_dir)
     output_dir.mkdir(parents=True, exist_ok=True)
-    canvas.SaveAs(str(output_dir / f"{category}_ptll_reweight_diagnostic.png"))
-    canvas.SaveAs(str(output_dir / f"{category}_ptll_reweight_diagnostic.pdf"))
+
+    x, xerr, y, yerr = hist_to_arrays(ratio_hist, x_min=x_min, x_max=x_max)
+    x_fit = np.linspace(x_min, x_max, 600)
+    y_fit = np.asarray([fit_func.Eval(float(value)) for value in x_fit])
+    xb, xerrb, yb, yerrb = hist_to_arrays(before, x_min=x_min, x_max=x_max)
+    xa, xerra, ya, yerra = hist_to_arrays(after, x_min=x_min, x_max=x_max)
+
+    fig, (ax_top, ax_bottom) = plt.subplots(
+        2,
+        1,
+        figsize=(9, 9),
+        sharex=True,
+        gridspec_kw={"height_ratios": [1.05, 1.0], "hspace": 0.08},
+    )
+    ax_top.errorbar(
+        x,
+        y,
+        xerr=xerr,
+        yerr=yerr,
+        fmt="o",
+        color="black",
+        markersize=4,
+        linewidth=1,
+        label="(Data - non-DY) / DY",
+    )
+    ax_top.plot(x_fit, y_fit, color="blue", linewidth=2, label="Fit")
+    ax_top.set_xlim(x_min, x_max)
+    ax_top.set_ylim(0.5, max(1.5, 1.2 * float(np.nanmax(y)) if y.size else 1.5))
+    ax_top.set_ylabel("(Data - non-DY) / DY", fontsize=15)
+    ax_top.legend(loc="upper right", fontsize='xx-small')
+    draw_mplhep_cms_label(ax_top, lumi_fb, region, category)
+
+    ax_bottom.errorbar(
+        xb,
+        yb,
+        xerr=xerrb,
+        yerr=yerrb,
+        fmt="o",
+        color="black",
+        markersize=4,
+        linewidth=1,
+        label="Before",
+    )
+    ax_bottom.errorbar(
+        xa,
+        ya,
+        xerr=xerra,
+        yerr=yerra,
+        fmt="o",
+        color="blue",
+        markersize=4,
+        linewidth=1,
+        label="After",
+    )
+    ax_bottom.axhline(1.0, color="gray", linestyle="--", linewidth=1)
+    ax_bottom.set_ylim(0.3, 1.7)
+    ax_bottom.set_xlabel(r"$p_{T}(\ell\ell)$ [GeV]", fontsize=15)
+    ax_bottom.set_ylabel("Closure ratio", fontsize=15)
+    ax_bottom.legend(loc="upper left", fontsize='xx-small')
+    # fig.tight_layout()
+    fig.savefig(output_dir / f"{category}_ptll_reweight_diagnostic.png")
+    fig.savefig(output_dir / f"{category}_ptll_reweight_diagnostic.pdf")
+    plt.close(fig)
 
 
 def derive(args):
@@ -661,6 +744,7 @@ def derive(args):
     output_dir = os.path.abspath(args.output_dir)
     categories = args.categories
     lumi_label = get_luminosity_label(args.era)
+    lumi_fb = get_luminosity_fb(args.era)
     manual_rebin_edges = parse_rebin_edges(args.rebin_edges)
     hist_cfg = None
     hist_cfg_source = None
@@ -857,6 +941,7 @@ def derive(args):
             ratio_hist,
             fit_func,
             lumi_label=lumi_label,
+            lumi_fb=lumi_fb,
             x_min=args.fit_min,
             x_max=args.fit_max,
         )
@@ -868,6 +953,7 @@ def derive(args):
             ratio_hist,
             fit_func,
             lumi_label=lumi_label,
+            lumi_fb=lumi_fb,
             x_min=args.fit_min,
             x_max=args.fit_max,
         )
@@ -917,11 +1003,11 @@ def derive(args):
 
 def parse_args():
     parser = argparse.ArgumentParser()
-    parser.add_argument("--era", required=True)
-    parser.add_argument("--input-dir", required=True, help="Hadded histogram directory")
-    parser.add_argument("--output-dir", required=True)
-    parser.add_argument("--output-json", required=True)
-    parser.add_argument("--output-root", required=True)
+    parser.add_argument("--era", requiblue=True)
+    parser.add_argument("--input-dir", requiblue=True, help="Hadded histogram directory")
+    parser.add_argument("--output-dir", requiblue=True)
+    parser.add_argument("--output-json", requiblue=True)
+    parser.add_argument("--output-root", requiblue=True)
     parser.add_argument("--region", default="Z_sideband")
     parser.add_argument("--variable", default="pt_mumu")
     parser.add_argument("--data-sample", default="Data_Muon")
@@ -971,13 +1057,13 @@ def parse_args():
         "--smart-min-dy",
         type=float,
         default=100.0,
-        help="Minimum DY yield required in each smart-rebinned fit bin.",
+        help="Minimum DY yield requiblue in each smart-rebinned fit bin.",
     )
     parser.add_argument(
         "--smart-min-target",
         type=float,
         default=20.0,
-        help="Minimum absolute Data-nonDY yield required in each smart-rebinned fit bin.",
+        help="Minimum absolute Data-nonDY yield requiblue in each smart-rebinned fit bin.",
     )
     parser.add_argument(
         "--smart-max-rel-unc",

@@ -119,12 +119,8 @@ def get_systs_to_run(syst_cfg, mode):
 
     return systs_to_run
 
-def should_shift_z_sideband_dnn_mass(args, mass_region, variable):
-    return (
-        args.shift_z_sideband_dnn_mass
-        and mass_region == "Z_sideband"
-        and variable == "DNN_NNOutput"
-    )
+def should_shift_z_sideband_dnn_mass(mass_region, variable):
+    return mass_region == "Z_sideband" and variable == "DNN_NNOutput"
 
 def apply_z_sideband_mass_shifted_dnn(rdf, btag_algo):
     from common.dnn_application import ApplyDNN
@@ -241,7 +237,8 @@ def process_single_chunk(args_tuple):
                             rdf_for_hist = rdf_filtered
                             hist_var = var
 
-                            if should_shift_z_sideband_dnn_mass(args, mass_region, var):
+                            if should_shift_z_sideband_dnn_mass(mass_region, var):
+                                print(f"going to shift in {mass_region}, {var}")
                                 rdf_for_hist = apply_z_sideband_mass_shifted_dnn(
                                     rdf_for_hist,
                                     btag_algo=btag_algo,
@@ -344,10 +341,7 @@ if __name__ == "__main__":
     parser.add_argument(
         "--shift-z-sideband-dnn-mass",
         action="store_true",
-        help=(
-            "For Z_sideband DNN_NNOutput histograms, recompute the DNN after "
-            "mapping m_mumu from [70, 110] to [115, 135]."
-        ),
+        help=argparse.SUPPRESS,
     )
     args = parser.parse_args()
     startTime = time.time()

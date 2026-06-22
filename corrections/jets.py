@@ -224,7 +224,6 @@ def define_jet_p4_variations(
     want_variations,
     apply_JER,
     apply_JES,
-    apply_forward_jet_horns_fix=False,
 ):
     if not _jet_correction_state["initialized"]:
         raise RuntimeError("Jet corrections are not initialized")
@@ -242,7 +241,6 @@ def define_jet_p4_variations(
         else "false"
     )
 
-    forward_fix = "true" if apply_forward_jet_horns_fix else "false"
 
     # ===========================
     # CORE SHIFTED MAP
@@ -260,7 +258,6 @@ def define_jet_p4_variations(
                 {require_run_number},
                 run,
                 {wantPhi},
-                {forward_fix},
                 GenJet_pt, GenJet_eta, GenJet_phi, Jet_genJetIdx
             )"""
         )
@@ -277,7 +274,6 @@ def define_jet_p4_variations(
                 {require_run_number},
                 run,
                 {wantPhi},
-                {forward_fix}
             )"""
         )
 
@@ -330,7 +326,6 @@ def apply_jet_corrections(df, config, dataset_cfg, dataset_name, want_variations
     apply_JER = config.get("apply_JER", True)
     apply_JES = config.get("apply_JES", True)
     use_regrouped = config.get("use_regrouped", False)
-    apply_forward_jet_horns_fix = config.get("apply_forward_jet_horns_fix", False)
 
     # Apply jet corrections
     initialize_jet_corrections(period, is_data, dataset_name, use_regrouped)
@@ -339,7 +334,6 @@ def apply_jet_corrections(df, config, dataset_cfg, dataset_name, want_variations
         want_variations,
         apply_JER,
         apply_JES,
-        apply_forward_jet_horns_fix,
     )
 
     return df
