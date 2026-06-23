@@ -34,7 +34,7 @@ mu_weights_to_store: ["weight_mu1_IsoMu24_CutBasedIdMedium_and_PFIsoMedium_Centr
 
 variables:
   ## muMu system #
-  # - DNN_NNOutput
+  - DNN_NNOutput
   # - VBFNet_NNOutput
   # - PostVBFNetDNN_NNOutput
   - m_mumu

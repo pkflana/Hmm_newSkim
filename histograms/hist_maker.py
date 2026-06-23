@@ -366,9 +366,9 @@ if __name__ == "__main__":
 
     dnn_payloads = sorted({var.rsplit("_NNOutput", 1)[0]for var in vars_to_make_hist if var.endswith("_NNOutput")})
     btag_algo = main_cfg.get("bTagAlgo", "PNet")
-    if len(dnn_payloads) > 0 and args.n_cores > 1 and not args.force_multiprocessing_with_dnn:
-        print("[WARNING] DNN payloads requested: forcing n_cores = 1.")
-        args.n_cores = 1
+    # if len(dnn_payloads) > 0 and args.n_cores > 1 and not args.force_multiprocessing_with_dnn:
+    #     print("[WARNING] DNN payloads requested: forcing n_cores = 1.")
+    #     args.n_cores = 1
     systs_to_run = get_systs_to_run(syst_cfg, args.systematics)
     all_root_files = get_root_files(args.input)
     if args.skip_file_validation:

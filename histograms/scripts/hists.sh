@@ -26,6 +26,7 @@ Dataset groups:
   SingleH
   SingleTop
   TTX
+  TT
   W
   other_signals
 
@@ -37,6 +38,7 @@ Options:
   --era ERA              Era to run, e.g. Run3_2022.
   --input-folder NAME    Input skim folder. Default: skim_v1_noUnc.
   --output-suffix TEXT   Suffix appended to newHists_${era}.
+  --output-dir DIR       Override the complete output directory.
   --extra-opts TEXT      Extra hist_maker.py options as a quoted string.
   --condor               Submit one HTCondor job per selected dataset.
   --condor-dir DIR       Directory for Condor submit/log files. Default: htcondor/hists.
@@ -191,7 +193,8 @@ add_data_jobs() {
       datasets=(Muon_Run2022C Muon_Run2022D SingleMuon_Run2022C)
       ;;
     Run3_2022EE)
-      datasets=(Muon_Run2022E Muon_Run2022F Muon_Run2022G)
+      datasets=(Muon_Run2022G)
+      # datasets=(Muon_Run2022E Muon_Run2022F Muon_Run2022G)
       ;;
     Run3_2023)
       datasets=(
@@ -346,9 +349,13 @@ add_static_group_jobs() {
         TbarBQto2Q_t_channel_4FS TbarBQtoLNu_t_channel_4FS TbarBtoLminusNuB_s_channel_4FS
       )
       ;;
+    TT)
+      chunk_size=10
+      datasets=(TTto2L2Nu TTto4Q TTtoLNu2Q)
+      ;;
     TTX)
       chunk_size=10
-      datasets=(TTHto2B_M125 TTHtoNon2B_M125 TTWH TTWW TTZH_ZHto4B TTZ_Zto2Q TTto2L2Nu TTto4Q TTtoLNu2Q)
+      datasets=(TTHto2B_M125 TTHtoNon2B_M125 TTWH TTWW TTZH_ZHto4B TTZ_Zto2Q)
       ;;
     *)
       die "Internal error: unknown static group '${group}'"
@@ -395,6 +402,7 @@ normalize_group() {
     singleh|SingleH) echo "SingleH" ;;
     singletop|SingleTop) echo "SingleTop" ;;
     ttx|TTX) echo "TTX" ;;
+    tt|TT) echo "TT" ;;
     w|W) echo "W" ;;
     all|All) echo "all" ;;
     *) die "Unknown dataset group '$1'. Run with --help for the list." ;;
@@ -408,6 +416,7 @@ chunk_size_override=""
 era=""
 input_folder="skim_v1_noUnc"
 output_suffix=""
+output_dir_override=""
 extra_opts=()
 dry_run=0
 condor=0
@@ -457,6 +466,12 @@ while [[ $# -gt 0 ]]; do
     --output-suffix)
       [[ $# -ge 2 ]] || die "$1 requires a value"
       output_suffix="$2"
+      shift 2
+      ;;
+    --output-dir)
+      [[ $# -ge 2 ]] || die "$1 requires a value"
+      [[ -n "$2" ]] || die "$1 requires a non-empty value"
+      output_dir_override="$2"
       shift 2
       ;;
     --extra-opts|--extra-options)
@@ -552,7 +567,7 @@ done
 [[ -n "${era}" ]] || die "Missing --era"
 require_known_era "${era}"
 
-all_groups=(data DiTriBoson DY_amcatnlo DY_amcatnlo_105_160 DY_amcatnlo_105_160_stitched DY_amcatnlo_105_160_VBFFil DY_minnlo EWK signals other_signals SingleH SingleTop TTX W)
+all_groups=(data DiTriBoson DY_amcatnlo DY_amcatnlo_105_160 DY_amcatnlo_105_160_stitched DY_amcatnlo_105_160_VBFFil DY_minnlo EWK signals other_signals SingleH SingleTop TTX TT W)
 normalized_groups=()
 if [[ -n "${single_dataset_name}" ]]; then
   normalized_groups=("dataset_${single_dataset_name}")
@@ -583,7 +598,7 @@ else
       DY_amcatnlo_105_160_stitched) add_dy_105_160_stitched_jobs "${era}" ;;
       DY_amcatnlo_105_160_VBFFil) add_dy_105_160_VBFFil_stitched_jobs "${era}" ;;
       W) add_w_jobs "${era}" ;;
-      DiTriBoson|DY_minnlo|EWK|signals|SingleH|SingleTop|TTX|other_signals) add_static_group_jobs "${group}" ;;
+      DiTriBoson|DY_minnlo|EWK|signals|SingleH|SingleTop|TTX|other_signals|TT) add_static_group_jobs "${group}" ;;
       *) die "Internal error: unhandled group '${group}'" ;;
     esac
   done
@@ -597,7 +612,7 @@ if [[ -n "${chunk_size_override}" ]]; then
   done
 fi
 
-output_dir="/eos/user/v/vdamante/H_mumu/newHists_${era}${output_suffix}"
+output_dir="${output_dir_override:-/eos/user/v/vdamante/H_mumu/newHists_${era}${output_suffix}}"
 if [[ ${dry_run} -eq 0 ]]; then
   mkdir -p "${output_dir}"
 fi

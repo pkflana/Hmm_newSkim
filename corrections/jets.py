@@ -113,6 +113,25 @@ _jet_correction_state = {
 }
 
 
+def _jets_debug(message):
+    if os.environ.get("JETS_DEBUG", "0") != "0":
+        print(f"[jets.py][DEBUG] {message}", flush=True)
+
+
+def _debug_map_get(mapping, key, map_name):
+    try:
+        value = mapping[key]
+    except KeyError:
+        print(
+            f"[jets.py][MAP LOOKUP FAILED] {map_name}[{key!r}]; "
+            f"available keys={list(mapping)}",
+            flush=True,
+        )
+        raise
+    _jets_debug(f"{map_name}[{key!r}] -> {value!r}")
+    return value
+
+
 def _format_data_jec_tags(period, sample_name, jec_tag_array):
     sample_letter = ""
     sample_version = ""
@@ -183,13 +202,20 @@ def initialize_jet_corrections(
     year = period.split("_")[0]
 
     jec_tag_map = jec_tag_map_data if is_data else jec_tag_map_mc
-    jec_tag_array = jec_tag_map[period]
+    jec_tag_array = _debug_map_get(jec_tag_map, period, "jec_tag_map")
     if is_data:
         jec_tag_array = _format_data_jec_tags(period, sample_name, jec_tag_array)
 
     jec_tag = jec_tag_array[0]
     other_jec_tag = jec_tag_array[1] if len(jec_tag_array) > 1 else jec_tag_array[0]
-    jer_tag = jer_tag_map[period]
+    jer_tag = _debug_map_get(jer_tag_map, period, "jer_tag_map")
+
+    _jets_debug(
+        f"period={period}, is_data={is_data}, sample={sample_name}, "
+        f"regrouped={use_regrouped}, jet_json={jet_jsonFile}, "
+        f"jec_tag={jec_tag}, other_jec_tag={other_jec_tag}, jer_tag={jer_tag}, "
+        f"algorithm={jet_algorithm}, year={year}"
+    )
 
     headers_dir = os.path.dirname(os.path.abspath(__file__))
     header_path = os.path.join(headers_dir, "jets.h")
@@ -273,7 +299,7 @@ def define_jet_p4_variations(
                 {reapply_jec},
                 {require_run_number},
                 run,
-                {wantPhi},
+                {wantPhi}
             )"""
         )
 
@@ -281,12 +307,15 @@ def define_jet_p4_variations(
     # helper: extract p4
     # ===========================
     def p4_from(unc_source, unc_scale):
-        src = unc_source_enum[unc_source]
-        return (
-            "Jet_p4_shifted_map.at(std::make_pair("
+        src = _debug_map_get(unc_source_enum, unc_source, "unc_source_enum")
+        expression = (
+            "::correction::JetCorrectionProvider::getP4FromMap("
+            "Jet_p4_shifted_map, "
             f"::correction::JetCorrectionProvider::UncSource::{src}, "
-            f"::correction::UncScale::{unc_scale}))"
+            f"::correction::UncScale::{unc_scale})"
         )
+        _jets_debug(f"RDataFrame map lookup {unc_source}:{unc_scale} -> {expression}")
+        return expression
 
     # ===========================
     # nominal only p4 (central)

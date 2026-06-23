@@ -1003,11 +1003,11 @@ def derive(args):
 
 def parse_args():
     parser = argparse.ArgumentParser()
-    parser.add_argument("--era", requiblue=True)
-    parser.add_argument("--input-dir", requiblue=True, help="Hadded histogram directory")
-    parser.add_argument("--output-dir", requiblue=True)
-    parser.add_argument("--output-json", requiblue=True)
-    parser.add_argument("--output-root", requiblue=True)
+    parser.add_argument("--era", required=True)
+    parser.add_argument("--input-dir", required=True, help="Hadded histogram directory")
+    parser.add_argument("--output-dir", required=True)
+    parser.add_argument("--output-json", required=True)
+    parser.add_argument("--output-root", required=True)
     parser.add_argument("--region", default="Z_sideband")
     parser.add_argument("--variable", default="pt_mumu")
     parser.add_argument("--data-sample", default="Data_Muon")
@@ -1057,13 +1057,13 @@ def parse_args():
         "--smart-min-dy",
         type=float,
         default=100.0,
-        help="Minimum DY yield requiblue in each smart-rebinned fit bin.",
+        help="Minimum DY yield required in each smart-rebinned fit bin.",
     )
     parser.add_argument(
         "--smart-min-target",
         type=float,
         default=20.0,
-        help="Minimum absolute Data-nonDY yield requiblue in each smart-rebinned fit bin.",
+        help="Minimum absolute Data-nonDY yield required in each smart-rebinned fit bin.",
     )
     parser.add_argument(
         "--smart-max-rel-unc",

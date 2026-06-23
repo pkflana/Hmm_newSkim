@@ -1,19 +1,79 @@
+#### before anything:
+###### for the pt(Z) reweighing ######
 
-era=Run3_2022; python3 histograms/hadd_hists_to_processes.py --input-dir /eos/user/v/vdamante/H_mumu/newHists_${era}/ --output-dir /eos/user/v/vdamante/H_mumu/newHists_${era}_hadded/ --era ${era}
-era=Run3_2022EE; python3 histograms/hadd_hists_to_processes.py --input-dir /eos/user/v/vdamante/H_mumu/newHists_${era}/ --output-dir /eos/user/v/vdamante/H_mumu/newHists_${era}_hadded/ --era ${era}
-era=Run3_2023; python3 histograms/hadd_hists_to_processes.py --input-dir /eos/user/v/vdamante/H_mumu/newHists_${era}/ --output-dir /eos/user/v/vdamante/H_mumu/newHists_${era}_hadded/ --era ${era}
-era=Run3_2023BPix; python3 histograms/hadd_hists_to_processes.py --input-dir /eos/user/v/vdamante/H_mumu/newHists_${era}/ --output-dir /eos/user/v/vdamante/H_mumu/newHists_${era}_hadded/ --era ${era}
-era=Run3_2024; python3 histograms/hadd_hists_to_processes.py --input-dir /eos/user/v/vdamante/H_mumu/newHists_${era}/ --output-dir /eos/user/v/vdamante/H_mumu/newHists_${era}_hadded/ --era ${era}
+sh histograms/scripts/hists.sh --datasets DY_amcatnlo --era Run3_2022 --input-folder skim_v2_noUnc --output-suffix _ptllNJetsRW --output-dir /eos/user/v/vdamante/H_mumu/reweighting_hists/newHists_Run3_2022_ptllNJetsRW -- --variables pt_mumu N_SelectedJets --categories ggF_0J ggF_1J ggF_ge2J VBF_ge2J --mass-regions Z_sideband
+sh histograms/scripts/hists.sh --datasets TT --era Run3_2022 --input-folder skim_v2_noUnc --output-suffix _ptllNJetsRW --output-dir /eos/user/v/vdamante/H_mumu/reweighting_hists/newHists_Run3_2022_ptllNJetsRW -- --variables pt_mumu N_SelectedJets --categories ggF_0J ggF_1J ggF_ge2J VBF_ge2J --mass-regions Z_sideband
+sh histograms/scripts/hists.sh --datasets data --era Run3_2022 --input-folder skim_v2_noUnc --output-suffix _ptllNJetsRW --output-dir /eos/user/v/vdamante/H_mumu/reweighting_hists/newHists_Run3_2022_ptllNJetsRW -- --variables pt_mumu N_SelectedJets --categories ggF_0J ggF_1J ggF_ge2J VBF_ge2J --mass-regions Z_sideband
+
+
+
+### non reweighted histos #####
+
+sh histograms/scripts/hists.sh  --datasets DY_amcatnlo  --era Run3_2022 --input-folder skim_v2_noUnc/ --output-suffix _v2Skim
+sh histograms/scripts/hists.sh  --datasets TT  --era Run3_2022 --input-folder skim_v2_noUnc/ --output-suffix _v2Skim x
+sh histograms/scripts/hists.sh  --datasets DY_amcatnlo_105_160  --era Run3_2022 --input-folder skim_v2_noUnc/ --output-suffix _v2Skim
+sh histograms/scripts/hists.sh  --datasets data  --era Run3_2022 --input-folder skim_v2_noUnc/ --output-suffix _v2Skim
+
+
+
+### non reweighted histos -- DNN NN Output #####
+
+sh histograms/scripts/hists.sh  --datasets DY_amcatnlo  --era Run3_2022 --input-folder skim_v2_noUnc/ --output-suffix _v2Skim_DNN -- --variables DNN_NNOutput
+sh histograms/scripts/hists.sh  --datasets TT  --era Run3_2022 --input-folder skim_v2_noUnc/ --output-suffix _v2Skim_DNN -- --variables DNN_NNOutput
+sh histograms/scripts/hists.sh  --datasets DY_amcatnlo_105_160  --era Run3_2022 --input-folder skim_v2_noUnc/ --output-suffix _v2Skim_DNN -- --variables DNN_NNOutput
+sh histograms/scripts/hists.sh  --datasets data  --era Run3_2022 --input-folder skim_v2_noUnc/ --output-suffix _v2Skim_DNN -- --variables DNN_NNOutput
+
+
+
+
+
+  data
+  DiTriBoson
+  DY_amcatnlo
+  DY_amcatnlo_105_160
+  DY_amcatnlo_105_160_stitched
+  DY_amcatnlo_105_160_VBFFil
+  DY_minnlo
+  EWK
+  signals
+  SingleH
+  SingleTop
+  TTX
+  W
+  other_signals
+
+
+####### after
+era=Run3_2022; python3 histograms/hadd_hists_to_processes.py --input-dir /eos/user/v/vdamante/H_mumu/newHists_${era}_v2Skim --output-dir /eos/user/v/vdamante/H_mumu/newHists_${era}_v2Skim_hadded/ --era ${era}
+era=Run3_2022EE; python3 histograms/hadd_hists_to_processes.py --input-dir /eos/user/v/vdamante/H_mumu/newHists_${era}_v2Skim --output-dir /eos/user/v/vdamante/H_mumu/newHists_${era}_v2Skim_hadded/ --era ${era}
+era=Run3_2023; python3 histograms/hadd_hists_to_processes.py --input-dir /eos/user/v/vdamante/H_mumu/newHists_${era}_v2Skim --output-dir /eos/user/v/vdamante/H_mumu/newHists_${era}_v2Skim_hadded/ --era ${era}
+era=Run3_2023BPix; python3 histograms/hadd_hists_to_processes.py --input-dir /eos/user/v/vdamante/H_mumu/newHists_${era}_v2Skim --output-dir /eos/user/v/vdamante/H_mumu/newHists_${era}_v2Skim_hadded/ --era ${era}
+era=Run3_2024; python3 histograms/hadd_hists_to_processes.py --input-dir /eos/user/v/vdamante/H_mumu/newHists_${era}_v2Skim --output-dir /eos/user/v/vdamante/H_mumu/newHists_${era}_v2Skim_hadded/ --era ${era}
+
+
+era=Run3_2022; cp /eos/user/v/vdamante/H_mumu/newHists_${era}_v2Skim/DYto2Mu_MLL_105to160_amcatnloFXFX_nonStitched.root /eos/user/v/vdamante/H_mumu/newHists_${era}_v2Skim_hadded/DYto2Mu_MLL_105to160_amcatnloFXFX_nonStitched.root
+era=Run3_2022EE; cp /eos/user/v/vdamante/H_mumu/newHists_${era}_v2Skim/DYto2Mu_MLL_105to160_amcatnloFXFX_nonStitched.root /eos/user/v/vdamante/H_mumu/newHists_${era}_v2Skim_hadded/DYto2Mu_MLL_105to160_amcatnloFXFX_nonStitched.root
+era=Run3_2023; cp /eos/user/v/vdamante/H_mumu/newHists_${era}_v2Skim/DYto2Mu_MLL_105to160_amcatnloFXFX_nonStitched.root /eos/user/v/vdamante/H_mumu/newHists_${era}_v2Skim_hadded/DYto2Mu_MLL_105to160_amcatnloFXFX_nonStitched.root
+era=Run3_2023BPix; cp /eos/user/v/vdamante/H_mumu/newHists_${era}_v2Skim/DYto2Mu_MLL_105to160_amcatnloFXFX_nonStitched.root /eos/user/v/vdamante/H_mumu/newHists_${era}_v2Skim_hadded/DYto2Mu_MLL_105to160_amcatnloFXFX_nonStitched.root
+
 
 ### derive pt(ll) reweighting from special hists
-for era in Run3_2022 Run3_2022EE Run3_2023 Run3_2023BPix Run3_2024 ; do python3 histograms/derive_dy_ptll_njets_reweight.py  --era ${era}  --input-dir /eos/user/v/vdamante/H_mumu/reweighting_hists/newHists_${era}_ptllNJetsRW_hadded/  --output-dir reweights/dy_ptll_reweight/${era}/plots_smart  --output-json reweights/dy_ptll_reweight/${era}/dy_ptll_reweight_smart.json  --output-root reweights/dy_ptll_reweight/${era}/dy_ptll_reweight_smart.root  --smart-rebin; done
+Run3_2024
+for era in Run3_2022 Run3_2022EE Run3_2023 Run3_2023BPix ; do python3 histograms/derive_dy_ptll_njets_reweight.py  --era ${era}  --input-dir /eos/user/v/vdamante/H_mumu/reweighting_hists/newHists_${era}_ptllNJetsRW_hadded/  --output-dir reweights/dy_ptll_reweight/${era}/plots_smart  --output-json reweights/dy_ptll_reweight/${era}/dy_ptll_reweight_smart.json  --output-root reweights/dy_ptll_reweight/${era}/dy_ptll_reweight_smart.root  --smart-rebin; done
 
 ### redo only DY amcatnlo inclusive hists with pt(ll)
-era=Run3_2022; sh histograms/scripts/hists.sh  --datasets DY_amcatnlo  --era ${era}  --output-suffix _with_ptll_only_rw  --  --dy-ptll-reweight-json reweights/dy_ptll_reweight/${era}/dy_ptll_reweight_smart.json
-era=Run3_2022EE; sh histograms/scripts/hists.sh  --datasets DY_amcatnlo  --era ${era}  --output-suffix _with_ptll_only_rw  --  --dy-ptll-reweight-json reweights/dy_ptll_reweight/${era}/dy_ptll_reweight_smart.json
-era=Run3_2023; sh histograms/scripts/hists.sh  --datasets DY_amcatnlo  --era ${era}  --output-suffix _with_ptll_only_rw  --  --dy-ptll-reweight-json reweights/dy_ptll_reweight/${era}/dy_ptll_reweight_smart.json
-era=Run3_2023BPix; sh histograms/scripts/hists.sh  --datasets DY_amcatnlo  --era ${era}  --output-suffix _with_ptll_only_rw  --  --dy-ptll-reweight-json reweights/dy_ptll_reweight/${era}/dy_ptll_reweight_smart.json
-era=Run3_2024; sh histograms/scripts/hists.sh  --datasets DY_amcatnlo  --era ${era}  --output-suffix _with_ptll_only_rw  --  --dy-ptll-reweight-json reweights/dy_ptll_reweight/${era}/dy_ptll_reweight_smart.json
+era=Run3_2022; sh histograms/scripts/hists.sh  --datasets DY_amcatnlo  --era ${era} --input-folder skim_v2_noUnc --output-suffix _with_ptll_only_rw  --  --dy-ptll-reweight-json reweights/dy_ptll_reweight/${era}/dy_ptll_reweight_smart.json
+era=Run3_2022EE; sh histograms/scripts/hists.sh  --datasets DY_amcatnlo  --era ${era} --input-folder skim_v2_noUnc --output-suffix _with_ptll_only_rw  --  --dy-ptll-reweight-json reweights/dy_ptll_reweight/${era}/dy_ptll_reweight_smart.json
+era=Run3_2023; sh histograms/scripts/hists.sh  --datasets DY_amcatnlo  --era ${era} --input-folder skim_v2_noUnc --output-suffix _with_ptll_only_rw  --  --dy-ptll-reweight-json reweights/dy_ptll_reweight/${era}/dy_ptll_reweight_smart.json
+era=Run3_2023BPix; sh histograms/scripts/hists.sh  --datasets DY_amcatnlo  --era ${era} --input-folder skim_v2_noUnc --output-suffix _with_ptll_only_rw  --  --dy-ptll-reweight-json reweights/dy_ptll_reweight/${era}/dy_ptll_reweight_smart.json
+era=Run3_2024; sh histograms/scripts/hists.sh  --datasets DY_amcatnlo  --era ${era} --input-folder skim_v2_noUnc --output-suffix _with_ptll_only_rw  --  --dy-ptll-reweight-json reweights/dy_ptll_reweight/${era}/dy_ptll_reweight_smart.json
+
+
+era=Run3_2022; sh histograms/scripts/hists.sh  --datasets DY_amcatnlo_105_160  --era ${era} --input-folder skim_v2_noUnc --output-suffix _with_ptll_only_rw  --  --dy-ptll-reweight-json reweights/dy_ptll_reweight/${era}/dy_ptll_reweight_smart.json
+era=Run3_2022EE; sh histograms/scripts/hists.sh  --datasets DY_amcatnlo_105_160  --era ${era} --input-folder skim_v2_noUnc --output-suffix _with_ptll_only_rw  --  --dy-ptll-reweight-json reweights/dy_ptll_reweight/${era}/dy_ptll_reweight_smart.json
+era=Run3_2023; sh histograms/scripts/hists.sh  --datasets DY_amcatnlo_105_160  --era ${era} --input-folder skim_v2_noUnc --output-suffix _with_ptll_only_rw  --  --dy-ptll-reweight-json reweights/dy_ptll_reweight/${era}/dy_ptll_reweight_smart.json
+era=Run3_2023BPix; sh histograms/scripts/hists.sh  --datasets DY_amcatnlo_105_160  --era ${era} --input-folder skim_v2_noUnc --output-suffix _with_ptll_only_rw  --  --dy-ptll-reweight-json reweights/dy_ptll_reweight/${era}/dy_ptll_reweight_smart.json
+era=Run3_2024; sh histograms/scripts/hists.sh  --datasets DY_amcatnlo_105_160  --era ${era} --input-folder skim_v2_noUnc --output-suffix _with_ptll_only_rw  --  --dy-ptll-reweight-json reweights/dy_ptll_reweight/${era}/dy_ptll_reweight_smart.json
 
 ### hadd these intermediate histograms
 era=Run3_2022; python3 histograms/hadd_hists_to_processes.py --input-dir /eos/user/v/vdamante/H_mumu/newHists_${era}_with_ptll_only_rw/ --output-dir /eos/user/v/vdamante/H_mumu/newHists_${era}_with_ptll_only_rw_hadded/ --era ${era}
@@ -23,11 +83,20 @@ era=Run3_2023BPix; python3 histograms/hadd_hists_to_processes.py --input-dir /eo
 era=Run3_2024; python3 histograms/hadd_hists_to_processes.py --input-dir /eos/user/v/vdamante/H_mumu/newHists_${era}_with_ptll_only_rw/ --output-dir /eos/user/v/vdamante/H_mumu/newHists_${era}_with_ptll_only_rw_hadded/ --era ${era}
 
 ### move these intermediate histograms in the hadded folder in the name DY_ptll.root
-era=Run3_2022; mv /eos/user/v/vdamante/H_mumu/newHists_${era}_with_ptll_only_rw_hadded/DY.root /eos/user/v/vdamante/H_mumu/newHists_${era}_hadded/DY_ptll.root
-era=Run3_2022EE; mv /eos/user/v/vdamante/H_mumu/newHists_${era}_with_ptll_only_rw_hadded/DY.root /eos/user/v/vdamante/H_mumu/newHists_${era}_hadded/DY_ptll.root
-era=Run3_2023; mv /eos/user/v/vdamante/H_mumu/newHists_${era}_with_ptll_only_rw_hadded/DY.root /eos/user/v/vdamante/H_mumu/newHists_${era}_hadded/DY_ptll.root
-era=Run3_2023BPix; mv /eos/user/v/vdamante/H_mumu/newHists_${era}_with_ptll_only_rw_hadded/DY.root /eos/user/v/vdamante/H_mumu/newHists_${era}_hadded/DY_ptll.root
-era=Run3_2024; mv /eos/user/v/vdamante/H_mumu/newHists_${era}_with_ptll_only_rw_hadded/DY.root /eos/user/v/vdamante/H_mumu/newHists_${era}_hadded/DY_ptll.root
+
+era=Run3_2022; mv /eos/user/v/vdamante/H_mumu/newHists_${era}_with_ptll_only_rw_hadded/DY.root /eos/user/v/vdamante/H_mumu/newHists_${era}_v2Skim_hadded/DY_ptll.root
+era=Run3_2022EE; mv /eos/user/v/vdamante/H_mumu/newHists_${era}_with_ptll_only_rw_hadded/DY.root /eos/user/v/vdamante/H_mumu/newHists_${era}_v2Skim_hadded/DY_ptll.root
+era=Run3_2023; mv /eos/user/v/vdamante/H_mumu/newHists_${era}_with_ptll_only_rw_hadded/DY.root /eos/user/v/vdamante/H_mumu/newHists_${era}_v2Skim_hadded/DY_ptll.root
+era=Run3_2023BPix; mv /eos/user/v/vdamante/H_mumu/newHists_${era}_with_ptll_only_rw_hadded/DY.root /eos/user/v/vdamante/H_mumu/newHists_${era}_v2Skim_hadded/DY_ptll.root
+era=Run3_2024; mv /eos/user/v/vdamante/H_mumu/newHists_${era}_with_ptll_only_rw_hadded/DY.root /eos/user/v/vdamante/H_mumu/newHists_${era}_v2Skim_hadded/DY_ptll.root
+
+era=Run3_2022; cp /eos/user/v/vdamante/H_mumu/newHists_${era}_with_ptll_only_rw/DYto2Mu_MLL_105to160_amcatnloFXFX_nonStitched.root /eos/user/v/vdamante/H_mumu/newHists_${era}_v2Skim_hadded/DYto2Mu_MLL_105to160_amcatnloFXFX_nonStitched_ptll.root
+era=Run3_2022EE; cp /eos/user/v/vdamante/H_mumu/newHists_${era}_with_ptll_only_rw/DYto2Mu_MLL_105to160_amcatnloFXFX_nonStitched.root /eos/user/v/vdamante/H_mumu/newHists_${era}_v2Skim_hadded/DYto2Mu_MLL_105to160_amcatnloFXFX_nonStitched_ptll.root
+era=Run3_2023; cp /eos/user/v/vdamante/H_mumu/newHists_${era}_with_ptll_only_rw/DYto2Mu_MLL_105to160_amcatnloFXFX_nonStitched.root /eos/user/v/vdamante/H_mumu/newHists_${era}_v2Skim_hadded/DYto2Mu_MLL_105to160_amcatnloFXFX_nonStitched_ptll.root
+era=Run3_2023BPix; cp /eos/user/v/vdamante/H_mumu/newHists_${era}_with_ptll_only_rw/DYto2Mu_MLL_105to160_amcatnloFXFX_nonStitched.root /eos/user/v/vdamante/H_mumu/newHists_${era}_v2Skim_hadded/DYto2Mu_MLL_105to160_amcatnloFXFX_nonStitched_ptll.root
+
+
+
 
 ### clean --> remove these intermediate folders
 era=Run3_2022; rm -rf /eos/user/v/vdamante/H_mumu/newHists_${era}_with_ptll_only_rw*
@@ -37,15 +106,15 @@ era=Run3_2023BPix; rm -rf /eos/user/v/vdamante/H_mumu/newHists_${era}_with_ptll_
 era=Run3_2024; rm -rf /eos/user/v/vdamante/H_mumu/newHists_${era}_with_ptll_only_rw*
 
 ### derive NJets reweighing
-era=Run3_2022; python3 histograms/derive_dy_njets_reweight.py --era ${era} --input-dir /eos/user/v/vdamante/H_mumu/newHists_${era}_hadded/ --output-dir reweights/dy_njets_reweight/${era}/plots --output-json reweights/dy_njets_reweight/${era}/dy_njets_reweight.json --output-root reweights/dy_njets_reweight/${era}/dy_njets_reweight.root --dy-sample DY_ptll
+era=Run3_2022; python3 histograms/derive_dy_njets_reweight.py --era ${era} --input-dir /eos/user/v/vdamante/H_mumu/newHists_${era}_v2Skim_hadded/ --output-dir reweights/dy_njets_reweight/${era}/plots --output-json reweights/dy_njets_reweight/${era}/dy_njets_reweight.json --output-root reweights/dy_njets_reweight/${era}/dy_njets_reweight.root --dy-sample DY_ptll
 
-era=Run3_2022EE; python3 histograms/derive_dy_njets_reweight.py --era ${era} --input-dir /eos/user/v/vdamante/H_mumu/newHists_${era}_hadded/ --output-dir reweights/dy_njets_reweight/${era}/plots --output-json reweights/dy_njets_reweight/${era}/dy_njets_reweight.json --output-root reweights/dy_njets_reweight/${era}/dy_njets_reweight.root --dy-sample DY_ptll
+era=Run3_2022EE; python3 histograms/derive_dy_njets_reweight.py --era ${era} --input-dir /eos/user/v/vdamante/H_mumu/newHists_${era}_v2Skim_hadded/ --output-dir reweights/dy_njets_reweight/${era}/plots --output-json reweights/dy_njets_reweight/${era}/dy_njets_reweight.json --output-root reweights/dy_njets_reweight/${era}/dy_njets_reweight.root --dy-sample DY_ptll
 
-era=Run3_2023; python3 histograms/derive_dy_njets_reweight.py --era ${era} --input-dir /eos/user/v/vdamante/H_mumu/newHists_${era}_hadded/ --output-dir reweights/dy_njets_reweight/${era}/plots --output-json reweights/dy_njets_reweight/${era}/dy_njets_reweight.json --output-root reweights/dy_njets_reweight/${era}/dy_njets_reweight.root --dy-sample DY_ptll
+era=Run3_2023; python3 histograms/derive_dy_njets_reweight.py --era ${era} --input-dir /eos/user/v/vdamante/H_mumu/newHists_${era}_v2Skim_hadded/ --output-dir reweights/dy_njets_reweight/${era}/plots --output-json reweights/dy_njets_reweight/${era}/dy_njets_reweight.json --output-root reweights/dy_njets_reweight/${era}/dy_njets_reweight.root --dy-sample DY_ptll
 
-era=Run3_2023BPix; python3 histograms/derive_dy_njets_reweight.py --era ${era} --input-dir /eos/user/v/vdamante/H_mumu/newHists_${era}_hadded/ --output-dir reweights/dy_njets_reweight/${era}/plots --output-json reweights/dy_njets_reweight/${era}/dy_njets_reweight.json --output-root reweights/dy_njets_reweight/${era}/dy_njets_reweight.root --dy-sample DY_ptll
+era=Run3_2023BPix; python3 histograms/derive_dy_njets_reweight.py --era ${era} --input-dir /eos/user/v/vdamante/H_mumu/newHists_${era}_v2Skim_hadded/ --output-dir reweights/dy_njets_reweight/${era}/plots --output-json reweights/dy_njets_reweight/${era}/dy_njets_reweight.json --output-root reweights/dy_njets_reweight/${era}/dy_njets_reweight.root --dy-sample DY_ptll
 
-era=Run3_2024; python3 histograms/derive_dy_njets_reweight.py --era ${era} --input-dir /eos/user/v/vdamante/H_mumu/newHists_${era}_hadded/ --output-dir reweights/dy_njets_reweight/${era}/plots --output-json reweights/dy_njets_reweight/${era}/dy_njets_reweight.json --output-root reweights/dy_njets_reweight/${era}/dy_njets_reweight.root --dy-sample DY_ptll
+era=Run3_2024; python3 histograms/derive_dy_njets_reweight.py --era ${era} --input-dir /eos/user/v/vdamante/H_mumu/newHists_${era}_v2Skim_hadded/ --output-dir reweights/dy_njets_reweight/${era}/plots --output-json reweights/dy_njets_reweight/${era}/dy_njets_reweight.json --output-root reweights/dy_njets_reweight/${era}/dy_njets_reweight.root --dy-sample DY_ptll
 
 
 
@@ -84,27 +153,27 @@ era=Run3_2024; python3 histograms/hadd_hists_to_processes.py --input-dir /eos/us
 
 ### move these intermediate histograms in the hadded folder in the name DY_*_weighted.root
 
-era=Run3_2022; mv /eos/user/v/vdamante/H_mumu/newHists_${era}_weighted/DYto2Mu_MLL_105to160_amcatnloFXFX_nonStitched.root /eos/user/v/vdamante/H_mumu/newHists_${era}_hadded/DYto2Mu_MLL_105to160_weighted.root
-era=Run3_2022; mv /eos/user/v/vdamante/H_mumu/newHists_${era}_weighted_hadded/DY.root /eos/user/v/vdamante/H_mumu/newHists_${era}_hadded/DY_weighted.root
+era=Run3_2022; mv /eos/user/v/vdamante/H_mumu/newHists_${era}_weighted/DYto2Mu_MLL_105to160_amcatnloFXFX_nonStitched.root /eos/user/v/vdamante/H_mumu/newHists_${era}_v2Skim_hadded/DYto2Mu_MLL_105to160_weighted.root
+era=Run3_2022; mv /eos/user/v/vdamante/H_mumu/newHists_${era}_weighted_hadded/DY.root /eos/user/v/vdamante/H_mumu/newHists_${era}_v2Skim_hadded/DY_weighted.root
 
-era=Run3_2022EE; mv /eos/user/v/vdamante/H_mumu/newHists_${era}_weighted/DYto2Mu_MLL_105to160_amcatnloFXFX_nonStitched.root /eos/user/v/vdamante/H_mumu/newHists_${era}_hadded/DYto2Mu_MLL_105to160_weighted.root
-era=Run3_2022EE; mv /eos/user/v/vdamante/H_mumu/newHists_${era}_weighted_hadded/DY.root /eos/user/v/vdamante/H_mumu/newHists_${era}_hadded/DY_weighted.root
-
-
-era=Run3_2023; mv /eos/user/v/vdamante/H_mumu/newHists_${era}_weighted/DYto2Mu_MLL_105to160_amcatnloFXFX_nonStitched.root /eos/user/v/vdamante/H_mumu/newHists_${era}_hadded/DYto2Mu_MLL_105to160_weighted.root
-era=Run3_2023; mv /eos/user/v/vdamante/H_mumu/newHists_${era}_weighted_hadded/DY.root /eos/user/v/vdamante/H_mumu/newHists_${era}_hadded/DY_weighted.root
+era=Run3_2022EE; mv /eos/user/v/vdamante/H_mumu/newHists_${era}_weighted/DYto2Mu_MLL_105to160_amcatnloFXFX_nonStitched.root /eos/user/v/vdamante/H_mumu/newHists_${era}_v2Skim_hadded/DYto2Mu_MLL_105to160_weighted.root
+era=Run3_2022EE; mv /eos/user/v/vdamante/H_mumu/newHists_${era}_weighted_hadded/DY.root /eos/user/v/vdamante/H_mumu/newHists_${era}_v2Skim_hadded/DY_weighted.root
 
 
+era=Run3_2023; mv /eos/user/v/vdamante/H_mumu/newHists_${era}_weighted/DYto2Mu_MLL_105to160_amcatnloFXFX_nonStitched.root /eos/user/v/vdamante/H_mumu/newHists_${era}_v2Skim_hadded/DYto2Mu_MLL_105to160_weighted.root
+era=Run3_2023; mv /eos/user/v/vdamante/H_mumu/newHists_${era}_weighted_hadded/DY.root /eos/user/v/vdamante/H_mumu/newHists_${era}_v2Skim_hadded/DY_weighted.root
 
-era=Run3_2023BPix; mv /eos/user/v/vdamante/H_mumu/newHists_${era}_weighted/DYto2Mu_MLL_105to160_amcatnloFXFX_nonStitched.root /eos/user/v/vdamante/H_mumu/newHists_${era}_hadded/DYto2Mu_MLL_105to160_weighted.root
-era=Run3_2023BPix; mv /eos/user/v/vdamante/H_mumu/newHists_${era}_weighted_hadded/DY.root /eos/user/v/vdamante/H_mumu/newHists_${era}_hadded/DY_weighted.root
+
+
+era=Run3_2023BPix; mv /eos/user/v/vdamante/H_mumu/newHists_${era}_weighted/DYto2Mu_MLL_105to160_amcatnloFXFX_nonStitched.root /eos/user/v/vdamante/H_mumu/newHists_${era}_v2Skim_hadded/DYto2Mu_MLL_105to160_weighted.root
+era=Run3_2023BPix; mv /eos/user/v/vdamante/H_mumu/newHists_${era}_weighted_hadded/DY.root /eos/user/v/vdamante/H_mumu/newHists_${era}_v2Skim_hadded/DY_weighted.root
 
 
 
 for sample in DYto2Mu_MLL_105to160_amcatnloFXFX_stitched DYto2Mu_MLL_105to160_amcatnloFXFX_Fil_VBF_nonStitched DYto2Mu_MLL_105to160_amcatnloFXFX_Fil_VBF_stitched DYto2Mu_MLL_105to160_amcatnloFXFX_Flashsim_nonStitched DYto2Mu_MLL_105to160_amcatnloFXFX_nonStitched ; do mv /eos/user/v/vdamante/H_mumu/newHists_Run3_2024_weighted/${sample}.root /eos/user/v/vdamante/H_mumu/newHists_Run3_2024_hadded/${sample}_weighted.root ; done
 
-era=Run3_2024; mv /eos/user/v/vdamante/H_mumu/newHists_${era}_weighted_hadded/DYto2Mu_minnlo.root /eos/user/v/vdamante/H_mumu/newHists_${era}_hadded/DYto2Mu_minnlo_weighted.root
-era=Run3_2024; mv /eos/user/v/vdamante/H_mumu/newHists_${era}_weighted_hadded/DY.root /eos/user/v/vdamante/H_mumu/newHists_${era}_hadded/DY_weighted.root
+era=Run3_2024; mv /eos/user/v/vdamante/H_mumu/newHists_${era}_weighted_hadded/DYto2Mu_minnlo.root /eos/user/v/vdamante/H_mumu/newHists_${era}_v2Skim_hadded/DYto2Mu_minnlo_weighted.root
+era=Run3_2024; mv /eos/user/v/vdamante/H_mumu/newHists_${era}_weighted_hadded/DY.root /eos/user/v/vdamante/H_mumu/newHists_${era}_v2Skim_hadded/DY_weighted.root
 
 # remove intermediate folders
 era=Run3_2022; rm -rf /eos/user/v/vdamante/H_mumu/newHists_${era}_weighted
@@ -121,11 +190,11 @@ era=Run3_2024; rm -rf /eos/user/v/vdamante/H_mumu/newHists_${era}_weighted_hadde
 
 # check that everything is there
 
-era=Run3_2022; ls /eos/user/v/vdamante/H_mumu/newHists_${era}_hadded/
-era=Run3_2022EE; ls /eos/user/v/vdamante/H_mumu/newHists_${era}_hadded/
-era=Run3_2023; ls /eos/user/v/vdamante/H_mumu/newHists_${era}_hadded/
-era=Run3_2023BPix; ls /eos/user/v/vdamante/H_mumu/newHists_${era}_hadded/
-era=Run3_2024; ls /eos/user/v/vdamante/H_mumu/newHists_${era}_hadded/
+era=Run3_2022; ls /eos/user/v/vdamante/H_mumu/newHists_${era}_v2Skim_hadded/
+era=Run3_2022EE; ls /eos/user/v/vdamante/H_mumu/newHists_${era}_v2Skim_hadded/
+era=Run3_2023; ls /eos/user/v/vdamante/H_mumu/newHists_${era}_v2Skim_hadded/
+era=Run3_2023BPix; ls /eos/user/v/vdamante/H_mumu/newHists_${era}_v2Skim_hadded/
+era=Run3_2024; ls /eos/user/v/vdamante/H_mumu/newHists_${era}_v2Skim_hadded/
 
 ### hadd 22_23:
 
