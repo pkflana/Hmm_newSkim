@@ -19,6 +19,18 @@ def hist_sum_value(histogram):
     return float(getattr(total, "value", total))
 
 
+def dataset_file_candidates(input_dir, process, dataset):
+    suffix_by_process = {
+        "DYto2Mu_MLL105To160": ["_stitched", "_nonStitched", ""],
+        "DYto2Mu_MLL105To160_nonStitched": ["_nonStitched", ""],
+        "DYto2Mu_MLL105To160_VBFFiltered": ["_stitched", "_nonStitched", ""],
+        "DYto2Mu_MLL105To160_VBFFiltered_nonStitched": ["_nonStitched", ""],
+        "DYto2Mu_MLL105To160_FlashSim": ["_nonStitched", ""],
+    }
+    suffixes = suffix_by_process.get(process, [""])
+    return [os.path.join(input_dir, f"{dataset}{suffix}.root") for suffix in suffixes]
+
+
 def hadd_datasets_to_processes(era,input_dir, output_dir,dryRun=False):
     if not dryRun:
         import uproot
@@ -62,9 +74,10 @@ def hadd_datasets_to_processes(era,input_dir, output_dir,dryRun=False):
         # Filtra i dataset tenendo solo quelli CHE ESISTONO SUL DISCO
         valid_dataset_files = []
         for dataset in datasets:
-            dataset_file_path = os.path.join(input_dir, f"{dataset}.root")
-            if os.path.exists(dataset_file_path):
-                valid_dataset_files.append(dataset_file_path)
+            for dataset_file_path in dataset_file_candidates(input_dir, process, dataset):
+                if os.path.exists(dataset_file_path):
+                    valid_dataset_files.append(dataset_file_path)
+                    break
 
         # SE NON CE NE SONO, PASSA (Salta completamente il processo)
         if not valid_dataset_files:

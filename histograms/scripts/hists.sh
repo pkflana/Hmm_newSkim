@@ -6,6 +6,7 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ANALYSIS_PATH="${ANALYSIS_PATH:-$(cd "${SCRIPT_DIR}/../.." && pwd)}"
+export ANALYSIS_PATH
 cd "${ANALYSIS_PATH}"
 
 usage() {
@@ -36,7 +37,7 @@ Options:
   --chunk-size N          Override chunk size for selected jobs. Default: group-specific;
                           for --dataset-name default is 20.
   --era ERA              Era to run, e.g. Run3_2022.
-  --input-folder NAME    Input skim folder. Default: skim_v1_noUnc.
+  --input-folder NAME    Input skim folder. Default: skim_v2_noUnc.
   --output-suffix TEXT   Suffix appended to newHists_${era}.
   --output-dir DIR       Override the complete output directory.
   --extra-opts TEXT      Extra hist_maker.py options as a quoted string.
@@ -51,6 +52,7 @@ Options:
   --summary-file FILE    Append one TSV monitoring summary line to FILE.
   --queued-registry-file FILE
                           Treat outputs listed in FILE as already submitted.
+  --missing-only         In local mode, run only outputs that are missing.
   --erase-existing       Remove already produced histogram files before submitting.
   --force                Submit selected jobs even if output files already exist.
   --dry-run              Print commands without running them.
@@ -167,6 +169,25 @@ require_known_era() {
   esac
 }
 
+dataset_is_configured() {
+  local era="$1"
+  local dataset_name="$2"
+  local samples_file="config/${era}/samples.yaml"
+
+  [[ -r "${samples_file}" ]] || return 0
+  awk -v dataset="${dataset_name}" '
+    $0 ~ "^[A-Za-z0-9_]+:" {
+      key = $1
+      sub(/:$/, "", key)
+      if (key == dataset) {
+        found = 1
+        exit
+      }
+    }
+    END { exit(found ? 0 : 1) }
+  ' "${samples_file}"
+}
+
 add_job() {
   local dataset_name="$1"
   local chunk_size="$2"
@@ -184,6 +205,36 @@ add_job() {
   job_specific_opts+=("${specific_opts[*]}")
 }
 
+drop_unconfigured_jobs() {
+  local era="$1"
+  local filtered_datasets=()
+  local filtered_chunk_sizes=()
+  local filtered_file_suffixes=()
+  local filtered_specific_opts=()
+  local dataset_name
+  local skipped=0
+
+  for i in "${!job_datasets[@]}"; do
+    dataset_name="${job_datasets[$i]}"
+    if dataset_is_configured "${era}" "${dataset_name}"; then
+      filtered_datasets+=("${job_datasets[$i]}")
+      filtered_chunk_sizes+=("${job_chunk_sizes[$i]}")
+      filtered_file_suffixes+=("${job_file_suffixes[$i]}")
+      filtered_specific_opts+=("${job_specific_opts[$i]}")
+    else
+      echo "[INFO] Skipping ${dataset_name}: not present in config/${era}/samples.yaml"
+      skipped=$((skipped + 1))
+    fi
+  done
+
+  if [[ ${skipped} -gt 0 ]]; then
+    job_datasets=("${filtered_datasets[@]}")
+    job_chunk_sizes=("${filtered_chunk_sizes[@]}")
+    job_file_suffixes=("${filtered_file_suffixes[@]}")
+    job_specific_opts=("${filtered_specific_opts[@]}")
+  fi
+}
+
 add_data_jobs() {
   local era="$1"
   local datasets=()
@@ -193,8 +244,8 @@ add_data_jobs() {
       datasets=(Muon_Run2022C Muon_Run2022D SingleMuon_Run2022C)
       ;;
     Run3_2022EE)
-      datasets=(Muon_Run2022G)
-      # datasets=(Muon_Run2022E Muon_Run2022F Muon_Run2022G)
+      # datasets=(Muon_Run2022G)
+      datasets=(Muon_Run2022E Muon_Run2022F Muon_Run2022G)
       ;;
     Run3_2023)
       datasets=(
@@ -409,12 +460,28 @@ normalize_group() {
   esac
 }
 
+groups_for_era() {
+  local era="$1"
+
+  case "${era}" in
+    Run3_2024|Run3_2025|Run3_2026)
+      echo "data DiTriBoson DY_amcatnlo DY_amcatnlo_105_160 DY_amcatnlo_105_160_stitched DY_amcatnlo_105_160_VBFFil DY_minnlo EWK signals other_signals SingleH SingleTop TTX TT W"
+      ;;
+    Run3_2022|Run3_2022EE|Run3_2023|Run3_2023BPix)
+      echo "data DiTriBoson DY_amcatnlo DY_amcatnlo_105_160 EWK signals other_signals SingleH SingleTop TTX TT W"
+      ;;
+    *)
+      die "Unknown era '${era}'"
+      ;;
+  esac
+}
+
 dataset_groups=()
 single_dataset_name=""
 single_dataset_chunk_size=20
 chunk_size_override=""
 era=""
-input_folder="skim_v1_noUnc"
+input_folder="skim_v2_noUnc"
 output_suffix=""
 output_dir_override=""
 extra_opts=()
@@ -432,6 +499,7 @@ queued_registry_file=""
 job_count_file=""
 erase_existing=0
 force_submit=0
+missing_only=0
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
@@ -535,6 +603,10 @@ while [[ $# -gt 0 ]]; do
       queued_registry_file="$2"
       shift 2
       ;;
+    --missing-only|--run-missing-only)
+      missing_only=1
+      shift
+      ;;
     --job-count-file)
       [[ $# -ge 2 ]] || die "$1 requires a value"
       job_count_file="$2"
@@ -567,7 +639,6 @@ done
 [[ -n "${era}" ]] || die "Missing --era"
 require_known_era "${era}"
 
-all_groups=(data DiTriBoson DY_amcatnlo DY_amcatnlo_105_160 DY_amcatnlo_105_160_stitched DY_amcatnlo_105_160_VBFFil DY_minnlo EWK signals other_signals SingleH SingleTop TTX TT W)
 normalized_groups=()
 if [[ -n "${single_dataset_name}" ]]; then
   normalized_groups=("dataset_${single_dataset_name}")
@@ -575,7 +646,7 @@ else
   for group in "${dataset_groups[@]}"; do
     group="$(normalize_group "${group}")"
     if [[ "${group}" == "all" ]]; then
-      normalized_groups=("${all_groups[@]}")
+      read -r -a normalized_groups <<< "$(groups_for_era "${era}")"
       break
     fi
     normalized_groups+=("${group}")
@@ -602,6 +673,10 @@ else
       *) die "Internal error: unhandled group '${group}'" ;;
     esac
   done
+fi
+
+if [[ -z "${single_dataset_name}" ]]; then
+  drop_unconfigured_jobs "${era}"
 fi
 
 [[ ${#job_datasets[@]} -gt 0 ]] || die "No jobs selected"
@@ -642,6 +717,7 @@ if [[ ${condor} -eq 1 ]]; then
   queued_existing=0
   erased_existing=0
   missing_outputs=0
+  missing_output_files=()
   jobs_to_submit=0
   hit_max_jobs=0
 
@@ -666,6 +742,7 @@ if [[ ${condor} -eq 1 ]]; then
     else
       echo "[MISS]  ${output_file}" >> "${monitoring_file}"
       missing_outputs=$((missing_outputs + 1))
+      missing_output_files+=("${output_file}")
     fi
 
     if [[ ${condor} -eq 1 && ${force_submit} -eq 0 && ${erase_existing} -eq 0 ]]; then
@@ -724,6 +801,12 @@ if [[ ${condor} -eq 1 ]]; then
     echo "missing outputs    : ${missing_outputs}"
     echo "erased existing    : ${erased_existing}"
     echo "jobs to submit     : ${jobs_to_submit}"
+    if [[ ${#missing_output_files[@]} -gt 0 ]]; then
+      echo "missing files      :"
+      for missing_file in "${missing_output_files[@]}"; do
+        echo "  - ${missing_file}"
+      done
+    fi
     if [[ -n "${max_jobs}" ]]; then
       echo "max jobs           : ${max_jobs}"
       echo "hit max jobs       : ${hit_max_jobs}"
@@ -816,6 +899,14 @@ for i in "${!job_datasets[@]}"; do
   input_path="/eos/cms/store/group/phys_higgs/cmshmm/vdamante/${input_folder}/${era}/${dataset_name}/"
   output_file="${output_dir}/${dataset_name}${file_suffix}.root"
 
+  if [[ ${missing_only} -eq 1 && ${force_submit} -eq 0 && ${erase_existing} -eq 0 ]]; then
+    if hist_output_exists "${output_file}"; then
+      echo "[DONE]  ${output_file}"
+      echo "[INFO] --missing-only: output already exists, skipping ${dataset_name}."
+      continue
+    fi
+  fi
+
   specific_opts=()
   if [[ -n "${job_specific_opts[$i]}" ]]; then
     # shellcheck disable=SC2206
@@ -843,9 +934,9 @@ for i in "${!job_datasets[@]}"; do
   echo "============================================================"
 
   if [[ ! -d "${input_path}" ]]; then
-    echo "[WARNING] Input directory does not exist, skipping:"
+    echo "[WARNING] Input directory does not exist:"
     echo "          ${input_path}"
-    continue
+    echo "[WARNING] hist_maker.py will create an empty histogram file."
   fi
 
   if [[ ${dry_run} -eq 1 ]]; then

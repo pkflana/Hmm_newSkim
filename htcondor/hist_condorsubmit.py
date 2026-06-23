@@ -11,6 +11,8 @@ import tempfile
 import time
 from pathlib import Path
 
+import yaml
+
 
 GROUPS_2024_PLUS = [
     "DiTriBoson",
@@ -22,6 +24,7 @@ GROUPS_2024_PLUS = [
     "SingleH",
     "SingleTop",
     "TTX",
+    "TT",
     "W",
     "DY_amcatnlo_105_160",
     "DY_amcatnlo_105_160_stitched",
@@ -39,6 +42,7 @@ GROUPS_2022_2023 = [
     "SingleH",
     "SingleTop",
     "TTX",
+    "TT",
     "W",
     "other_signals",
 ]
@@ -68,6 +72,7 @@ KNOWN_GROUPS = {
     "SingleTop": "SingleTop",
     "ttx": "TTX",
     "TTX": "TTX",
+    "TT": "TT",
     "w": "W",
     "W": "W",
     "other_signals": "other_signals",
@@ -215,7 +220,8 @@ STATIC_GROUPS = {
         "TBbarQto2Q_t_channel_4FS", "TBbarQtoLNu_t_channel_4FS", "TBbartoLplusNuBbar_s_channel_4FS",
         "TbarBQto2Q_t_channel_4FS", "TbarBQtoLNu_t_channel_4FS", "TbarBtoLminusNuB_s_channel_4FS",
     ]),
-    "TTX": (10, ["TTHto2B_M125", "TTHtoNon2B_M125", "TTWH", "TTWW", "TTZH_ZHto4B", "TTZ_Zto2Q", "TTto2L2Nu", "TTto4Q", "TTtoLNu2Q"]),
+    "TTX": (10, ["TTHto2B_M125", "TTHtoNon2B_M125", "TTWH", "TTWW", "TTZH_ZHto4B", "TTZ_Zto2Q"]),
+    "TT": (10, [ "TTto2L2Nu", "TTto4Q", "TTtoLNu2Q"]),
 }
 
 
@@ -238,6 +244,32 @@ def jobs_for_group(era, group, dataset_name=None, chunk_size=20):
         chunk_size, datasets = STATIC_GROUPS[group]
         return [job(dataset, chunk_size) for dataset in datasets]
     raise SystemExit(f"[ERROR] Unhandled histogram group '{group}'")
+
+
+def configured_datasets(analysis_path, era):
+    samples_file = analysis_path / "config" / era / "samples.yaml"
+    if not samples_file.exists():
+        return None
+    with samples_file.open() as handle:
+        samples = yaml.safe_load(handle) or {}
+    return set(samples)
+
+
+def drop_unconfigured_jobs(selected_jobs, analysis_path, era):
+    configured = configured_datasets(analysis_path, era)
+    if configured is None:
+        return selected_jobs
+
+    kept = []
+    for item in selected_jobs:
+        if item["dataset"] in configured:
+            kept.append(item)
+        else:
+            print(
+                f"[INFO] Skipping {item['dataset']}: "
+                f"not present in config/{era}/samples.yaml"
+            )
+    return kept
 
 
 def get_active_jobs_count():
@@ -416,6 +448,7 @@ def run_group(
         selected_jobs = jobs_for_group(era, group, args.dataset_name, args.chunk_size)
     else:
         selected_jobs = jobs_for_group(era, group)
+        selected_jobs = drop_unconfigured_jobs(selected_jobs, analysis_path, era)
 
     output_dir = Path(f"/eos/user/v/vdamante/H_mumu/newHists_{era}{args.output_suffix}")
     timestamp = time.strftime("%Y%m%d_%H%M%S")
@@ -436,6 +469,7 @@ def run_group(
     queued_existing = 0
     erased_existing = 0
     missing_outputs = 0
+    missing_output_files = []
     jobs_to_submit = []
     hit_max_jobs = False
 
@@ -457,6 +491,7 @@ def run_group(
             else:
                 mon.write(f"[MISS]  {output_file_str}\n")
                 missing_outputs += 1
+                missing_output_files.append(output_file_str)
 
             if not args.force and not args.erase_existing and output_file_str in queued_outputs:
                 mon.write(f"[QUEUE] {output_file_str}\n")
@@ -518,6 +553,10 @@ def run_group(
     print(f"missing outputs    : {missing_outputs}")
     print(f"erased existing    : {erased_existing}")
     print(f"jobs to submit     : {len(jobs_to_submit)}")
+    if missing_output_files:
+        print("missing files      :")
+        for missing_file in missing_output_files:
+            print(f"  - {missing_file}")
     if remaining_jobs is not None:
         print(f"max jobs           : {remaining_jobs}")
         print(f"hit max jobs       : {int(hit_max_jobs)}")
@@ -608,7 +647,6 @@ def main():
     parser.add_argument("hist_opts", nargs=argparse.REMAINDER)
     args = parser.parse_args()
 
-    print(args.hist_opts)
     if args.hist_opts and args.hist_opts[0] == "--":
         args.hist_opts = args.hist_opts[1:]
 

@@ -151,13 +151,12 @@ def get_non_dy_subtract_samples(samples, input_dir):
         sample for sample in NON_DY_SUBTRACT_SAMPLES
         if sample not in samples
     ]
-    if missing_samples:
-        raise RuntimeError(
-            f"Samples listed in NON_DY_SUBTRACT_SAMPLES not found in {input_dir}: "
-            f"{missing_samples}"
-        )
-
-    return list(NON_DY_SUBTRACT_SAMPLES)
+    # if missing_samples:
+    #     raise RuntimeError(
+    #         f"Samples listed in NON_DY_SUBTRACT_SAMPLES not found in {input_dir}: "
+    #         f"{missing_samples}"
+    #     )
+    return [x for x in list(NON_DY_SUBTRACT_SAMPLES) if x not in missing_samples]
 
 
 def open_sample(input_dir, sample):
@@ -388,7 +387,7 @@ def plot_data_mc(output_dir, era, region, category, data_hist, dy_hist, other_hi
     ax_top.bar(
         edges[:-1],
         other_vals,
-        
+
         widths,
         align="edge",
         bottom=dy_vals,

@@ -378,12 +378,12 @@ if __name__ == "__main__":
     valid_root_files = [os.path.abspath(f) for f in valid_root_files]
     if len(valid_root_files) == 0:
         if len(all_root_files) == 0:
-            print("[ERROR] No ROOT files found. Exiting.")
-            sys.exit(1)
-        print(
-            "[WARNING] No ROOT files with a usable Events tree found. "
-            "Producing empty histograms."
-        )
+            print("[WARNING] No ROOT files found. Producing empty histograms.")
+        else:
+            print(
+                "[WARNING] No ROOT files with a usable Events tree found. "
+                "Producing empty histograms."
+            )
         chunks = [[]]
     else:
         chunks = chunk_list(valid_root_files, args.chunk_size)
