@@ -18,6 +18,7 @@ set -- "${_saved_args[@]}"
 unset _saved_args
 
 mkdir -p "$(dirname "${output_file}")"
+rm -f "${output_file}" "${output_file}.failed_chunks.txt"
 
 specific_opts=()
 if [[ -s "${specific_opts_file}" ]]; then
@@ -65,3 +66,10 @@ if [[ ! -s "${manifest}" ]]; then
 fi
 
 "${command[@]}"
+
+if [[ ! -s "${output_file}" ]]; then
+  echo "[ERROR] Histogram command completed without a non-empty output: ${output_file}" >&2
+  exit 6
+fi
+
+rm -f "${output_file}.failed_chunks.txt"
