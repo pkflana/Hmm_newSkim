@@ -54,7 +54,7 @@ Produces one histogram ROOT file from a skim directory or a skim ROOT file.
 python3 histograms/hist_maker.py \
   --era Run3_2024 \
   --dataset-name DYto2Mu_M_50_amcatnloFXFX \
-  --input /eos/cms/store/group/phys_higgs/cmshmm/vdamante/skim_v1_noUnc/Run3_2024/DYto2Mu_M_50_amcatnloFXFX/ \
+  --input /eos/cms/store/group/phys_higgs/cmshmm/vdamante/skim_v2_noUnc/Run3_2024/DYto2Mu_M_50_amcatnloFXFX/ \
   --output-file /tmp/vdamante/DYto2Mu_M_50_amcatnloFXFX.root \
   --variables DNN_NNOutput \
   --mass-regions Z_sideband \
@@ -157,7 +157,7 @@ python3 htcondor/condorsubmit.py \
 Main skim outputs:
 
 ```text
-/eos/cms/store/group/phys_higgs/cmshmm/vdamante/skim_v1_noUnc/<ERA>/<DATASET>/
+/eos/cms/store/group/phys_higgs/cmshmm/vdamante/skim_v2_noUnc/<ERA>/<DATASET>/
 ```
 
 ## Histogram Campaigns
@@ -208,6 +208,24 @@ python3 htcondor/hist_condorsubmit.py \
 ```
 
 Do not use `--hist_opts`; it is not a parser option. Also make sure line-continuation backslashes have no trailing spaces.
+
+Submit every input-file chunk as an independent Condor job and run `hadd`
+automatically after all chunks of a dataset succeed:
+
+```bash
+python3 htcondor/hist_condorsubmit.py \
+  --eras Run3_2022,Run3_2022EE,Run3_2023,Run3_2023BPix,Run3_2024 \
+  --datasets DY_amcatnlo,DY_amcatnlo_105_160 \
+  --output-suffix _with_ptll_only_rw \
+  --input-folder skim_v2_noUnc \
+  --chunks-as-jobs \
+  --missing-only \
+  -- \
+  --dy-ptll-reweight-json 'reweights/dy_ptll_reweight/{era}/dy_ptll_reweight_smart.json'
+```
+
+`{era}` and `{ERA}` in forwarded histogram options are expanded separately for
+each era.
 
 Common groups:
 
@@ -342,7 +360,7 @@ dataset_name=GluGluHto2Mu
 python3 histograms/hist_maker.py \
   --era Run3_2022 \
   --dataset-name ${dataset_name} \
-  --input /eos/cms/store/group/phys_higgs/cmshmm/vdamante/skim_v1_noUnc/Run3_2022/${dataset_name}/ \
+  --input /eos/cms/store/group/phys_higgs/cmshmm/vdamante/skim_v2_noUnc/Run3_2022/${dataset_name}/ \
   --output-file prova_DNN_NNOutput_${dataset_name}.root \
   --variables DNN_NNOutput \
   --skip-file-validation
@@ -359,4 +377,3 @@ ls /eos/user/v/vdamante/H_mumu/newHists_Run3_2024_hadded/
 ```
 
 If the plotter cannot find a sample, check the exact ROOT filename in the hadded directory and pass that name without `.root`.
-

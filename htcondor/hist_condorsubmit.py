@@ -370,6 +370,162 @@ def output_exists(path):
         return False
 
 
+def chunk_items(items, chunk_size):
+    return [
+        items[index:index + chunk_size]
+        for index in range(0, len(items), chunk_size)
+    ]
+
+
+def resolve_hist_opts(hist_opts, era):
+    return [
+        option.replace("{era}", era).replace("{ERA}", era)
+        for option in hist_opts
+    ]
+
+
+def dag_quote(value):
+    return str(value).replace("\\", "\\\\").replace('"', '\\"')
+
+
+def write_chunk_dag(
+    analysis_path,
+    era,
+    group_label,
+    jobs_to_submit,
+    args,
+    submit_dir,
+    output_dir,
+    max_parallel_chunks,
+):
+    manifests_dir = submit_dir / "manifests"
+    options_dir = submit_dir / "options"
+    chunk_root = output_dir / ".hist_chunks" / submit_dir.name
+    dag_file = submit_dir / "histograms.dag"
+    chunk_submit_file = submit_dir / "chunk.sub"
+    merge_submit_file = submit_dir / "merge.sub"
+    extra_opts_file = options_dir / "extra_opts.txt"
+
+    for directory in (manifests_dir, options_dir, chunk_root):
+        directory.mkdir(parents=True, exist_ok=True)
+
+    extra_opts_file.write_text(shlex.join(resolve_hist_opts(args.hist_opts, era)) + "\n")
+
+    chunk_wrapper = analysis_path / "htcondor" / "run_hist_chunk_condor.sh"
+    merge_wrapper = analysis_path / "htcondor" / "run_hist_hadd_condor.sh"
+    chunk_submit_file.write_text(
+        f"""universe = vanilla
+executable = {chunk_wrapper}
+arguments = {analysis_path} $(era) $(dataset) $(input_path) $(chunk_manifest) $(chunk_output) $(specific_opts_file) $(extra_opts_file)
+
+output = $(stdout)
+error  = $(stderr)
+log    = {submit_dir}/log/chunks.log
+
+request_cpus = {args.chunk_request_cpus}
+request_memory = {args.request_memory}
+request_disk = {args.request_disk}
++JobFlavour = "{args.job_flavour}"
++Era = "$(era)"
++HistGroup = "{group_label}"
++FinalOutput = "$(final_output)"
+getenv = True
+queue
+"""
+    )
+    merge_submit_file.write_text(
+        f"""universe = vanilla
+executable = {merge_wrapper}
+arguments = {analysis_path} $(final_output) $(chunk_list)
+
+output = $(stdout)
+error  = $(stderr)
+log    = {submit_dir}/log/merges.log
+
+request_cpus = 1
+request_memory = 2GB
+request_disk = {args.request_disk}
++JobFlavour = "{args.job_flavour}"
++Era = "$(era)"
++HistGroup = "{group_label}"
++FinalOutput = "$(final_output)"
+getenv = True
+queue
+"""
+    )
+
+    dag_lines = []
+    total_chunk_jobs = 0
+    for dataset_index, item in enumerate(jobs_to_submit):
+        dataset = item["dataset"]
+        suffix = item["file_suffix"]
+        input_path = Path(
+            f"/eos/cms/store/group/phys_higgs/cmshmm/vdamante/"
+            f"{args.input_folder}/{era}/{dataset}"
+        )
+        root_files = sorted(str(path.resolve()) for path in input_path.rglob("*.root"))
+        if not root_files:
+            raise SystemExit(f"[ERROR] No ROOT files found under {input_path}")
+
+        dataset_chunks = chunk_items(root_files, item["chunk_size"])
+        dataset_tag = f"d{dataset_index:04d}"
+        dataset_chunk_dir = chunk_root / f"{dataset}{suffix}"
+        dataset_chunk_dir.mkdir(parents=True, exist_ok=True)
+        specific_opts_file = options_dir / f"{dataset_tag}_specific_opts.txt"
+        specific_opts_file.write_text(shlex.join(item["specific_opts"]) + "\n")
+        chunk_outputs_file = manifests_dir / f"{dataset_tag}_outputs.txt"
+        chunk_outputs = []
+        parent_nodes = []
+
+        for chunk_index, files in enumerate(dataset_chunks):
+            chunk_tag = f"{dataset_tag}_c{chunk_index:05d}"
+            manifest = manifests_dir / f"{chunk_tag}.txt"
+            manifest.write_text("\n".join(files) + "\n")
+            chunk_output = dataset_chunk_dir / f"chunk_{chunk_index:05d}.root"
+            chunk_outputs.append(str(chunk_output))
+            node = f"C_{chunk_tag}"
+            parent_nodes.append(node)
+            total_chunk_jobs += 1
+
+            dag_lines.append(f"JOB {node} {chunk_submit_file}")
+            dag_lines.append(
+                f'VARS {node} '
+                f'era="{dag_quote(era)}" '
+                f'dataset="{dag_quote(dataset)}" '
+                f'input_path="{dag_quote(input_path)}" '
+                f'chunk_manifest="{dag_quote(manifest)}" '
+                f'chunk_output="{dag_quote(chunk_output)}" '
+                f'final_output="{dag_quote(output_dir / f"{dataset}{suffix}.root")}" '
+                f'specific_opts_file="{dag_quote(specific_opts_file)}" '
+                f'extra_opts_file="{dag_quote(extra_opts_file)}" '
+                f'stdout="{dag_quote(submit_dir / "output" / f"{chunk_tag}.out")}" '
+                f'stderr="{dag_quote(submit_dir / "error" / f"{chunk_tag}.err")}"'
+            )
+            dag_lines.append(f"RETRY {node} 1")
+            dag_lines.append(f"CATEGORY {node} CHUNKS")
+
+        chunk_outputs_file.write_text("\n".join(chunk_outputs) + "\n")
+        merge_node = f"M_{dataset_tag}"
+        final_output = output_dir / f"{dataset}{suffix}.root"
+        dag_lines.append(f"JOB {merge_node} {merge_submit_file}")
+        dag_lines.append(
+            f'VARS {merge_node} '
+            f'era="{dag_quote(era)}" '
+            f'final_output="{dag_quote(final_output)}" '
+            f'chunk_list="{dag_quote(chunk_outputs_file)}" '
+            f'stdout="{dag_quote(submit_dir / "output" / f"{dataset_tag}_merge.out")}" '
+            f'stderr="{dag_quote(submit_dir / "error" / f"{dataset_tag}_merge.err")}"'
+        )
+        dag_lines.append(f"RETRY {merge_node} 1")
+        dag_lines.append(f"PARENT {' '.join(parent_nodes)} CHILD {merge_node}")
+
+    if max_parallel_chunks is not None:
+        dag_lines.append(f"MAXJOBS CHUNKS {max_parallel_chunks}")
+
+    dag_file.write_text("\n".join(dag_lines) + "\n")
+    return dag_file, total_chunk_jobs
+
+
 def queued_outputs_from_condor():
     owner = getpass.getuser()
     cmd = [
@@ -385,7 +541,7 @@ def queued_outputs_from_condor():
     try:
         out = subprocess.check_output(cmd, text=True, stderr=subprocess.DEVNULL)
     except Exception:
-        return outputs
+        out = ""
 
     for line in out.splitlines():
         if not line.strip():
@@ -408,6 +564,24 @@ def queued_outputs_from_condor():
         except Exception:
             continue
         outputs.add(f"{output_dir}/{dataset}{suffix}.root")
+
+    dag_cmd = [
+        "condor_q",
+        owner,
+        "-constraint",
+        "FinalOutput =!= undefined && (JobStatus == 1 || JobStatus == 2 || JobStatus == 6)",
+        "-af",
+        "FinalOutput",
+    ]
+    try:
+        dag_out = subprocess.check_output(
+            dag_cmd,
+            text=True,
+            stderr=subprocess.DEVNULL,
+        )
+    except Exception:
+        dag_out = ""
+    outputs.update(line.strip() for line in dag_out.splitlines() if line.strip())
     return outputs
 
 
@@ -450,7 +624,15 @@ def run_group(
         selected_jobs = jobs_for_group(era, group)
         selected_jobs = drop_unconfigured_jobs(selected_jobs, analysis_path, era)
 
-    output_dir = Path(f"/eos/user/v/vdamante/H_mumu/newHists_{era}{args.output_suffix}")
+    if args.output_dir:
+        output_dir = Path(
+            args.output_dir.format(
+                era=era,
+                output_suffix=args.output_suffix,
+            )
+        )
+    else:
+        output_dir = Path(f"/eos/user/v/vdamante/H_mumu/newHists_{era}{args.output_suffix}")
     timestamp = time.strftime("%Y%m%d_%H%M%S")
     submit_dir = analysis_path / "htcondor" / "hists" / f"{era}{args.output_suffix}_{group_label}_{timestamp}"
     stdout_dir = submit_dir / "output"
@@ -518,7 +700,9 @@ def run_group(
                 + "\n"
             )
 
-    extra_opts_file.write_text(shlex.join(args.hist_opts) + "\n")
+    extra_opts_file.write_text(
+        shlex.join(resolve_hist_opts(args.hist_opts, era)) + "\n"
+    )
 
     write_summary_row(
         summary_file,
@@ -571,6 +755,39 @@ def run_group(
         return 0
 
     output_dir.mkdir(parents=True, exist_ok=True)
+
+    if args.chunks_as_jobs:
+        dag_file, total_chunk_jobs = write_chunk_dag(
+            analysis_path=analysis_path,
+            era=era,
+            group_label=group_label,
+            jobs_to_submit=jobs_to_submit,
+            args=args,
+            submit_dir=submit_dir,
+            output_dir=output_dir,
+            max_parallel_chunks=materialize_limit,
+        )
+        print("\n============================================================")
+        print("[INFO] Chunk-per-job DAG prepared")
+        print(f"[INFO] Era          : {era}")
+        print(f"[INFO] Datasets     : {len(jobs_to_submit)}")
+        print(f"[INFO] Chunk jobs   : {total_chunk_jobs}")
+        print(f"[INFO] Merge jobs   : {len(jobs_to_submit)}")
+        print(f"[INFO] DAG file     : {dag_file}")
+        print("============================================================")
+
+        if args.no_submit:
+            print("[DRY RUN] Not submitting. To submit manually:")
+            print(f"condor_submit_dag {dag_file}")
+            return len(jobs_to_submit)
+
+        subprocess.run(["condor_submit_dag", str(dag_file)], check=True)
+        for item in jobs_to_submit:
+            queued_registry.add(
+                str(output_dir / f"{item['dataset']}{item['file_suffix']}.root")
+            )
+        return len(jobs_to_submit)
+
     wrapper = analysis_path / "htcondor" / "run_hist_condor.sh"
     submit_contents = f"""universe = vanilla
 executable = {wrapper}
@@ -580,10 +797,10 @@ output = {stdout_dir}/$(ProcId).out
 error  = {stderr_dir}/$(ProcId).err
 log    = {log_dir}/condor.log
 
-request_cpus = 4
-request_memory = 8GB
-request_disk = 4GB
-+JobFlavour = "workday"
+request_cpus = {args.request_cpus}
+request_memory = {args.request_memory}
+request_disk = {args.request_disk}
++JobFlavour = "{args.job_flavour}"
 +Era = "{era}"
 +HistGroup = "{group_label}"
 batch_name = Hists_{era}_{group_label}
@@ -632,18 +849,50 @@ def main():
     parser.add_argument("--datasets", "--groups", dest="groups_csv", help="Comma-separated histogram groups.")
     parser.add_argument("--dataset-name", "--dataset", help="One explicit dataset to run.")
     parser.add_argument("--chunk-size", type=int, default=20, help="Chunk size for --dataset-name.")
-    parser.add_argument("--input-folder", default="skim_v1_noUnc")
+    parser.add_argument("--input-folder", default="skim_v2_noUnc")
     parser.add_argument("--output-suffix", default="")
+    parser.add_argument(
+        "--output-dir",
+        help=(
+            "Complete histogram output directory. The placeholders {era} and "
+            "{output_suffix} are supported."
+        ),
+    )
     parser.add_argument("--condor", action="store_true", help="Submit Condor jobs.")
+    parser.add_argument(
+        "--chunks-as-jobs",
+        action="store_true",
+        help="Submit one Condor DAG node per input-file chunk, followed by one hadd node per dataset.",
+    )
+    parser.add_argument(
+        "--chunk-request-cpus",
+        type=int,
+        default=1,
+        help="CPUs requested by each chunk node in --chunks-as-jobs mode.",
+    )
+    parser.add_argument("--job-flavour", default="workday", help="HTCondor JobFlavour.")
+    parser.add_argument("--request-cpus", type=int, default=4, help="HTCondor request_cpus.")
+    parser.add_argument("--request-memory", default="8GB", help="HTCondor request_memory.")
+    parser.add_argument("--request-disk", default="4GB", help="HTCondor request_disk.")
     parser.add_argument("--monitor", "--no-submit", dest="monitor", action="store_true", help="Monitor only; do not submit.")
     parser.add_argument("--watch", action="store_true", help="Repeat monitoring every --poll-interval seconds.")
-    parser.add_argument("--submit-missing", "--refill", action="store_true", help="Submit missing outputs not already queued.")
+    parser.add_argument(
+        "--submit-missing",
+        "--missing-only",
+        "--refill",
+        action="store_true",
+        help="Submit missing outputs not already queued.",
+    )
     parser.add_argument("--max-parallel-jobs", type=int, default=None)
     parser.add_argument("--poll-interval", type=int, default=120)
     parser.add_argument("--max-submit-jobs", "--max-jobs", type=int, default=None)
     parser.add_argument("--erase-existing", action="store_true")
     parser.add_argument("--force", action="store_true")
-    parser.add_argument("--dry-run", dest="no_submit", action="store_true")
+    parser.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="Prepare submission files without submitting them.",
+    )
     parser.add_argument("hist_opts", nargs=argparse.REMAINDER)
     args = parser.parse_args()
 
@@ -681,10 +930,14 @@ def main():
     submit_mode = args.condor or args.submit_missing
     monitor_mode = args.monitor or args.watch
 
-    if args.submit_missing:
+    if args.dry_run:
+        args.no_submit = True
+    elif args.submit_missing:
         args.no_submit = False
     elif monitor_mode:
         args.no_submit = True
+    else:
+        args.no_submit = False
 
     with tempfile.TemporaryDirectory(prefix="hist_submit_") as tmpdir:
         tmpdir = Path(tmpdir)

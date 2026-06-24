@@ -105,7 +105,7 @@ def _load_toml(path):
 
 
 class DNNApplication:
-    def __init__(self, payload_name="DNN", base_dir=None, btag_algo="PNet"):
+    def __init__(self, payload_name="DNN", base_dir=None, btag_algo="PNet", era=None):
         try:
             import onnxruntime as ort
         except ImportError as exc:
@@ -114,19 +114,66 @@ class DNNApplication:
         self.ort = ort
         self.payload_name = payload_name
         self.btag_algo = btag_algo
+        self.era = era
         self.base_dir = base_dir or os.environ["ANALYSIS_PATH"]
-        self.models_dir = os.path.join(self.base_dir, "common", "dnn_models")
-        self.config_dir = os.path.join(self.base_dir, "common", "dnn_configs")
+        self.config_dir, self.models_dir = self._resolve_payload_directories()
         self.parity, self.input_features = self._load_config()
         self.models = self._load_models()
 
+    def _resolve_payload_directories(self):
+        common_dir = os.path.join(self.base_dir, "common")
+
+        if self.payload_name == "VBFNet":
+            config_name = "vbfnet_configs"
+            models_name = "vbfnet_models"
+        elif self.era == "Run3_2024":
+            config_name = "dnn_configs_2024"
+            models_name = "dnn_models_2024"
+        else:
+            config_name = "dnn_configs"
+            models_name = "dnn_models"
+
+        config_dir = os.path.join(common_dir, config_name)
+        models_dir = os.path.join(common_dir, models_name)
+        if not os.path.isdir(config_dir):
+            raise RuntimeError(
+                f"Configuration directory for payload '{self.payload_name}' "
+                f"does not exist: {config_dir}"
+            )
+        if not os.path.isdir(models_dir):
+            raise RuntimeError(
+                f"Model directory for payload '{self.payload_name}' "
+                f"does not exist: {models_dir}"
+            )
+        return config_dir, models_dir
+
     def _load_config(self):
         config = _load_toml(os.path.join(self.config_dir, "config.toml"))
-        with open(os.path.join(self.config_dir, "columns_config.yaml"), "r") as f:
-            columns_config = yaml.safe_load(f)
-        features = _parse_column_names(columns_config.get("vars_to_save", columns_config))
+        columns_config_path = os.path.join(self.config_dir, "columns_config.yaml")
+
+        if os.path.exists(columns_config_path):
+            with open(columns_config_path, "r") as f:
+                columns_config = yaml.safe_load(f)
+            features = _parse_column_names(
+                columns_config.get("vars_to_save", columns_config)
+            )
+        else:
+            features = config.get("dataset", {}).get("data_columns")
+            if not features:
+                raise RuntimeError(
+                    f"No DNN input features found in {self.config_dir}: expected "
+                    "columns_config.yaml or dataset.data_columns in config.toml"
+                )
+
         features = [feature.format(algo=self.btag_algo) for feature in features]
-        return config["kfold"]["k"], features
+        parity = config.get("kfold", {}).get("k")
+        if parity is None:
+            parity = config.get("splitting", {}).get("k")
+        if parity is None:
+            raise RuntimeError(
+                f"No k-fold value found in {self.config_dir}/config.toml"
+            )
+        return int(parity), list(dict.fromkeys(features))
 
     def _load_models(self):
         options = self.ort.SessionOptions()
@@ -239,8 +286,12 @@ class DNNApplication:
         return df.Define(output_name, f"dnn_application::getPrediction({payload_id}, DNNEntryKey)")
 
 
-def ApplyDNN(df, payload_names=None, btag_algo="PNet"):
+def ApplyDNN(df, payload_names=None, btag_algo="PNet", era=None):
     payload_names = payload_names or ["DNN"]
     for payload_name in payload_names:
-        df = DNNApplication(payload_name=payload_name, btag_algo=btag_algo).apply(df)
+        df = DNNApplication(
+            payload_name=payload_name,
+            btag_algo=btag_algo,
+            era=era,
+        ).apply(df)
     return df

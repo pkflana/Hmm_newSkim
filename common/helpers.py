@@ -88,46 +88,56 @@ def is_valid_tmp_root(path):
 
 def get_segmentation_dict(input_dir, node="gen"):
     global_segmentation = {}
-    search_dir = os.path.dirname(input_dir) if input_dir.endswith(".root") else input_dir
+    input_path = os.path.abspath(input_dir)
+    if input_path.endswith(".root"):
+        search_dir = os.path.dirname(input_path)
+        stem = os.path.splitext(os.path.basename(input_path))[0]
+        report_path = os.path.join(search_dir, f"{stem}_report.json")
+        json_paths = [report_path] if os.path.exists(report_path) else []
+    else:
+        search_dir = input_path
+        json_paths = [
+            os.path.join(root, filename)
+            for root, _, files in os.walk(search_dir)
+            for filename in files
+            if filename.endswith(".json")
+        ]
 
-    for root, _, files in os.walk(search_dir):
-        for f in files:
-            if not f.endswith(".json"):
+    for json_path in json_paths:
+        with open(json_path) as jf:
+            try:
+                info = json.load(jf)
+            except Exception as e:
+                print(f"[WARNING] Errore nel parsing del file JSON {json_path}: {e}")
                 continue
-            with open(os.path.join(root, f)) as jf:
-                try:
-                    info = json.load(jf)
-                except Exception as e:
-                    print(f"[WARNING] Errore nel parsing del file JSON {f}: {e}")
-                    continue
 
-            # Controlliamo se esiste il blocco centrale 'pu'
-            if node in info and isinstance(info[node], dict):
-                node_dict = info[node]
+        # Controlliamo se esiste il blocco centrale 'pu'
+        if node in info and isinstance(info[node], dict):
+            node_dict = info[node]
 
-                # Se ci sono più chiavi di 'total', o se 'total' non c'è, è un file DY segmentato
-                has_fine_segmentation = len(node_dict) > 1 #or "total" not in node_dict
-                if has_fine_segmentation:
-                    # File DY: cicliamo sulle sotto-selezioni ignorando il total cumulativo interno
-                    for sub_key, sub_info in node_dict.items():
-                        if sub_key == "total":
-                            continue
-                        selection = sub_info.get("selection")
-                        val = float(sub_info.get("value", 0.0))
-                        if selection:
-                            global_segmentation[selection] = global_segmentation.get(selection, 0.0) + val
-                else:
-                    # File non-DY: prendiamo direttamente la chiave 'total' dentro 'pu'
-                    total_node = node_dict["total"]
-                    selection = total_node.get("selection", "return true;")
-                    val = float(total_node.get("value", 0.0))
-                    global_segmentation[selection] = global_segmentation.get(selection, 0.0) + val
+            # Se ci sono più chiavi di 'total', o se 'total' non c'è, è un file DY segmentato
+            has_fine_segmentation = len(node_dict) > 1 #or "total" not in node_dict
+            if has_fine_segmentation:
+                # File DY: cicliamo sulle sotto-selezioni ignorando il total cumulativo interno
+                for sub_key, sub_info in node_dict.items():
+                    if sub_key == "total":
+                        continue
+                    selection = sub_info.get("selection")
+                    val = float(sub_info.get("value", 0.0))
+                    if selection:
+                        global_segmentation[selection] = global_segmentation.get(selection, 0.0) + val
+            else:
+                # File non-DY: prendiamo direttamente la chiave 'total' dentro 'pu'
+                total_node = node_dict["total"]
+                selection = total_node.get("selection", "return true;")
+                val = float(total_node.get("value", 0.0))
+                global_segmentation[selection] = global_segmentation.get(selection, 0.0) + val
 
-            # Fallback su 'Initial' se manca completamente il blocco 'pu'
-            elif "Initial" in info:
-                init_val = info["Initial"]
-                val = float(init_val) if not isinstance(init_val, dict) else sum(float(v) for v in init_val.values())
-                global_segmentation["return true;"] = global_segmentation.get("return true;", 0.0) + val
+        # Fallback su 'Initial' se manca completamente il blocco 'pu'
+        elif "Initial" in info:
+            init_val = info["Initial"]
+            val = float(init_val) if not isinstance(init_val, dict) else sum(float(v) for v in init_val.values())
+            global_segmentation["return true;"] = global_segmentation.get("return true;", 0.0) + val
 
     if not global_segmentation:
         print(f"[WARNING] No segmentation JSON information found under: {search_dir}")
@@ -140,11 +150,11 @@ def get_segmentation_dict(input_dir, node="gen"):
 from histograms.defineTriggerWeights import AddTriggerWeightsAndErrors
 from .add_vars_to_skim_tuples import SelectedJetObservablesDef,VBFJetObservablesDef,GetAllMuonsObservablesNew,SoftJetCollectionCleaningInVBF,VBFJetMuonsObservablesDef
 
-def build_rdf(rdf, is_data, seg_dict,weight_dict, store_shifted_weights, dnn_payloads=None, btag_algo="PNet"):
+def build_rdf(rdf, is_data, seg_dict,weight_dict, store_shifted_weights, dnn_payloads=None, btag_algo="PNet", era=None):
     if not is_data:
         rdf = AddTriggerWeightsAndErrors(
             rdf,
-            WantErrors=False
+            WantErrors=store_shifted_weights,
         )
         if seg_dict:
             if len(seg_dict) == 1 and "return true;" in seg_dict:
@@ -162,13 +172,22 @@ def build_rdf(rdf, is_data, seg_dict,weight_dict, store_shifted_weights, dnn_pay
             rdf = rdf.Define("inv_N_orig", ternary_expr)
 
 
-    for weight_name, weight_info in weight_dict.items():
-        scales = ['central','up','down'] if store_shifted_weights else ['central']
-        for scale in scales:
-            if weight_name == 'Central' and scale != 'central': continue
-            if weight_name != 'Central' and scale == 'central': continue
-            if weight_name != 'Central': weight_name = weight_name.format(scale=scale)
-            expr = "1.f" if is_data else f"({weight_info['expression']}) * inv_N_orig"
+    for weight_name_template, weight_info in weight_dict.items():
+        if weight_name_template == "Central":
+            variations = [("Central", weight_info["expression"])]
+        elif store_shifted_weights:
+            variations = [
+                (
+                    weight_name_template.replace("{scale}", scale),
+                    weight_info["expression"].replace("{scale}", scale),
+                )
+                for scale in ("up", "down")
+            ]
+        else:
+            variations = []
+
+        for weight_name, weight_expression in variations:
+            expr = "1.f" if is_data else f"({weight_expression}) * inv_N_orig"
             rdf = rdf.Define(f"weight__{weight_name}", expr)
     rdf = SelectedJetObservablesDef(rdf)
     rdf = VBFJetObservablesDef(rdf)
@@ -177,11 +196,11 @@ def build_rdf(rdf, is_data, seg_dict,weight_dict, store_shifted_weights, dnn_pay
     rdf = SoftJetCollectionCleaningInVBF(rdf)
     if dnn_payloads:
         from common.dnn_application import ApplyDNN
-        rdf = ApplyDNN(rdf, dnn_payloads, btag_algo=btag_algo)
+        rdf = ApplyDNN(rdf, dnn_payloads, btag_algo=btag_algo, era=era)
     return rdf
 
 
-def GetRdfForDataset(input_dir, is_data, weight_dict, store_shifted_weights, treeName="Events", explicit_files=None, seg_dict=None, skip_validation=False, dnn_payloads=None, btag_algo="PNet", additional_cuts = None):
+def GetRdfForDataset(input_dir, is_data, weight_dict, store_shifted_weights, treeName="Events", explicit_files=None, seg_dict=None, skip_validation=False, dnn_payloads=None, btag_algo="PNet", additional_cuts = None, era=None):
     """
     Se explicit_files è una lista di file ROOT, RDataFrame caricherà SOLO quei file (chunk).
     Il seg_dict può essere fornito esternamente per evitare di ricalcolarlo in ogni chunk.
@@ -214,7 +233,16 @@ def GetRdfForDataset(input_dir, is_data, weight_dict, store_shifted_weights, tre
     if additional_cuts:
         rdf = rdf.Filter(additional_cuts)
     # 4. Applica le definizioni e i pesi (usando il denominatore globale seg_dict)
-    rdf_base = build_rdf(rdf, is_data, seg_dict, weight_dict, store_shifted_weights, dnn_payloads=dnn_payloads, btag_algo=btag_algo)
+    rdf_base = build_rdf(
+        rdf,
+        is_data,
+        seg_dict,
+        weight_dict,
+        store_shifted_weights,
+        dnn_payloads=dnn_payloads,
+        btag_algo=btag_algo,
+        era=era,
+    )
     return rdf_base
 
 # def GetRdfForDataset(input_dir, is_data, weight_dict, store_shifted_weights, treeName="Events"):

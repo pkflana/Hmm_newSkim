@@ -589,6 +589,61 @@ def fit_ratio(ratio_hist, category, x_min, x_max):
     }
 
 
+def clipped_weight(value, min_weight, max_weight):
+    if not math.isfinite(value):
+        return 1.0
+    return min(max(value, min_weight), max_weight)
+
+
+def solve_shape_only_scale(category_entries, min_weight, max_weight):
+    target = sum(
+        entry["normalization_hist"].Integral(0, entry["normalization_hist"].GetNbinsX() + 1)
+        for entry in category_entries
+    )
+    if target <= 0.0:
+        return 1.0, target, target
+
+    def weighted_yield(scale):
+        total = 0.0
+        for entry in category_entries:
+            hist = entry["normalization_hist"]
+            fit_func = entry["fit_func"]
+            for bin_idx in range(0, hist.GetNbinsX() + 2):
+                total += hist.GetBinContent(bin_idx) * clipped_weight(
+                    scale * fit_func.Eval(hist.GetBinCenter(bin_idx)),
+                    min_weight,
+                    max_weight,
+                )
+        return total
+
+    low = 0.0
+    high = 1.0
+    while weighted_yield(high) < target and high < 1.0e6:
+        high *= 2.0
+
+    for _ in range(100):
+        middle = 0.5 * (low + high)
+        if weighted_yield(middle) < target:
+            low = middle
+        else:
+            high = middle
+
+    scale = 0.5 * (low + high)
+    return scale, target, weighted_yield(scale)
+
+
+def scale_fit_payload(entry, scale):
+    # The fit is linear in the constant and three component normalizations.
+    for parameter_index in (0, 1, 4, 7):
+        entry["fit_func"].SetParameter(
+            parameter_index,
+            scale * entry["fit_func"].GetParameter(parameter_index),
+        )
+        entry["fit_payload"]["parameters"][parameter_index] *= scale
+        entry["fit_payload"]["errors"][parameter_index] *= abs(scale)
+    entry["fit_payload"]["shape_only_scale"] = float(scale)
+
+
 def make_after_reweight_ratio(ratio_hist, fit_func, name):
     after = ratio_hist.Clone(name)
     after.Reset("ICES")
@@ -829,6 +884,7 @@ def derive(args):
 
     data_file = open_sample(input_dir, args.data_sample)
     dy_file = open_sample(input_dir, args.dy_sample)
+    normalization_entries = {}
 
     for category in categories:
         directory_path = f"{args.region}_{category}"
@@ -850,6 +906,8 @@ def derive(args):
             continue
 
         dy_hist.Scale(args.dy_scale)
+        normalization_hist = dy_hist.Clone(f"dy_{category}_normalization")
+        normalization_hist.SetDirectory(0)
 
         rebin_edges = extend_rebin_edges_to_xmax(rebin_edges, data_hist, args.fit_max)
 
@@ -987,6 +1045,38 @@ def derive(args):
             "subtracted_samples": used_samples,
             "fit": fit_payload,
         }
+        normalization_group = "VBF" if category.startswith("VBF") else "ggF"
+        normalization_entries.setdefault(normalization_group, []).append(
+            {
+                "category": category,
+                "normalization_hist": normalization_hist,
+                "fit_func": fit_func,
+                "fit_payload": fit_payload,
+                "root_directory": category_dir,
+            }
+        )
+
+    payload["shape_only_normalization"] = {}
+    for normalization_group, entries in normalization_entries.items():
+        scale, yield_before, yield_after = solve_shape_only_scale(
+            entries,
+            args.min_weight,
+            args.max_weight,
+        )
+        for entry in entries:
+            scale_fit_payload(entry, scale)
+            entry["root_directory"].cd()
+            entry["fit_func"].Write("fit_shape_only", ROOT.TObject.kOverwrite)
+
+        payload["shape_only_normalization"][normalization_group] = {
+            "scale": float(scale),
+            "yield_before": float(yield_before),
+            "yield_after": float(yield_after),
+        }
+        print(
+            f"[SHAPE ONLY] {normalization_group}: scale={scale:.12g}, "
+            f"yield={yield_before:.12g} -> {yield_after:.12g}"
+        )
 
     data_file.Close()
     dy_file.Close()
@@ -1077,8 +1167,12 @@ def parse_args():
     parser.add_argument(
         "--dy-scale",
         type=float,
-        default=0.9393839712918659,
-        help="Scale factor applied to the DY histogram before computing (Data - nonDY) / DY.",
+        default=1.0,
+        help=(
+            "Scale applied to the input DY histogram before deriving the correction. "
+            "New histograms already contain the standard DY amc@nlo normalization; "
+            "use 0.9393839712918659 only for historical unnormalized inputs."
+        ),
     )
     parser.add_argument("--min-weight", type=float, default=0.0)
     parser.add_argument("--max-weight", type=float, default=5.0)

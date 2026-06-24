@@ -16,8 +16,18 @@ sys.path.append(os.environ["ANALYSIS_PATH"])
 
 import common.utilities as utilities
 from common.helpers import GetModel,GetRdfForDataset,get_root_files,get_valid_root_files,get_segmentation_dict,is_valid_tmp_root
-from common.add_vars_to_skim_tuples import DefineHistogramSelections, GetSelectionSuffixForSystematic
-from common.dy_ptll_reweight import ApplyDYNJetsReweight, ApplyDYPtLLReweight
+from common.add_vars_to_skim_tuples import (
+    DefineHistogramSelections,
+    GetSelectionSuffixForSystematic,
+    SelectedJetObservablesDef,
+    VBFJetObservablesDef,
+)
+from common.dy_ptll_reweight import (
+    ApplyDYAmcatnloNormalization,
+    ApplyDYNJetsReweight,
+    ApplyDYPtLLReweight,
+    DY_AMCATNLO_NORMALIZATION,
+)
 HEADERS = ["analysis/AnalysisTools.h"]
 for header in HEADERS:
     utilities.DeclareHeader(f"{os.environ['ANALYSIS_PATH']}/{header}")
@@ -101,6 +111,8 @@ def get_systs_to_run(syst_cfg, mode):
     for syst_name, syst_info in syst_cfg.get("systematics", {}).items():
         if syst_name == "Central":
             continue
+        if mode == "jec-jer" and syst_name not in ("JER", "JES_Total"):
+            continue
 
         for scale in scales:
             output_name = f"{syst_name}{scale.capitalize()}"
@@ -119,10 +131,60 @@ def get_systs_to_run(syst_cfg, mode):
 
     return systs_to_run
 
+def define_shifted_jet_observables(rdf, systs_to_run):
+    defined_suffixes = set()
+    available_columns = {str(c) for c in rdf.GetColumnNames()}
+
+    for syst_info in systs_to_run.values():
+        jet_suffix = syst_info.get("jet_suffix", "")
+        if not jet_suffix or jet_suffix in defined_suffixes:
+            continue
+
+        required = {
+            f"SelectedJet_idx{jet_suffix}",
+            f"SelectedJet_pt{jet_suffix}",
+            f"SelectedJet_eta{jet_suffix}",
+            f"SelectedJet_phi{jet_suffix}",
+            f"SelectedJet_mass{jet_suffix}",
+            f"SelectedJet_IsInsideHorn{jet_suffix}",
+            f"HasVBF{jet_suffix}",
+            f"VBFJetIdx_1{jet_suffix}",
+            f"VBFJetIdx_2{jet_suffix}",
+        }
+        missing = sorted(required - available_columns)
+        if missing:
+            raise RuntimeError(
+                f"Cannot build jet variation '{jet_suffix}'; missing columns: "
+                + ", ".join(missing)
+            )
+
+        rdf = SelectedJetObservablesDef(rdf, suffix=jet_suffix)
+        rdf = VBFJetObservablesDef(rdf, suffix=jet_suffix)
+        defined_suffixes.add(jet_suffix)
+        available_columns = {str(c) for c in rdf.GetColumnNames()}
+
+    return rdf
+
+def get_histogram_variable(variable, syst_info, available_columns):
+    jet_suffix = syst_info.get("jet_suffix", "")
+    muon_suffix = syst_info.get("muon_suffix", "")
+    candidates = []
+
+    if jet_suffix:
+        candidates.append(f"{variable}{jet_suffix}")
+    if muon_suffix:
+        candidates.append(f"{variable}{muon_suffix}")
+    candidates.append(variable)
+
+    return next(
+        (candidate for candidate in candidates if candidate in available_columns),
+        None,
+    )
+
 def should_shift_z_sideband_dnn_mass(mass_region, variable):
     return mass_region == "Z_sideband" and variable == "DNN_NNOutput"
 
-def apply_z_sideband_mass_shifted_dnn(rdf, btag_algo):
+def apply_z_sideband_mass_shifted_dnn(rdf, btag_algo, era):
     from common.dnn_application import ApplyDNN
 
     shifted_rdf = rdf.Redefine(
@@ -133,6 +195,7 @@ def apply_z_sideband_mass_shifted_dnn(rdf, btag_algo):
         shifted_rdf,
         [DNN_Z_SIDEBAND_SHIFTED_PAYLOAD],
         btag_algo=btag_algo,
+        era=era,
     )
 
 def process_single_chunk(args_tuple):
@@ -154,13 +217,14 @@ def process_single_chunk(args_tuple):
         print(f"[CHUNK {chunk_index} / {n_chunks}] Using {len(chunk_seg_dict)} segmentation entries for {len(usable_chunk_files)} ROOT file(s)")
 
         if usable_chunk_files:
-            rdf_base = GetRdfForDataset(input_dir=args.input,is_data=is_data,weight_dict=syst_cfg["weights"],store_shifted_weights=False,treeName="Events",explicit_files=usable_chunk_files,seg_dict=chunk_seg_dict,skip_validation=True,dnn_payloads=dnn_payloads,btag_algo=btag_algo,additional_cuts = args.additional_cuts)
+            rdf_base = GetRdfForDataset(input_dir=args.input,is_data=is_data,weight_dict=syst_cfg["weights"],store_shifted_weights=args.systematics != "central",treeName="Events",explicit_files=usable_chunk_files,seg_dict=chunk_seg_dict,skip_validation=True,dnn_payloads=dnn_payloads,btag_algo=btag_algo,additional_cuts = args.additional_cuts,era=args.era)
             # print(rdf_base.GetColumnNames())
         else:
             rdf_base = None
         if rdf_base is None:
             print(f"[CHUNK {chunk_index} / {n_chunks}] WARNING: rdf_base is None. Writing empty histograms.")
         else:
+            rdf_base = define_shifted_jet_observables(rdf_base, systs_to_run)
             rdf_base = DefineHistogramSelections(
                 rdf_base,
                 sel_cfg,
@@ -173,6 +237,12 @@ def process_single_chunk(args_tuple):
                     for syst_info in systs_to_run.values()
                     if "weight" in syst_info
                 }
+            )
+            rdf_base = ApplyDYAmcatnloNormalization(
+                rdf_base,
+                args.dataset_name,
+                weight_columns,
+                scale=args.dy_amcatnlo_normalization,
             )
             if args.dy_ptll_njets_reweight_json:
                 rdf_base = ApplyDYPtLLReweight(
@@ -235,22 +305,33 @@ def process_single_chunk(args_tuple):
                         hist_name = var if syst_name == "Central" else f"{var}_{syst_name}"
                         if rdf_filtered is not None:
                             rdf_for_hist = rdf_filtered
-                            hist_var = var
+                            available_columns = {
+                                str(c) for c in rdf_for_hist.GetColumnNames()
+                            }
+                            hist_var = get_histogram_variable(
+                                var,
+                                syst_info,
+                                available_columns,
+                            )
 
                             if should_shift_z_sideband_dnn_mass(mass_region, var):
                                 print(f"going to shift in {mass_region}, {var}")
                                 rdf_for_hist = apply_z_sideband_mass_shifted_dnn(
                                     rdf_for_hist,
                                     btag_algo=btag_algo,
+                                    era=args.era,
                                 )
                                 hist_var = f"{DNN_Z_SIDEBAND_SHIFTED_PAYLOAD}_NNOutput"
 
-                            available_columns = set(str(c) for c in rdf_filtered.GetColumnNames())
-                            if hist_var not in available_columns:
+                            if hist_var is not None and hist_var not in available_columns:
                                 available_columns = set(str(c) for c in rdf_for_hist.GetColumnNames())
 
-                            if hist_var not in available_columns:
-                                print(f"[CHUNK {chunk_index}] WARNING: variable '{var}' not found. Booking empty histogram.")
+                            if hist_var is None or hist_var not in available_columns:
+                                print(
+                                    f"[CHUNK {chunk_index}] WARNING: variable '{var}' "
+                                    f"not found for systematic '{syst_name}'. "
+                                    "Booking empty histogram."
+                                )
                                 hist = ROOT.TH1D(hist_name,hist_name,model.fNbinsX,model.fXLow,model.fXUp)
                                 hist.SetDirectory(0)
                                 booked_hists.append((dir_ptr, hist_name, hist, False))
@@ -297,9 +378,24 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--era", required=True, type=str)
     parser.add_argument("--input", required=True, type=str)
+    parser.add_argument(
+        "--input-files-file",
+        help=(
+            "Text file containing the ROOT files to process, one per line. "
+            "--input is still used for dataset metadata and segmentation JSONs."
+        ),
+    )
     parser.add_argument("--dataset-name", "--dataset", dest="dataset_name", required=True, type=str)
     parser.add_argument("--output-file", required=True, type=str)
-    parser.add_argument("--systematics", choices=["central", "all"], default="central")
+    parser.add_argument(
+        "--systematics",
+        choices=["central", "jec-jer", "all"],
+        default="jec-jer",
+        help=(
+            "central: nominal only; jec-jer: nominal, JEC/JER shapes and all "
+            "configured weight shifts (default); all: every configured variation."
+        ),
+    )
     parser.add_argument("--chunk-size", type=int, default=6)
     parser.add_argument("--n-cores", type=int, default=4)
     parser.add_argument("--skip-file-validation", action="store_true")
@@ -313,6 +409,15 @@ if __name__ == "__main__":
     parser.add_argument("--force-multiprocessing-with-dnn", action="store_true")
     parser.add_argument("--multiprocessing-method", choices=["spawn", "fork"], default="spawn")
     parser.add_argument("--additional-cuts",type=str, default=None)
+    parser.add_argument(
+        "--dy-amcatnlo-normalization",
+        type=float,
+        default=DY_AMCATNLO_NORMALIZATION,
+        help=(
+            "Constant normalization applied automatically to every DY "
+            "amc@nlo dataset. MiNNLO samples are not affected."
+        ),
+    )
     parser.add_argument(
         "--dy-ptll-njets-reweight-json",
         "--dy-ptll-njets-reweight",
@@ -370,7 +475,15 @@ if __name__ == "__main__":
     #     print("[WARNING] DNN payloads requested: forcing n_cores = 1.")
     #     args.n_cores = 1
     systs_to_run = get_systs_to_run(syst_cfg, args.systematics)
-    all_root_files = get_root_files(args.input)
+    if args.input_files_file:
+        with open(args.input_files_file) as input_files_handle:
+            all_root_files = [
+                line.strip()
+                for line in input_files_handle
+                if line.strip() and not line.lstrip().startswith("#")
+            ]
+    else:
+        all_root_files = get_root_files(args.input)
     if args.skip_file_validation:
         valid_root_files = all_root_files
     else:

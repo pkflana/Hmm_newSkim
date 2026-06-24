@@ -246,6 +246,47 @@ def build_ratio_hist(data_hist, dy_hist, other_hist, name, min_dy):
     return target, ratio, bins
 
 
+def normalize_bins_shape_only(bins, dy_hist, min_weight, max_weight):
+    target = dy_hist.Integral(0, dy_hist.GetNbinsX() + 1)
+    if target <= 0.0:
+        return 1.0, target, target
+
+    def weighted_yield(scale):
+        total = 0.0
+        for bin_idx, bin_info in enumerate(bins, start=1):
+            weight = scale * float(bin_info["weight"])
+            weight = min(max(weight, min_weight), max_weight)
+            total += dy_hist.GetBinContent(bin_idx) * weight
+            if bin_idx == 1:
+                total += dy_hist.GetBinContent(0) * weight
+            if bin_idx == len(bins):
+                total += dy_hist.GetBinContent(dy_hist.GetNbinsX() + 1) * weight
+        return total
+
+    low = 0.0
+    high = 1.0
+    while weighted_yield(high) < target and high < 1.0e6:
+        high *= 2.0
+
+    for _ in range(100):
+        middle = 0.5 * (low + high)
+        if weighted_yield(middle) < target:
+            low = middle
+        else:
+            high = middle
+
+    scale = 0.5 * (low + high)
+    yield_after = weighted_yield(scale)
+    for bin_info in bins:
+        bin_info["weight"] = min(
+            max(scale * float(bin_info["weight"]), min_weight),
+            max_weight,
+        )
+        bin_info["shape_only_scale"] = float(scale)
+
+    return scale, target, yield_after
+
+
 def build_data_over_mc_hist(data_hist, dy_hist, other_hist, name, min_mc):
     total_mc = dy_hist.Clone(f"{name}_total_mc")
     total_mc.SetDirectory(0)
@@ -539,6 +580,18 @@ def derive(args):
             f"ratio_{category}",
             args.min_dy,
         )
+        normalization_scale, yield_before, yield_after = normalize_bins_shape_only(
+            bins,
+            dy_hist,
+            args.min_weight,
+            args.max_weight,
+        )
+        for bin_idx, bin_info in enumerate(bins, start=1):
+            ratio_hist.SetBinContent(bin_idx, bin_info["weight"])
+        print(
+            f"[SHAPE ONLY] {category}: scale={normalization_scale:.12g}, "
+            f"yield={yield_before:.12g} -> {yield_after:.12g}"
+        )
         total_mc_hist, data_over_mc_hist = build_data_over_mc_hist(
             data_hist,
             dy_hist,
@@ -592,6 +645,11 @@ def derive(args):
         payload["categories"][category] = {
             "root_path": hist_path,
             "subtracted_samples": used_samples,
+            "shape_only_normalization": {
+                "scale": float(normalization_scale),
+                "yield_before": float(yield_before),
+                "yield_after": float(yield_after),
+            },
             "bins": bins,
         }
 
