@@ -3,6 +3,8 @@
 #include "correction.h"
 #include "corrections.h"
 
+#include <cstdlib>
+
 namespace correction {
     class JetCorrectionProvider : public CorrectionsBase<JetCorrectionProvider> {
       public:
@@ -22,6 +24,58 @@ namespace correction {
             HF_year = 11,
             RelativeSample_year = 12
         };
+
+        static const char* uncSourceName(UncSource source) {
+            switch (source) {
+                case UncSource::Central: return "Central";
+                case UncSource::JER: return "JER";
+                case UncSource::Total: return "Total";
+                case UncSource::RelativeBal: return "RelativeBal";
+                case UncSource::HF: return "HF";
+                case UncSource::BBEC1: return "BBEC1";
+                case UncSource::EC2: return "EC2";
+                case UncSource::Absolute: return "Absolute";
+                case UncSource::FlavorQCD: return "FlavorQCD";
+                case UncSource::BBEC1_year: return "BBEC1_year";
+                case UncSource::Absolute_year: return "Absolute_year";
+                case UncSource::EC2_year: return "EC2_year";
+                case UncSource::HF_year: return "HF_year";
+                case UncSource::RelativeSample_year: return "RelativeSample_year";
+            }
+            return "Unknown";
+        }
+
+        static const char* uncScaleName(UncScale scale) {
+            if (scale == UncScale::Central) return "Central";
+            if (scale == UncScale::up) return "up";
+            if (scale == UncScale::down) return "down";
+            return "Unknown";
+        }
+
+        static bool debugEnabled() {
+            const char* value = std::getenv("JETS_DEBUG");
+            return value && std::string(value) != "0";
+        }
+
+        static const RVecLV& getP4FromMap(
+            const std::map<std::pair<UncSource, UncScale>, RVecLV>& shifted_map,
+            UncSource source,
+            UncScale scale
+        ) {
+            const auto key = std::make_pair(source, scale);
+            const auto found = shifted_map.find(key);
+            if (found != shifted_map.end()) return found->second;
+
+            std::cerr << "[jets.h][MAP LOOKUP FAILED] requested="
+                      << uncSourceName(source) << ":" << uncScaleName(scale)
+                      << "; available keys=";
+            for (const auto& [available_key, unused] : shifted_map) {
+                std::cerr << " " << uncSourceName(available_key.first)
+                          << ":" << uncScaleName(available_key.second);
+            }
+            std::cerr << std::endl;
+            throw std::out_of_range("Jet_p4_shifted_map does not contain the requested variation");
+        }
 
         // json_file_name - path to json file with corrections
         // e.g. /cvmfs/cms-griddata.cern.ch/cat/metadata/JME/2022_Summer2022/jet_jerc.json.gz
@@ -74,6 +128,11 @@ namespace correction {
                     }
                     full_name += algo;
                     unc_map_[unc_source] = full_name;
+                    if (debugEnabled()) {
+                        std::cerr << "[jets.h][CONFIG] uncertainty "
+                                  << uncSourceName(unc_source) << " -> " << full_name
+                                  << std::endl;
+                    }
                 }
             }
         }
@@ -121,15 +180,15 @@ namespace correction {
             float pt_after = pt_raw;
 
             // 2) L1FastJet
-            float c1 = corr_l1_->evaluate({area, eta, pt_after, rho});
+            float c1 = safeEvaluate(corr_l1_, area, eta, pt_after, rho);
             pt_after *= c1;
 
             // 3) L2Relative
             float c2 = 1.0;
             if (wantPhi) {
-                c2 = corr_l2_->evaluate({eta, phi, pt_after});
+                c2 = safeEvaluate(corr_l2_, eta, phi, pt_after);
             } else {
-                c2 = corr_l2_->evaluate({eta, pt_after});
+                c2 = safeEvaluate(corr_l2_, eta, pt_after);
             }
             pt_after *= c2;
 
@@ -145,9 +204,9 @@ namespace correction {
                     pt_for_corr = 30.;
                 }
                 if (require_run_number) {
-                    cRes = corr_l2l3res_->evaluate({float(run),eta,pt_for_corr});
+                    cRes = safeEvaluate(corr_l2l3res_, float(run), eta, pt_for_corr);
                 } else {
-                    cRes = corr_l2l3res_->evaluate({eta,pt_for_corr});
+                    cRes = safeEvaluate(corr_l2l3res_, eta, pt_for_corr);
                 }
             }
 
@@ -214,7 +273,6 @@ namespace correction {
         bool require_run_number,
         const unsigned int run,
         bool wantPhi,
-        bool apply_forward_jet_horns_fix,
         const RVecF& GenJet_pt = {},
         const RVecF& GenJet_eta = {},
         const RVecF& GenJet_phi = {},
@@ -251,6 +309,9 @@ namespace correction {
 
             for (size_t i = 0; i < sz; ++i) {
 
+                const char* evaluation_stage = "reading jet inputs";
+                try {
+
                 const float eta = Jet_eta[i];
                 const float phi = Jet_phi[i];
                 const float abs_eta = std::abs(eta);
@@ -267,7 +328,7 @@ namespace correction {
                     const float mass_raw = Jet_mass[i] * raw_sf;
 
                     const bool is2024Eta2To2p5 =
-                        (jec_year_ == "2024" &&
+                        ((year_ == "2024" || year_=="2025") &&
                         abs_eta > 2.f &&
                         abs_eta < 2.5f);
 
@@ -275,6 +336,7 @@ namespace correction {
 
                     if (use_cmpd_jec_ && !is2024Eta2To2p5) {
 
+                        evaluation_stage = "JEC compound evaluate";
                         jec_sf = evaluateJECCompound(
                             pt_raw,
                             eta,
@@ -288,6 +350,7 @@ namespace correction {
 
                     } else {
 
+                        evaluation_stage = "JEC separate evaluate";
                         jec_sf = evaluateJECSeparately(
                             pt_raw,
                             eta,
@@ -310,14 +373,18 @@ namespace correction {
                 float jersmear_factor = 1.f;
 
                 if (apply_jer && !is_data_) {
+                    if (debugEnabled()) {
+                        std::cerr << "[jets.h][JET] event=" << event << " jet=" << i
+                                  << " variation=" << uncSourceName(unc_source) << ":"
+                                  << uncScaleName(unc_scale) << " eta=" << eta
+                                  << " corrected_pt=" << corrected_pt << " rho=" << rho
+                                  << std::endl;
+                    }
 
-
+                    evaluation_stage = "JER PtResolution evaluate";
                     const float jer_pt_res =
-                        corr_jer_res_->evaluate({
-                            eta,
-                            corrected_pt,
-                            rho
-                        });
+                        safeEvaluate(corr_jer_res_, eta, corrected_pt, rho);
+                        // std::cout <<jer_pt_res << std::endl;
 
 
                     float genjet_pt = -1.f;
@@ -342,19 +409,15 @@ namespace correction {
                         }
                     }
 
-
                     // nominal
+                    evaluation_stage = "JER ScaleFactor evaluate";
                     float jer_sf =
-                        corr_jer_sf_->evaluate({
-                            eta,
-                            corrected_pt,
-                        });
+                        safeEvaluate(corr_jer_sf_, eta, corrected_pt);
 
                     if (unc_source == UncSource::JER) {
-                        float SF_unc = corr_jer_sf_->evaluate({
-                            eta,
-                            corrected_pt,
-                        });
+                        evaluation_stage = "JER uncertainty evaluate";
+                        float SF_unc =
+                            safeEvaluate(corr_jer_sf_, eta, corrected_pt);
                         if (unc_scale == UncScale::up) {
                             // jer_tag = "up";
                             jer_sf *=(1+SF_unc);
@@ -365,16 +428,11 @@ namespace correction {
                         }
                     }
 
-                    jersmear_factor =
-                        jersmear_corr_->evaluate({
-                            corrected_pt,
-                            eta,
-                            genjet_pt,
-                            rho,
-                            event,
-                            jer_pt_res,
-                            jer_sf
-                        });
+                    evaluation_stage = "JERSmear evaluate";
+                    jersmear_factor = safeEvaluate(
+                        jersmear_corr_, corrected_pt, eta, genjet_pt, rho,
+                        event, jer_pt_res, jer_sf
+                    );
 
 
                     const bool is_jet_in_horn =
@@ -385,10 +443,8 @@ namespace correction {
                         (genjet_pt > 0.f);
 
                     if (
-                        apply_forward_jet_horns_fix &&
                         is_jet_in_horn &&
-                        !has_gen_match &&
-                        year_ != "2025"
+                        !has_gen_match
                     ) {
                         jersmear_factor = 1.f;
                     }
@@ -402,16 +458,14 @@ namespace correction {
                     unc_source != UncSource::JER
                 ) {
 
+                    evaluation_stage = "JES correction/map lookup";
                     const auto corr =
                         corrset_jec_->at(
                             unc_map_.at(unc_source)
                         );
 
-                    const float unc =
-                        corr->evaluate({
-                            eta,
-                            corrected_pt
-                        });
+                    evaluation_stage = "JES uncertainty evaluate";
+                    const float unc = safeEvaluate(corr, eta, corrected_pt);
 
                     const float sf =
                         1.f +
@@ -427,6 +481,19 @@ namespace correction {
                     phi,
                     corrected_mass
                 );
+                } catch (const std::exception& error) {
+                    std::cerr << "[jets.h][EVALUATE FAILED] stage=" << evaluation_stage
+                              << " event=" << event << " jet=" << i
+                              << " variation=" << uncSourceName(unc_source) << ":"
+                              << uncScaleName(unc_scale)
+                              << " pt=" << (i < Jet_pt.size() ? Jet_pt[i] : -999.f)
+                              << " eta=" << (i < Jet_eta.size() ? Jet_eta[i] : -999.f)
+                              << " phi=" << (i < Jet_phi.size() ? Jet_phi[i] : -999.f)
+                              << " area=" << (i < Jet_area.size() ? Jet_area[i] : -999.f)
+                              << " rho=" << rho << " run=" << run
+                              << " what=" << error.what() << std::endl;
+                    throw;
+                }
             }
 
             all_shifted_p4.insert({

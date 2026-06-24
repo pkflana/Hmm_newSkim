@@ -123,7 +123,7 @@ def expand_requested_samples(requested_samples, plot_groups_cfg):
 def get_group_members(group_cfg):
     members = []
 
-    for key in ("processes", "sub_processes", "datasets"):
+    for key in ("processes", "sub_processes", "datasets", "aliases"):
         members.extend(group_cfg.get(key, []))
 
     return members
@@ -149,29 +149,31 @@ def get_group_member_info(plot_groups_cfg):
     return member_info
 
 
-def get_process_scale_factors(plot_groups_cfg):
-    scale_factors = {}
+# def get_process_scale_factors(plot_groups_cfg):
+#     scale_factors = {}
 
-    for group_cfg in plot_groups_cfg.get("background_groups", {}).values():
-        if "scale_factor" not in group_cfg:
-            continue
+#     for group_cfg in plot_groups_cfg.get("background_groups", {}).values():
+#         if "scale_factor" not in group_cfg:
+#             continue
 
-        for member_name in get_group_members(group_cfg):
-            scale_factors[member_name] = float(group_cfg["scale_factor"])
+#         for member_name in get_group_members(group_cfg):
+#             scale_factors[member_name] = float(group_cfg["scale_factor"])
 
-    for process_name, scale_cfg in plot_groups_cfg.get("process_scales", {}).items():
-        if isinstance(scale_cfg, dict):
-            scale_factors[process_name] = float(scale_cfg.get("scale_factor", 1.0))
-        else:
-            scale_factors[process_name] = float(scale_cfg)
+#     for process_name, scale_cfg in plot_groups_cfg.get("process_scales", {}).items():
+#         if isinstance(scale_cfg, dict):
+#             scale_factors[process_name] = float(scale_cfg.get("scale_factor", 1.0))
+#         else:
+#             scale_factors[process_name] = float(scale_cfg)
 
-    return scale_factors
+#     return scale_factors
 
 
 def classify_plot_sample(sample_name, process_cfg, plot_groups_cfg):
     sample_info = classify_sample(sample_name, process_cfg)
 
-    if sample_info is not None:
+    if sample_info is not None and (
+        sample_info["is_data"] or sample_info["is_signal"]
+    ):
         return sample_info
 
     signal_styles = plot_groups_cfg.get("signal_styles", {})
@@ -195,10 +197,31 @@ def classify_plot_sample(sample_name, process_cfg, plot_groups_cfg):
             "is_data": False,
             "is_signal": False,
             "color": get_group_color(group_cfg, "black"),
-            "name": sample_name,
+            "name": group_cfg.get("name", sample_name),
         }
 
+    if sample_info is not None:
+        return sample_info
+
     return None
+
+
+def make_custom_sample_info(sample_name, index=0):
+    colors = [
+        "black",
+        "red",
+        "dodgerblue",
+        "darkorange",
+        "forestgreen",
+        "purple",
+    ]
+    return {
+        "type": "signal",
+        "is_data": False,
+        "is_signal": True,
+        "color": colors[index % len(colors)],
+        "name": sample_name,
+    }
 
 
 def make_group_process(group_name, group_cfg, members, input_processes):
@@ -249,6 +272,8 @@ def apply_signal_styles(input_processes, plot_groups_cfg):
 
         if "color" in style_cfg:
             input_processes[process_name]["color"] = style_cfg["color"]
+        if "color_mplhep" in style_cfg:
+            input_processes[process_name]["color"] = style_cfg["color_mplhep"]
 
 
 def apply_background_groups(input_processes, plot_groups_cfg, active_group_names=None):
@@ -365,8 +390,26 @@ def get_available_histograms(
 
     def scan_dir(tdir, prefix=""):
         for key in tdir.GetListOfKeys():
-            obj = key.ReadObj()
             name = key.GetName()
+            object_path = f"{region_path}/{prefix}{name}"
+
+            try:
+                obj = key.ReadObj()
+            except Exception as exc:
+                print(
+                    f"[WARNING] Impossibile leggere {object_path} da "
+                    f"{root_file.GetName()}: {exc}. Skip."
+                )
+                continue
+
+            # A damaged ROOT key can make ReadObj return a null PyROOT proxy
+            # instead of raising (often together with an R__unzip_header error).
+            if not obj:
+                print(
+                    f"[WARNING] Oggetto ROOT nullo o corrotto: {object_path} "
+                    f"in {root_file.GetName()}. Skip."
+                )
+                continue
 
             if obj.InheritsFrom("TH1"):
                 hist_name = f"{prefix}{name}" if prefix else name
@@ -499,6 +542,14 @@ if __name__ == "__main__":
             "Example: --ratio-reference EWK_Herwig"
         ),
     )
+    parser.add_argument(
+        "--allow-custom-samples",
+        action="store_true",
+        help=(
+            "Allow ROOT file names not present in process_names.yaml or "
+            "process_groups.yaml. Useful for direct file-to-file comparisons."
+        ),
+    )
 
     parser.add_argument(
         "--normalize-dy-to-data",
@@ -625,7 +676,7 @@ if __name__ == "__main__":
     }
 
     config_setup["wantLogY"] = args.wantLogY
-    process_scale_factors = get_process_scale_factors(plot_groups_cfg)
+    # process_scale_factors = get_process_scale_factors(plot_groups_cfg)
 
     # =====================================================
     # Requested samples
@@ -640,6 +691,7 @@ if __name__ == "__main__":
             normalize_sample_name(s)
             for s in args.samples
         )
+        group_member_info = get_group_member_info(plot_groups_cfg)
 
         requested_plot_groups = {
             sample
@@ -649,6 +701,13 @@ if __name__ == "__main__":
                 or sample == plot_groups_cfg.get("other_group", {}).get("key", "OTHER")
             )
         }
+        requested_plot_groups.update(
+            group_member_info[sample]["group"]
+            for sample in requested_samples_raw
+            if sample in group_member_info
+        )
+        if len(requested_plot_groups) == 0:
+            requested_plot_groups = None
 
         requested_samples = expand_requested_samples(
             requested_samples_raw,
@@ -666,6 +725,9 @@ if __name__ == "__main__":
                 and sample not in get_group_member_info(plot_groups_cfg)
                 and sample not in plot_groups_cfg.get("signal_styles", {})
             ):
+                if args.allow_custom_samples:
+                    print(f"  {sample}: custom sample")
+                    continue
                 print(
                     f"  [WARNING] {sample} non è presente in process_names.yaml "
                     "o process_groups.yaml"
@@ -711,6 +773,11 @@ if __name__ == "__main__":
                 continue
 
             sample_info = classify_plot_sample(process_name, process_cfg, plot_groups_cfg)
+            if sample_info is None and args.allow_custom_samples:
+                sample_info = make_custom_sample_info(
+                    process_name,
+                    index=len(input_processes),
+                )
 
             if sample_info is None:
                 print(
@@ -742,7 +809,7 @@ if __name__ == "__main__":
                 },
             }
 
-            scale_factor = process_scale_factors.get(process_name, 1.0)
+            scale_factor = 1.0 # process_scale_factors.get(process_name, 1.0)
 
             available_hists = get_available_histograms(
                 root_file,

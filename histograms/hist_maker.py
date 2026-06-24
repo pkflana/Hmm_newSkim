@@ -17,7 +17,7 @@ sys.path.append(os.environ["ANALYSIS_PATH"])
 import common.utilities as utilities
 from common.helpers import GetModel,GetRdfForDataset,get_root_files,get_valid_root_files,get_segmentation_dict,is_valid_tmp_root
 from common.add_vars_to_skim_tuples import DefineHistogramSelections, GetSelectionSuffixForSystematic
-from common.dy_ptll_reweight import ApplyDYPtLLNJetsReweight
+from common.dy_ptll_reweight import ApplyDYNJetsReweight, ApplyDYPtLLReweight
 HEADERS = ["analysis/AnalysisTools.h"]
 for header in HEADERS:
     utilities.DeclareHeader(f"{os.environ['ANALYSIS_PATH']}/{header}")
@@ -119,12 +119,8 @@ def get_systs_to_run(syst_cfg, mode):
 
     return systs_to_run
 
-def should_shift_z_sideband_dnn_mass(args, mass_region, variable):
-    return (
-        args.shift_z_sideband_dnn_mass
-        and mass_region == "Z_sideband"
-        and variable == "DNN_NNOutput"
-    )
+def should_shift_z_sideband_dnn_mass(mass_region, variable):
+    return mass_region == "Z_sideband" and variable == "DNN_NNOutput"
 
 def apply_z_sideband_mass_shifted_dnn(rdf, btag_algo):
     from common.dnn_application import ApplyDNN
@@ -178,12 +174,20 @@ def process_single_chunk(args_tuple):
                     if "weight" in syst_info
                 }
             )
-            rdf_base = ApplyDYPtLLNJetsReweight(
-                rdf_base,
-                args.dataset_name,
-                args.dy_ptll_njets_reweight_json,
-                weight_columns,
-            )
+            if args.dy_ptll_njets_reweight_json:
+                rdf_base = ApplyDYPtLLReweight(
+                    rdf_base,
+                    args.dataset_name,
+                    args.dy_ptll_njets_reweight_json,
+                    weight_columns,
+                )
+            if args.dy_njets_reweight_json:
+                rdf_base = ApplyDYNJetsReweight(
+                    rdf_base,
+                    args.dataset_name,
+                    args.dy_njets_reweight_json,
+                    weight_columns,
+                )
 
         outFile = ROOT.TFile(tmp_output, "RECREATE")
         if not outFile or outFile.IsZombie():
@@ -233,7 +237,8 @@ def process_single_chunk(args_tuple):
                             rdf_for_hist = rdf_filtered
                             hist_var = var
 
-                            if should_shift_z_sideband_dnn_mass(args, mass_region, var):
+                            if should_shift_z_sideband_dnn_mass(mass_region, var):
+                                print(f"going to shift in {mass_region}, {var}")
                                 rdf_for_hist = apply_z_sideband_mass_shifted_dnn(
                                     rdf_for_hist,
                                     btag_algo=btag_algo,
@@ -310,19 +315,33 @@ if __name__ == "__main__":
     parser.add_argument("--additional-cuts",type=str, default=None)
     parser.add_argument(
         "--dy-ptll-njets-reweight-json",
+        "--dy-ptll-njets-reweight",
+        "--dy-ptll-reweight-json",
+        "--dy-ptll-reweight",
+        "--dy-reweight-json",
+        dest="dy_ptll_njets_reweight_json",
         default=None,
         help=(
             "JSON produced by histograms/derive_dy_ptll_njets_reweight.py. "
-            "When provided, only DY datasets get an extra pt(ll)/NJets weight."
+            "When provided, only DY datasets get an extra pt(ll) weight "
+            "evaluated with isVBF, N_SelectedJets, and pt_mumu."
+        ),
+    )
+    parser.add_argument(
+        "--dy-njets-reweight-json",
+        "--dy-njets-reweight",
+        dest="dy_njets_reweight_json",
+        default=None,
+        help=(
+            "JSON produced by histograms/derive_dy_njets_reweight.py. "
+            "When provided, only DY datasets get an extra NJets weight "
+            "evaluated with isVBF and N_SelectedJets."
         ),
     )
     parser.add_argument(
         "--shift-z-sideband-dnn-mass",
         action="store_true",
-        help=(
-            "For Z_sideband DNN_NNOutput histograms, recompute the DNN after "
-            "mapping m_mumu from [70, 110] to [115, 135]."
-        ),
+        help=argparse.SUPPRESS,
     )
     args = parser.parse_args()
     startTime = time.time()
@@ -347,9 +366,9 @@ if __name__ == "__main__":
 
     dnn_payloads = sorted({var.rsplit("_NNOutput", 1)[0]for var in vars_to_make_hist if var.endswith("_NNOutput")})
     btag_algo = main_cfg.get("bTagAlgo", "PNet")
-    if len(dnn_payloads) > 0 and args.n_cores > 1 and not args.force_multiprocessing_with_dnn:
-        print("[WARNING] DNN payloads requested: forcing n_cores = 1.")
-        args.n_cores = 1
+    # if len(dnn_payloads) > 0 and args.n_cores > 1 and not args.force_multiprocessing_with_dnn:
+    #     print("[WARNING] DNN payloads requested: forcing n_cores = 1.")
+    #     args.n_cores = 1
     systs_to_run = get_systs_to_run(syst_cfg, args.systematics)
     all_root_files = get_root_files(args.input)
     if args.skip_file_validation:
@@ -359,12 +378,12 @@ if __name__ == "__main__":
     valid_root_files = [os.path.abspath(f) for f in valid_root_files]
     if len(valid_root_files) == 0:
         if len(all_root_files) == 0:
-            print("[ERROR] No ROOT files found. Exiting.")
-            sys.exit(1)
-        print(
-            "[WARNING] No ROOT files with a usable Events tree found. "
-            "Producing empty histograms."
-        )
+            print("[WARNING] No ROOT files found. Producing empty histograms.")
+        else:
+            print(
+                "[WARNING] No ROOT files with a usable Events tree found. "
+                "Producing empty histograms."
+            )
         chunks = [[]]
     else:
         chunks = chunk_list(valid_root_files, args.chunk_size)

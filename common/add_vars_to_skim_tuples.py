@@ -21,7 +21,10 @@ def SelectedJetObservablesDef(df):
             f"{jet_type}jet_p4",
             f"(SelectedJet_idx.size()>{jet_idx} && !SelectedJet_IsInsideHorn[{jet_idx}]) ? ROOT::Math::LorentzVector<ROOT::Math::PtEtaPhiM4D<double>>(SelectedJet_pt.at({jet_idx}), SelectedJet_eta.at({jet_idx}),SelectedJet_phi.at({jet_idx}), SelectedJet_mass.at({jet_idx})) : ROOT::Math::LorentzVector<ROOT::Math::PtEtaPhiM4D<double>>(-10000.,-10000.,-10000.,-10000.);",
         )
-    df = df.Define(f"delta_eta_jj_ls", "std::abs(leadingjet_eta) >=0 && std::abs(subleadingjet_eta) >=0? std::abs(leadingjet_eta - subleadingjet_eta) : -1000.f")
+    df = df.Define(
+        "delta_eta_jj_ls",
+        "SelectedJet_idx.size() >= 2 && std::abs(leadingjet_eta) < 10. && std::abs(subleadingjet_eta) < 10. ? std::abs(leadingjet_eta - subleadingjet_eta) : -1000.f"
+    )
     df = df.Define(f"m_jj_ls", "leadingjet_p4.M()>=0 && subleadingjet_p4.M() >=0 ? (leadingjet_p4+subleadingjet_p4).M(): -1000.f")
 
     return df

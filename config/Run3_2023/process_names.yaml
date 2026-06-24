@@ -75,10 +75,9 @@ W_NJets:
   name: "W $\\rightarrow \\ell \\nu$+ jets"
   color: navy
   datasets:
-    - WtoLNu_1J_madgraphMLM
-    - WtoLNu_2J_madgraphMLM
-    - WtoLNu_3J_madgraphMLM
-    - WtoLNu_4J_madgraphMLM
+    - WtoLNu_0J_amcatnloFXFX
+    - WtoLNu_1J_amcatnloFXFX
+    - WtoLNu_2J_amcatnloFXFX
 
 ############## EWK ##############
 EWK_LLJJ:
