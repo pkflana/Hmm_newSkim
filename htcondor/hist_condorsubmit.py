@@ -429,6 +429,7 @@ request_disk = {args.request_disk}
 +Era = "$(era)"
 +HistGroup = "{group_label}"
 +FinalOutput = "$(final_output)"
+batch_name = Hists_$(era)_$(dataset)_chunks
 getenv = True
 queue
 """
@@ -449,6 +450,7 @@ request_disk = {args.request_disk}
 +Era = "$(era)"
 +HistGroup = "{group_label}"
 +FinalOutput = "$(final_output)"
+batch_name = Hists_$(era)_$(dataset)_hadd
 getenv = True
 queue
 """
@@ -501,7 +503,7 @@ queue
                 f'stdout="{dag_quote(submit_dir / "output" / f"{chunk_tag}.out")}" '
                 f'stderr="{dag_quote(submit_dir / "error" / f"{chunk_tag}.err")}"'
             )
-            dag_lines.append(f"RETRY {node} 1")
+            dag_lines.append(f"RETRY {node} {args.chunk_retries}")
             dag_lines.append(f"CATEGORY {node} CHUNKS")
 
         chunk_outputs_file.write_text("\n".join(chunk_outputs) + "\n")
@@ -511,6 +513,7 @@ queue
         dag_lines.append(
             f'VARS {merge_node} '
             f'era="{dag_quote(era)}" '
+            f'dataset="{dag_quote(dataset)}" '
             f'final_output="{dag_quote(final_output)}" '
             f'chunk_list="{dag_quote(chunk_outputs_file)}" '
             f'stdout="{dag_quote(submit_dir / "output" / f"{dataset_tag}_merge.out")}" '
@@ -777,11 +780,24 @@ def run_group(
         print("============================================================")
 
         if args.no_submit:
+            dag_batch_name = f"DAG_Hists_{era}_{group_label}"
             print("[DRY RUN] Not submitting. To submit manually:")
-            print(f"condor_submit_dag {dag_file}")
+            print(
+                f"condor_submit_dag -batch-name "
+                f"{shlex.quote(dag_batch_name)} {shlex.quote(str(dag_file))}"
+            )
             return len(jobs_to_submit)
 
-        subprocess.run(["condor_submit_dag", str(dag_file)], check=True)
+        dag_batch_name = f"DAG_Hists_{era}_{group_label}"
+        subprocess.run(
+            [
+                "condor_submit_dag",
+                "-batch-name",
+                dag_batch_name,
+                str(dag_file),
+            ],
+            check=True,
+        )
         for item in jobs_to_submit:
             queued_registry.add(
                 str(output_dir / f"{item['dataset']}{item['file_suffix']}.root")
@@ -870,6 +886,16 @@ def main():
         default=1,
         help="CPUs requested by each chunk node in --chunks-as-jobs mode.",
     )
+    parser.add_argument(
+        "--chunk-retries",
+        type=int,
+        default=10,
+        help=(
+            "Number of automatic DAGMan retries for a failed chunk node "
+            "(default: 10). The dataset hadd remains blocked until every "
+            "chunk succeeds."
+        ),
+    )
     parser.add_argument("--job-flavour", default="workday", help="HTCondor JobFlavour.")
     parser.add_argument("--request-cpus", type=int, default=4, help="HTCondor request_cpus.")
     parser.add_argument("--request-memory", default="8GB", help="HTCondor request_memory.")
@@ -898,6 +924,8 @@ def main():
 
     if args.hist_opts and args.hist_opts[0] == "--":
         args.hist_opts = args.hist_opts[1:]
+    if args.chunk_retries < 0:
+        raise SystemExit("[ERROR] --chunk-retries must be >= 0")
 
     eras = []
     if args.eras:
