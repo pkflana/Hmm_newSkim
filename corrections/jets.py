@@ -188,6 +188,7 @@ def initialize_jet_corrections(
     jec_period = jec_period or period
     jer_period = jer_period or period
 
+    print(f"jec_period = {jec_period}, jer_period = {jer_period}")
     if _jet_correction_state["initialized"]:
         same_state = (
             _jet_correction_state["period"] == period
@@ -215,7 +216,7 @@ def initialize_jet_corrections(
 
     jec_jsonFile = jet_jsonPath.format(pog_folder_names["JERC"][jec_period])
     jer_jsonFile = jet_jsonPath.format(pog_folder_names["JERC"][jer_period])
-
+    print(f"jec_jsonFile. = {jec_jsonFile}, jer_jsonFile={jer_jsonFile}")
     year = period.split("_")[0]
     jec_year = jec_period.split("_")[0]
 

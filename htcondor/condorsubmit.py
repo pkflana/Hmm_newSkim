@@ -66,7 +66,7 @@ parser.add_argument(
     help=(
         "JEC/JER payload mode for Run3_2025 MC skim jobs. "
         "Choices: 2025 = JEC/JER 2025, jec2024_jer2025 = JEC 2024 and JER 2025, "
-        "2024 = JEC/JER 2024. Default comes from skim_cfg.yaml jerc_2025_mc_mode, "
+        "2024 = JEC/JER 2024. Default comes from maincfg.yaml jerc_2025_mc_mode."
     ),
 )
 parser.add_argument(
