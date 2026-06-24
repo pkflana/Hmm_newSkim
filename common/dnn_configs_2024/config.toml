@@ -1,0 +1,81 @@
+
+[meta]
+results_dir = "/eos/user/a/ayeagle/H_mumu/results/OGDNN"
+use_cuda = true
+
+[dataset]
+vbf_score_cut = 0
+equalize_for_training = true
+equalize_per_process = false
+renorm_inputs = true
+signal_types = ['VBFHto2Mu', 'GluGluHto2Mu']
+abs_train_weight = true
+data_columns = [
+    "mu1_eta",
+    "mu1_pt",
+    "mu1_phi",
+    "mu2_eta",
+    "mu2_pt",
+    "mu2_phi",
+    "dR_mumu",
+    "eta_mumu",
+    "cosTheta_CS",
+    "phi_mumu",
+    "m_mumu",
+    "pt_mumu",
+    "y_mumu",
+    "phi_CS",
+    "R_pt",
+    "minDeltaEtaSigned",
+    "minDeltaPhi",
+    "Zeppenfeld_Var",
+    "pt_centrality",
+    "vbfjet1_phi",
+    "vbfjet2_phi",
+    "vbfjet1_eta",
+    "vbfjet1_pt",
+    "vbfjet1_btag{algo}QvG",
+    "vbfjet2_eta",
+    "vbfjet2_pt",
+    "vbfjet2_btag{algo}QvG",
+    "m_jj",
+    "delta_eta_jj",
+    "pt_jj",
+    "nJet",
+    "nSoftActivityJet",
+    "SoftActivityJetHT",
+    "SoftActivityJetHT2",
+    "SoftActivityJetHT5",
+    "SoftActivityJetHT10",
+    "SoftActivityJetNjets2",
+    "SoftActivityJetNjets5",
+    "SoftActivityJetNjets10"
+]
+
+[splitting]
+validation_size = 0.25
+k = 4
+
+[network]
+# Hidden layers only, input layer size pulled from the used columns
+layer_list = [64, 64, 32, 32]
+batch_renorm = false
+dropout = 0.00
+
+[training]
+batch_size = 10000
+epochs = 1
+early_stop = true
+patience = 10
+
+[optimizer]
+algo = "Adam"   # Currently, SGD and Adam are supported
+lr = 0.001
+weight_decay = 0.0
+
+[testing]
+# Number of bins for all histograms
+n_bins = 24
+feature_import = false
+
+
