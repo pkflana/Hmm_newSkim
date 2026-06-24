@@ -7,7 +7,7 @@ max_files: -1        # -1 = all files
 use_ext: true     # if true, use all nanoAOD paths in each list; otherwise only the first
 use_2024_jerc_for_2025_mc: false
 
-output_dir: /eos/cms/store/group/phys_higgs/cmshmm/vdamante/skim_v1_noUnc/
+output_dir: /eos/user/a/ayeagle/skim_v2_noUnc/ # /eos/cms/store/group/phys_higgs/cmshmm/vdamante/skim_v2_noUnc/
 
 # ---------------------------------------------------------
 # condor configuration

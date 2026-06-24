@@ -26,7 +26,6 @@ era=Run3_2022;sh histograms/scripts/hists.sh --datasets DY_amcatnlo,TT,data,EWK,
 era=Run3_2022;python3 histograms/hadd_hists_to_processes.py --input-dir /eos/user/v/vdamante/H_mumu/reweighting_hists/newHists_${era}_ptllNJetsRW/ --output-dir /eos/user/v/vdamante/H_mumu/reweighting_hists/newHists_${era}_ptllNJetsRW_hadded/ --era ${era}
 
 era=Run3_2022;sh histograms/scripts/hists.sh --datasets all --era ${era}  --missing-only
-sh histograms/scripts/hists.sh --datasets all --era ${era}  --output-suffix _DNN --missing-only -- --variables DNN_NNOutput
 era=Run3_2022;python3 histograms/hadd_hists_to_processes.py --input-dir /eos/user/v/vdamante/H_mumu/newHists_${era}/ --output-dir /eos/user/v/vdamante/H_mumu/newHists_${era}_hadded/ --era ${era}
 
 era=Run3_2022;python3 histograms/derive_dy_ptll_njets_reweight.py --era ${era} --input-dir /eos/user/v/vdamante/H_mumu/reweighting_hists/newHists_${era}_ptllNJetsRW_hadded/ --output-dir reweights/dy_ptll_reweight/${era}/plots_smart --output-json reweights/dy_ptll_reweight/${era}/dy_ptll_reweight_smart.json --output-root reweights/dy_ptll_reweight/${era}/dy_ptll_reweight_smart.root --smart-rebin
@@ -209,6 +208,8 @@ cp /eos/user/v/vdamante/H_mumu/newHists_${era}_weighted_hadded/DYto2Mu_minnlo.ro
 ###############################################################################
 # Hadd Run3_2022_23, explicit sample by sample.
 ###############################################################################
+mkdir -p /eos/user/v/vdamante/H_mumu/newHists_Run3_2022_23_hadded ;
+for sample in Data_Muon EWK_2Mu2J_MLL_105to160_herwig GluGluHto2Mu TT VHto2Mu  DY_ptll EWK_2Mu2J_MLL_105to160_pythia GluGluHto2Mu_tuneDown TTX VV  DY EWK GluGluHto2Mu_tuneUp TW VVV DY_weighted DYto2Mu_MLL105To160_weighted DYto2Mu_MLL105To160_ptll  GluGluHto2Mu_amcatnlo H_mainBckg VBFHto2Mu_M125_powheg W_NJets  DYto2Mu_MLL105To160 GluGluHto2Mu_M120 ST VBFHto2Mu_m125_tuneDown GluGluHto2Mu_M130 TTH_inclusive VBFHto2Mu_m125_tuneUp   GluGluHto2Mu_MiNNLO TTHto2Mu VH_inclusive ; do hadd -f /eos/user/v/vdamante/H_mumu/newHists_Run3_2022_23_hadded/${sample}.root /eos/user/v/vdamante/H_mumu/newHists_Run3_2022_hadded/${sample}.root /eos/user/v/vdamante/H_mumu/newHists_Run3_2022EE_hadded/${sample}.root /eos/user/v/vdamante/H_mumu/newHists_Run3_2023_hadded/${sample}.root /eos/user/v/vdamante/H_mumu/newHists_Run3_2023BPix_hadded/${sample}.root ; done
 
 mkdir -p /eos/user/v/vdamante/H_mumu/newHists_Run3_2022_23_hadded
 
@@ -280,3 +281,79 @@ python3 histograms/hist_plotter.py --era Run3_2025 --input /eos/user/v/vdamante/
 python3 histograms/hist_plotter.py --era Run3_2025 --input /eos/user/v/vdamante/H_mumu/newHists_Run3_2025_hadded/ --output plots_Flashsim_unweighted/ --region Signal_Fit_ggF --samples DYto2Mu_MLL105To160_FlashSim Data_Muon EWK_2Mu2J_MLL_105to160_pythia_Flashsim GluGluHto2Mu SingleH SingleTop TTX VBFHto2Mu_m125_Flashsim DiTriBoson W TT --wantLogY --wantData --rebin
 
 python3 histograms/hist_plotter.py --era Run3_2025 --input /eos/user/v/vdamante/H_mumu/newHists_Run3_2025_hadded/ --output plots_DYminnlo_weighted/ --region mass_inclusive_ggF --samples DYto2Mu_minnlo_weighted Data_Muon EWK GluGluHto2Mu SingleH SingleTop TTX VBFHto2Mu_M125_powheg DiTriBoson W TT --wantLogY --wantData --rebin
+
+
+
+for region in Z_sideband mass_inclusive;
+    do for era in 2022_23
+        do for category in ggF VBF baseline;
+            do
+            # python3 histograms/hist_plotter.py  --era Run3_${era}  --input /eos/user/v/vdamante/H_mumu/newHists_Run3_${era}_hadded/  --output plots_data_mc/DY_amcatnlo_weighted/  --region "${region}_${category}"  --samples DY_weighted Data_Muon EWK GluGluHto2Mu SingleH SingleTop TTX VBFHto2Mu_M125_powheg DiTriBoson W_NJets TT --wantLogY  --wantData  --rebin ;
+            python3 histograms/hist_plotter.py  --era Run3_${era}  --input /eos/user/v/vdamante/H_mumu/newHists_Run3_${era}_hadded/  --output plots_data_mc/DY_amcatnlo_pt_ll/  --region "${region}_${category}"  --samples DY_ptll Data_Muon EWK GluGluHto2Mu SingleH SingleTop TTX VBFHto2Mu_M125_powheg  DiTriBoson W_NJets TT --wantLogY  --wantData  --rebin ;
+            # python3 histograms/hist_plotter.py  --era Run3_${era}  --input /eos/user/v/vdamante/H_mumu/newHists_Run3_${era}_hadded/  --output plots_data_mc/DY_amcatnlo_unweighted/  --region "${region}_${category}"  --samples DY Data_Muon EWK GluGluHto2Mu SingleH SingleTop TTX VBFHto2Mu_M125_powheg  DiTriBoson W_NJets TT --wantLogY  --wantData  --rebin ;
+        done
+    done
+done
+
+
+
+
+## signal
+
+for region in Signal_Fit;
+    do for era in 2022_23
+        do for category in ggF VBF baseline;
+            do
+            python3 histograms/hist_plotter.py  --era Run3_${era}  --input /eos/user/v/vdamante/H_mumu/newHists_Run3_${era}_hadded/  --output plots_data_mc/DY_amcatnlo_weighted/  --region "${region}_${category}"  --samples DYto2Mu_MLL105To160_weighted Data_Muon EWK_2Mu2J_MLL_105to160_herwig GluGluHto2Mu SingleH SingleTop TTX VBFHto2Mu_M125_powheg  DiTriBoson W_NJets TT --wantLogY  --wantData  --rebin ;
+            python3 histograms/hist_plotter.py  --era Run3_${era}  --input /eos/user/v/vdamante/H_mumu/newHists_Run3_${era}_hadded/  --output plots_data_mc/DY_amcatnlo_unweighted/  --region "${region}_${category}"  --samples DYto2Mu_MLL105To160 Data_Muon EWK_2Mu2J_MLL_105to160_herwig GluGluHto2Mu SingleH SingleTop TTX VBFHto2Mu_M125_powheg  DiTriBoson W_NJets TT --wantLogY  --wantData  --rebin ;
+            python3 histograms/hist_plotter.py  --era Run3_${era}  --input /eos/user/v/vdamante/H_mumu/newHists_Run3_${era}_hadded/  --output plots_data_mc/DY_amcatnlo_pt_ll/  --region "${region}_${category}"  --samples DYto2Mu_MLL105To160_ptll Data_Muon EWK_2Mu2J_MLL_105to160_herwig GluGluHto2Mu SingleH SingleTop TTX VBFHto2Mu_M125_powheg  DiTriBoson W_NJets TT --wantLogY  --wantData  --rebin ;
+        done
+    done
+done
+
+
+for region in Signal_Fit;
+    do for era in 2024
+        do for category in ggF VBF baseline;
+            do
+
+
+            python3 histograms/hist_plotter.py  --era Run3_${era}  --input /eos/user/v/vdamante/H_mumu/newHists_Run3_${era}_hadded/  --output plots_data_mc/DY_amcatnlo_unweighted/  --region "${region}_${category}"  --samples DYto2Mu_MLL105To160 DYto2Mu_MLL105To160_VBFFiltered Data_Muon EWK_2Mu2J_MLL_105to160_herwig GluGluHto2Mu_amcatnlo SingleH SingleTop TTX VBFHto2Mu_M125_amcatnlo  DiTriBoson W TT --wantLogY  --wantData  --rebin ;
+
+            python3 histograms/hist_plotter.py  --era Run3_${era}  --input /eos/user/v/vdamante/H_mumu/newHists_Run3_${era}_hadded/  --output plots_data_mc/DY_amcatnlo_pt_ll/  --region "${region}_${category}"  --samples DYto2Mu_MLL105To160_ptll DYto2Mu_MLL105To160_VBFFiltered_ptll Data_Muon EWK_2Mu2J_MLL_105to160_herwig GluGluHto2Mu_amcatnlo SingleH SingleTop TTX VBFHto2Mu_M125_amcatnlo  DiTriBoson W TT --wantLogY  --wantData  --rebin ;
+
+            python3 histograms/hist_plotter.py  --era Run3_${era}  --input /eos/user/v/vdamante/H_mumu/newHists_Run3_${era}_hadded/  --output plots_data_mc/DY_amcatnlo_weighted/  --region "${region}_${category}"  --samples DYto2Mu_MLL105To160_weighted DYto2Mu_MLL105To160_VBFFiltered_weighted Data_Muon EWK_2Mu2J_MLL_105to160_herwig GluGluHto2Mu_amcatnlo SingleH SingleTop TTX VBFHto2Mu_M125_amcatnlo  DiTriBoson W TT --wantLogY  --wantData  --rebin ;
+
+
+
+            python3 histograms/hist_plotter.py  --era Run3_${era}  --input /eos/user/v/vdamante/H_mumu/newHists_Run3_${era}_hadded/  --output plots_data_mc/DY_FlashSim_unweighted/  --region "${region}_${category}"  --samples DYto2Mu_MLL105To160_FlashSim Data_Muon EWK_2Mu2J_MLL_105to160_pythia_Flashsim GluGluHto2Mu SingleH SingleTop TTX VBFHto2Mu_m125_Flashsim  DiTriBoson W TT --wantLogY  --wantData  --rebin ;
+
+            python3 histograms/hist_plotter.py  --era Run3_${era}  --input /eos/user/v/vdamante/H_mumu/newHists_Run3_${era}_hadded/  --output plots_data_mc/DY_FlashSim_pt_ll/  --region "${region}_${category}"  --samples DYto2Mu_MLL105To160_FlashSim_ptll Data_Muon EWK_2Mu2J_MLL_105to160_pythia_Flashsim GluGluHto2Mu SingleH SingleTop TTX VBFHto2Mu_m125_Flashsim  DiTriBoson W TT --wantLogY  --wantData  --rebin ;
+
+            python3 histograms/hist_plotter.py  --era Run3_${era}  --input /eos/user/v/vdamante/H_mumu/newHists_Run3_${era}_hadded/  --output plots_data_mc/DY_FlashSim_weighted/  --region "${region}_${category}"  --samples DYto2Mu_MLL105To160_FlashSim_weighted Data_Muon EWK_2Mu2J_MLL_105to160_pythia_Flashsim GluGluHto2Mu SingleH SingleTop TTX VBFHto2Mu_m125_Flashsim  DiTriBoson W TT --wantLogY  --wantData  --rebin ;
+
+            python3 histograms/hist_plotter.py  --era Run3_${era}  --input /eos/user/v/vdamante/H_mumu/newHists_Run3_${era}_hadded/  --output plots_data_mc/DY_minnlo_weighted/  --region "${region}_${category}"  --samples DYto2Mu_minnlo_weighted Data_Muon EWK GluGluHto2Mu_MiNNLO SingleH SingleTop TTX VBFHto2Mu_M125_powheg DiTriBoson W TT --wantLogY  --wantData  --rebin ;
+
+            python3 histograms/hist_plotter.py  --era Run3_${era}  --input /eos/user/v/vdamante/H_mumu/newHists_Run3_${era}_hadded/  --output plots_data_mc/DY_minnlo_unweighted/  --region "${region}_${category}"  --samples DYto2Mu_minnlo Data_Muon EWK GluGluHto2Mu_MiNNLO SingleH SingleTop TTX VBFHto2Mu_M125_powheg  DiTriBoson W TT --wantLogY  --wantData  --rebin ;
+
+
+        done
+    done
+done
+
+
+for region in Z_sideband mass_inclusive;
+    do for era in 2024
+        do for category in ggF VBF baseline;
+            do
+            python3 histograms/hist_plotter.py  --era Run3_${era}  --input /eos/user/v/vdamante/H_mumu/newHists_Run3_${era}_hadded/  --output plots_data_mc/DY_amcatnlo_weighted/  --region "${region}_${category}"  --samples DY_weighted Data_Muon EWK GluGluHto2Mu SingleH SingleTop TTX VBFHto2Mu_M125_powheg DiTriBoson W TT --wantLogY  --wantData  --rebin ;
+            python3 histograms/hist_plotter.py  --era Run3_${era}  --input /eos/user/v/vdamante/H_mumu/newHists_Run3_${era}_hadded/  --output plots_data_mc/DY_amcatnlo_pt_ll/  --region "${region}_${category}"  --samples DY_ptll Data_Muon EWK GluGluHto2Mu SingleH SingleTop TTX VBFHto2Mu_M125_powheg  DiTriBoson W TT --wantLogY  --wantData  --rebin ;
+            python3 histograms/hist_plotter.py  --era Run3_${era}  --input /eos/user/v/vdamante/H_mumu/newHists_Run3_${era}_hadded/  --output plots_data_mc/DY_amcatnlo_unweighted/  --region "${region}_${category}"  --samples DY Data_Muon EWK GluGluHto2Mu SingleH SingleTop TTX VBFHto2Mu_M125_powheg  DiTriBoson W TT --wantLogY  --wantData  --rebin ;
+
+            python3 histograms/hist_plotter.py  --era Run3_${era}  --input /eos/user/v/vdamante/H_mumu/newHists_Run3_${era}_hadded/  --output plots_data_mc/DY_minnlo_weighted/  --region "${region}_${category}"  --samples DYto2Mu_minnlo_weighted Data_Muon EWK GluGluHto2Mu_MiNNLO SingleH SingleTop TTX VBFHto2Mu_M125_powheg DiTriBoson W TT --wantLogY  --wantData  --rebin ;
+
+            python3 histograms/hist_plotter.py  --era Run3_${era}  --input /eos/user/v/vdamante/H_mumu/newHists_Run3_${era}_hadded/  --output plots_data_mc/DY_minnlo_unweighted/  --region "${region}_${category}"  --samples DYto2Mu_minnlo Data_Muon EWK GluGluHto2Mu_MiNNLO SingleH SingleTop TTX VBFHto2Mu_M125_powheg  DiTriBoson W TT --wantLogY  --wantData  --rebin ;
+
+        done
+    done
+done

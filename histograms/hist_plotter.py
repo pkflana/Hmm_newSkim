@@ -149,23 +149,23 @@ def get_group_member_info(plot_groups_cfg):
     return member_info
 
 
-# def get_process_scale_factors(plot_groups_cfg):
-#     scale_factors = {}
+def get_process_scale_factors(plot_groups_cfg):
+    scale_factors = {}
 
-#     for group_cfg in plot_groups_cfg.get("background_groups", {}).values():
-#         if "scale_factor" not in group_cfg:
-#             continue
+    for group_cfg in plot_groups_cfg.get("background_groups", {}).values():
+        if "scale_factor" not in group_cfg:
+            continue
 
-#         for member_name in get_group_members(group_cfg):
-#             scale_factors[member_name] = float(group_cfg["scale_factor"])
+        for member_name in get_group_members(group_cfg):
+            scale_factors[member_name] = float(group_cfg["scale_factor"])
 
-#     for process_name, scale_cfg in plot_groups_cfg.get("process_scales", {}).items():
-#         if isinstance(scale_cfg, dict):
-#             scale_factors[process_name] = float(scale_cfg.get("scale_factor", 1.0))
-#         else:
-#             scale_factors[process_name] = float(scale_cfg)
+    for process_name, scale_cfg in plot_groups_cfg.get("process_scales", {}).items():
+        if isinstance(scale_cfg, dict):
+            scale_factors[process_name] = float(scale_cfg.get("scale_factor", 1.0))
+        else:
+            scale_factors[process_name] = float(scale_cfg)
 
-#     return scale_factors
+    return scale_factors
 
 
 def classify_plot_sample(sample_name, process_cfg, plot_groups_cfg):
@@ -676,7 +676,7 @@ if __name__ == "__main__":
     }
 
     config_setup["wantLogY"] = args.wantLogY
-    # process_scale_factors = get_process_scale_factors(plot_groups_cfg)
+    process_scale_factors = get_process_scale_factors(plot_groups_cfg)
 
     # =====================================================
     # Requested samples
@@ -809,7 +809,8 @@ if __name__ == "__main__":
                 },
             }
 
-            scale_factor = 1.0 # process_scale_factors.get(process_name, 1.0)
+            scale_factor = process_scale_factors.get(process_name, 1.0)
+            # print(process_name, scale_factor)
 
             available_hists = get_available_histograms(
                 root_file,

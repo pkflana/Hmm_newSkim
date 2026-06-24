@@ -140,7 +140,7 @@ def get_segmentation_dict(input_dir, node="gen"):
 from histograms.defineTriggerWeights import AddTriggerWeightsAndErrors
 from .add_vars_to_skim_tuples import SelectedJetObservablesDef,VBFJetObservablesDef,GetAllMuonsObservablesNew,SoftJetCollectionCleaningInVBF,VBFJetMuonsObservablesDef
 
-def build_rdf(rdf, is_data, seg_dict,weight_dict, store_shifted_weights, dnn_payloads=None, btag_algo="PNet"):
+def build_rdf(rdf, is_data, seg_dict,weight_dict, store_shifted_weights, dnn_payloads=None, btag_algo="PNet", era=None):
     if not is_data:
         rdf = AddTriggerWeightsAndErrors(
             rdf,
@@ -177,11 +177,11 @@ def build_rdf(rdf, is_data, seg_dict,weight_dict, store_shifted_weights, dnn_pay
     rdf = SoftJetCollectionCleaningInVBF(rdf)
     if dnn_payloads:
         from common.dnn_application import ApplyDNN
-        rdf = ApplyDNN(rdf, dnn_payloads, btag_algo=btag_algo)
+        rdf = ApplyDNN(rdf, dnn_payloads, btag_algo=btag_algo, era=era)
     return rdf
 
 
-def GetRdfForDataset(input_dir, is_data, weight_dict, store_shifted_weights, treeName="Events", explicit_files=None, seg_dict=None, skip_validation=False, dnn_payloads=None, btag_algo="PNet", additional_cuts = None):
+def GetRdfForDataset(input_dir, is_data, weight_dict, store_shifted_weights, treeName="Events", explicit_files=None, seg_dict=None, skip_validation=False, dnn_payloads=None, btag_algo="PNet", additional_cuts = None, era=None):
     """
     Se explicit_files è una lista di file ROOT, RDataFrame caricherà SOLO quei file (chunk).
     Il seg_dict può essere fornito esternamente per evitare di ricalcolarlo in ogni chunk.
@@ -214,7 +214,16 @@ def GetRdfForDataset(input_dir, is_data, weight_dict, store_shifted_weights, tre
     if additional_cuts:
         rdf = rdf.Filter(additional_cuts)
     # 4. Applica le definizioni e i pesi (usando il denominatore globale seg_dict)
-    rdf_base = build_rdf(rdf, is_data, seg_dict, weight_dict, store_shifted_weights, dnn_payloads=dnn_payloads, btag_algo=btag_algo)
+    rdf_base = build_rdf(
+        rdf,
+        is_data,
+        seg_dict,
+        weight_dict,
+        store_shifted_weights,
+        dnn_payloads=dnn_payloads,
+        btag_algo=btag_algo,
+        era=era,
+    )
     return rdf_base
 
 # def GetRdfForDataset(input_dir, is_data, weight_dict, store_shifted_weights, treeName="Events"):

@@ -7,6 +7,8 @@ CORRECTION_NAMES = {
     "dy_njets_reweight": "dy_njets_reweight",
 }
 
+DY_AMCATNLO_NORMALIZATION = 0.9393839712918659
+
 
 def _column_names(df):
     return {str(col) for col in df.GetColumnNames()}
@@ -18,6 +20,13 @@ def is_dy_dataset(dataset_name):
 
     name = dataset_name.lower()
     return name.startswith("dy") or "dyto" in name
+
+
+def is_dy_amcatnlo_dataset(dataset_name):
+    if not dataset_name:
+        return False
+    name = dataset_name.lower()
+    return is_dy_dataset(name) and "amcatnlo" in name
 
 
 def load_reweight_json(json_path, expected_type=None):
@@ -474,6 +483,26 @@ def _define_and_multiply_weight(df, expression, weight_columns, output_column, a
         )
 
     return df
+
+
+def ApplyDYAmcatnloNormalization(
+    df,
+    dataset_name,
+    weight_columns,
+    scale=DY_AMCATNLO_NORMALIZATION,
+    output_column="weight_dy_amcatnlo_normalization",
+):
+    if not is_dy_amcatnlo_dataset(dataset_name):
+        return df
+
+    available_columns = _column_names(df)
+    return _define_and_multiply_weight(
+        df,
+        f"static_cast<float>({float(scale):.17g})",
+        weight_columns,
+        output_column,
+        available_columns,
+    )
 
 
 def ApplyDYPtLLReweight(

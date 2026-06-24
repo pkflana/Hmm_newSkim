@@ -3,20 +3,9 @@
 # The process names listed here are the ROOT filenames without ".root" after
 # hadd_hists_to_processes.py, and the keys in config/<era>/process_names.yaml.
 
-process_scales:
-  # Apply the historical DY amc@nlo normalization only to selected samples.
-  # MiNNLO samples are intentionally not listed here.
-  DY: 0.9393839712918659
-  DYto2Mu_MLL105To160: 0.9393839712918659
-  DYto2Mu_MLL105To160_VBFFiltered: 0.9393839712918659
-  DYto2Mu_MLL105To160_Flashsim: 0.9393839712918659
-  DYto2Mu_MLL105To160_Flashsim: 0.9393839712918659
-  DYto2Mu_MLL105To160_nonStitched: 0.9393839712918659
-  DYto2Mu_MLL105To160_combined: 0.9393839712918659
-  DYto2Mu_Flashsim: 0.9393839712918659
-  DYto2Mu_Flashsim: 0.9393839712918659
-  DYto2L_Flashsim: 0.9393839712918659
-  DYto2L_Flashsim: 0.9393839712918659
+process_scales: {}
+# DY amc@nlo normalization is applied in histograms/hist_maker.py.
+# Keeping it here as well would double-count it. MiNNLO is not affected.
 
 background_groups:
   DY_amcatnlo:
@@ -29,7 +18,7 @@ background_groups:
 
   DY_minnlo:
     name: "DY - MiNNLO"
-    color_mplhep: violet #dodgerblue
+    color_mplhep: dodgerblue
     processes:
       - DYto2Mu_minnlo
       - DYto2Mu_minnlo_weighted
@@ -41,25 +30,28 @@ background_groups:
     processes:
       - DYto2Mu_MLL105To160
       - DYto2Mu_MLL_105To160
+      - DYto2Mu_MLL105To160_ptll
+      - DYto2Mu_MLL_105To160_ptll
       - DYto2Mu_MLL_105to160_amcatnloFXFX
       - DYto2Mu_MLL_105to160_amcatnloFXFX_stitched
-
-      - DYto2Mu_MLL_105to160_weighted
       - DYto2Mu_MLL105To160_weighted
+      - DYto2Mu_MLL_105to160_weighted
       - DYto2Mu_MLL_105to160_amcatnloFXFX_weighted
       - DYto2Mu_MLL_105to160_amcatnloFXFX_stitched_weighted
 
   DYto2Mu_MLL105_160_Flashsim:
     name: "DY - Flashsim"
-    color_mplhep: red
+    color_mplhep: dodgerblue # red
     processes:
       - DYto2Mu_MLL105To160_Flashsim
       - DYto2Mu_MLL_105to160_amcatnloFXFX_Flashsim_nonStitched
       - DYto2Mu_MLL_105to160_amcatnloFXFX_Flashsim
 
       - DYto2Mu_MLL105To160_Flashsim_weighted
+      - DYto2Mu_MLL105To160_FlashSim_weighted
       - DYto2Mu_MLL_105to160_amcatnloFXFX_Flashsim_nonStitched_weighted
       - DYto2Mu_MLL_105to160_amcatnloFXFX_Flashsim_weighted
+      - DYto2Mu_MLL105To160_FlashSim_ptll
 
   # DYto2Mu_MLL105_160_nonStitched:
   #   name: "DY - non stitched"
@@ -84,6 +76,7 @@ background_groups:
       - DYto2Mu_MLL_105to160_amcatnloFXFX_Fil_VBF_stitched
       - DYto2Mu_MLL_105to160_amcatnloFXFX_Fil_VBF_stitched_weighted
       - DYto2Mu_MLL_105to160_amcatnloFXFX_Fil_VBF_nonStitched
+      - DYto2Mu_MLL105To160_VBFFiltered_ptll
 
   DYto2Mu_MLL105To160_combined:
     name: "DY - combined"
@@ -124,7 +117,7 @@ background_groups:
 
   EWK_MLL105_160_Flashsim:
     name: "EWK - MLL(105-160) - Flashsim"
-    color_mplhep: red
+    color_mplhep: darkorchid # red
     processes:
       - EWK_2Mu2J_MLL_105to160_pythia_Flashsim
 
@@ -176,7 +169,7 @@ other_group:
 signal_styles:
   VBFHto2Mu_m125_Flashsim:
     name: 'VBF H $\rightarrow$ $\mu\mu$ Flashsim'
-    color: red
+    color: magenta # red
   VBFHto2Mu_M125_amcatnlo:
     name: 'VBF H $\rightarrow$ $\mu\mu$ amcatnlo'
     color: magenta

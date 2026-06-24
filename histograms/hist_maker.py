@@ -17,7 +17,12 @@ sys.path.append(os.environ["ANALYSIS_PATH"])
 import common.utilities as utilities
 from common.helpers import GetModel,GetRdfForDataset,get_root_files,get_valid_root_files,get_segmentation_dict,is_valid_tmp_root
 from common.add_vars_to_skim_tuples import DefineHistogramSelections, GetSelectionSuffixForSystematic
-from common.dy_ptll_reweight import ApplyDYNJetsReweight, ApplyDYPtLLReweight
+from common.dy_ptll_reweight import (
+    ApplyDYAmcatnloNormalization,
+    ApplyDYNJetsReweight,
+    ApplyDYPtLLReweight,
+    DY_AMCATNLO_NORMALIZATION,
+)
 HEADERS = ["analysis/AnalysisTools.h"]
 for header in HEADERS:
     utilities.DeclareHeader(f"{os.environ['ANALYSIS_PATH']}/{header}")
@@ -122,7 +127,7 @@ def get_systs_to_run(syst_cfg, mode):
 def should_shift_z_sideband_dnn_mass(mass_region, variable):
     return mass_region == "Z_sideband" and variable == "DNN_NNOutput"
 
-def apply_z_sideband_mass_shifted_dnn(rdf, btag_algo):
+def apply_z_sideband_mass_shifted_dnn(rdf, btag_algo, era):
     from common.dnn_application import ApplyDNN
 
     shifted_rdf = rdf.Redefine(
@@ -133,6 +138,7 @@ def apply_z_sideband_mass_shifted_dnn(rdf, btag_algo):
         shifted_rdf,
         [DNN_Z_SIDEBAND_SHIFTED_PAYLOAD],
         btag_algo=btag_algo,
+        era=era,
     )
 
 def process_single_chunk(args_tuple):
@@ -154,7 +160,7 @@ def process_single_chunk(args_tuple):
         print(f"[CHUNK {chunk_index} / {n_chunks}] Using {len(chunk_seg_dict)} segmentation entries for {len(usable_chunk_files)} ROOT file(s)")
 
         if usable_chunk_files:
-            rdf_base = GetRdfForDataset(input_dir=args.input,is_data=is_data,weight_dict=syst_cfg["weights"],store_shifted_weights=False,treeName="Events",explicit_files=usable_chunk_files,seg_dict=chunk_seg_dict,skip_validation=True,dnn_payloads=dnn_payloads,btag_algo=btag_algo,additional_cuts = args.additional_cuts)
+            rdf_base = GetRdfForDataset(input_dir=args.input,is_data=is_data,weight_dict=syst_cfg["weights"],store_shifted_weights=False,treeName="Events",explicit_files=usable_chunk_files,seg_dict=chunk_seg_dict,skip_validation=True,dnn_payloads=dnn_payloads,btag_algo=btag_algo,additional_cuts = args.additional_cuts,era=args.era)
             # print(rdf_base.GetColumnNames())
         else:
             rdf_base = None
@@ -173,6 +179,12 @@ def process_single_chunk(args_tuple):
                     for syst_info in systs_to_run.values()
                     if "weight" in syst_info
                 }
+            )
+            rdf_base = ApplyDYAmcatnloNormalization(
+                rdf_base,
+                args.dataset_name,
+                weight_columns,
+                scale=args.dy_amcatnlo_normalization,
             )
             if args.dy_ptll_njets_reweight_json:
                 rdf_base = ApplyDYPtLLReweight(
@@ -242,6 +254,7 @@ def process_single_chunk(args_tuple):
                                 rdf_for_hist = apply_z_sideband_mass_shifted_dnn(
                                     rdf_for_hist,
                                     btag_algo=btag_algo,
+                                    era=args.era,
                                 )
                                 hist_var = f"{DNN_Z_SIDEBAND_SHIFTED_PAYLOAD}_NNOutput"
 
@@ -297,6 +310,13 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--era", required=True, type=str)
     parser.add_argument("--input", required=True, type=str)
+    parser.add_argument(
+        "--input-files-file",
+        help=(
+            "Text file containing the ROOT files to process, one per line. "
+            "--input is still used for dataset metadata and segmentation JSONs."
+        ),
+    )
     parser.add_argument("--dataset-name", "--dataset", dest="dataset_name", required=True, type=str)
     parser.add_argument("--output-file", required=True, type=str)
     parser.add_argument("--systematics", choices=["central", "all"], default="central")
@@ -313,6 +333,15 @@ if __name__ == "__main__":
     parser.add_argument("--force-multiprocessing-with-dnn", action="store_true")
     parser.add_argument("--multiprocessing-method", choices=["spawn", "fork"], default="spawn")
     parser.add_argument("--additional-cuts",type=str, default=None)
+    parser.add_argument(
+        "--dy-amcatnlo-normalization",
+        type=float,
+        default=DY_AMCATNLO_NORMALIZATION,
+        help=(
+            "Constant normalization applied automatically to every DY "
+            "amc@nlo dataset. MiNNLO samples are not affected."
+        ),
+    )
     parser.add_argument(
         "--dy-ptll-njets-reweight-json",
         "--dy-ptll-njets-reweight",
@@ -370,7 +399,15 @@ if __name__ == "__main__":
     #     print("[WARNING] DNN payloads requested: forcing n_cores = 1.")
     #     args.n_cores = 1
     systs_to_run = get_systs_to_run(syst_cfg, args.systematics)
-    all_root_files = get_root_files(args.input)
+    if args.input_files_file:
+        with open(args.input_files_file) as input_files_handle:
+            all_root_files = [
+                line.strip()
+                for line in input_files_handle
+                if line.strip() and not line.lstrip().startswith("#")
+            ]
+    else:
+        all_root_files = get_root_files(args.input)
     if args.skip_file_validation:
         valid_root_files = all_root_files
     else:

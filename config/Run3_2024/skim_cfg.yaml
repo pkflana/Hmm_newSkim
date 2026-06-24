@@ -1,6 +1,6 @@
 
 submit: true
-job_flavour: microcentury
+job_flavour: longlunch # microcentury
 
 chunk_size: 1        # files per job
 max_files: -1        # -1 = all files
