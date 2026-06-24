@@ -220,19 +220,20 @@ def initialize_jet_corrections(
     jec_year = jec_period.split("_")[0]
 
     jec_tag_map = jec_tag_map_data if is_data else jec_tag_map_mc
-    jec_tag_array = _debug_map_get(jec_tag_map, period, "jec_tag_map")
+    jec_tag_array = _debug_map_get(jec_tag_map, jec_period, "jec_tag_map")
     if is_data:
         jec_tag_array = _format_data_jec_tags(jec_period, sample_name, jec_tag_array)
 
     jec_tag = jec_tag_array[0]
     other_jec_tag = jec_tag_array[1] if len(jec_tag_array) > 1 else jec_tag_array[0]
-    jer_tag = _debug_map_get(jer_tag_map, period, "jer_tag_map")
+    jer_tag = _debug_map_get(jer_tag_map, jer_period, "jer_tag_map")
 
     _jets_debug(
         f"period={period}, is_data={is_data}, sample={sample_name}, "
-        f"regrouped={use_regrouped}, jet_json={jet_jsonFile}, "
+        f"regrouped={use_regrouped}, jec_period={jec_period}, jer_period={jer_period}, "
+        f"jec_jsonFile={jec_jsonFile}, jer_jsonFile={jer_jsonFile}, "
         f"jec_tag={jec_tag}, other_jec_tag={other_jec_tag}, jer_tag={jer_tag}, "
-        f"algorithm={jet_algorithm}, year={year}"
+        f"algorithm={jet_algorithm}, nominal_year={year}, jec_year={jec_year}"
     )
 
     headers_dir = os.path.dirname(os.path.abspath(__file__))

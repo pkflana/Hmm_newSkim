@@ -99,11 +99,15 @@ HTCONDOR_PATH = os.path.join(ANALYSIS_PATH, "htcondor")
 CONFIG_PATH = os.path.join(ANALYSIS_PATH, "config")
 
 skim_cfg_path = os.path.join(CONFIG_PATH, era, "skim_cfg.yaml")
+main_cfg_path = os.path.join(CONFIG_PATH, era, "maincfg.yaml")
 processes_yaml = os.path.join(CONFIG_PATH, era, "process_names.yaml")
 samples_yaml = os.path.join(CONFIG_PATH, era, "samples_withfiles.yaml")
 
 with open(skim_cfg_path, "r") as skimconfig:
     skim_config = yaml.safe_load(skimconfig)
+
+with open(main_cfg_path, "r") as mainconfig:
+    main_config = yaml.safe_load(mainconfig)
 
 with open(processes_yaml, "r") as processes_config:
     processes_cfg = yaml.safe_load(processes_config)
@@ -141,7 +145,6 @@ chunk_size = skim_config["chunk_size"]
 datasets_whitelist = skim_config.get("datasets_whitelist", [])
 process_to_select = skim_config.get("process_to_select", [])
 
-output_directory = os.path.abspath(skim_config["output_dir"])
 proxy_location = skim_config["proxy_location"]
 proxy_location = os.path.abspath(os.path.expanduser(proxy_location))
 if "X509_USER_PROXY" not in os.environ:
@@ -161,14 +164,36 @@ if use_ext is None:
     use_ext = skim_config.get("use_ext", False)
 
 jerc_2025_mc_mode = args.jerc_2025_mc_mode
+if args.use_2024_jerc_for_2025_mc:
+    if (
+        jerc_2025_mc_mode is not None
+        and jerc_2025_mc_mode != "jec2024_jer2025"
+    ):
+        parser.error(
+            "--use-2024-jerc-for-2025-mc conflicts with "
+            f"--jerc-2025-mc-mode {jerc_2025_mc_mode}"
+        )
+    jerc_2025_mc_mode = "jec2024_jer2025"
 if jerc_2025_mc_mode is None:
-    jerc_2025_mc_mode = skim_config.get("jerc_2025_mc_mode", "2025") 
+    jerc_2025_mc_mode = main_config.get("jerc_2025_mc_mode", "2025")
 jerc_2025_mc_mode = str(jerc_2025_mc_mode)
 
-if jerc_2025_mc_mode not in ("config", "2025", "jec2024_jer2025", "2024"):
+if jerc_2025_mc_mode not in ("2025", "jec2024_jer2025", "2024"):
     raise SystemExit(
         "[ERROR] jerc_2025_mc_mode must be one of: 2025, jec2024_jer2025, 2024"
     )
+
+output_dirs = skim_config.get("output_dirs_by_jerc_2025_mc_mode", {})
+if output_dirs:
+    if jerc_2025_mc_mode not in output_dirs:
+        raise SystemExit(
+            "[ERROR] output_dirs_by_jerc_2025_mc_mode has no entry for "
+            f"{jerc_2025_mc_mode!r}"
+        )
+    output_dir = output_dirs[jerc_2025_mc_mode]
+else:
+    output_dir = skim_config["output_dir"]
+output_directory = os.path.abspath(output_dir)
 
 MAX_PARALLEL_JOBS = args.max_parallel_jobs or skim_config.get("max_parallel_jobs", 6000)
 POLL_INTERVAL = args.poll_interval or skim_config.get("poll_interval", 120)

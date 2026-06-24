@@ -40,8 +40,18 @@ args = parser.parse_args()
 
 ## all configurations to load ##
 config = utilities.get_config(os.path.join(os.environ["ANALYSIS_PATH"], "config", args.era, "maincfg.yaml"))
+if args.use_2024_jerc_for_2025_mc:
+    if (
+        args.jerc_2025_mc_mode is not None
+        and args.jerc_2025_mc_mode != "jec2024_jer2025"
+    ):
+        parser.error(
+            "--use-2024-jerc-for-2025-mc conflicts with "
+            f"--jerc-2025-mc-mode {args.jerc_2025_mc_mode}"
+        )
+    args.jerc_2025_mc_mode = "jec2024_jer2025"
 if args.jerc_2025_mc_mode is not None:
-    config["jerc_2025_mc_mode"] = args.jerc_2025_mc_mode 
+    config["jerc_2025_mc_mode"] = args.jerc_2025_mc_mode
 dataset_cfg = utilities.get_config(os.path.join(os.environ["ANALYSIS_PATH"], "config", args.era, "samples.yaml"))[args.dataset_name]
 sel_config = utilities.get_config(os.path.join(os.environ["ANALYSIS_PATH"], "config", args.era, "selections.yaml"))
 trigger_config = utilities.get_config(os.path.join(os.environ["ANALYSIS_PATH"], "config", args.era, "triggers.yaml"))

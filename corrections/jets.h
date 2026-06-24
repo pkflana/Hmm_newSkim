@@ -417,7 +417,7 @@ namespace correction {
                     if (unc_source == UncSource::JER) {
                         evaluation_stage = "JER uncertainty evaluate";
                         float SF_unc =
-                            safeEvaluate(corr_jer_sf_, eta, corrected_pt);
+                            safeEvaluate(corr_jer_sf_shifted_, eta, corrected_pt);
                         if (unc_scale == UncScale::up) {
                             // jer_tag = "up";
                             jer_sf *=(1+SF_unc);
