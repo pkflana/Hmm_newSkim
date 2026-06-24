@@ -328,7 +328,7 @@ namespace correction {
                     const float mass_raw = Jet_mass[i] * raw_sf;
 
                     const bool is2024Eta2To2p5 =
-                        ((year_ == "2024" || year_=="2025") &&
+                        ((year_ == "2024") && //  || year_=="2025"
                         abs_eta > 2.f &&
                         abs_eta < 2.5f);
 
@@ -445,6 +445,7 @@ namespace correction {
                     if (
                         is_jet_in_horn &&
                         !has_gen_match
+                        && year_ != "2025"
                     ) {
                         jersmear_factor = 1.f;
                     }
