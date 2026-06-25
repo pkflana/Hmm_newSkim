@@ -108,7 +108,7 @@ if not is_data:
     from corrections.general import define_base_weights
     xs_entry = dataset_cfg.get("crossSection", args.dataset_name)
     process_entry = process_cfg[process]
-    df,base_weights,json_dict_to_store = define_base_weights(df, config.get("luminosity", ""), xs_entry, xs_cfg,config,dataset_cfg, process_entry,want_variations)
+    df,base_weights,json_dict_to_store = define_base_weights(df, config.get("luminosity", ""), xs_entry, xs_cfg,config,dataset_cfg, process_entry,want_variations,systematics_cfg)
     cols_to_save.extend(base_weights)
 else:
     from corrections.general import apply_golden_json

@@ -7,6 +7,7 @@ import argparse
 import time
 import traceback
 import subprocess
+import copy
 from multiprocessing import get_context
 
 ROOT.gROOT.SetBatch(True)
@@ -28,6 +29,7 @@ from common.dy_ptll_reweight import (
     ApplyDYPtLLReweight,
     DY_AMCATNLO_NORMALIZATION,
 )
+from corrections.qcd_scale import get_qcd_scale_points
 HEADERS = ["analysis/AnalysisTools.h"]
 for header in HEADERS:
     utilities.DeclareHeader(f"{os.environ['ANALYSIS_PATH']}/{header}")
@@ -98,6 +100,69 @@ def format_systematic_info(syst_info, scale=None):
 
     return formatted
 
+
+def nuisance_histogram_name(variable, syst_name, syst_info, era, process):
+    if syst_name == "Central":
+        return variable
+
+    nuisance_name = syst_info.get("name", syst_name)
+    nuisance_name = nuisance_name.format(
+        era=era.removeprefix("Run3_"),
+        process=process,
+    )
+    direction = syst_info.get("direction")
+    if direction:
+        nuisance_name = f"{nuisance_name}{direction.capitalize()}"
+    return f"{variable}_{nuisance_name}"
+
+
+def configure_available_qcd_scale(syst_cfg, input_path, is_data, mode):
+    qcd_config = syst_cfg.get("qcd_scale", {})
+    if (
+        is_data
+        or mode == "central"
+        or not qcd_config.get("enabled", False)
+    ):
+        return syst_cfg
+
+    missing_points = []
+    for point in get_qcd_scale_points(qcd_config):
+        point_name = point["name"]
+        sums = get_segmentation_dict(
+            input_path,
+            node=f"qcd_scale__{point_name}",
+            fallback_to_initial=False,
+            warn_if_missing=False,
+        )
+        if not sums:
+            missing_points.append(point_name)
+
+    if not missing_points:
+        return syst_cfg
+
+    missing_policy = qcd_config.get("missing_sums", "error")
+    message = (
+        "QCD scale sums are missing from the skim reports for: "
+        + ", ".join(missing_points)
+    )
+    if missing_policy == "error":
+        raise RuntimeError(
+            f"{message}. Reproduce the skim with --want-variations."
+        )
+    if missing_policy != "skip":
+        raise ValueError(
+            "qcd_scale.missing_sums must be either 'skip' or 'error'"
+        )
+
+    configured = copy.deepcopy(syst_cfg)
+    configured["qcd_scale"]["enabled"] = False
+    print(
+        f"[WARNING] {message}. QCD scale templates will be skipped; "
+        "all other requested systematics will still be produced."
+    )
+    return configured
+
+
 def get_systs_to_run(syst_cfg, mode):
     systs_to_run = {
         "Central": syst_cfg["systematics"]["Central"]
@@ -116,20 +181,116 @@ def get_systs_to_run(syst_cfg, mode):
 
         for scale in scales:
             output_name = f"{syst_name}{scale.capitalize()}"
-            systs_to_run[output_name] = format_systematic_info(syst_info, scale=scale)
+            formatted = format_systematic_info(syst_info, scale=scale)
+            formatted["direction"] = scale
+            systs_to_run[output_name] = formatted
 
     for weight_name, weight_info in syst_cfg.get("weights", {}).items():
         if weight_name == "Central":
+            continue
+        if weight_info.get("derived_envelope", False):
             continue
 
         if "{scale}" in weight_name:
             for scale in scales:
                 output_name = weight_name.format(scale=scale)
-                systs_to_run[output_name] = format_systematic_info(weight_info, scale=scale)
+                formatted = format_systematic_info(weight_info, scale=scale)
+                formatted["direction"] = scale
+                systs_to_run[output_name] = formatted
         else:
-            systs_to_run[weight_name] = weight_info
+            formatted = dict(weight_info)
+            for direction in scales:
+                if weight_name.endswith(f"_{direction}"):
+                    formatted["direction"] = direction
+                    break
+            systs_to_run[weight_name] = formatted
+
+    qcd_scale_config = syst_cfg.get("qcd_scale", {})
+    if qcd_scale_config.get("enabled", False):
+        for point in get_qcd_scale_points(qcd_scale_config):
+            point_name = point["name"]
+            output_name = f"QCDScale__{point_name}"
+            systs_to_run[output_name] = {
+                "jet_suffix": "",
+                "muon_suffix": "",
+                "name": output_name,
+                "weight": f"weight__{output_name}",
+            }
 
     return systs_to_run
+
+
+def write_qcd_scale_envelopes(
+    output_file,
+    syst_cfg,
+    variables,
+    mass_regions,
+    categories,
+    era,
+    process,
+):
+    qcd_scale_config = syst_cfg.get("qcd_scale", {})
+    if not qcd_scale_config.get("enabled", False):
+        return
+
+    source_suffixes = [
+        f"QCDScale__{point['name']}"
+        for point in get_qcd_scale_points(qcd_scale_config)
+    ]
+    for mass_region in mass_regions:
+        for category in categories:
+            directory = output_file.GetDirectory(
+                f"{mass_region}_{category}"
+            )
+            if not directory:
+                continue
+            for variable in variables:
+                central = directory.Get(variable)
+                sources = [
+                    directory.Get(f"{variable}_{suffix}")
+                    for suffix in source_suffixes
+                ]
+                if not central or any(source is None for source in sources):
+                    continue
+
+                nuisance_name = qcd_scale_config.get(
+                    "name", "QCDscale_{process}"
+                ).format(
+                    era=era.removeprefix("Run3_"),
+                    process=process,
+                )
+                up = central.Clone(f"{variable}_{nuisance_name}Up")
+                down = central.Clone(f"{variable}_{nuisance_name}Down")
+                up.SetDirectory(0)
+                down.SetDirectory(0)
+                for bin_index in range(central.GetNcells()):
+                    histograms = [central] + sources
+                    highest = max(
+                        histograms,
+                        key=lambda hist: hist.GetBinContent(bin_index),
+                    )
+                    lowest = min(
+                        histograms,
+                        key=lambda hist: hist.GetBinContent(bin_index),
+                    )
+                    up.SetBinContent(
+                        bin_index, highest.GetBinContent(bin_index)
+                    )
+                    up.SetBinError(
+                        bin_index, highest.GetBinError(bin_index)
+                    )
+                    down.SetBinContent(
+                        bin_index, lowest.GetBinContent(bin_index)
+                    )
+                    down.SetBinError(
+                        bin_index, lowest.GetBinError(bin_index)
+                    )
+                directory.WriteTObject(up, up.GetName(), "Overwrite")
+                directory.WriteTObject(down, down.GetName(), "Overwrite")
+                for source_suffix in source_suffixes:
+                    directory.Delete(
+                        f"{variable}_{source_suffix};*"
+                    )
 
 def define_shifted_jet_observables(rdf, systs_to_run):
     defined_suffixes = set()
@@ -214,10 +375,23 @@ def process_single_chunk(args_tuple):
             )
 
         chunk_seg_dict = get_segmentation_dict(args.input)# ,root_files=usable_chunk_files)
+        qcd_scale_seg_dicts = {}
+        if (
+            not is_data
+            and args.systematics != "central"
+            and syst_cfg.get("qcd_scale", {}).get("enabled", False)
+        ):
+            for point in get_qcd_scale_points(syst_cfg["qcd_scale"]):
+                point_name = point["name"]
+                qcd_scale_seg_dicts[point_name] = get_segmentation_dict(
+                    args.input,
+                    node=f"qcd_scale__{point_name}",
+                    fallback_to_initial=False,
+                )
         print(f"[CHUNK {chunk_index} / {n_chunks}] Using {len(chunk_seg_dict)} segmentation entries for {len(usable_chunk_files)} ROOT file(s)")
 
         if usable_chunk_files:
-            rdf_base = GetRdfForDataset(input_dir=args.input,is_data=is_data,weight_dict=syst_cfg["weights"],store_shifted_weights=args.systematics != "central",treeName="Events",explicit_files=usable_chunk_files,seg_dict=chunk_seg_dict,skip_validation=True,dnn_payloads=dnn_payloads,btag_algo=btag_algo,additional_cuts = args.additional_cuts,era=args.era)
+            rdf_base = GetRdfForDataset(input_dir=args.input,is_data=is_data,weight_dict=syst_cfg["weights"],store_shifted_weights=args.systematics != "central",treeName="Events",explicit_files=usable_chunk_files,seg_dict=chunk_seg_dict,skip_validation=True,dnn_payloads=dnn_payloads,btag_algo=btag_algo,additional_cuts = args.additional_cuts,era=args.era,qcd_scale_config=syst_cfg.get("qcd_scale"),qcd_scale_seg_dicts=qcd_scale_seg_dicts,pdf_config=syst_cfg.get("pdf"))
             # print(rdf_base.GetColumnNames())
         else:
             rdf_base = None
@@ -302,7 +476,13 @@ def process_single_chunk(args_tuple):
                     dir_ptr = utilities.mkdir_recursive(outFile,f"{mass_region}_{category}")
                     for var in vars_to_make_hist:
                         model = GetModel(hist_cfg, var, dims=1)
-                        hist_name = var if syst_name == "Central" else f"{var}_{syst_name}"
+                        hist_name = nuisance_histogram_name(
+                            var,
+                            syst_name,
+                            syst_info,
+                            args.era,
+                            args.process_name,
+                        )
                         if rdf_filtered is not None:
                             rdf_for_hist = rdf_filtered
                             available_columns = {
@@ -460,6 +640,11 @@ if __name__ == "__main__":
     samples_cfg = utilities.get_config(os.path.join(cfg_dir, "samples.yaml"))
     dataset_cfg = samples_cfg.get(args.dataset_name, {})
     is_data = dataset_cfg.get("is_data", False) or "data" in args.dataset_name.lower()
+    process_cfg = utilities.get_config(os.path.join(cfg_dir, "process_names.yaml"))
+    args.process_name = (
+        utilities.process_from_dataset(process_cfg, args.dataset_name)
+        or args.dataset_name
+    )
     sel_cfg = utilities.get_config(os.path.join(cfg_dir, "selections.yaml"))
     syst_cfg = utilities.get_config(os.path.join(cfg_dir, "systematics.yaml"))
     hist_cfg = utilities.get_config(os.path.join(analysis_path, "config", "plot", "histograms.yaml"))
@@ -474,6 +659,12 @@ if __name__ == "__main__":
     # if len(dnn_payloads) > 0 and args.n_cores > 1 and not args.force_multiprocessing_with_dnn:
     #     print("[WARNING] DNN payloads requested: forcing n_cores = 1.")
     #     args.n_cores = 1
+    syst_cfg = configure_available_qcd_scale(
+        syst_cfg,
+        args.input,
+        is_data,
+        args.systematics,
+    )
     systs_to_run = get_systs_to_run(syst_cfg, args.systematics)
     if args.input_files_file:
         with open(args.input_files_file) as input_files_handle:
@@ -615,6 +806,21 @@ if __name__ == "__main__":
         print("[ERROR] hadd failed.")
         sys.exit(result.returncode)
     print("[INFO] hadd completed successfully.")
+    merged_output = ROOT.TFile.Open(args.output_file, "UPDATE")
+    if not merged_output or merged_output.IsZombie():
+        raise RuntimeError(
+            f"Could not reopen merged output file: {args.output_file}"
+        )
+    write_qcd_scale_envelopes(
+        merged_output,
+        syst_cfg,
+        vars_to_make_hist,
+        masses_regions_list,
+        categories_list,
+        args.era,
+        args.process_name,
+    )
+    merged_output.Close()
     if args.keep_tmp:
         print("[INFO] Keeping temporary files because --keep-tmp was used.")
     else:
