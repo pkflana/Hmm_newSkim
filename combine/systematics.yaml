@@ -1,0 +1,134 @@
+scales:
+  - up
+  - down
+
+systematics:
+  Central:
+    muon_suffix: ""
+    jet_suffix: ""
+    weight: "weight__Central"
+    name: ""
+
+  JER:
+    muon_suffix: ""
+    jet_suffix: "_JER{scale}"
+    weight: "weight__Central"
+    name: "CMS_res_j_{scale}"
+    era_correlation: False
+
+  JES_Total:
+    muon_suffix: ""
+    jet_suffix: "_JESTotal{scale}"
+    weight: "weight__Central"
+    name: "CMS_scale_j_{scale}"
+    era_correlation: False
+
+  MuonScale:
+    jet_suffix: ""
+    muon_suffix: "_FSR_scale_{scale}"
+    weight: "weight__Central"
+    name: "CMS_scale_m_{scale}"
+    era_correlation: False
+
+  MuonRes:
+    jet_suffix: ""
+    muon_suffix: "_FSR_res_{scale}"
+    weight: "weight__Central"
+    name: "CMS_res_m_{scale}"
+    era_correlation: False
+
+weights:
+  Central:
+    name: ""
+    muon_suffix: ""
+    jet_suffix: ""
+    weight: "weight__Central"
+    expression: >
+      genWeight *
+      weight_lumi *
+      weight_xs *
+      weight_pu *
+      ((mu1_pt < 30) ? weight_mu1_TightPFIso_TightID_Central : weight_mu1_LoosePFIso_MediumID_Central) *
+      ((mu1_pt < 30) ? weight_mu1_TightID_Trk_Central : weight_mu1_MediumID_Trk_Central) *
+      ((mu2_pt < 30) ? weight_mu2_TightPFIso_TightID_Central : weight_mu2_LoosePFIso_MediumID_Central) *
+      ((mu2_pt < 30) ? weight_mu2_TightID_Trk_Central : weight_mu2_MediumID_Trk_Central) *
+      weight_TrgSF_singleMu_IsoMu24Central
+
+  # ========================================
+  # Pileup
+  # ========================================
+
+  PU_{scale}:
+    jet_suffix: ""
+    muon_suffix: ""
+    name: "CMS_pileup_{scale}"
+    weight: "weight__PU_{scale}"
+    expression: >
+      genWeight *
+      weight_lumi *
+      weight_xs *
+      weight_pu_{scale} *
+      ((mu1_pt < 30) ? weight_mu1_TightPFIso_TightID_Central : weight_mu1_LoosePFIso_MediumID_Central) *
+      ((mu1_pt < 30) ? weight_mu1_TightID_Trk_Central : weight_mu1_MediumID_Trk_Central) *
+      ((mu2_pt < 30) ? weight_mu2_TightPFIso_TightID_Central : weight_mu2_LoosePFIso_MediumID_Central) *
+      ((mu2_pt < 30) ? weight_mu2_TightID_Trk_Central : weight_mu2_MediumID_Trk_Central) *
+      weight_TrgSF_singleMu_IsoMu24Central
+    era_correlation: False
+
+  # ========================================
+  # Muon ID/Iso
+  # ========================================
+
+  MuonID_{scale}:
+    jet_suffix: ""
+    muon_suffix: ""
+    name: CMS_eff_m_id_{}
+    weight: "weight__MuonID_{scale}"
+    expression: >
+      genWeight *
+      weight_lumi *
+      weight_xs *
+      weight_pu *
+      ((mu1_pt < 30) ? weight_mu1_TightPFIso_TightID_Central : weight_mu1_LoosePFIso_MediumID_Central) *
+      ((mu1_pt < 30) ? weight_mu1_TightID_Trk_{scale} : weight_mu1_MediumID_Trk_{scale}) *
+      ((mu2_pt < 30) ? weight_mu2_TightPFIso_TightID_Central : weight_mu2_LoosePFIso_MediumID_Central) *
+      ((mu2_pt < 30) ? weight_mu2_TightID_Trk_{scale} : weight_mu2_MediumID_Trk_{scale}) *
+      weight_TrgSF_singleMu_IsoMu24Central
+    era_correlation: False
+
+  MuonIso_{scale}:
+    jet_suffix: ""
+    muon_suffix: ""
+    name: CMS_eff_m_id_iso_{scale}
+    weight: "weight__MuonIso_{scale}"
+    expression: >
+      genWeight *
+      weight_lumi *
+      weight_xs *
+      weight_pu *
+      ((mu1_pt < 30) ? weight_mu1_TightPFIso_TightID_{scale} : weight_mu1_LoosePFIso_MediumID_{scale}) *
+      ((mu1_pt < 30) ? weight_mu1_TightID_Trk_Central : weight_mu1_MediumID_Trk_Central) *
+      ((mu2_pt < 30) ? weight_mu2_TightPFIso_TightID_{scale} : weight_mu2_LoosePFIso_MediumID_{scale}) *
+      ((mu2_pt < 30) ? weight_mu2_TightID_Trk_Central : weight_mu2_MediumID_Trk_Central) *
+      weight_TrgSF_singleMu_IsoMu24Central
+    era_correlation: False
+  # ========================================
+  # Trigger
+  # ========================================
+
+  singleMuTrigger_{scale}:
+    jet_suffix: ""
+    muon_suffix: ""
+    name: CMS_trig_singleMu_{}
+    weight: "weight__singleMuTrigger_{scale}"
+    expression: >
+      genWeight *
+      weight_lumi *
+      weight_xs *
+      weight_pu *
+      ((mu1_pt < 30) ? weight_mu1_TightPFIso_TightID_Central : weight_mu1_LoosePFIso_MediumID_Central) *
+      ((mu1_pt < 30) ? weight_mu1_TightID_Trk_Central : weight_mu1_MediumID_Trk_Central) *
+      ((mu2_pt < 30) ? weight_mu2_TightPFIso_TightID_Central : weight_mu2_LoosePFIso_MediumID_Central) *
+      ((mu2_pt < 30) ? weight_mu2_TightID_Trk_Central : weight_mu2_MediumID_Trk_Central) *
+      weight_TrgSF_singleMu_IsoMu24{scale}
+    era_correlation: False
