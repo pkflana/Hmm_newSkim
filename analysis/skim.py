@@ -22,17 +22,36 @@ parser.add_argument("--dataset-name", required=True)
 parser.add_argument("--output-file", required=True)
 parser.add_argument("--want-variations", required=False, action="store_true", help="request for variations from command line")
 parser.add_argument(
+    "--jerc-2025-mc-mode",
+    choices=["2025", "jec2024_jer2025", "2024"],
+    default=None,
+    help=(
+        "JEC/JER payload mode for Run3_2025 MC: 2025, "
+        "jec2024_jer2025, or 2024. Overrides config jerc_2025_mc_mode."
+    ),
+)
+parser.add_argument(
     "--use-2024-jerc-for-2025-mc",
     action=argparse.BooleanOptionalAction,
     default=None,
-    help="Override config use_2024_jerc_for_2025_mc.",
+    help="Deprecated alias for --jerc-2025-mc-mode jec2024_jer2025.",
 )
 args = parser.parse_args()
 
 ## all configurations to load ##
 config = utilities.get_config(os.path.join(os.environ["ANALYSIS_PATH"], "config", args.era, "maincfg.yaml"))
-if args.use_2024_jerc_for_2025_mc is not None:
-    config["use_2024_jerc_for_2025_mc"] = args.use_2024_jerc_for_2025_mc
+if args.use_2024_jerc_for_2025_mc:
+    if (
+        args.jerc_2025_mc_mode is not None
+        and args.jerc_2025_mc_mode != "jec2024_jer2025"
+    ):
+        parser.error(
+            "--use-2024-jerc-for-2025-mc conflicts with "
+            f"--jerc-2025-mc-mode {args.jerc_2025_mc_mode}"
+        )
+    args.jerc_2025_mc_mode = "jec2024_jer2025"
+if args.jerc_2025_mc_mode is not None:
+    config["jerc_2025_mc_mode"] = args.jerc_2025_mc_mode
 dataset_cfg = utilities.get_config(os.path.join(os.environ["ANALYSIS_PATH"], "config", args.era, "samples.yaml"))[args.dataset_name]
 sel_config = utilities.get_config(os.path.join(os.environ["ANALYSIS_PATH"], "config", args.era, "selections.yaml"))
 trigger_config = utilities.get_config(os.path.join(os.environ["ANALYSIS_PATH"], "config", args.era, "triggers.yaml"))
