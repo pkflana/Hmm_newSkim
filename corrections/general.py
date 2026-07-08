@@ -156,14 +156,6 @@ def define_base_weights(df, lumi, xs_entry, xs_cfg,config,dataset_cfg, process_e
     json_dict_to_store['gen'][f"total"]['selection']= "return true;"
     json_dict_to_store['gen'][f"total"]['value']= df.Sum("genWeight")
 
-    if want_variations and systematics_cfg and systematics_cfg.get("qcd_scale"):
-        from .qcd_scale import define_qcd_scale_sum_columns
-        df, json_dict_to_store = define_qcd_scale_sum_columns(
-            df,
-            systematics_cfg["qcd_scale"],
-            json_dict_to_store,
-        )
-
     from .pu import apply_pu_weights
     df,pu_branches,json_dict_to_store = apply_pu_weights(df, json_dict_to_store, config, "Pileup_nTrueInt",want_variations)
     base_weights_to_store.extend(pu_branches)
@@ -179,6 +171,14 @@ def define_base_weights(df, lumi, xs_entry, xs_cfg,config,dataset_cfg, process_e
         xs_value = str(xs_cfg[xs_entry]['crossSec'])
         df = df.Define("weight_xs", xs_value)
     base_weights_to_store.append(weight_xs_name)
+
+    if systematics_cfg and systematics_cfg.get("qcd_scale"):
+        from .qcd_scale import define_qcd_scale_sum_columns
+        df, json_dict_to_store = define_qcd_scale_sum_columns(
+            df,
+            systematics_cfg["qcd_scale"],
+            json_dict_to_store,
+        )
 
     ### to add --> 2024/2025/2026 --> weight 0 or 1 to decide what MC use for what prod
 
@@ -203,6 +203,4 @@ def apply_corrections(df, config, dataset_cfg, dataset_name, want_variations_fro
     from .jets import apply_jet_corrections
     df = apply_jet_corrections(df, config, dataset_cfg, dataset_name, want_variations)
     return df
-
-
 

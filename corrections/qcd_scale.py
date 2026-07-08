@@ -1,5 +1,7 @@
 """QCD renormalization/factorization scale variations from NanoAOD LHE weights."""
 
+import re
+
 import ROOT
 
 
@@ -35,8 +37,19 @@ def get_qcd_scale_points(config):
     )
 
 
+def _df_for_selection(df, selection):
+    selection = str(selection or "").strip()
+    if not selection or selection.lower() == "return true;":
+        return df
+    return df.Filter(selection)
+
+
+def _safe_column_fragment(value):
+    return re.sub(r"[^A-Za-z0-9_]", "_", str(value))
+
+
 def define_qcd_scale_sum_columns(df, config, json_dict):
-    """Book exact selected-event sums for every scale variation."""
+    """Book exact selected-event denominator sums for every scale variation."""
     config = config or {}
     if not config.get("enabled", True):
         return df, json_dict
@@ -47,20 +60,50 @@ def define_qcd_scale_sum_columns(df, config, json_dict):
         print(f"[WARNING] QCD scale branch '{branch}' is missing.")
         return df, json_dict
 
+    gen_entries = dict(json_dict.get("gen", {}))
+    pu_entries = dict(json_dict.get("pu", {}))
+
     for point in get_qcd_scale_points(config):
         name = point["name"]
         index = int(point["index"])
-        column = f"weight_qcd_scale_sum__{name}"
+        weight_column = f"weight_qcd_scale_sum__{_safe_column_fragment(name)}"
         df = df.Define(
-            column,
+            weight_column,
             f"genWeight * qcd_scale::weightAt({branch}, {index}u)",
         )
-        json_dict[f"qcd_scale__{name}"] = {
-            "total": {
-                "selection": "return true;",
-                "value": df.Sum(column),
+
+        gen_node = f"gen_qcdScale_{name}"
+        json_dict[gen_node] = {}
+        for entry_name, entry in gen_entries.items():
+            selection = entry.get("selection", "return true;")
+            selected_df = _df_for_selection(df, selection)
+            json_dict[gen_node][entry_name] = {
+                "selection": selection,
+                "value": selected_df.Sum(weight_column),
             }
-        }
+
+        if "weight_pu" not in available_columns:
+            continue
+
+        pu_node = f"pu_qcdScale_{name}"
+        json_dict[pu_node] = {}
+        for entry_name, entry in pu_entries.items():
+            selection = entry.get("selection", "return true;")
+            selected_df = _df_for_selection(df, selection)
+            safe_name = _safe_column_fragment(f"{name}_{entry_name}")
+            signed_column = f"signed_weight_pu_qcd_scale_sum__{safe_name}"
+            unsigned_column = f"unsigned_weight_pu_qcd_scale_sum__{safe_name}"
+            json_dict[pu_node][entry_name] = {
+                "selection": selection,
+                "value": selected_df.Define(
+                    signed_column,
+                    f"weight_pu * weight_gen_sign * qcd_scale::weightAt({branch}, {index}u)",
+                ).Sum(signed_column),
+                "value_unsigned": selected_df.Define(
+                    unsigned_column,
+                    f"weight_pu * qcd_scale::weightAt({branch}, {index}u)",
+                ).Sum(unsigned_column),
+            }
     return df, json_dict
 
 
