@@ -99,6 +99,9 @@ def get_segmentation_dict(
         stem = os.path.splitext(os.path.basename(input_path))[0]
         report_path = os.path.join(search_dir, f"{stem}_report.json")
         json_paths = [report_path] if os.path.exists(report_path) else []
+    elif input_path.endswith(".json"):
+        search_dir = os.path.dirname(input_path)
+        json_paths = [input_path] if os.path.exists(input_path) else []
     else:
         search_dir = input_path
         json_paths = [

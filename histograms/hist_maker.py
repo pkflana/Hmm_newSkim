@@ -111,6 +111,7 @@ def nuisance_histogram_name(variable, syst_name, syst_info, era, process):
     nuisance_name = nuisance_name.format(
         era=era.removeprefix("Run3_"),
         process=process,
+        pdf_process=pdf_process_label(syst_info.get("pdf_config", {}), process),
     )
     direction = syst_info.get("direction")
     if direction:
@@ -161,6 +162,125 @@ def get_combined_segmentation_dict(
     return combined
 
 
+def get_qcd_scale_segmentation_dict(input_paths, point_name, **kwargs):
+    warn_if_missing = kwargs.pop("warn_if_missing", True)
+    node_candidates = [
+        f"qcd_scale__{point_name}",
+        f"gen_qcdScale_{point_name}",
+    ]
+
+    for node in node_candidates:
+        sums = get_combined_segmentation_dict(
+            input_paths,
+            node=node,
+            warn_if_missing=False,
+            **kwargs,
+        )
+        if sums:
+            return sums
+
+    if warn_if_missing:
+        print(
+            "[WARNING] No QCD scale segmentation JSON information found for "
+            f"{point_name} under: " + ", ".join(unique_metadata_inputs(input_paths))
+        )
+
+    return {}
+
+
+def get_qcd_scale_variations(qcd_scale_config):
+    return qcd_scale_config.get(
+        "variations",
+        [
+            {
+                "name": "QCDscaleMuR_{process}",
+                "down": "muR0p5_muF1",
+                "up": "muR2_muF1",
+            },
+            {
+                "name": "QCDscaleMuF_{process}",
+                "down": "muR1_muF0p5",
+                "up": "muR1_muF2",
+            },
+        ],
+    )
+
+
+def get_qcd_scale_source_points(qcd_scale_config):
+    points_by_name = {
+        point["name"]: point
+        for point in get_qcd_scale_points(qcd_scale_config)
+    }
+    source_names = []
+
+    for variation in get_qcd_scale_variations(qcd_scale_config):
+        for direction in ("down", "up"):
+            point_name = variation[direction]
+            if point_name not in points_by_name:
+                raise ValueError(
+                    f"QCD scale variation point '{point_name}' is not defined "
+                    "in qcd_scale.points."
+                )
+            if point_name not in source_names:
+                source_names.append(point_name)
+
+    return [points_by_name[name] for name in source_names]
+
+
+def qcd_scale_process_label(qcd_scale_config, process):
+    process_labels = qcd_scale_config.get("process_labels", {})
+    if process in process_labels:
+        return process_labels[process]
+
+    lower_process = process.lower()
+    if lower_process.startswith(("dy", "w")) or "ewk" in lower_process:
+        return "V"
+    if lower_process.startswith(("tt", "st", "tw")):
+        return "ttbar"
+    if lower_process.startswith("vbf") or "vbfh" in lower_process:
+        return "qqH"
+    if lower_process.startswith(("gluglu", "ggh")):
+        return "ggH"
+    if lower_process.startswith("vh") or "zh" in lower_process or "wh" in lower_process:
+        return "VH"
+    if lower_process.startswith(("tth", "ttH".lower())):
+        return "ttH"
+    if lower_process.startswith("vvv"):
+        return "VVV"
+    if lower_process.startswith("vv") or lower_process in {"ww", "wz", "zz"}:
+        return "VV"
+
+    return process
+
+
+def pdf_process_label(pdf_config, process):
+    process_labels = pdf_config.get("process_labels", {})
+    if process in process_labels:
+        return process_labels[process]
+
+    lower_process = process.lower()
+    if lower_process.startswith(("dy", "w")) or "ewk" in lower_process:
+        return "qqbar"
+    if lower_process.startswith("vbf") or "vbfh" in lower_process:
+        return "Higgs_qqH"
+    if lower_process.startswith(("gluglu", "ggh")):
+        return "Higgs_ggH"
+    if lower_process.startswith("vh") or "zh" in lower_process or "wh" in lower_process:
+        return "Higgs_VH"
+    if lower_process.startswith("tth"):
+        return "Higgs_ttH"
+    if lower_process.startswith("tt"):
+        return "gg"
+    if lower_process.startswith(("st", "tw")):
+        return "gq"
+    if lower_process.startswith("vvv"):
+        return "qqbar"
+    if lower_process.startswith("vv") or lower_process in {"ww", "wz", "zz"}:
+        return "qqbar"
+
+    return process
+
+
 def configure_available_qcd_scale(syst_cfg, input_paths, is_data, mode):
     qcd_config = syst_cfg.get("qcd_scale", {})
     if (
@@ -170,20 +290,33 @@ def configure_available_qcd_scale(syst_cfg, input_paths, is_data, mode):
     ):
         return syst_cfg
 
+    available_points = []
     missing_points = []
-    for point in get_qcd_scale_points(qcd_config):
+    source_points = get_qcd_scale_source_points(qcd_config)
+    for point in source_points:
         point_name = point["name"]
-        sums = get_combined_segmentation_dict(
+        sums = get_qcd_scale_segmentation_dict(
             input_paths,
-            node=f"qcd_scale__{point_name}",
+            point_name,
             fallback_to_initial=False,
             warn_if_missing=False,
         )
-        if not sums:
+        if sums:
+            available_points.append(point)
+        else:
             missing_points.append(point_name)
 
+    configured = copy.deepcopy(syst_cfg)
+    configured["qcd_scale"]["points"] = available_points
+    available_names = {point["name"] for point in available_points}
+    configured["qcd_scale"]["variations"] = [
+        variation
+        for variation in get_qcd_scale_variations(qcd_config)
+        if variation["down"] in available_names and variation["up"] in available_names
+    ]
+
     if not missing_points:
-        return syst_cfg
+        return configured
 
     missing_policy = qcd_config.get("missing_sums", "error")
     message = (
@@ -199,12 +332,18 @@ def configure_available_qcd_scale(syst_cfg, input_paths, is_data, mode):
             "qcd_scale.missing_sums must be either 'skip' or 'error'"
         )
 
-    configured = copy.deepcopy(syst_cfg)
-    configured["qcd_scale"]["enabled"] = False
-    print(
-        f"[WARNING] {message}. QCD scale templates will be skipped; "
-        "all other requested systematics will still be produced."
-    )
+    if available_points:
+        print(
+            f"[WARNING] {message}. Missing QCD scale points will be skipped; "
+            f"{len(configured['qcd_scale']['variations'])} QCD scale "
+            "variation(s) will still be produced."
+        )
+    else:
+        configured["qcd_scale"]["enabled"] = False
+        print(
+            f"[WARNING] {message}. QCD scale templates will be skipped; "
+            "all other requested systematics will still be produced."
+        )
     return configured
 
 
@@ -241,6 +380,8 @@ def get_systs_to_run(syst_cfg, mode):
                 output_name = weight_name.format(scale=scale)
                 formatted = format_systematic_info(weight_info, scale=scale)
                 formatted["direction"] = scale
+                if weight_name.startswith("PDF_"):
+                    formatted["pdf_config"] = syst_cfg.get("pdf", {})
                 systs_to_run[output_name] = formatted
         else:
             formatted = dict(weight_info)
@@ -248,11 +389,13 @@ def get_systs_to_run(syst_cfg, mode):
                 if weight_name.endswith(f"_{direction}"):
                     formatted["direction"] = direction
                     break
+            if weight_name.startswith("PDF_"):
+                formatted["pdf_config"] = syst_cfg.get("pdf", {})
             systs_to_run[weight_name] = formatted
 
     qcd_scale_config = syst_cfg.get("qcd_scale", {})
     if qcd_scale_config.get("enabled", False):
-        for point in get_qcd_scale_points(qcd_scale_config):
+        for point in get_qcd_scale_source_points(qcd_scale_config):
             point_name = point["name"]
             output_name = f"QCDScale__{point_name}"
             systs_to_run[output_name] = {
@@ -265,7 +408,7 @@ def get_systs_to_run(syst_cfg, mode):
     return systs_to_run
 
 
-def write_qcd_scale_envelopes(
+def write_qcd_scale_variations(
     output_file,
     syst_cfg,
     variables,
@@ -278,10 +421,15 @@ def write_qcd_scale_envelopes(
     if not qcd_scale_config.get("enabled", False):
         return
 
-    source_suffixes = [
-        f"QCDScale__{point['name']}"
-        for point in get_qcd_scale_points(qcd_scale_config)
-    ]
+    variations = get_qcd_scale_variations(qcd_scale_config)
+    process_label = qcd_scale_process_label(qcd_scale_config, process)
+    source_suffixes = sorted(
+        {
+            f"QCDScale__{variation[direction]}"
+            for variation in variations
+            for direction in ("down", "up")
+        }
+    )
     for mass_region in mass_regions:
         for category in categories:
             directory = output_file.GetDirectory(
@@ -291,47 +439,28 @@ def write_qcd_scale_envelopes(
                 continue
             for variable in variables:
                 central = directory.Get(variable)
-                sources = [
-                    directory.Get(f"{variable}_{suffix}")
-                    for suffix in source_suffixes
-                ]
-                if not central or any(source is None for source in sources):
+                if not central or not central.InheritsFrom("TH1"):
                     continue
 
-                nuisance_name = qcd_scale_config.get(
-                    "name", "QCDscale_{process}"
-                ).format(
-                    era=era.removeprefix("Run3_"),
-                    process=process,
-                )
-                up = central.Clone(f"{variable}_{nuisance_name}Up")
-                down = central.Clone(f"{variable}_{nuisance_name}Down")
-                up.SetDirectory(0)
-                down.SetDirectory(0)
-                for bin_index in range(central.GetNcells()):
-                    histograms = [central] + sources
-                    highest = max(
-                        histograms,
-                        key=lambda hist: hist.GetBinContent(bin_index),
+                for variation in variations:
+                    nuisance_name = variation["name"].format(
+                        era=era.removeprefix("Run3_"),
+                        process=process_label,
                     )
-                    lowest = min(
-                        histograms,
-                        key=lambda hist: hist.GetBinContent(bin_index),
-                    )
-                    up.SetBinContent(
-                        bin_index, highest.GetBinContent(bin_index)
-                    )
-                    up.SetBinError(
-                        bin_index, highest.GetBinError(bin_index)
-                    )
-                    down.SetBinContent(
-                        bin_index, lowest.GetBinContent(bin_index)
-                    )
-                    down.SetBinError(
-                        bin_index, lowest.GetBinError(bin_index)
-                    )
-                directory.WriteTObject(up, up.GetName(), "Overwrite")
-                directory.WriteTObject(down, down.GetName(), "Overwrite")
+                    for direction, shape_direction in (
+                        ("down", "Down"),
+                        ("up", "Up"),
+                    ):
+                        source = directory.Get(
+                            f"{variable}_QCDScale__{variation[direction]}"
+                        )
+                        if source is None or not source.InheritsFrom("TH1"):
+                            continue
+                        hist = source.Clone(
+                            f"{variable}_{nuisance_name}{shape_direction}"
+                        )
+                        hist.SetDirectory(0)
+                        directory.WriteTObject(hist, hist.GetName(), "Overwrite")
                 for source_suffix in source_suffixes:
                     directory.Delete(
                         f"{variable}_{source_suffix};*"
@@ -438,9 +567,9 @@ def process_single_chunk(args_tuple):
         ):
             for point in get_qcd_scale_points(syst_cfg["qcd_scale"]):
                 point_name = point["name"]
-                qcd_scale_seg_dicts[point_name] = get_combined_segmentation_dict(
+                qcd_scale_seg_dicts[point_name] = get_qcd_scale_segmentation_dict(
                     args.metadata_inputs,
-                    node=f"qcd_scale__{point_name}",
+                    point_name,
                     fallback_to_initial=False,
                 )
         print(f"[CHUNK {chunk_index} / {n_chunks}] Using {len(chunk_seg_dict)} segmentation entries for {len(usable_chunk_files)} ROOT file(s)")
@@ -877,15 +1006,16 @@ if __name__ == "__main__":
         raise RuntimeError(
             f"Could not reopen merged output file: {args.output_file}"
         )
-    write_qcd_scale_envelopes(
-        merged_output,
-        syst_cfg,
-        vars_to_make_hist,
-        masses_regions_list,
-        categories_list,
-        args.era,
-        args.process_name,
-    )
+    if args.systematics != "central":
+        write_qcd_scale_variations(
+            merged_output,
+            syst_cfg,
+            vars_to_make_hist,
+            masses_regions_list,
+            categories_list,
+            args.era,
+            args.process_name,
+        )
     merged_output.Close()
     if args.keep_tmp:
         print("[INFO] Keeping temporary files because --keep-tmp was used.")

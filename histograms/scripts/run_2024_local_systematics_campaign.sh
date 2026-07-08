@@ -11,6 +11,7 @@ VARIABLE="${VARIABLE:-m_jj}"
 N_CORES="${N_CORES:-4}"
 OUTPUT_DIR="${OUTPUT_DIR:-/eos/user/v/vdamante/H_mumu/newHists_Run3_2024_${VARIABLE}_fullSyst_ptllNJetsRW}"
 INPUT_FOLDER="${INPUT_FOLDER:-skim_v2_noUnc}"
+ROOT_INPUT_FOLDER="${ROOT_INPUT_FOLDER:-${INPUT_FOLDER}}"
 
 PTLL_REWEIGHT="reweights/dy_ptll_reweight/Run3_2024/dy_ptll_reweight_smart.json"
 NJETS_REWEIGHT="reweights/dy_njets_reweight/Run3_2024/dy_njets_reweight.json"
@@ -48,7 +49,11 @@ CATEGORIES=(
 set --
 source "${ANALYSIS_PATH}/env.sh"
 
-REFERENCE_INPUT_DIR="/eos/cms/store/group/phys_higgs/cmshmm/vdamante/${INPUT_FOLDER}/Run3_2024/VBFHto2Mu_M125_powheg"
+if [[ "${ROOT_INPUT_FOLDER}" = /* ]]; then
+  REFERENCE_INPUT_DIR="${ROOT_INPUT_FOLDER}/Run3_2024/VBFHto2Mu_M125_powheg"
+else
+  REFERENCE_INPUT_DIR="/eos/cms/store/group/phys_higgs/cmshmm/vdamante/${ROOT_INPUT_FOLDER}/Run3_2024/VBFHto2Mu_M125_powheg"
+fi
 REFERENCE_FILE="$(find "${REFERENCE_INPUT_DIR}" -maxdepth 1 -name '*.root' 2>/dev/null | sort | head -1 || true)"
 
 preflight_status=0
@@ -101,6 +106,7 @@ fi
 campaign_args=(
   --era Run3_2024
   --input-folder "${INPUT_FOLDER}"
+  --root-input-folder "${ROOT_INPUT_FOLDER}"
   --output-dir "${OUTPUT_DIR}"
   --missing-only
 )
@@ -135,7 +141,8 @@ hist_maker_args=(
 echo "[INFO] Run3_2024 local histogram campaign"
 echo "[INFO] Mode       : ${MODE}"
 echo "[INFO] Variable   : ${VARIABLE}"
-echo "[INFO] Input      : ${INPUT_FOLDER}"
+echo "[INFO] Metadata   : ${INPUT_FOLDER}"
+echo "[INFO] ROOT input : ${ROOT_INPUT_FOLDER}"
 echo "[INFO] Output     : ${OUTPUT_DIR}"
 echo "[INFO] Systematics: all"
 echo "[INFO] pt(ll) RW  : ${PTLL_REWEIGHT}"
