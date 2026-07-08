@@ -219,6 +219,7 @@ python3 htcondor/hist_condorsubmit.py \
   --output-suffix _with_ptll_only_rw \
   --input-folder skim_v2_noUnc \
   --chunks-as-jobs \
+  --split-variable-groups \
   --missing-only \
   -- \
   --dy-ptll-reweight-json 'reweights/dy_ptll_reweight/{era}/dy_ptll_reweight_smart.json'
@@ -226,6 +227,10 @@ python3 htcondor/hist_condorsubmit.py \
 
 `{era}` and `{ERA}` in forwarded histogram options are expanded separately for
 each era.
+
+With `--split-variable-groups`, each input chunk is processed independently for
+logical groups such as muons, dimuon, jets, dijets, soft activity, and DNN.
+All chunk/group outputs are merged into the usual single dataset ROOT file.
 
 Common groups:
 

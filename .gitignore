@@ -1,4 +1,5 @@
 *.txt
+.vscode/
 __pycache__
 *.pyc
 studies/*
@@ -8,6 +9,7 @@ logs/
 htcondor/error/
 htcondor/log/
 htcondor/output/
+htcondor/hists/
 prova*
 test/
 plots*/
@@ -15,3 +17,4 @@ vdamante.cc
 samples_withfiles.yaml
 soft/
 *.root
+plot*
