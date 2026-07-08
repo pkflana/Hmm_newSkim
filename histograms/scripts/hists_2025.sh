@@ -896,7 +896,7 @@ for i in "${!job_datasets[@]}"; do
   dataset_name="${job_datasets[$i]}"
   chunk_size="${job_chunk_sizes[$i]}"
   file_suffix="${job_file_suffixes[$i]}"
-  input_path="/eos/cms/store/group/phys_higgs/cmshmm/vdamante/${input_folder}/${era}/${dataset_name}/"
+  input_path="/eos/user/a/ayeagle/${input_folder}/${era}/${dataset_name}/"
   output_file="${output_dir}/${dataset_name}${file_suffix}.root"
 
   if [[ ${missing_only} -eq 1 && ${force_submit} -eq 0 && ${erase_existing} -eq 0 ]]; then

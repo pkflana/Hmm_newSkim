@@ -80,9 +80,19 @@ KNOWN_GROUPS = {
     "All": "all",
 }
 
+DEFAULT_INPUT_FOLDER = "/eos/user/a/ayeagle/skim_v2_noUnc"
+DEFAULT_RELATIVE_INPUT_PREPATH = "/eos/user/a/ayeagle"
+
 
 def parse_csv(value):
     return [item.strip() for item in value.split(",") if item.strip()]
+
+
+def dataset_input_path(input_folder, era, dataset):
+    input_folder = Path(input_folder)
+    if input_folder.is_absolute():
+        return input_folder / era / dataset
+    return Path(DEFAULT_RELATIVE_INPUT_PREPATH) / input_folder / era / dataset
 
 
 def groups_for_era(era):
@@ -540,10 +550,7 @@ queue
     for dataset_index, item in enumerate(jobs_to_submit):
         dataset = item["dataset"]
         suffix = item["file_suffix"]
-        input_path = Path(
-            f"/eos/cms/store/group/phys_higgs/cmshmm/vdamante/"
-            f"{args.input_folder}/{era}/{dataset}"
-        )
+        input_path = dataset_input_path(args.input_folder, era, dataset)
         root_files = sorted(str(path.resolve()) for path in input_path.rglob("*.root"))
         if not root_files:
             print(
@@ -969,7 +976,14 @@ def main():
     parser.add_argument("--datasets", "--groups", dest="groups_csv", help="Comma-separated histogram groups.")
     parser.add_argument("--dataset-name", "--dataset", help="One explicit dataset to run.")
     parser.add_argument("--chunk-size", type=int, default=20, help="Chunk size for --dataset-name.")
-    parser.add_argument("--input-folder", default="skim_v2_noUnc")
+    parser.add_argument(
+        "--input-folder",
+        default=DEFAULT_INPUT_FOLDER,
+        help=(
+            "Input skim folder or absolute prepath. Default: "
+            f"{DEFAULT_INPUT_FOLDER}"
+        ),
+    )
     parser.add_argument("--output-suffix", default="")
     parser.add_argument(
         "--output-dir",

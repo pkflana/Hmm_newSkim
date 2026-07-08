@@ -177,15 +177,25 @@ class DNNApplication:
 
     def _load_models(self):
         options = self.ort.SessionOptions()
-        options.graph_optimization_level = self.ort.GraphOptimizationLevel.ORT_DISABLE_ALL
+        options.graph_optimization_level = self.ort.GraphOptimizationLevel.ORT_ENABLE_ALL
+        # Histogram jobs request one CPU. Keeping ORT on one thread avoids
+        # oversubscription when many Condor jobs run on the same worker.
+        options.intra_op_num_threads = 1
+        options.inter_op_num_threads = 1
+        options.execution_mode = self.ort.ExecutionMode.ORT_SEQUENTIAL
         models = []
         for idx in range(self.parity):
             model_path = os.path.join(self.models_dir, f"trained_model_{idx}.onnx")
+            session = self.ort.InferenceSession(
+                model_path,
+                sess_options=options,
+                providers=["CPUExecutionProvider"],
+            )
             models.append(
-                self.ort.InferenceSession(
-                    model_path,
-                    sess_options=options,
-                    providers=["CPUExecutionProvider"],
+                (
+                    session,
+                    session.get_inputs()[0].name,
+                    session.get_outputs()[0].name,
                 )
             )
         return models
@@ -234,7 +244,6 @@ class DNNApplication:
         if missing:
             raise RuntimeError(f"Missing DNN input feature columns: {missing}")
 
-        # arrays = df.AsNumpy(["DNNEntryKey", "FullEventId"] + self.input_features)
         cols = ["DNNEntryKey", "FullEventId"] + self.input_features
 
         available = set(str(c) for c in df.GetColumnNames())
@@ -242,39 +251,54 @@ class DNNApplication:
         if missing:
             raise RuntimeError(f"[DNN] Missing columns: {missing}")
 
-        # print(f"[DNN] Testing AsNumpy columns one by one for payload {self.payload_name}")
+        # Reading columns one at a time starts a complete RDF event loop for
+        # every feature. The 2024 model has 39 inputs, so collect all columns
+        # in one pass instead.
+        try:
+            arrays = df.AsNumpy(cols)
+        except Exception as e:
+            raise RuntimeError(
+                f"[DNN] AsNumpy failed for payload '{self.payload_name}' "
+                f"while reading {len(cols)} columns. Error: {repr(e)}"
+            ) from e
 
-        arrays = {}
-
-        for col in cols:
-            try:
-                # print(f"[DNN] Reading column: {col}")
-                arr = df.AsNumpy([col])[col]
-                arrays[col] = arr
-                # print(f"[DNN]   OK {col}: dtype={arr.dtype}, shape={arr.shape}")
-            except Exception as e:
-                raise RuntimeError(
-                    f"[DNN] AsNumpy failed on column '{col}' "
-                    f"for payload '{self.payload_name}'. Error: {repr(e)}"
-                )
         n_events = len(arrays["FullEventId"])
         if n_events == 0:
             predictions = np.array([], dtype=np.float32)
         else:
             input_array = np.column_stack([arrays[name] for name in self.input_features]).astype(np.float64)
-            input_array = np.nan_to_num(input_array, nan=-10000.0, posinf=-10000.0, neginf=-10000.0)
+            np.nan_to_num(
+                input_array,
+                copy=False,
+                nan=-10000.0,
+                posinf=-10000.0,
+                neginf=-10000.0,
+            )
             event_number = np.asarray(arrays["FullEventId"], dtype=np.uint64)
-            all_predictions = np.zeros((n_events, self.parity), dtype=np.float64)
+            event_fold = event_number % self.parity
+            predictions = np.empty(n_events, dtype=np.float64)
 
-            for parity_idx, session in enumerate(self.models):
-                input_name = session.get_inputs()[0].name
-                output_name_onnx = session.get_outputs()[0].name
-                pred = session.run([output_name_onnx], {input_name: input_array})[0].reshape(n_events)
-                pred = np.nan_to_num(pred, nan=0.0, posinf=0.0, neginf=0.0)
-                pred[(event_number % self.parity) != parity_idx] = 0.0
-                all_predictions[:, parity_idx] = pred
+            # Each event belongs to exactly one k-fold model. Running all
+            # models over all events wastes roughly k times the inference.
+            for parity_idx, (session, input_name, output_name_onnx) in enumerate(self.models):
+                fold_indices = np.flatnonzero(event_fold == parity_idx)
+                if fold_indices.size == 0:
+                    continue
+                fold_input = np.ascontiguousarray(input_array[fold_indices])
+                fold_predictions = session.run(
+                    [output_name_onnx],
+                    {input_name: fold_input},
+                )[0].reshape(fold_indices.size)
+                np.nan_to_num(
+                    fold_predictions,
+                    copy=False,
+                    nan=0.0,
+                    posinf=0.0,
+                    neginf=0.0,
+                )
+                predictions[fold_indices] = fold_predictions
 
-            predictions = np.sum(all_predictions, axis=1).astype(np.float32)
+            predictions = predictions.astype(np.float32)
 
         _declare_prediction_registry()
         keys = ROOT.std.vector("ULong64_t")()
