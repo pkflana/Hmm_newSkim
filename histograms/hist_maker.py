@@ -33,7 +33,10 @@ HEADERS = ["analysis/AnalysisTools.h"]
 for header in HEADERS:
     utilities.DeclareHeader(f"{os.environ['ANALYSIS_PATH']}/{header}")
 
-DNN_Z_SIDEBAND_SHIFTED_PAYLOAD = "DNNZSidebandMassShift"
+DNN_SIDEBAND_SHIFTED_PAYLOADS = {
+    "Z_sideband": "DNNZSidebandMassShift",
+    "H_sideband": "DNNHSidebandMassShift",
+}
 
 def chunk_list(items, chunk_size):
     return [items[i:i + chunk_size] for i in range(0, len(items), chunk_size)]
@@ -115,7 +118,50 @@ def nuisance_histogram_name(variable, syst_name, syst_info, era, process):
     return f"{variable}_{nuisance_name}"
 
 
-def configure_available_qcd_scale(syst_cfg, input_path, is_data, mode):
+def unique_metadata_inputs(paths):
+    unique_paths = []
+    seen = set()
+
+    for path in paths:
+        if not path:
+            continue
+        normalized = os.path.abspath(path)
+        if normalized in seen:
+            continue
+        seen.add(normalized)
+        unique_paths.append(path)
+
+    return unique_paths
+
+
+def get_combined_segmentation_dict(
+    input_paths,
+    node="gen",
+    fallback_to_initial=True,
+    warn_if_missing=True,
+):
+    combined = {}
+    metadata_inputs = unique_metadata_inputs(input_paths)
+
+    for input_path in metadata_inputs:
+        sums = get_segmentation_dict(
+            input_path,
+            node=node,
+            fallback_to_initial=fallback_to_initial,
+            warn_if_missing=False,
+        )
+        combined.update(sums)
+
+    if not combined and warn_if_missing:
+        print(
+            "[WARNING] No segmentation JSON information found under: "
+            + ", ".join(metadata_inputs)
+        )
+
+    return combined
+
+
+def configure_available_qcd_scale(syst_cfg, input_paths, is_data, mode):
     qcd_config = syst_cfg.get("qcd_scale", {})
     if (
         is_data
@@ -127,8 +173,8 @@ def configure_available_qcd_scale(syst_cfg, input_path, is_data, mode):
     missing_points = []
     for point in get_qcd_scale_points(qcd_config):
         point_name = point["name"]
-        sums = get_segmentation_dict(
-            input_path,
+        sums = get_combined_segmentation_dict(
+            input_paths,
             node=f"qcd_scale__{point_name}",
             fallback_to_initial=False,
             warn_if_missing=False,
@@ -341,19 +387,29 @@ def get_histogram_variable(variable, syst_info, available_columns):
         None,
     )
 
-def should_shift_z_sideband_dnn_mass(mass_region, variable):
-    return mass_region == "Z_sideband" and variable == "DNN_NNOutput"
+def should_shift_sideband_dnn_mass(mass_region, variable):
+    return mass_region in DNN_SIDEBAND_SHIFTED_PAYLOADS and variable == "DNN_NNOutput"
 
-def apply_z_sideband_mass_shifted_dnn(rdf, btag_algo, era):
+def get_sideband_shifted_mass_expression(mass_region):
+    if mass_region == "Z_sideband":
+        return "static_cast<float>(115.0 + 0.5 * (m_mumu - 70.0))"
+    if mass_region == "H_sideband":
+        return (
+            "static_cast<float>(m_mumu < 115.0 ? "
+            "115.0 + (m_mumu - 110.0) : 120.0 + (m_mumu - 135.0))"
+        )
+    raise ValueError(f"Unsupported DNN mass-shift region: {mass_region}")
+
+def apply_sideband_mass_shifted_dnn(rdf, mass_region, btag_algo, era):
     from common.dnn_application import ApplyDNN
 
     shifted_rdf = rdf.Redefine(
         "m_mumu",
-        "static_cast<float>(115.0 + 0.5 * (m_mumu - 70.0))",
+        get_sideband_shifted_mass_expression(mass_region),
     )
     return ApplyDNN(
         shifted_rdf,
-        [DNN_Z_SIDEBAND_SHIFTED_PAYLOAD],
+        [DNN_SIDEBAND_SHIFTED_PAYLOADS[mass_region]],
         btag_algo=btag_algo,
         era=era,
     )
@@ -373,7 +429,7 @@ def process_single_chunk(args_tuple):
                 f"{len(skipped_empty_files)} file(s) with missing/empty Events branches."
             )
 
-        chunk_seg_dict = get_segmentation_dict(args.input)# ,root_files=usable_chunk_files)
+        chunk_seg_dict = get_combined_segmentation_dict(args.metadata_inputs)# ,root_files=usable_chunk_files)
         qcd_scale_seg_dicts = {}
         if (
             not is_data
@@ -382,8 +438,8 @@ def process_single_chunk(args_tuple):
         ):
             for point in get_qcd_scale_points(syst_cfg["qcd_scale"]):
                 point_name = point["name"]
-                qcd_scale_seg_dicts[point_name] = get_segmentation_dict(
-                    args.input,
+                qcd_scale_seg_dicts[point_name] = get_combined_segmentation_dict(
+                    args.metadata_inputs,
                     node=f"qcd_scale__{point_name}",
                     fallback_to_initial=False,
                 )
@@ -492,14 +548,16 @@ def process_single_chunk(args_tuple):
                                 available_columns,
                             )
 
-                            if should_shift_z_sideband_dnn_mass(mass_region, var):
+                            if should_shift_sideband_dnn_mass(mass_region, var):
                                 print(f"going to shift in {mass_region}, {var}")
-                                rdf_for_hist = apply_z_sideband_mass_shifted_dnn(
+                                rdf_for_hist = apply_sideband_mass_shifted_dnn(
                                     rdf_for_hist,
+                                    mass_region,
                                     btag_algo=btag_algo,
                                     era=args.era,
                                 )
-                                hist_var = f"{DNN_Z_SIDEBAND_SHIFTED_PAYLOAD}_NNOutput"
+                                shifted_payload = DNN_SIDEBAND_SHIFTED_PAYLOADS[mass_region]
+                                hist_var = f"{shifted_payload}_NNOutput"
 
                             if hist_var is not None and hist_var not in available_columns:
                                 available_columns = set(str(c) for c in rdf_for_hist.GetColumnNames())
@@ -557,6 +615,22 @@ if __name__ == "__main__":
     parser.add_argument("--era", required=True, type=str)
     parser.add_argument("--input", required=True, type=str)
     parser.add_argument(
+        "--metadata-input",
+        help=(
+            "Directory or file used to read skim report/segmentation JSONs. "
+            "It is merged with --input and can be used as a temporary metadata patch."
+        ),
+    )
+    parser.add_argument(
+        "--extra-metadata-input",
+        action="append",
+        default=[],
+        help=(
+            "Additional directory or file with skim report/segmentation JSONs. "
+            "Can be passed multiple times."
+        ),
+    )
+    parser.add_argument(
         "--input-files-file",
         help=(
             "Text file containing the ROOT files to process, one per line. "
@@ -568,7 +642,7 @@ if __name__ == "__main__":
     parser.add_argument(
         "--systematics",
         choices=["central", "jec-jer", "all"],
-        default="jec-jer",
+        default="central",#jec-jer",
         help=(
             "central: nominal only; jec-jer: nominal, JEC/JER shapes and all "
             "configured weight shifts (default); all: every configured variation."
@@ -618,6 +692,9 @@ if __name__ == "__main__":
         help=argparse.SUPPRESS,
     )
     args = parser.parse_args()
+    args.metadata_inputs = unique_metadata_inputs(
+        [args.input, args.metadata_input, *args.extra_metadata_input]
+    )
     startTime = time.time()
     if args.chunk_size < 1:
         raise ValueError("--chunk-size must be >= 1")
@@ -650,7 +727,7 @@ if __name__ == "__main__":
     #     args.n_cores = 1
     syst_cfg = configure_available_qcd_scale(
         syst_cfg,
-        args.input,
+        args.metadata_inputs,
         is_data,
         args.systematics,
     )
@@ -704,7 +781,7 @@ if __name__ == "__main__":
         print("[DRYRUN] Chunks:")
         for idx, chunk_files in enumerate(chunks):
             print(f"\n[DRYRUN] Chunk {idx}: {len(chunk_files)} file(s)")
-            chunk_seg_dict = get_segmentation_dict(args.input)
+            chunk_seg_dict = get_combined_segmentation_dict(args.metadata_inputs)
             print(f"[DRYRUN] Segmentation entries: {len(chunk_seg_dict)}")
             for f in chunk_files:
                 print(f"  {f}")
