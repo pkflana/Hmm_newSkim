@@ -21,7 +21,6 @@ from common.dy_ptll_reweight import (
     ApplyDYAmcatnloNormalization,
     ApplyDYNJetsReweight,
     ApplyDYPtLLReweight,
-    DY_AMCATNLO_NORMALIZATION,
 )
 HEADERS = ["analysis/AnalysisTools.h"]
 for header in HEADERS:
@@ -156,7 +155,13 @@ def process_single_chunk(args_tuple):
                 f"{len(skipped_empty_files)} file(s) with missing/empty Events branches."
             )
 
-        chunk_seg_dict = get_segmentation_dict(args.input)# ,root_files=usable_chunk_files)
+        # An intentionally empty chunk represents a dataset with no skim
+        # files. Avoid scanning a missing/empty EOS directory for reports.
+        chunk_seg_dict = (
+            get_segmentation_dict(args.input)
+            if chunk_files
+            else {}
+        )
         print(f"[CHUNK {chunk_index} / {n_chunks}] Using {len(chunk_seg_dict)} segmentation entries for {len(usable_chunk_files)} ROOT file(s)")
 
         if usable_chunk_files:
@@ -184,7 +189,6 @@ def process_single_chunk(args_tuple):
                 rdf_base,
                 args.dataset_name,
                 weight_columns,
-                scale=args.dy_amcatnlo_normalization,
             )
             if args.dy_ptll_njets_reweight_json:
                 rdf_base = ApplyDYPtLLReweight(
@@ -333,15 +337,6 @@ if __name__ == "__main__":
     parser.add_argument("--force-multiprocessing-with-dnn", action="store_true")
     parser.add_argument("--multiprocessing-method", choices=["spawn", "fork"], default="spawn")
     parser.add_argument("--additional-cuts",type=str, default=None)
-    parser.add_argument(
-        "--dy-amcatnlo-normalization",
-        type=float,
-        default=DY_AMCATNLO_NORMALIZATION,
-        help=(
-            "Constant normalization applied automatically to every DY "
-            "amc@nlo dataset. MiNNLO samples are not affected."
-        ),
-    )
     parser.add_argument(
         "--dy-ptll-njets-reweight-json",
         "--dy-ptll-njets-reweight",

@@ -20,6 +20,7 @@ ROOT.gStyle.SetOptStat(0)
 plt.style.use(hep.style.CMS)
 
 import common.utilities as utilities
+from common.dy_ptll_reweight import DY_AMCATNLO_NORMALIZATION
 
 
 DEFAULT_CATEGORIES = ["ggF", "VBF"]
@@ -544,8 +545,10 @@ def derive(args):
         ],
         "min_weight": args.min_weight,
         "max_weight": args.max_weight,
+        "preserve_yield": args.preserve_yield,
         "data_sample": args.data_sample,
         "dy_sample": args.dy_sample,
+        "dy_scale": args.dy_scale,
         "subtracted_samples": other_samples,
         "categories": {},
     }
@@ -566,6 +569,8 @@ def derive(args):
             print(f"[WARNING] Missing histograms for {category}: {hist_path}")
             continue
 
+        dy_hist.Scale(args.dy_scale)
+
         other_hist, used_samples = sum_samples(
             input_dir,
             other_samples,
@@ -580,18 +585,32 @@ def derive(args):
             f"ratio_{category}",
             args.min_dy,
         )
-        normalization_scale, yield_before, yield_after = normalize_bins_shape_only(
-            bins,
-            dy_hist,
-            args.min_weight,
-            args.max_weight,
-        )
-        for bin_idx, bin_info in enumerate(bins, start=1):
-            ratio_hist.SetBinContent(bin_idx, bin_info["weight"])
-        print(
-            f"[SHAPE ONLY] {category}: scale={normalization_scale:.12g}, "
-            f"yield={yield_before:.12g} -> {yield_after:.12g}"
-        )
+        yield_before = dy_hist.Integral(0, dy_hist.GetNbinsX() + 1)
+        if args.preserve_yield:
+            normalization_scale, yield_before, yield_after = normalize_bins_shape_only(
+                bins,
+                dy_hist,
+                args.min_weight,
+                args.max_weight,
+            )
+            for bin_idx, bin_info in enumerate(bins, start=1):
+                ratio_hist.SetBinContent(bin_idx, bin_info["weight"])
+            print(
+                f"[PRESERVE YIELD] {category}: scale={normalization_scale:.12g}, "
+                f"yield={yield_before:.12g} -> {yield_after:.12g}"
+            )
+        else:
+            normalization_scale = 1.0
+            yield_after = None
+            for bin_info in bins:
+                bin_info["weight"] = min(
+                    max(float(bin_info["weight"]), args.min_weight),
+                    args.max_weight,
+                )
+            print(
+                f"[PRESERVE YIELD disabled] {category}: "
+                "using unnormalized nJet bin weights"
+            )
         total_mc_hist, data_over_mc_hist = build_data_over_mc_hist(
             data_hist,
             dy_hist,
@@ -628,27 +647,16 @@ def derive(args):
         )
 
         output_root.cd()
-        category_dir = output_root.mkdir(category)
-        category_dir.cd()
-        for hist in [
-            data_hist,
-            dy_hist,
-            other_hist,
-            total_mc_hist,
-            target_hist,
-            ratio_hist,
-            data_over_mc_hist,
-            after_hist,
-        ]:
-            hist.Write()
+        output_root.mkdir(category)
 
         payload["categories"][category] = {
             "root_path": hist_path,
             "subtracted_samples": used_samples,
             "shape_only_normalization": {
+                "enabled": args.preserve_yield,
                 "scale": float(normalization_scale),
                 "yield_before": float(yield_before),
-                "yield_after": float(yield_after),
+                "yield_after": float(yield_after) if yield_after is not None else None,
             },
             "bins": bins,
         }
@@ -679,8 +687,39 @@ def parse_args():
     parser.add_argument("--dy-sample", default="DY")
     parser.add_argument("--categories", nargs="+", default=DEFAULT_CATEGORIES)
     parser.add_argument("--min-dy", type=float, default=1e-9)
+    parser.add_argument(
+        "--dy-scale",
+        type=float,
+        default=1.0,
+        help=(
+            "Scale applied to the input DY histogram before deriving the correction. "
+            "Histograms produced by hist_maker.py already contain the standard "
+            f"DY amc@nlo normalization ({DY_AMCATNLO_NORMALIZATION:.16g}); "
+            "use this option only for historical unnormalized inputs."
+        ),
+    )
     parser.add_argument("--min-weight", type=float, default=0.0)
     parser.add_argument("--max-weight", type=float, default=5.0)
+    preserve_yield_group = parser.add_mutually_exclusive_group()
+    preserve_yield_group.add_argument(
+        "--preserve-yield",
+        dest="preserve_yield",
+        action="store_true",
+        help=(
+            "Normalize the derived nJet weights so the DY yield is preserved. "
+            "Enabled by default."
+        ),
+    )
+    preserve_yield_group.add_argument(
+        "--no-preserve-yield",
+        dest="preserve_yield",
+        action="store_false",
+        help=(
+            "Do not normalize the derived nJet weights; the correction is allowed "
+            "to change the DY yield."
+        ),
+    )
+    parser.set_defaults(preserve_yield=True)
     return parser.parse_args()
 
 

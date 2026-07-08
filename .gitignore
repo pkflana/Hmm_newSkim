@@ -1,7 +1,7 @@
 *.txt
 __pycache__
 *.pyc
-studies/
+studies/*
 data/
 logs/
 *.tar.gz
@@ -14,3 +14,4 @@ plots*/
 vdamante.cc
 samples_withfiles.yaml
 soft/
+*.root

@@ -25,7 +25,11 @@ fi
 
 IFS=$'\t' read -r dataset_name chunk_size file_suffix specific_opts_string <<< "${job_line}"
 
-input_path="/eos/cms/store/group/phys_higgs/cmshmm/vdamante/${input_folder}/${era}/${dataset_name}/"
+if [[ "${input_folder}" = /* ]]; then
+  input_path="${input_folder}/${era}/${dataset_name}/"
+else
+  input_path="/eos/cms/store/group/phys_higgs/cmshmm/vdamante/${input_folder}/${era}/${dataset_name}/"
+fi
 output_file="${output_dir}/${dataset_name}${file_suffix}.root"
 
 mkdir -p "${output_dir}"

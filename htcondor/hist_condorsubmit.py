@@ -384,6 +384,70 @@ def resolve_hist_opts(hist_opts, era):
     ]
 
 
+def extract_requested_variables(hist_opts):
+    remaining = []
+    variables = []
+    index = 0
+    while index < len(hist_opts):
+        option = hist_opts[index]
+        if option != "--variables":
+            remaining.append(option)
+            index += 1
+            continue
+
+        index += 1
+        while index < len(hist_opts) and not hist_opts[index].startswith("--"):
+            variables.append(hist_opts[index])
+            index += 1
+
+    return remaining, list(dict.fromkeys(variables))
+
+
+def variable_group_name(variable):
+    lower = variable.lower()
+
+    if variable.endswith("_NNOutput"):
+        return "dnn"
+    if lower.startswith(("mu1_", "mu2_")):
+        return "muons"
+    if "mumu" in lower or lower in {"phi_cs", "costheta_cs", "costheta_phi_cs"}:
+        return "dimuon"
+    if lower.startswith(("vbfjet1_", "vbfjet2_")):
+        return "vbf_jets"
+    if variable in {"m_jj", "delta_eta_jj"}:
+        return "vbf_dijet"
+    if variable in {"m_jj_ls", "delta_eta_jj_ls"}:
+        return "selected_dijet"
+    if lower.startswith("soft") or lower.startswith("nsoft"):
+        return "soft_activity"
+    if lower.startswith(
+        (
+            "leadingjet_",
+            "subleadingjet_",
+            "thirdjet_",
+            "fourthjet_",
+            "selectedjets_",
+        )
+    ) or variable == "N_SelectedJets":
+        return "jets"
+    if variable in {
+        "Zeppenfeld_Var",
+        "R_pt",
+        "pt_centrality",
+        "minDeltaPhi",
+        "minDeltaEta",
+    }:
+        return "vbf_muon"
+    return "other"
+
+
+def group_variables(variables):
+    groups = {}
+    for variable in dict.fromkeys(variables):
+        groups.setdefault(variable_group_name(variable), []).append(variable)
+    return groups
+
+
 def dag_quote(value):
     return str(value).replace("\\", "\\\\").replace('"', '\\"')
 
@@ -409,7 +473,22 @@ def write_chunk_dag(
     for directory in (manifests_dir, options_dir, chunk_root):
         directory.mkdir(parents=True, exist_ok=True)
 
-    extra_opts_file.write_text(shlex.join(resolve_hist_opts(args.hist_opts, era)) + "\n")
+    resolved_hist_opts = resolve_hist_opts(args.hist_opts, era)
+    common_hist_opts, requested_variables = extract_requested_variables(
+        resolved_hist_opts
+    )
+    extra_opts_file.write_text(shlex.join(common_hist_opts) + "\n")
+
+    if args.split_variable_groups and not requested_variables:
+        main_cfg_file = analysis_path / "config" / era / "maincfg.yaml"
+        with main_cfg_file.open() as handle:
+            requested_variables = list(
+                dict.fromkeys((yaml.safe_load(handle) or {}).get("variables", []))
+            )
+    if args.split_variable_groups and not requested_variables:
+        raise SystemExit(
+            f"[ERROR] No variables available for grouped submission in {era}"
+        )
 
     chunk_wrapper = analysis_path / "htcondor" / "run_hist_chunk_condor.sh"
     merge_wrapper = analysis_path / "htcondor" / "run_hist_hadd_condor.sh"
@@ -429,7 +508,7 @@ request_disk = {args.request_disk}
 +Era = "$(era)"
 +HistGroup = "{group_label}"
 +FinalOutput = "$(final_output)"
-batch_name = Hists_$(era)_$(dataset)_chunks
+batch_name = Hists_$(era)_$(dataset)_$(variable_group)_chunks
 getenv = True
 queue
 """
@@ -467,44 +546,69 @@ queue
         )
         root_files = sorted(str(path.resolve()) for path in input_path.rglob("*.root"))
         if not root_files:
-            raise SystemExit(f"[ERROR] No ROOT files found under {input_path}")
-
-        dataset_chunks = chunk_items(root_files, item["chunk_size"])
+            print(
+                f"[WARNING] No ROOT files found under {input_path}. "
+                "Scheduling one job to create empty histograms."
+            )
+            dataset_chunks = [[]]
+        else:
+            dataset_chunks = chunk_items(root_files, item["chunk_size"])
         dataset_tag = f"d{dataset_index:04d}"
         dataset_chunk_dir = chunk_root / f"{dataset}{suffix}"
         dataset_chunk_dir.mkdir(parents=True, exist_ok=True)
-        specific_opts_file = options_dir / f"{dataset_tag}_specific_opts.txt"
-        specific_opts_file.write_text(shlex.join(item["specific_opts"]) + "\n")
         chunk_outputs_file = manifests_dir / f"{dataset_tag}_outputs.txt"
         chunk_outputs = []
         parent_nodes = []
+        if args.split_variable_groups:
+            variable_groups = group_variables(requested_variables)
+        else:
+            variable_groups = {"all_variables": []}
+
+        group_opts_files = {}
+        for variable_group, variables in variable_groups.items():
+            group_opts_file = (
+                options_dir / f"{dataset_tag}_{variable_group}_specific_opts.txt"
+            )
+            group_options = list(item["specific_opts"])
+            if variables:
+                group_options.extend(["--variables", *variables])
+            group_opts_file.write_text(shlex.join(group_options) + "\n")
+            group_opts_files[variable_group] = group_opts_file
 
         for chunk_index, files in enumerate(dataset_chunks):
-            chunk_tag = f"{dataset_tag}_c{chunk_index:05d}"
-            manifest = manifests_dir / f"{chunk_tag}.txt"
+            manifest_tag = f"{dataset_tag}_c{chunk_index:05d}"
+            manifest = manifests_dir / f"{manifest_tag}.txt"
             manifest.write_text("\n".join(files) + "\n")
-            chunk_output = dataset_chunk_dir / f"chunk_{chunk_index:05d}.root"
-            chunk_outputs.append(str(chunk_output))
-            node = f"C_{chunk_tag}"
-            parent_nodes.append(node)
-            total_chunk_jobs += 1
+            for variable_group in variable_groups:
+                chunk_tag = (
+                    f"{dataset_tag}_c{chunk_index:05d}_{variable_group}"
+                )
+                chunk_output = (
+                    dataset_chunk_dir
+                    / f"chunk_{chunk_index:05d}_{variable_group}.root"
+                )
+                chunk_outputs.append(str(chunk_output))
+                node = f"C_{chunk_tag}"
+                parent_nodes.append(node)
+                total_chunk_jobs += 1
 
-            dag_lines.append(f"JOB {node} {chunk_submit_file}")
-            dag_lines.append(
-                f'VARS {node} '
-                f'era="{dag_quote(era)}" '
-                f'dataset="{dag_quote(dataset)}" '
-                f'input_path="{dag_quote(input_path)}" '
-                f'chunk_manifest="{dag_quote(manifest)}" '
-                f'chunk_output="{dag_quote(chunk_output)}" '
-                f'final_output="{dag_quote(output_dir / f"{dataset}{suffix}.root")}" '
-                f'specific_opts_file="{dag_quote(specific_opts_file)}" '
-                f'extra_opts_file="{dag_quote(extra_opts_file)}" '
-                f'stdout="{dag_quote(submit_dir / "output" / f"{chunk_tag}.out")}" '
-                f'stderr="{dag_quote(submit_dir / "error" / f"{chunk_tag}.err")}"'
-            )
-            dag_lines.append(f"RETRY {node} {args.chunk_retries}")
-            dag_lines.append(f"CATEGORY {node} CHUNKS")
+                dag_lines.append(f"JOB {node} {chunk_submit_file}")
+                dag_lines.append(
+                    f'VARS {node} '
+                    f'era="{dag_quote(era)}" '
+                    f'dataset="{dag_quote(dataset)}" '
+                    f'variable_group="{dag_quote(variable_group)}" '
+                    f'input_path="{dag_quote(input_path)}" '
+                    f'chunk_manifest="{dag_quote(manifest)}" '
+                    f'chunk_output="{dag_quote(chunk_output)}" '
+                    f'final_output="{dag_quote(output_dir / f"{dataset}{suffix}.root")}" '
+                    f'specific_opts_file="{dag_quote(group_opts_files[variable_group])}" '
+                    f'extra_opts_file="{dag_quote(extra_opts_file)}" '
+                    f'stdout="{dag_quote(submit_dir / "output" / f"{chunk_tag}.out")}" '
+                    f'stderr="{dag_quote(submit_dir / "error" / f"{chunk_tag}.err")}"'
+                )
+                dag_lines.append(f"RETRY {node} {args.chunk_retries}")
+                dag_lines.append(f"CATEGORY {node} CHUNKS")
 
         chunk_outputs_file.write_text("\n".join(chunk_outputs) + "\n")
         merge_node = f"M_{dataset_tag}"
@@ -881,6 +985,14 @@ def main():
         help="Submit one Condor DAG node per input-file chunk, followed by one hadd node per dataset.",
     )
     parser.add_argument(
+        "--split-variable-groups",
+        action="store_true",
+        help=(
+            "In --chunks-as-jobs mode, submit one node per chunk and logical "
+            "variable group (muons, dimuon, jets, dijets, DNN, etc.)."
+        ),
+    )
+    parser.add_argument(
         "--chunk-request-cpus",
         type=int,
         default=1,
@@ -926,6 +1038,10 @@ def main():
         args.hist_opts = args.hist_opts[1:]
     if args.chunk_retries < 0:
         raise SystemExit("[ERROR] --chunk-retries must be >= 0")
+    if args.split_variable_groups and not args.chunks_as_jobs:
+        raise SystemExit(
+            "[ERROR] --split-variable-groups requires --chunks-as-jobs"
+        )
 
     eras = []
     if args.eras:

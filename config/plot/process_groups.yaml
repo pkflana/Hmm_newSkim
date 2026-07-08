@@ -5,7 +5,7 @@
 
 process_scales: {}
 # DY amc@nlo normalization is applied in histograms/hist_maker.py.
-# Keeping it here as well would double-count it. MiNNLO is not affected.
+# Keeping it here as well would double-count it.
 
 background_groups:
   DY_amcatnlo:

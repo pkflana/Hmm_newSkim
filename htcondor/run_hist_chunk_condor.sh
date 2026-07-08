@@ -57,12 +57,16 @@ echo "[INFO] Command  : ${command[*]}"
 echo "============================================================"
 
 if [[ ! -d "${input_path}" ]]; then
-  echo "[ERROR] Input directory does not exist: ${input_path}" >&2
-  exit 2
+  echo "[WARNING] Input directory does not exist: ${input_path}" >&2
+  echo "[WARNING] Producing empty histograms for ${dataset_name}." >&2
+fi
+if [[ ! -e "${manifest}" ]]; then
+  echo "[ERROR] Missing chunk manifest: ${manifest}" >&2
+  exit 3
 fi
 if [[ ! -s "${manifest}" ]]; then
-  echo "[ERROR] Empty or missing chunk manifest: ${manifest}" >&2
-  exit 3
+  echo "[WARNING] Empty chunk manifest: ${manifest}" >&2
+  echo "[WARNING] Producing empty histograms for ${dataset_name}." >&2
 fi
 
 "${command[@]}"

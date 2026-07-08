@@ -359,7 +359,7 @@ add_static_group_jobs() {
       chunk_size=30
       datasets=(
         WWW_4F WWZ_4F WWto2L2Nu_powheg WWto4Q_powheg WWtoLNu2Q_powheg
-        WZZ WZto2L2Q_powheg WZto3LNu_powheg WZtoLNu2Q_powheg
+        WZZ WZto2L2Q_powheg  WZtoLNu2Q_powheg #WZto3LNu_powheg
         ZZZ ZZto2L2Nu_powheg ZZto2L2Q_powheg ZZto2Nu2Q_powheg ZZto4L_powheg
       )
       ;;

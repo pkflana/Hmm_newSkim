@@ -21,6 +21,7 @@ ROOT.gStyle.SetOptStat(0)
 plt.style.use(hep.style.CMS)
 
 import common.utilities as utilities
+from common.dy_ptll_reweight import DY_AMCATNLO_NORMALIZATION
 from common.helpers import RebinHisto, findBinEntry, findNewBins, getNewBins
 
 
@@ -862,6 +863,7 @@ def derive(args):
         "data_sample": args.data_sample,
         "dy_sample": args.dy_sample,
         "dy_scale": args.dy_scale,
+        "preserve_yield": args.preserve_yield,
         "subtracted_samples": other_samples,
         "rebin": {
             "histogram_config": hist_cfg_source,
@@ -1019,17 +1021,6 @@ def derive(args):
         output_root.cd()
         category_dir = output_root.mkdir(category)
         category_dir.cd()
-        for hist in [
-            config_data,
-            config_dy,
-            config_other,
-            data_hist,
-            dy_hist,
-            other_hist,
-            target_hist,
-            ratio_hist,
-        ]:
-            hist.Write()
         fit_func.Write("fit")
 
         payload["categories"][category] = {
@@ -1057,26 +1048,47 @@ def derive(args):
         )
 
     payload["shape_only_normalization"] = {}
-    for normalization_group, entries in normalization_entries.items():
-        scale, yield_before, yield_after = solve_shape_only_scale(
-            entries,
-            args.min_weight,
-            args.max_weight,
-        )
-        for entry in entries:
-            scale_fit_payload(entry, scale)
-            entry["root_directory"].cd()
-            entry["fit_func"].Write("fit_shape_only", ROOT.TObject.kOverwrite)
+    if args.preserve_yield:
+        for normalization_group, entries in normalization_entries.items():
+            scale, yield_before, yield_after = solve_shape_only_scale(
+                entries,
+                args.min_weight,
+                args.max_weight,
+            )
+            for entry in entries:
+                scale_fit_payload(entry, scale)
+                entry["root_directory"].cd()
+                entry["fit_func"].Write("fit_shape_only", ROOT.TObject.kOverwrite)
 
-        payload["shape_only_normalization"][normalization_group] = {
-            "scale": float(scale),
-            "yield_before": float(yield_before),
-            "yield_after": float(yield_after),
-        }
-        print(
-            f"[SHAPE ONLY] {normalization_group}: scale={scale:.12g}, "
-            f"yield={yield_before:.12g} -> {yield_after:.12g}"
-        )
+            payload["shape_only_normalization"][normalization_group] = {
+                "enabled": True,
+                "scale": float(scale),
+                "yield_before": float(yield_before),
+                "yield_after": float(yield_after),
+            }
+            print(
+                f"[PRESERVE YIELD] {normalization_group}: scale={scale:.12g}, "
+                f"yield={yield_before:.12g} -> {yield_after:.12g}"
+            )
+    else:
+        for normalization_group, entries in normalization_entries.items():
+            yield_before = sum(
+                entry["normalization_hist"].Integral(
+                    0,
+                    entry["normalization_hist"].GetNbinsX() + 1,
+                )
+                for entry in entries
+            )
+            payload["shape_only_normalization"][normalization_group] = {
+                "enabled": False,
+                "scale": 1.0,
+                "yield_before": float(yield_before),
+                "yield_after": None,
+            }
+            print(
+                f"[PRESERVE YIELD disabled] {normalization_group}: "
+                "using unnormalized pt(ll) fit weights"
+            )
 
     data_file.Close()
     dy_file.Close()
@@ -1170,12 +1182,33 @@ def parse_args():
         default=1.0,
         help=(
             "Scale applied to the input DY histogram before deriving the correction. "
-            "New histograms already contain the standard DY amc@nlo normalization; "
-            "use 0.9393839712918659 only for historical unnormalized inputs."
+            "Histograms produced by hist_maker.py already contain the standard "
+            f"DY amc@nlo normalization ({DY_AMCATNLO_NORMALIZATION:.16g}); "
+            "use this option only for historical unnormalized inputs."
         ),
     )
     parser.add_argument("--min-weight", type=float, default=0.0)
     parser.add_argument("--max-weight", type=float, default=5.0)
+    preserve_yield_group = parser.add_mutually_exclusive_group()
+    preserve_yield_group.add_argument(
+        "--preserve-yield",
+        dest="preserve_yield",
+        action="store_true",
+        help=(
+            "Normalize the derived pt(ll) weights so the DY yield is preserved. "
+            "Enabled by default."
+        ),
+    )
+    preserve_yield_group.add_argument(
+        "--no-preserve-yield",
+        dest="preserve_yield",
+        action="store_false",
+        help=(
+            "Do not normalize the derived pt(ll) weights; the correction is allowed "
+            "to change the DY yield."
+        ),
+    )
+    parser.set_defaults(preserve_yield=True)
     return parser.parse_args()
 
 
