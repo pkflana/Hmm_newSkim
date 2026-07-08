@@ -10,6 +10,7 @@ htcondor/error/
 htcondor/log/
 htcondor/output/
 htcondor/hists/
+htcondor/denominator_json/
 prova*
 test/
 plots*/
@@ -18,3 +19,4 @@ samples_withfiles.yaml
 soft/
 *.root
 plot*
+analysis/patches/

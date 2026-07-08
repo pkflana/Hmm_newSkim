@@ -64,7 +64,7 @@ jec_tag_map_mc = {
     "2023_Summer23BPix": ["Summer23BPixPrompt23_V4_MC"],
     "2023_Summer23": ["Summer23Prompt23_V4_MC"],
     "2024_Summer24": ["Summer24Prompt24_V3_MC"],
-    "2025_Summer24": ["Winter25Prompt25_V3_MC"],
+    "2025_Summer24": ["Summer24Prompt25_V1_MC"],
     "2025_Winter25": ["Winter25Prompt25_V3_MC"],
     "2026_Summer24": ["Winter25Prompt25_V3_MC"],  # tmp patch as there is no JEC tag for 2026 right now
 }
@@ -76,7 +76,7 @@ jec_tag_map_data = {
     "2023_Summer23BPix": ["Summer23BPixPrompt23_Run{}_V4_DATA", "Summer23BPixPrompt23_V4_DATA"],
     "2023_Summer23": ["Summer23Prompt23_Run{}_V4_DATA", "Summer23Prompt23_V4_DATA"],
     "2024_Summer24": ["Summer24Prompt24_V3_DATA"],
-    "2025_Summer24": ["Winter25Prompt25_Run{}_V3_DATA", "Winter25Prompt25_V3_DATA"],
+    "2025_Summer24": ["Summer24Prompt25_V1_DATA"],
     "2025_Winter25": ["Winter25Prompt25_Run{}_V3_DATA", "Winter25Prompt25_V3_DATA"],
     "2026_Summer24": ["Winter25Prompt25_Run{}_V3_DATA", "Winter25Prompt25_V3_DATA"], # tmp patch as there is no JEC tag for 2026 right now
 }

@@ -8,6 +8,7 @@ era="$4"
 input_folder="$5"
 output_dir="$6"
 extra_opts_file="${7:-}"
+root_input_folder="${8:-}"
 
 cd "${analysis_path}"
 _saved_args=("$@")
@@ -29,6 +30,14 @@ if [[ "${input_folder}" = /* ]]; then
   input_path="${input_folder}/${era}/${dataset_name}/"
 else
   input_path="/eos/cms/store/group/phys_higgs/cmshmm/vdamante/${input_folder}/${era}/${dataset_name}/"
+fi
+metadata_input_path="${input_path}"
+if [[ -n "${root_input_folder}" && "${root_input_folder}" != "-" ]]; then
+  if [[ "${root_input_folder}" = /* ]]; then
+    input_path="${root_input_folder}/${era}/${dataset_name}/"
+  else
+    input_path="/eos/cms/store/group/phys_higgs/cmshmm/vdamante/${root_input_folder}/${era}/${dataset_name}/"
+  fi
 fi
 output_file="${output_dir}/${dataset_name}${file_suffix}.root"
 
@@ -52,6 +61,7 @@ command=(
   --era "${era}"
   --dataset-name "${dataset_name}"
   --input "${input_path}"
+  --metadata-input "${metadata_input_path}"
   --output-file "${output_file}"
   --chunk-size "${chunk_size}"
 )
@@ -63,6 +73,7 @@ echo "[INFO] ProcId  : ${proc_id}"
 echo "[INFO] Era     : ${era}"
 echo "[INFO] Dataset : ${dataset_name}"
 echo "[INFO] Input   : ${input_path}"
+echo "[INFO] Metadata: ${metadata_input_path}"
 echo "[INFO] Output  : ${output_file}"
 echo "[INFO] Command : ${command[*]}"
 echo "============================================================"

@@ -9,6 +9,7 @@ manifest="$5"
 output_file="$6"
 specific_opts_file="$7"
 extra_opts_file="$8"
+metadata_input_path="${9:-}"
 
 cd "${analysis_path}"
 _saved_args=("$@")
@@ -45,12 +46,17 @@ command=(
   --n-cores 1
   --skip-file-validation
 )
+if [[ -n "${metadata_input_path}" && "${metadata_input_path}" != "-" ]]; then
+  command+=(--metadata-input "${metadata_input_path}")
+fi
 command+=("${specific_opts[@]}")
 command+=("${extra_opts[@]}")
 
 echo "============================================================"
 echo "[INFO] Era      : ${era}"
 echo "[INFO] Dataset  : ${dataset_name}"
+echo "[INFO] Input    : ${input_path}"
+echo "[INFO] Metadata : ${metadata_input_path:-${input_path}}"
 echo "[INFO] Manifest : ${manifest}"
 echo "[INFO] Output   : ${output_file}"
 echo "[INFO] Command  : ${command[*]}"

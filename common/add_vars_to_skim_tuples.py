@@ -1,5 +1,5 @@
 
-def SelectedJetObservablesDef(df):
+def SelectedJetObservablesDef(df, suffix=""):
     columns = {str(col) for col in df.GetColumnNames()}
     jet_names = {
         0: "leading",
@@ -10,66 +10,74 @@ def SelectedJetObservablesDef(df):
     sel_jet_cols = ["SelectedJet_area","SelectedJet_btagDeepFlavQG","SelectedJet_btagPNetB","SelectedJet_btagPNetQvG","SelectedJet_btagUParTAK4QvG","SelectedJet_eta","SelectedJet_idx","SelectedJet_mass","SelectedJet_phi","SelectedJet_pt"]
     for jet_idx, jet_type in jet_names.items():
         for jet_obs in sel_jet_cols:
-            if jet_obs not in columns:
+            source = f"{jet_obs}{suffix}"
+            if source not in columns:
                 continue
             jet_obs_suff = "_".join(jet_obs.split("_")[1:])
             df = df.Define(
-                f"{jet_type}jet_{jet_obs_suff}",
-                f"(SelectedJet_idx.size()>{jet_idx} && !SelectedJet_IsInsideHorn[{jet_idx}]) ? {jet_obs}.at({jet_idx}): -1000.f;",
+                f"{jet_type}jet_{jet_obs_suff}{suffix}",
+                f"(SelectedJet_idx{suffix}.size()>{jet_idx} && !SelectedJet_IsInsideHorn{suffix}[{jet_idx}]) ? {source}.at({jet_idx}): -1000.f;",
             )
         df = df.Define(
-            f"{jet_type}jet_p4",
-            f"(SelectedJet_idx.size()>{jet_idx} && !SelectedJet_IsInsideHorn[{jet_idx}]) ? ROOT::Math::LorentzVector<ROOT::Math::PtEtaPhiM4D<double>>(SelectedJet_pt.at({jet_idx}), SelectedJet_eta.at({jet_idx}),SelectedJet_phi.at({jet_idx}), SelectedJet_mass.at({jet_idx})) : ROOT::Math::LorentzVector<ROOT::Math::PtEtaPhiM4D<double>>(-10000.,-10000.,-10000.,-10000.);",
+            f"{jet_type}jet_p4{suffix}",
+            f"(SelectedJet_idx{suffix}.size()>{jet_idx} && !SelectedJet_IsInsideHorn{suffix}[{jet_idx}]) ? ROOT::Math::LorentzVector<ROOT::Math::PtEtaPhiM4D<double>>(SelectedJet_pt{suffix}.at({jet_idx}), SelectedJet_eta{suffix}.at({jet_idx}),SelectedJet_phi{suffix}.at({jet_idx}), SelectedJet_mass{suffix}.at({jet_idx})) : ROOT::Math::LorentzVector<ROOT::Math::PtEtaPhiM4D<double>>(-10000.,-10000.,-10000.,-10000.);",
         )
     df = df.Define(
-        "delta_eta_jj_ls",
-        "SelectedJet_idx.size() >= 2 && std::abs(leadingjet_eta) < 10. && std::abs(subleadingjet_eta) < 10. ? std::abs(leadingjet_eta - subleadingjet_eta) : -1000.f"
+        f"delta_eta_jj_ls{suffix}",
+        f"SelectedJet_idx{suffix}.size() >= 2 && std::abs(leadingjet_eta{suffix}) < 10. && std::abs(subleadingjet_eta{suffix}) < 10. ? std::abs(leadingjet_eta{suffix} - subleadingjet_eta{suffix}) : -1000.f"
     )
-    df = df.Define(f"m_jj_ls", "leadingjet_p4.M()>=0 && subleadingjet_p4.M() >=0 ? (leadingjet_p4+subleadingjet_p4).M(): -1000.f")
+    df = df.Define(
+        f"m_jj_ls{suffix}",
+        f"leadingjet_p4{suffix}.M()>=0 && subleadingjet_p4{suffix}.M() >=0 ? (leadingjet_p4{suffix}+subleadingjet_p4{suffix}).M(): -1000.f",
+    )
 
     return df
 
 
-def VBFJetObservablesDef(df):
+def VBFJetObservablesDef(df, suffix=""):
     columns = {str(col) for col in df.GetColumnNames()}
     sel_jet_cols = ["SelectedJet_area","SelectedJet_btagDeepFlavQG","SelectedJet_btagPNetB","SelectedJet_btagPNetQvG","SelectedJet_btagUParTAK4QvG","SelectedJet_eta","SelectedJet_idx","SelectedJet_mass","SelectedJet_phi","SelectedJet_pt"]
     for vbfj_idx in [1,2]:
         df = df.Define(
-            f"vbfjet{vbfj_idx}_p4",
-            f"(HasVBF) ? ROOT::Math::LorentzVector<ROOT::Math::PtEtaPhiM4D<double>>(SelectedJet_pt.at(VBFJetIdx_{vbfj_idx}), SelectedJet_eta.at(VBFJetIdx_{vbfj_idx}),SelectedJet_phi.at(VBFJetIdx_{vbfj_idx}), SelectedJet_mass.at(VBFJetIdx_{vbfj_idx})) : ROOT::Math::LorentzVector<ROOT::Math::PtEtaPhiM4D<double>>(-10000.,-10000.,-10000.,-10000.);",
+            f"vbfjet{vbfj_idx}_p4{suffix}",
+            f"(HasVBF{suffix}) ? ROOT::Math::LorentzVector<ROOT::Math::PtEtaPhiM4D<double>>(SelectedJet_pt{suffix}.at(VBFJetIdx_{vbfj_idx}{suffix}), SelectedJet_eta{suffix}.at(VBFJetIdx_{vbfj_idx}{suffix}),SelectedJet_phi{suffix}.at(VBFJetIdx_{vbfj_idx}{suffix}), SelectedJet_mass{suffix}.at(VBFJetIdx_{vbfj_idx}{suffix})) : ROOT::Math::LorentzVector<ROOT::Math::PtEtaPhiM4D<double>>(-10000.,-10000.,-10000.,-10000.);",
         )
         for jet_obs in sel_jet_cols:
-            if jet_obs not in columns:
+            source = f"{jet_obs}{suffix}"
+            if source not in columns:
                 continue
             jet_obs_suff = "_".join(jet_obs.split("_")[1:])
             df = df.Define(
-                f"vbfjet{vbfj_idx}_{jet_obs_suff}",
-                f"(HasVBF) ? {jet_obs}.at(VBFJetIdx_{vbfj_idx}): -1000.f;",
+                f"vbfjet{vbfj_idx}_{jet_obs_suff}{suffix}",
+                f"(HasVBF{suffix}) ? {source}.at(VBFJetIdx_{vbfj_idx}{suffix}): -1000.f;",
             )
 
     df = df.Define(
-        "m_jj",
-        "if (HasVBF) return static_cast<float>((vbfjet1_p4+vbfjet2_p4).M()); return -1000.f",
+        f"m_jj{suffix}",
+        f"if (HasVBF{suffix}) return static_cast<float>((vbfjet1_p4{suffix}+vbfjet2_p4{suffix}).M()); return -1000.f",
     )
 
     df = df.Define(
-        "delta_eta_jj",
-        "if (HasVBF) return static_cast<float>(abs(vbfjet1_p4.Eta()-vbfjet2_p4.Eta())); return -1000.f",
+        f"delta_eta_jj{suffix}",
+        f"if (HasVBF{suffix}) return static_cast<float>(abs(vbfjet1_p4{suffix}.Eta()-vbfjet2_p4{suffix}.Eta())); return -1000.f",
     )
     df = df.Define(
-        "vbfjet1_y",
-        "if (HasVBF) return static_cast<float>(vbfjet1_p4.Rapidity()); return -1000.f; ",
+        f"vbfjet1_y{suffix}",
+        f"if (HasVBF{suffix}) return static_cast<float>(vbfjet1_p4{suffix}.Rapidity()); return -1000.f; ",
     )
     df = df.Define(
-        "vbfjet2_y",
-        "if (HasVBF) return static_cast<float>(vbfjet2_p4.Rapidity()); return -1000.f; ",
+        f"vbfjet2_y{suffix}",
+        f"if (HasVBF{suffix}) return static_cast<float>(vbfjet2_p4{suffix}.Rapidity()); return -1000.f; ",
     )
     df = df.Define(
-        "delta_phi_jj",
-        "if (HasVBF) return static_cast<float>(ROOT::Math::VectorUtil::DeltaPhi( vbfjet1_p4,vbfjet2_p4 ) ); return -1000.f;",
+        f"delta_phi_jj{suffix}",
+        f"if (HasVBF{suffix}) return static_cast<float>(ROOT::Math::VectorUtil::DeltaPhi(vbfjet1_p4{suffix},vbfjet2_p4{suffix})); return -1000.f;",
     )
 
-    df = df.Define(f"pt_vbfj1j2", "(vbfjet1_p4+vbfjet2_p4).Pt()")
+    df = df.Define(
+        f"pt_vbfj1j2{suffix}",
+        f"(vbfjet1_p4{suffix}+vbfjet2_p4{suffix}).Pt()",
+    )
 
     return df
 

@@ -37,7 +37,9 @@ Options:
   --chunk-size N          Override chunk size for selected jobs. Default: group-specific;
                           for --dataset-name default is 20.
   --era ERA              Era to run, e.g. Run3_2022.
-  --input-folder NAME    Input skim folder. Default: skim_v2_noUnc.
+  --input-folder NAME    Input skim folder for metadata/JSONs. Default: skim_v2_noUnc.
+  --root-input-folder NAME
+                          Optional skim folder for ROOT files. Defaults to --input-folder.
   --output-suffix TEXT   Suffix appended to newHists_${era}.
   --output-dir DIR       Override the complete output directory.
   --extra-opts TEXT      Extra hist_maker.py options as a quoted string.
@@ -482,6 +484,7 @@ single_dataset_chunk_size=20
 chunk_size_override=""
 era=""
 input_folder="skim_v2_noUnc"
+root_input_folder=""
 output_suffix=""
 output_dir_override=""
 extra_opts=()
@@ -529,6 +532,11 @@ while [[ $# -gt 0 ]]; do
     --input-folder)
       [[ $# -ge 2 ]] || die "$1 requires a value"
       input_folder="$2"
+      shift 2
+      ;;
+    --root-input-folder)
+      [[ $# -ge 2 ]] || die "$1 requires a value"
+      root_input_folder="$2"
       shift 2
       ;;
     --output-suffix)
@@ -681,6 +689,20 @@ fi
 
 [[ ${#job_datasets[@]} -gt 0 ]] || die "No jobs selected"
 
+dataset_input_path() {
+  local folder="$1"
+  local dataset="$2"
+  if [[ "${folder}" = /* ]]; then
+    printf '%s/%s/%s/' "${folder}" "${era}" "${dataset}"
+  else
+    printf '/eos/user/a/ayeagle/%s/%s/%s/' "${folder}" "${era}" "${dataset}"
+  fi
+}
+
+if [[ -z "${root_input_folder}" ]]; then
+  root_input_folder="${input_folder}"
+fi
+
 if [[ -n "${chunk_size_override}" ]]; then
   for i in "${!job_chunk_sizes[@]}"; do
     job_chunk_sizes[$i]="${chunk_size_override}"
@@ -827,7 +849,7 @@ if [[ ${condor} -eq 1 ]]; then
   cat > "${submit_file}" <<EOF
 universe = vanilla
 executable = ${wrapper}
-arguments = ${analysis_path} ${analysis_path}/${jobs_file} \$(ProcId) ${era} ${input_folder} ${output_dir} ${analysis_path}/${extra_opts_file}
+arguments = ${analysis_path} ${analysis_path}/${jobs_file} \$(ProcId) ${era} ${input_folder} ${output_dir} ${analysis_path}/${extra_opts_file} ${root_input_folder}
 
 output = ${analysis_path}/${condor_output_dir}/\$(ProcId).out
 error  = ${analysis_path}/${condor_error_dir}/\$(ProcId).err
@@ -896,7 +918,8 @@ for i in "${!job_datasets[@]}"; do
   dataset_name="${job_datasets[$i]}"
   chunk_size="${job_chunk_sizes[$i]}"
   file_suffix="${job_file_suffixes[$i]}"
-  input_path="/eos/user/a/ayeagle/${input_folder}/${era}/${dataset_name}/"
+  metadata_input_path="$(dataset_input_path "${input_folder}" "${dataset_name}")"
+  input_path="$(dataset_input_path "${root_input_folder}" "${dataset_name}")"
   output_file="${output_dir}/${dataset_name}${file_suffix}.root"
 
   if [[ ${missing_only} -eq 1 && ${force_submit} -eq 0 && ${erase_existing} -eq 0 ]]; then
@@ -918,6 +941,7 @@ for i in "${!job_datasets[@]}"; do
     --era "${era}"
     --dataset-name "${dataset_name}"
     --input "${input_path}"
+    --metadata-input "${metadata_input_path}"
     --output-file "${output_file}"
     --chunk-size "${chunk_size}"
   )
@@ -929,6 +953,7 @@ for i in "${!job_datasets[@]}"; do
   echo "[INFO] Era     : ${era}"
   echo "[INFO] Dataset : ${dataset_name}"
   echo "[INFO] Input   : ${input_path}"
+  echo "[INFO] Metadata: ${metadata_input_path}"
   echo "[INFO] Output  : ${output_file}"
   echo "[INFO] Command : ${command[*]}"
   echo "============================================================"

@@ -138,7 +138,7 @@ periods = {
     "2016postVFP_UL": "2016",
 }
 
-def define_base_weights(df, lumi, xs_entry, xs_cfg,config,dataset_cfg, process_entry, want_variations_from_skim=False):
+def define_base_weights(df, lumi, xs_entry, xs_cfg,config,dataset_cfg, process_entry, want_variations_from_skim=False, systematics_cfg=None):
     want_variations = config.get("want_variations", False) or want_variations_from_skim
     base_weights_to_store = []
     json_dict_to_store = {}
@@ -172,6 +172,14 @@ def define_base_weights(df, lumi, xs_entry, xs_cfg,config,dataset_cfg, process_e
         df = df.Define("weight_xs", xs_value)
     base_weights_to_store.append(weight_xs_name)
 
+    if systematics_cfg and systematics_cfg.get("qcd_scale"):
+        from .qcd_scale import define_qcd_scale_sum_columns
+        df, json_dict_to_store = define_qcd_scale_sum_columns(
+            df,
+            systematics_cfg["qcd_scale"],
+            json_dict_to_store,
+        )
+
     ### to add --> 2024/2025/2026 --> weight 0 or 1 to decide what MC use for what prod
 
 
@@ -195,7 +203,4 @@ def apply_corrections(df, config, dataset_cfg, dataset_name, want_variations_fro
     from .jets import apply_jet_corrections
     df = apply_jet_corrections(df, config, dataset_cfg, dataset_name, want_variations)
     return df
-
-
-
 

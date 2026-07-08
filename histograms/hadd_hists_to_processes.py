@@ -2,6 +2,8 @@ import os
 import shutil
 import yaml
 import argparse
+import copy
+import re
 
 
 
@@ -29,6 +31,94 @@ def dataset_file_candidates(input_dir, process, dataset):
     }
     suffixes = suffix_by_process.get(process, [""])
     return [os.path.join(input_dir, f"{dataset}{suffix}.root") for suffix in suffixes]
+
+
+def add_derived_systematics(era, output_dir):
+    import numpy as np
+    import uproot
+
+    systematics_cfg = load_yaml_config(
+        os.path.join("config", era, "systematics.yaml")
+    )
+    derived_cfg = (systematics_cfg or {}).get("derived_systematics", {})
+
+    for _, config in derived_cfg.items():
+        nominal_process = config["nominal_process"]
+        alternative_process = config["alternative_process"]
+        nuisance_name = config["name"]
+        coefficient = float(config.get("coefficient", 0.5))
+        floor = float(config.get("floor", 0.0))
+        nominal_path = os.path.join(output_dir, f"{nominal_process}.root")
+        alternative_path = os.path.join(
+            output_dir, f"{alternative_process}.root"
+        )
+
+        if not os.path.exists(nominal_path) or not os.path.exists(alternative_path):
+            print(
+                f"[WARNING] Cannot build {nuisance_name}: missing "
+                f"{nominal_path} or {alternative_path}"
+            )
+            continue
+
+        variations = {}
+        with (
+            uproot.open(nominal_path) as nominal_file,
+            uproot.open(alternative_path) as alternative_file,
+        ):
+            for key in nominal_file.keys(recursive=True):
+                clean_key = key.split(";")[0]
+                histogram_name = clean_key.rsplit("/", 1)[-1]
+                if re.search(r"(Up|Down)$", histogram_name):
+                    continue
+                if clean_key not in alternative_file:
+                    continue
+
+                nominal_object = nominal_file[clean_key]
+                alternative_object = alternative_file[clean_key]
+                if not (
+                    hasattr(nominal_object, "to_hist")
+                    and hasattr(alternative_object, "to_hist")
+                ):
+                    continue
+
+                nominal_hist = nominal_object.to_hist()
+                alternative_hist = alternative_object.to_hist()
+                nominal_values = nominal_hist.values(flow=True)
+                alternative_values = alternative_hist.values(flow=True)
+                if nominal_values.shape != alternative_values.shape:
+                    raise RuntimeError(
+                        f"Histogram shape mismatch for '{clean_key}' between "
+                        f"{nominal_process} and {alternative_process}"
+                    )
+
+                half_difference = coefficient * np.abs(
+                    alternative_values - nominal_values
+                )
+                up_hist = copy.deepcopy(nominal_hist)
+                down_hist = copy.deepcopy(nominal_hist)
+                up_hist.view(flow=True).value[...] = (
+                    nominal_values + half_difference
+                )
+                down_hist.view(flow=True).value[...] = np.maximum(
+                    floor, nominal_values - half_difference
+                )
+
+                directory = clean_key.rsplit("/", 1)[0] if "/" in clean_key else ""
+                prefix = f"{directory}/" if directory else ""
+                variations[
+                    f"{prefix}{histogram_name}_{nuisance_name}Up"
+                ] = up_hist
+                variations[
+                    f"{prefix}{histogram_name}_{nuisance_name}Down"
+                ] = down_hist
+
+        with uproot.update(nominal_path) as nominal_output:
+            for key, histogram in variations.items():
+                nominal_output[key] = histogram
+        print(
+            f"   -> Added {len(variations)} {nuisance_name} templates "
+            f"to {nominal_path}"
+        )
 
 
 def hadd_datasets_to_processes(era,input_dir, output_dir,dryRun=False):
@@ -156,6 +246,7 @@ def hadd_datasets_to_processes(era,input_dir, output_dir,dryRun=False):
     if dryRun:
         print("\n===============================================================\n")
     else:
+        add_derived_systematics(era, output_dir)
         print("\n--- HADDing Completato! ---")
 
 

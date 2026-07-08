@@ -7,9 +7,9 @@ apply_trg_filter: True
 only_default: True
 
 jet_pt_min: 20.0
-jet_eta_max: 4.7 
-# jet_horn_veto_expr: "(abs(v_ops::eta(Jet_p4)) < 0)" # no jet veto horn for 2025.. so always false
-jet_horn_veto_expr: "( ( abs(v_ops::eta(Jet_p4)) >= 2.5 && abs(v_ops::eta(Jet_p4)) < 3.0) && v_ops::pt(Jet_p4) < 50.0 )"
+jet_eta_max: 4.7
+jet_horn_veto_expr: "(abs(v_ops::eta(Jet_p4)) < 0)" # no jet veto horn for 2025.. so always false
+# jet_horn_veto_expr: "( ( abs(v_ops::eta(Jet_p4)) >= 2.5 && abs(v_ops::eta(Jet_p4)) < 3.0) && v_ops::pt(Jet_p4) < 50.0 )"
 apply_jetveto_filter: False
 define_electron_cleaning: False
 

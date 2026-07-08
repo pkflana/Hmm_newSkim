@@ -505,7 +505,7 @@ def write_chunk_dag(
     chunk_submit_file.write_text(
         f"""universe = vanilla
 executable = {chunk_wrapper}
-arguments = {analysis_path} $(era) $(dataset) $(input_path) $(chunk_manifest) $(chunk_output) $(specific_opts_file) $(extra_opts_file)
+arguments = {analysis_path} $(era) $(dataset) $(input_path) $(chunk_manifest) $(chunk_output) $(specific_opts_file) $(extra_opts_file) $(metadata_input_path)
 
 output = $(stdout)
 error  = $(stderr)
@@ -550,11 +550,13 @@ queue
     for dataset_index, item in enumerate(jobs_to_submit):
         dataset = item["dataset"]
         suffix = item["file_suffix"]
-        input_path = dataset_input_path(args.input_folder, era, dataset)
-        root_files = sorted(str(path.resolve()) for path in input_path.rglob("*.root"))
+        metadata_input_path = dataset_input_path(args.input_folder, era, dataset)
+        root_input_folder = args.root_input_folder or args.input_folder
+        root_input_path = dataset_input_path(root_input_folder, era, dataset)
+        root_files = sorted(str(path.resolve()) for path in root_input_path.rglob("*.root"))
         if not root_files:
             print(
-                f"[WARNING] No ROOT files found under {input_path}. "
+                f"[WARNING] No ROOT files found under {root_input_path}. "
                 "Scheduling one job to create empty histograms."
             )
             dataset_chunks = [[]]
@@ -605,7 +607,8 @@ queue
                     f'era="{dag_quote(era)}" '
                     f'dataset="{dag_quote(dataset)}" '
                     f'variable_group="{dag_quote(variable_group)}" '
-                    f'input_path="{dag_quote(input_path)}" '
+                    f'input_path="{dag_quote(root_input_path)}" '
+                    f'metadata_input_path="{dag_quote(metadata_input_path)}" '
                     f'chunk_manifest="{dag_quote(manifest)}" '
                     f'chunk_output="{dag_quote(chunk_output)}" '
                     f'final_output="{dag_quote(output_dir / f"{dataset}{suffix}.root")}" '
@@ -918,7 +921,7 @@ def run_group(
     wrapper = analysis_path / "htcondor" / "run_hist_condor.sh"
     submit_contents = f"""universe = vanilla
 executable = {wrapper}
-arguments = {analysis_path} {jobs_file} $(ProcId) {era} {args.input_folder} {output_dir} {extra_opts_file}
+arguments = {analysis_path} {jobs_file} $(ProcId) {era} {args.input_folder} {output_dir} {extra_opts_file} {args.root_input_folder or "-"}
 
 output = {stdout_dir}/$(ProcId).out
 error  = {stderr_dir}/$(ProcId).err
@@ -980,8 +983,15 @@ def main():
         "--input-folder",
         default=DEFAULT_INPUT_FOLDER,
         help=(
-            "Input skim folder or absolute prepath. Default: "
+            "Input skim folder or absolute prepath used for metadata/JSONs. Default: "
             f"{DEFAULT_INPUT_FOLDER}"
+        ),
+    )
+    parser.add_argument(
+        "--root-input-folder",
+        help=(
+            "Optional skim folder or absolute prepath used for ROOT files. "
+            "Defaults to --input-folder."
         ),
     )
     parser.add_argument("--output-suffix", default="")

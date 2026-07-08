@@ -7,6 +7,7 @@ import argparse
 import time
 import traceback
 import subprocess
+import copy
 from multiprocessing import get_context
 
 ROOT.gROOT.SetBatch(True)
@@ -16,17 +17,26 @@ sys.path.append(os.environ["ANALYSIS_PATH"])
 
 import common.utilities as utilities
 from common.helpers import GetModel,GetRdfForDataset,get_root_files,get_valid_root_files,get_segmentation_dict,is_valid_tmp_root
-from common.add_vars_to_skim_tuples import DefineHistogramSelections, GetSelectionSuffixForSystematic
+from common.add_vars_to_skim_tuples import (
+    DefineHistogramSelections,
+    GetSelectionSuffixForSystematic,
+    SelectedJetObservablesDef,
+    VBFJetObservablesDef,
+)
 from common.dy_ptll_reweight import (
     ApplyDYAmcatnloNormalization,
     ApplyDYNJetsReweight,
     ApplyDYPtLLReweight,
 )
+from corrections.qcd_scale import get_qcd_scale_points
 HEADERS = ["analysis/AnalysisTools.h"]
 for header in HEADERS:
     utilities.DeclareHeader(f"{os.environ['ANALYSIS_PATH']}/{header}")
 
-DNN_Z_SIDEBAND_SHIFTED_PAYLOAD = "DNNZSidebandMassShift"
+DNN_SIDEBAND_SHIFTED_PAYLOADS = {
+    "Z_sideband": "DNNZSidebandMassShift",
+    "H_sideband": "DNNHSidebandMassShift",
+}
 
 def chunk_list(items, chunk_size):
     return [items[i:i + chunk_size] for i in range(0, len(items), chunk_size)]
@@ -92,6 +102,251 @@ def format_systematic_info(syst_info, scale=None):
 
     return formatted
 
+
+def nuisance_histogram_name(variable, syst_name, syst_info, era, process):
+    if syst_name == "Central":
+        return variable
+
+    nuisance_name = syst_info.get("name", syst_name)
+    nuisance_name = nuisance_name.format(
+        era=era.removeprefix("Run3_"),
+        process=process,
+        pdf_process=pdf_process_label(syst_info.get("pdf_config", {}), process),
+    )
+    direction = syst_info.get("direction")
+    if direction:
+        nuisance_name = f"{nuisance_name}{direction.capitalize()}"
+    return f"{variable}_{nuisance_name}"
+
+
+def unique_metadata_inputs(paths):
+    unique_paths = []
+    seen = set()
+
+    for path in paths:
+        if not path:
+            continue
+        normalized = os.path.abspath(path)
+        if normalized in seen:
+            continue
+        seen.add(normalized)
+        unique_paths.append(path)
+
+    return unique_paths
+
+
+def get_combined_segmentation_dict(
+    input_paths,
+    node="gen",
+    fallback_to_initial=True,
+    warn_if_missing=True,
+):
+    combined = {}
+    metadata_inputs = unique_metadata_inputs(input_paths)
+
+    for input_path in metadata_inputs:
+        sums = get_segmentation_dict(
+            input_path,
+            node=node,
+            fallback_to_initial=fallback_to_initial,
+            warn_if_missing=False,
+        )
+        combined.update(sums)
+
+    if not combined and warn_if_missing:
+        print(
+            "[WARNING] No segmentation JSON information found under: "
+            + ", ".join(metadata_inputs)
+        )
+
+    return combined
+
+
+def get_qcd_scale_segmentation_dict(input_paths, point_name, **kwargs):
+    warn_if_missing = kwargs.pop("warn_if_missing", True)
+    node_candidates = [
+        f"qcd_scale__{point_name}",
+        f"gen_qcdScale_{point_name}",
+    ]
+
+    for node in node_candidates:
+        sums = get_combined_segmentation_dict(
+            input_paths,
+            node=node,
+            warn_if_missing=False,
+            **kwargs,
+        )
+        if sums:
+            return sums
+
+    if warn_if_missing:
+        print(
+            "[WARNING] No QCD scale segmentation JSON information found for "
+            f"{point_name} under: " + ", ".join(unique_metadata_inputs(input_paths))
+        )
+
+    return {}
+
+
+def get_qcd_scale_variations(qcd_scale_config):
+    return qcd_scale_config.get(
+        "variations",
+        [
+            {
+                "name": "QCDscaleMuR_{process}",
+                "down": "muR0p5_muF1",
+                "up": "muR2_muF1",
+            },
+            {
+                "name": "QCDscaleMuF_{process}",
+                "down": "muR1_muF0p5",
+                "up": "muR1_muF2",
+            },
+        ],
+    )
+
+
+def get_qcd_scale_source_points(qcd_scale_config):
+    points_by_name = {
+        point["name"]: point
+        for point in get_qcd_scale_points(qcd_scale_config)
+    }
+    source_names = []
+
+    for variation in get_qcd_scale_variations(qcd_scale_config):
+        for direction in ("down", "up"):
+            point_name = variation[direction]
+            if point_name not in points_by_name:
+                raise ValueError(
+                    f"QCD scale variation point '{point_name}' is not defined "
+                    "in qcd_scale.points."
+                )
+            if point_name not in source_names:
+                source_names.append(point_name)
+
+    return [points_by_name[name] for name in source_names]
+
+
+def qcd_scale_process_label(qcd_scale_config, process):
+    process_labels = qcd_scale_config.get("process_labels", {})
+    if process in process_labels:
+        return process_labels[process]
+
+    lower_process = process.lower()
+    if lower_process.startswith(("dy", "w")) or "ewk" in lower_process:
+        return "V"
+    if lower_process.startswith(("tt", "st", "tw")):
+        return "ttbar"
+    if lower_process.startswith("vbf") or "vbfh" in lower_process:
+        return "qqH"
+    if lower_process.startswith(("gluglu", "ggh")):
+        return "ggH"
+    if lower_process.startswith("vh") or "zh" in lower_process or "wh" in lower_process:
+        return "VH"
+    if lower_process.startswith(("tth", "ttH".lower())):
+        return "ttH"
+    if lower_process.startswith("vvv"):
+        return "VVV"
+    if lower_process.startswith("vv") or lower_process in {"ww", "wz", "zz"}:
+        return "VV"
+
+    return process
+
+
+def pdf_process_label(pdf_config, process):
+    process_labels = pdf_config.get("process_labels", {})
+    if process in process_labels:
+        return process_labels[process]
+
+    lower_process = process.lower()
+    if lower_process.startswith(("dy", "w")) or "ewk" in lower_process:
+        return "qqbar"
+    if lower_process.startswith("vbf") or "vbfh" in lower_process:
+        return "Higgs_qqH"
+    if lower_process.startswith(("gluglu", "ggh")):
+        return "Higgs_ggH"
+    if lower_process.startswith("vh") or "zh" in lower_process or "wh" in lower_process:
+        return "Higgs_VH"
+    if lower_process.startswith("tth"):
+        return "Higgs_ttH"
+    if lower_process.startswith("tt"):
+        return "gg"
+    if lower_process.startswith(("st", "tw")):
+        return "gq"
+    if lower_process.startswith("vvv"):
+        return "qqbar"
+    if lower_process.startswith("vv") or lower_process in {"ww", "wz", "zz"}:
+        return "qqbar"
+
+    return process
+
+
+def configure_available_qcd_scale(syst_cfg, input_paths, is_data, mode):
+    qcd_config = syst_cfg.get("qcd_scale", {})
+    if (
+        is_data
+        or mode == "central"
+        or not qcd_config.get("enabled", False)
+    ):
+        return syst_cfg
+
+    available_points = []
+    missing_points = []
+    source_points = get_qcd_scale_source_points(qcd_config)
+    for point in source_points:
+        point_name = point["name"]
+        sums = get_qcd_scale_segmentation_dict(
+            input_paths,
+            point_name,
+            fallback_to_initial=False,
+            warn_if_missing=False,
+        )
+        if sums:
+            available_points.append(point)
+        else:
+            missing_points.append(point_name)
+
+    configured = copy.deepcopy(syst_cfg)
+    configured["qcd_scale"]["points"] = available_points
+    available_names = {point["name"] for point in available_points}
+    configured["qcd_scale"]["variations"] = [
+        variation
+        for variation in get_qcd_scale_variations(qcd_config)
+        if variation["down"] in available_names and variation["up"] in available_names
+    ]
+
+    if not missing_points:
+        return configured
+
+    missing_policy = qcd_config.get("missing_sums", "error")
+    message = (
+        "QCD scale sums are missing from the skim reports for: "
+        + ", ".join(missing_points)
+    )
+    if missing_policy == "error":
+        raise RuntimeError(
+            f"{message}. Reproduce the skim with --want-variations."
+        )
+    if missing_policy != "skip":
+        raise ValueError(
+            "qcd_scale.missing_sums must be either 'skip' or 'error'"
+        )
+
+    if available_points:
+        print(
+            f"[WARNING] {message}. Missing QCD scale points will be skipped; "
+            f"{len(configured['qcd_scale']['variations'])} QCD scale "
+            "variation(s) will still be produced."
+        )
+    else:
+        configured["qcd_scale"]["enabled"] = False
+        print(
+            f"[WARNING] {message}. QCD scale templates will be skipped; "
+            "all other requested systematics will still be produced."
+        )
+    return configured
+
+
 def get_systs_to_run(syst_cfg, mode):
     systs_to_run = {
         "Central": syst_cfg["systematics"]["Central"]
@@ -105,37 +360,185 @@ def get_systs_to_run(syst_cfg, mode):
     for syst_name, syst_info in syst_cfg.get("systematics", {}).items():
         if syst_name == "Central":
             continue
+        if mode == "jec-jer" and syst_name not in ("JER", "JES_Total"):
+            continue
 
         for scale in scales:
             output_name = f"{syst_name}{scale.capitalize()}"
-            systs_to_run[output_name] = format_systematic_info(syst_info, scale=scale)
+            formatted = format_systematic_info(syst_info, scale=scale)
+            formatted["direction"] = scale
+            systs_to_run[output_name] = formatted
 
     for weight_name, weight_info in syst_cfg.get("weights", {}).items():
         if weight_name == "Central":
+            continue
+        if weight_info.get("derived_envelope", False):
             continue
 
         if "{scale}" in weight_name:
             for scale in scales:
                 output_name = weight_name.format(scale=scale)
-                systs_to_run[output_name] = format_systematic_info(weight_info, scale=scale)
+                formatted = format_systematic_info(weight_info, scale=scale)
+                formatted["direction"] = scale
+                if weight_name.startswith("PDF_"):
+                    formatted["pdf_config"] = syst_cfg.get("pdf", {})
+                systs_to_run[output_name] = formatted
         else:
-            systs_to_run[weight_name] = weight_info
+            formatted = dict(weight_info)
+            for direction in scales:
+                if weight_name.endswith(f"_{direction}"):
+                    formatted["direction"] = direction
+                    break
+            if weight_name.startswith("PDF_"):
+                formatted["pdf_config"] = syst_cfg.get("pdf", {})
+            systs_to_run[weight_name] = formatted
+
+    qcd_scale_config = syst_cfg.get("qcd_scale", {})
+    if qcd_scale_config.get("enabled", False):
+        for point in get_qcd_scale_source_points(qcd_scale_config):
+            point_name = point["name"]
+            output_name = f"QCDScale__{point_name}"
+            systs_to_run[output_name] = {
+                "jet_suffix": "",
+                "muon_suffix": "",
+                "name": output_name,
+                "weight": f"weight__{output_name}",
+            }
 
     return systs_to_run
 
-def should_shift_z_sideband_dnn_mass(mass_region, variable):
-    return mass_region == "Z_sideband" and variable == "DNN_NNOutput"
 
-def apply_z_sideband_mass_shifted_dnn(rdf, btag_algo, era):
+def write_qcd_scale_variations(
+    output_file,
+    syst_cfg,
+    variables,
+    mass_regions,
+    categories,
+    era,
+    process,
+):
+    qcd_scale_config = syst_cfg.get("qcd_scale", {})
+    if not qcd_scale_config.get("enabled", False):
+        return
+
+    variations = get_qcd_scale_variations(qcd_scale_config)
+    process_label = qcd_scale_process_label(qcd_scale_config, process)
+    source_suffixes = sorted(
+        {
+            f"QCDScale__{variation[direction]}"
+            for variation in variations
+            for direction in ("down", "up")
+        }
+    )
+    for mass_region in mass_regions:
+        for category in categories:
+            directory = output_file.GetDirectory(
+                f"{mass_region}_{category}"
+            )
+            if not directory:
+                continue
+            for variable in variables:
+                central = directory.Get(variable)
+                if not central or not central.InheritsFrom("TH1"):
+                    continue
+
+                for variation in variations:
+                    nuisance_name = variation["name"].format(
+                        era=era.removeprefix("Run3_"),
+                        process=process_label,
+                    )
+                    for direction, shape_direction in (
+                        ("down", "Down"),
+                        ("up", "Up"),
+                    ):
+                        source = directory.Get(
+                            f"{variable}_QCDScale__{variation[direction]}"
+                        )
+                        if source is None or not source.InheritsFrom("TH1"):
+                            continue
+                        hist = source.Clone(
+                            f"{variable}_{nuisance_name}{shape_direction}"
+                        )
+                        hist.SetDirectory(0)
+                        directory.WriteTObject(hist, hist.GetName(), "Overwrite")
+                for source_suffix in source_suffixes:
+                    directory.Delete(
+                        f"{variable}_{source_suffix};*"
+                    )
+
+def define_shifted_jet_observables(rdf, systs_to_run):
+    defined_suffixes = set()
+    available_columns = {str(c) for c in rdf.GetColumnNames()}
+
+    for syst_info in systs_to_run.values():
+        jet_suffix = syst_info.get("jet_suffix", "")
+        if not jet_suffix or jet_suffix in defined_suffixes:
+            continue
+
+        required = {
+            f"SelectedJet_idx{jet_suffix}",
+            f"SelectedJet_pt{jet_suffix}",
+            f"SelectedJet_eta{jet_suffix}",
+            f"SelectedJet_phi{jet_suffix}",
+            f"SelectedJet_mass{jet_suffix}",
+            f"SelectedJet_IsInsideHorn{jet_suffix}",
+            f"HasVBF{jet_suffix}",
+            f"VBFJetIdx_1{jet_suffix}",
+            f"VBFJetIdx_2{jet_suffix}",
+        }
+        missing = sorted(required - available_columns)
+        if missing:
+            raise RuntimeError(
+                f"Cannot build jet variation '{jet_suffix}'; missing columns: "
+                + ", ".join(missing)
+            )
+
+        rdf = SelectedJetObservablesDef(rdf, suffix=jet_suffix)
+        rdf = VBFJetObservablesDef(rdf, suffix=jet_suffix)
+        defined_suffixes.add(jet_suffix)
+        available_columns = {str(c) for c in rdf.GetColumnNames()}
+
+    return rdf
+
+def get_histogram_variable(variable, syst_info, available_columns):
+    jet_suffix = syst_info.get("jet_suffix", "")
+    muon_suffix = syst_info.get("muon_suffix", "")
+    candidates = []
+
+    if jet_suffix:
+        candidates.append(f"{variable}{jet_suffix}")
+    if muon_suffix:
+        candidates.append(f"{variable}{muon_suffix}")
+    candidates.append(variable)
+
+    return next(
+        (candidate for candidate in candidates if candidate in available_columns),
+        None,
+    )
+
+def should_shift_sideband_dnn_mass(mass_region, variable):
+    return mass_region in DNN_SIDEBAND_SHIFTED_PAYLOADS and variable == "DNN_NNOutput"
+
+def get_sideband_shifted_mass_expression(mass_region):
+    if mass_region == "Z_sideband":
+        return "static_cast<float>(115.0 + 0.5 * (m_mumu - 70.0))"
+    if mass_region == "H_sideband":
+        return (
+            "static_cast<float>(m_mumu < 115.0 ? "
+            "115.0 + (m_mumu - 110.0) : 120.0 + (m_mumu - 135.0))"
+        )
+    raise ValueError(f"Unsupported DNN mass-shift region: {mass_region}")
+
+def apply_sideband_mass_shifted_dnn(rdf, mass_region, btag_algo, era):
     from common.dnn_application import ApplyDNN
 
     shifted_rdf = rdf.Redefine(
         "m_mumu",
-        "static_cast<float>(115.0 + 0.5 * (m_mumu - 70.0))",
+        get_sideband_shifted_mass_expression(mass_region),
     )
     return ApplyDNN(
         shifted_rdf,
-        [DNN_Z_SIDEBAND_SHIFTED_PAYLOAD],
+        [DNN_SIDEBAND_SHIFTED_PAYLOADS[mass_region]],
         btag_algo=btag_algo,
         era=era,
     )
@@ -155,23 +558,31 @@ def process_single_chunk(args_tuple):
                 f"{len(skipped_empty_files)} file(s) with missing/empty Events branches."
             )
 
-        # An intentionally empty chunk represents a dataset with no skim
-        # files. Avoid scanning a missing/empty EOS directory for reports.
-        chunk_seg_dict = (
-            get_segmentation_dict(args.input)
-            if chunk_files
-            else {}
-        )
+        chunk_seg_dict = get_combined_segmentation_dict(args.metadata_inputs)# ,root_files=usable_chunk_files)
+        qcd_scale_seg_dicts = {}
+        if (
+            not is_data
+            and args.systematics != "central"
+            and syst_cfg.get("qcd_scale", {}).get("enabled", False)
+        ):
+            for point in get_qcd_scale_points(syst_cfg["qcd_scale"]):
+                point_name = point["name"]
+                qcd_scale_seg_dicts[point_name] = get_qcd_scale_segmentation_dict(
+                    args.metadata_inputs,
+                    point_name,
+                    fallback_to_initial=False,
+                )
         print(f"[CHUNK {chunk_index} / {n_chunks}] Using {len(chunk_seg_dict)} segmentation entries for {len(usable_chunk_files)} ROOT file(s)")
 
         if usable_chunk_files:
-            rdf_base = GetRdfForDataset(input_dir=args.input,is_data=is_data,weight_dict=syst_cfg["weights"],store_shifted_weights=False,treeName="Events",explicit_files=usable_chunk_files,seg_dict=chunk_seg_dict,skip_validation=True,dnn_payloads=dnn_payloads,btag_algo=btag_algo,additional_cuts = args.additional_cuts,era=args.era)
+            rdf_base = GetRdfForDataset(input_dir=args.input,is_data=is_data,weight_dict=syst_cfg["weights"],store_shifted_weights=args.systematics != "central",treeName="Events",explicit_files=usable_chunk_files,seg_dict=chunk_seg_dict,skip_validation=True,dnn_payloads=dnn_payloads,btag_algo=btag_algo,additional_cuts = args.additional_cuts,era=args.era,qcd_scale_config=syst_cfg.get("qcd_scale"),qcd_scale_seg_dicts=qcd_scale_seg_dicts,pdf_config=syst_cfg.get("pdf"))
             # print(rdf_base.GetColumnNames())
         else:
             rdf_base = None
         if rdf_base is None:
             print(f"[CHUNK {chunk_index} / {n_chunks}] WARNING: rdf_base is None. Writing empty histograms.")
         else:
+            rdf_base = define_shifted_jet_observables(rdf_base, systs_to_run)
             rdf_base = DefineHistogramSelections(
                 rdf_base,
                 sel_cfg,
@@ -248,26 +659,44 @@ def process_single_chunk(args_tuple):
                     dir_ptr = utilities.mkdir_recursive(outFile,f"{mass_region}_{category}")
                     for var in vars_to_make_hist:
                         model = GetModel(hist_cfg, var, dims=1)
-                        hist_name = var if syst_name == "Central" else f"{var}_{syst_name}"
+                        hist_name = nuisance_histogram_name(
+                            var,
+                            syst_name,
+                            syst_info,
+                            args.era,
+                            args.process_name,
+                        )
                         if rdf_filtered is not None:
                             rdf_for_hist = rdf_filtered
-                            hist_var = var
+                            available_columns = {
+                                str(c) for c in rdf_for_hist.GetColumnNames()
+                            }
+                            hist_var = get_histogram_variable(
+                                var,
+                                syst_info,
+                                available_columns,
+                            )
 
-                            if should_shift_z_sideband_dnn_mass(mass_region, var):
+                            if should_shift_sideband_dnn_mass(mass_region, var):
                                 print(f"going to shift in {mass_region}, {var}")
-                                rdf_for_hist = apply_z_sideband_mass_shifted_dnn(
+                                rdf_for_hist = apply_sideband_mass_shifted_dnn(
                                     rdf_for_hist,
+                                    mass_region,
                                     btag_algo=btag_algo,
                                     era=args.era,
                                 )
-                                hist_var = f"{DNN_Z_SIDEBAND_SHIFTED_PAYLOAD}_NNOutput"
+                                shifted_payload = DNN_SIDEBAND_SHIFTED_PAYLOADS[mass_region]
+                                hist_var = f"{shifted_payload}_NNOutput"
 
-                            available_columns = set(str(c) for c in rdf_filtered.GetColumnNames())
-                            if hist_var not in available_columns:
+                            if hist_var is not None and hist_var not in available_columns:
                                 available_columns = set(str(c) for c in rdf_for_hist.GetColumnNames())
 
-                            if hist_var not in available_columns:
-                                print(f"[CHUNK {chunk_index}] WARNING: variable '{var}' not found. Booking empty histogram.")
+                            if hist_var is None or hist_var not in available_columns:
+                                print(
+                                    f"[CHUNK {chunk_index}] WARNING: variable '{var}' "
+                                    f"not found for systematic '{syst_name}'. "
+                                    "Booking empty histogram."
+                                )
                                 hist = ROOT.TH1D(hist_name,hist_name,model.fNbinsX,model.fXLow,model.fXUp)
                                 hist.SetDirectory(0)
                                 booked_hists.append((dir_ptr, hist_name, hist, False))
@@ -315,6 +744,22 @@ if __name__ == "__main__":
     parser.add_argument("--era", required=True, type=str)
     parser.add_argument("--input", required=True, type=str)
     parser.add_argument(
+        "--metadata-input",
+        help=(
+            "Directory or file used to read skim report/segmentation JSONs. "
+            "It is merged with --input and can be used as a temporary metadata patch."
+        ),
+    )
+    parser.add_argument(
+        "--extra-metadata-input",
+        action="append",
+        default=[],
+        help=(
+            "Additional directory or file with skim report/segmentation JSONs. "
+            "Can be passed multiple times."
+        ),
+    )
+    parser.add_argument(
         "--input-files-file",
         help=(
             "Text file containing the ROOT files to process, one per line. "
@@ -323,7 +768,15 @@ if __name__ == "__main__":
     )
     parser.add_argument("--dataset-name", "--dataset", dest="dataset_name", required=True, type=str)
     parser.add_argument("--output-file", required=True, type=str)
-    parser.add_argument("--systematics", choices=["central", "all"], default="central")
+    parser.add_argument(
+        "--systematics",
+        choices=["central", "jec-jer", "all"],
+        default="central",#jec-jer",
+        help=(
+            "central: nominal only; jec-jer: nominal, JEC/JER shapes and all "
+            "configured weight shifts (default); all: every configured variation."
+        ),
+    )
     parser.add_argument("--chunk-size", type=int, default=6)
     parser.add_argument("--n-cores", type=int, default=4)
     parser.add_argument("--skip-file-validation", action="store_true")
@@ -368,6 +821,9 @@ if __name__ == "__main__":
         help=argparse.SUPPRESS,
     )
     args = parser.parse_args()
+    args.metadata_inputs = unique_metadata_inputs(
+        [args.input, args.metadata_input, *args.extra_metadata_input]
+    )
     startTime = time.time()
     if args.chunk_size < 1:
         raise ValueError("--chunk-size must be >= 1")
@@ -379,6 +835,11 @@ if __name__ == "__main__":
     samples_cfg = utilities.get_config(os.path.join(cfg_dir, "samples.yaml"))
     dataset_cfg = samples_cfg.get(args.dataset_name, {})
     is_data = dataset_cfg.get("is_data", False) or "data" in args.dataset_name.lower()
+    process_cfg = utilities.get_config(os.path.join(cfg_dir, "process_names.yaml"))
+    args.process_name = (
+        utilities.process_from_dataset(process_cfg, args.dataset_name)
+        or args.dataset_name
+    )
     sel_cfg = utilities.get_config(os.path.join(cfg_dir, "selections.yaml"))
     syst_cfg = utilities.get_config(os.path.join(cfg_dir, "systematics.yaml"))
     hist_cfg = utilities.get_config(os.path.join(analysis_path, "config", "plot", "histograms.yaml"))
@@ -393,6 +854,12 @@ if __name__ == "__main__":
     # if len(dnn_payloads) > 0 and args.n_cores > 1 and not args.force_multiprocessing_with_dnn:
     #     print("[WARNING] DNN payloads requested: forcing n_cores = 1.")
     #     args.n_cores = 1
+    syst_cfg = configure_available_qcd_scale(
+        syst_cfg,
+        args.metadata_inputs,
+        is_data,
+        args.systematics,
+    )
     systs_to_run = get_systs_to_run(syst_cfg, args.systematics)
     if args.input_files_file:
         with open(args.input_files_file) as input_files_handle:
@@ -443,7 +910,7 @@ if __name__ == "__main__":
         print("[DRYRUN] Chunks:")
         for idx, chunk_files in enumerate(chunks):
             print(f"\n[DRYRUN] Chunk {idx}: {len(chunk_files)} file(s)")
-            chunk_seg_dict = get_segmentation_dict(args.input)
+            chunk_seg_dict = get_combined_segmentation_dict(args.metadata_inputs)
             print(f"[DRYRUN] Segmentation entries: {len(chunk_seg_dict)}")
             for f in chunk_files:
                 print(f"  {f}")
@@ -534,6 +1001,22 @@ if __name__ == "__main__":
         print("[ERROR] hadd failed.")
         sys.exit(result.returncode)
     print("[INFO] hadd completed successfully.")
+    merged_output = ROOT.TFile.Open(args.output_file, "UPDATE")
+    if not merged_output or merged_output.IsZombie():
+        raise RuntimeError(
+            f"Could not reopen merged output file: {args.output_file}"
+        )
+    if args.systematics != "central":
+        write_qcd_scale_variations(
+            merged_output,
+            syst_cfg,
+            vars_to_make_hist,
+            masses_regions_list,
+            categories_list,
+            args.era,
+            args.process_name,
+        )
+    merged_output.Close()
     if args.keep_tmp:
         print("[INFO] Keeping temporary files because --keep-tmp was used.")
     else:

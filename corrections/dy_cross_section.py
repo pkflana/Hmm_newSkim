@@ -159,6 +159,19 @@ def apply_dy_cross_section(df, weight_xs_name, xs_cfg, dysf_cfg, json_dict):
         json_dict['gen'][bin_name]['selection'] = selection
         json_dict['gen'][bin_name]['value'] = df.Filter(selection).Sum("genWeight")
 
+        for column in available_columns:
+            prefix = "weight_qcd_scale_sum__"
+            if not column.startswith(prefix):
+                continue
+            point_name = column[len(prefix):]
+            json_key = f"qcd_scale__{point_name}"
+            if json_key not in json_dict:
+                json_dict[json_key] = {}
+            json_dict[json_key][bin_name] = {
+                "selection": selection,
+                "value": df.Filter(selection).Sum(column),
+            }
+
         if bin_name not in json_dict['pu']: json_dict['pu'][bin_name] = {}
         json_dict['pu'][bin_name]['selection'] = selection
         json_dict['pu'][bin_name]['value'] = df.Filter(selection).Sum("weight_pu")

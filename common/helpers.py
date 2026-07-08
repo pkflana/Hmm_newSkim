@@ -86,50 +86,68 @@ def is_valid_tmp_root(path):
     except Exception:
         return False
 
-def get_segmentation_dict(input_dir, node="gen"):
+def get_segmentation_dict(
+    input_dir,
+    node="gen",
+    fallback_to_initial=True,
+    warn_if_missing=True,
+):
     global_segmentation = {}
-    search_dir = os.path.dirname(input_dir) if input_dir.endswith(".root") else input_dir
+    input_path = os.path.abspath(input_dir)
+    if input_path.endswith(".root"):
+        search_dir = os.path.dirname(input_path)
+        stem = os.path.splitext(os.path.basename(input_path))[0]
+        report_path = os.path.join(search_dir, f"{stem}_report.json")
+        json_paths = [report_path] if os.path.exists(report_path) else []
+    elif input_path.endswith(".json"):
+        search_dir = os.path.dirname(input_path)
+        json_paths = [input_path] if os.path.exists(input_path) else []
+    else:
+        search_dir = input_path
+        json_paths = [
+            os.path.join(root, filename)
+            for root, _, files in os.walk(search_dir)
+            for filename in files
+            if filename.endswith(".json")
+        ]
 
-    for root, _, files in os.walk(search_dir):
-        for f in files:
-            if not f.endswith(".json"):
+    for json_path in json_paths:
+        with open(json_path) as jf:
+            try:
+                info = json.load(jf)
+            except Exception as e:
+                print(f"[WARNING] Errore nel parsing del file JSON {json_path}: {e}")
                 continue
-            with open(os.path.join(root, f)) as jf:
-                try:
-                    info = json.load(jf)
-                except Exception as e:
-                    print(f"[WARNING] Errore nel parsing del file JSON {f}: {e}")
-                    continue
 
-            # Controlliamo se esiste il blocco centrale 'pu'
-            if node in info and isinstance(info[node], dict):
-                node_dict = info[node]
+        # Controlliamo se esiste il blocco centrale 'pu'
+        if node in info and isinstance(info[node], dict):
+            node_dict = info[node]
 
-                # Se ci sono più chiavi di 'total', o se 'total' non c'è, è un file DY segmentato
-                has_fine_segmentation = len(node_dict) > 1 #or "total" not in node_dict
-                if has_fine_segmentation:
-                    # File DY: cicliamo sulle sotto-selezioni ignorando il total cumulativo interno
-                    for sub_key, sub_info in node_dict.items():
-                        if sub_key == "total":
-                            continue
-                        selection = sub_info.get("selection")
-                        val = float(sub_info.get("value", 0.0))
-                        if selection:
-                            global_segmentation[selection] = global_segmentation.get(selection, 0.0) + val
-                else:
-                    # File non-DY: prendiamo direttamente la chiave 'total' dentro 'pu'
-                    total_node = node_dict["total"]
-                    selection = total_node.get("selection", "return true;")
-                    val = float(total_node.get("value", 0.0))
-                    global_segmentation[selection] = global_segmentation.get(selection, 0.0) + val
+            # Se ci sono più chiavi di 'total', o se 'total' non c'è, è un file DY segmentato
+            has_fine_segmentation = len(node_dict) > 1 #or "total" not in node_dict
+            if has_fine_segmentation:
+                # File DY: cicliamo sulle sotto-selezioni ignorando il total cumulativo interno
+                for sub_key, sub_info in node_dict.items():
+                    if sub_key == "total":
+                        continue
+                    selection = sub_info.get("selection")
+                    val = float(sub_info.get("value", 0.0))
+                    if selection:
+                        global_segmentation[selection] = global_segmentation.get(selection, 0.0) + val
+            else:
+                # File non-DY: prendiamo direttamente la chiave 'total' dentro 'pu'
+                total_node = node_dict["total"]
+                selection = total_node.get("selection", "return true;")
+                val = float(total_node.get("value", 0.0))
+                global_segmentation[selection] = global_segmentation.get(selection, 0.0) + val
 
-            # Fallback su 'Initial' se manca completamente il blocco 'pu'
-            elif "Initial" in info:
-                init_val = info["Initial"]
-                val = float(init_val) if not isinstance(init_val, dict) else sum(float(v) for v in init_val.values())
-                global_segmentation["return true;"] = global_segmentation.get("return true;", 0.0) + val
+        # Fallback su 'Initial' se manca completamente il blocco 'pu'
+        elif fallback_to_initial and "Initial" in info:
+            init_val = info["Initial"]
+            val = float(init_val) if not isinstance(init_val, dict) else sum(float(v) for v in init_val.values())
+            global_segmentation["return true;"] = global_segmentation.get("return true;", 0.0) + val
 
-    if not global_segmentation:
+    if not global_segmentation and warn_if_missing:
         print(f"[WARNING] No segmentation JSON information found under: {search_dir}")
 
     return global_segmentation
@@ -140,36 +158,140 @@ def get_segmentation_dict(input_dir, node="gen"):
 from histograms.defineTriggerWeights import AddTriggerWeightsAndErrors
 from .add_vars_to_skim_tuples import SelectedJetObservablesDef,VBFJetObservablesDef,GetAllMuonsObservablesNew,SoftJetCollectionCleaningInVBF,VBFJetMuonsObservablesDef
 
-def build_rdf(rdf, is_data, seg_dict,weight_dict, store_shifted_weights, dnn_payloads=None, btag_algo="PNet", era=None):
+def _inverse_sum_expression(seg_dict):
+    if len(seg_dict) == 1 and "return true;" in seg_dict:
+        total_val = seg_dict["return true;"]
+        return f"{1.0 / total_val}f" if total_val != 0.0 else "0.f"
+
+    expression = "0.f"
+    for selection, total_val in seg_dict.items():
+        if total_val == 0.0:
+            continue
+        if selection.strip().lower() == "return true;":
+            expression = f"{1.0 / total_val}f"
+        else:
+            expression = (
+                f"({selection}) ? ({1.0 / total_val}f) : ({expression})"
+            )
+    return expression
+
+
+def build_rdf(rdf, is_data, seg_dict,weight_dict, store_shifted_weights, dnn_payloads=None, btag_algo="PNet", era=None, qcd_scale_config=None, qcd_scale_seg_dicts=None, pdf_config=None):
     if not is_data:
         rdf = AddTriggerWeightsAndErrors(
             rdf,
-            WantErrors=False
+            WantErrors=store_shifted_weights,
         )
         if seg_dict:
-            if len(seg_dict) == 1 and "return true;" in seg_dict:
-                total_val = seg_dict["return true;"]
-                ternary_expr = f"{1.0 / total_val}f" if total_val > 0.0 else "0.f"
+            rdf = rdf.Define("inv_N_orig", _inverse_sum_expression(seg_dict))
+
+        if store_shifted_weights and pdf_config is not None:
+            from corrections.pdf import define_pdf_weights
+            rdf = define_pdf_weights(rdf, pdf_config)
+
+    for weight_name_template, weight_info in weight_dict.items():
+        if weight_info.get("derived_envelope", False):
+            continue
+        if weight_name_template == "Central":
+            variations = [("Central", weight_info["expression"])]
+        elif store_shifted_weights:
+            weight_expression = weight_info.get("expression")
+            if weight_expression is None:
+                if "relative_expression" not in weight_info:
+                    raise RuntimeError(
+                        f"Weight '{weight_name_template}' has neither an "
+                        "'expression' nor a 'relative_expression'"
+                    )
+                weight_expression = "1.f"
+            if "{scale}" in weight_name_template:
+                variations = [
+                    (
+                        weight_name_template.replace("{scale}", scale),
+                        weight_expression.replace("{scale}", scale),
+                    )
+                    for scale in ("up", "down")
+                ]
             else:
-                ternary_expr = "0.f"
-                for selection, total_val in seg_dict.items():
-                    if total_val <= 0.0:
-                        continue
-                    if selection.strip().lower() == "return true;":
-                        ternary_expr = f"{1.0 / total_val}f"
-                    else:
-                        ternary_expr = f"({selection}) ? ({1.0 / total_val}f) : ({ternary_expr})"
-            rdf = rdf.Define("inv_N_orig", ternary_expr)
+                variations = [(weight_name_template, weight_expression)]
+        else:
+            variations = []
 
-
-    for weight_name, weight_info in weight_dict.items():
-        scales = ['central','up','down'] if store_shifted_weights else ['central']
-        for scale in scales:
-            if weight_name == 'Central' and scale != 'central': continue
-            if weight_name != 'Central' and scale == 'central': continue
-            if weight_name != 'Central': weight_name = weight_name.format(scale=scale)
-            expr = "1.f" if is_data else f"({weight_info['expression']}) * inv_N_orig"
+        for weight_name, weight_expression in variations:
+            relative_expression = weight_info.get("relative_expression")
+            if relative_expression:
+                scale = next(
+                    (
+                        candidate
+                        for candidate in ("up", "down")
+                        if weight_name
+                        == weight_name_template.replace("{scale}", candidate)
+                    ),
+                    None,
+                )
+                if scale is None and "{scale}" in relative_expression:
+                    raise RuntimeError(
+                        f"Cannot resolve scale for relative weight '{weight_name}'"
+                    )
+                if scale is not None:
+                    relative_expression = relative_expression.replace(
+                        "{scale}", scale
+                    )
+                central_expression = weight_dict["Central"]["expression"]
+                weight_expression = (
+                    f"({central_expression}) * ({relative_expression})"
+                )
+            expr = "1.f" if is_data else f"({weight_expression}) * inv_N_orig"
             rdf = rdf.Define(f"weight__{weight_name}", expr)
+
+    if (
+        store_shifted_weights
+        and qcd_scale_config is not None
+        and qcd_scale_config.get("enabled", True)
+    ):
+        from corrections.qcd_scale import get_qcd_scale_points
+
+        if is_data:
+            for point in get_qcd_scale_points(qcd_scale_config):
+                rdf = rdf.Define(
+                    f"weight__QCDScale__{point['name']}",
+                    "1.f",
+                )
+            qcd_scale_config = None
+
+    if (
+        not is_data
+        and store_shifted_weights
+        and qcd_scale_config is not None
+        and qcd_scale_config.get("enabled", True)
+    ):
+        from corrections.qcd_scale import get_qcd_scale_points
+
+        branch = qcd_scale_config.get("branch", "LHEScaleWeight")
+        available_columns = {str(column) for column in rdf.GetColumnNames()}
+        if branch not in available_columns:
+            raise RuntimeError(
+                f"QCD scale branch '{branch}' is missing from the skim"
+            )
+        central_expression = weight_dict["Central"]["expression"]
+        for point in get_qcd_scale_points(qcd_scale_config):
+            name = point["name"]
+            index = int(point["index"])
+            point_seg_dict = (qcd_scale_seg_dicts or {}).get(name, {})
+            if not point_seg_dict:
+                raise RuntimeError(
+                    f"Missing qcd_scale__{name} sums in skim reports. "
+                    "Reproduce the skim with --want-variations."
+                )
+            inv_column = f"inv_N_qcd_scale__{name}"
+            rdf = rdf.Define(
+                inv_column,
+                _inverse_sum_expression(point_seg_dict),
+            )
+            rdf = rdf.Define(
+                f"weight__QCDScale__{name}",
+                f"({central_expression}) * "
+                f"qcd_scale::weightAt({branch}, {index}u) * {inv_column}",
+            )
     rdf = SelectedJetObservablesDef(rdf)
     rdf = VBFJetObservablesDef(rdf)
     rdf = GetAllMuonsObservablesNew(rdf)
@@ -181,7 +303,7 @@ def build_rdf(rdf, is_data, seg_dict,weight_dict, store_shifted_weights, dnn_pay
     return rdf
 
 
-def GetRdfForDataset(input_dir, is_data, weight_dict, store_shifted_weights, treeName="Events", explicit_files=None, seg_dict=None, skip_validation=False, dnn_payloads=None, btag_algo="PNet", additional_cuts = None, era=None):
+def GetRdfForDataset(input_dir, is_data, weight_dict, store_shifted_weights, treeName="Events", explicit_files=None, seg_dict=None, skip_validation=False, dnn_payloads=None, btag_algo="PNet", additional_cuts = None, era=None, qcd_scale_config=None, qcd_scale_seg_dicts=None, pdf_config=None):
     """
     Se explicit_files è una lista di file ROOT, RDataFrame caricherà SOLO quei file (chunk).
     Il seg_dict può essere fornito esternamente per evitare di ricalcolarlo in ogni chunk.
@@ -223,6 +345,9 @@ def GetRdfForDataset(input_dir, is_data, weight_dict, store_shifted_weights, tre
         dnn_payloads=dnn_payloads,
         btag_algo=btag_algo,
         era=era,
+        qcd_scale_config=qcd_scale_config,
+        qcd_scale_seg_dicts=qcd_scale_seg_dicts,
+        pdf_config=pdf_config,
     )
     return rdf_base
 

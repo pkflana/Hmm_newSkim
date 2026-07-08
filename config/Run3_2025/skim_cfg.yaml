@@ -6,14 +6,13 @@ chunk_size: 1        # files per job
 max_files: -1        # -1 = all files
 use_ext: true     # if true, use all nanoAOD paths in each list; otherwise only the first
 
-# The selected jerc_2025_mc_mode from maincfg.yaml (or the CLI override)
-# automatically chooses the matching production directory.
 output_dirs_by_jerc_2025_mc_mode:
   "2025": /eos/cms/store/group/phys_higgs/cmshmm/vdamante/skim_v1_noUnc_JER_2025_JEC_2025/
   "jec2024_jer2025": /eos/cms/store/group/phys_higgs/cmshmm/vdamante/skim_v1_noUnc_JER_2025_JEC_2024/
   "2024": /eos/cms/store/group/phys_higgs/cmshmm/vdamante/skim_v1_noUnc_JER_2024_JEC_2024/
 # Legacy fallback for old utilities; keep aligned with the mode in maincfg.yaml.
-output_dir: /eos/cms/store/group/phys_higgs/cmshmm/vdamante/skim_v1_noUnc_JER_2025_JEC_2024/
+
+output_dir: /eos/user/a/ayeagle/skim_v2_noUnc/
 
 # ---------------------------------------------------------
 # condor configuration
