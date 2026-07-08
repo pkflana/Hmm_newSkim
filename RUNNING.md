@@ -305,6 +305,24 @@ python3 analysis/skim.py \
 
 ### Run3_2025
 
+For Run3_2025 MC, select the JER/JEC payload combination in
+`config/Run3_2025/maincfg.yaml`:
+
+```yaml
+jerc_2025_mc_mode: 2025
+```
+
+The supported values are:
+
+- `2025`: JER 2025 + JEC 2025
+- `jec2024_jer2025`: JER 2025 + JEC 2024
+- `2024`: JER 2024 + JEC 2024
+
+Both the local skim and `htcondor/condorsubmit.py` use this value. Condor also
+selects the corresponding output directory from
+`output_dirs_by_jerc_2025_mc_mode` in `config/Run3_2025/skim_cfg.yaml`.
+For a one-off override, pass `--jerc-2025-mc-mode MODE` to either command.
+
 DY MiNNLO:
 
 ```bash
