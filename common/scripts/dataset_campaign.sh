@@ -12,7 +12,8 @@ cd "${ANALYSIS_PATH}"
 usage() {
   cat <<'EOF'
 Usage:
-  histograms/scripts/hists.sh --datasets GROUP[,GROUP...] --era ERA [options] [-- HIST_MAKER_OPTS...]
+  analysis/scripts/validate.sh|histograms/scripts/hists.sh|histograms/scripts/systematics.sh \
+    --datasets GROUP[,GROUP...] --era ERA [options] [-- STAGE_OPTS...]
 
 Dataset groups:
   data
@@ -37,14 +38,28 @@ Options:
   --chunk-size N          Override chunk size for selected jobs. Default: group-specific;
                           for --dataset-name default is 20.
   --era ERA              Era to run, e.g. Run3_2022.
-  --input-folder NAME    Input skim folder for metadata/JSONs. Default: skim_v2_noUnc.
-  --root-input-folder NAME
-                          Optional skim folder for ROOT files. Defaults to --input-folder.
+  --input-folder NAME    Backward-compatible stage input base. Validation: skim JSON base;
+                         histograms/systematics: validation-manifest base.
+  --root-input-folder PATH
+                         Skimmed ROOT ntuple base directory/file base.
+  --json-input-folder PATH
+                         Skim-report JSON base directory/file base. Defaults to ROOT input base.
+  --manifest-input-folder PATH
+                         Validation manifest base. Defaults to --input-folder.
+  --additional-metadata-input PATH
+                         Extra metadata JSON base directory/file base. Repeatable.
+  --systematics NAME[,NAME...]
+                         Systematics/groups passed to hist_maker.py. Repeatable.
+                         Defaults: Central for histograms, all for systematics.
+  --file-open-retries N  Attempts to open/validate each ROOT/JSON file. Default: 3.
+  --file-open-retry-delay SEC
+                         Delay between file-open attempts. Default: 2 seconds.
   --output-suffix TEXT   Suffix appended to newHists_${era}.
   --output-dir DIR       Override the complete output directory.
   --extra-opts TEXT      Extra hist_maker.py options as a quoted string.
-  --condor               Submit one HTCondor job per selected dataset.
-  --condor-dir DIR       Directory for Condor submit/log files. Default: htcondor/hists.
+  --condor               Submit one HTCondor job per selected dataset for this stage.
+  --condor-dir DIR       Directory for Condor submit/log files. Defaults by stage:
+                          htcondor/validation, htcondor/hists, or htcondor/systematics.
   --job-flavour TEXT     HTCondor JobFlavour. Default: workday.
   --request-cpus N       HTCondor request_cpus. Default: 4.
   --request-memory TEXT  HTCondor request_memory. Default: 8GB.
@@ -54,7 +69,8 @@ Options:
   --summary-file FILE    Append one TSV monitoring summary line to FILE.
   --queued-registry-file FILE
                           Treat outputs listed in FILE as already submitted.
-  --missing-only         In local mode, run only outputs that are missing.
+  --missing-only         In local mode, run only incomplete/missing stage outputs.
+                          Condor always skips complete outputs unless --force is used.
   --erase-existing       Remove already produced histogram files before submitting.
   --force                Submit selected jobs even if output files already exist.
   --dry-run              Print commands without running them.
@@ -62,9 +78,9 @@ Options:
 
 Examples:
   histograms/scripts/hists.sh --datasets DiTriBoson,data --era Run3_2022
-  histograms/scripts/hists.sh --datasets DY_amcatnlo --era Run3_2024 --output-suffix _DNN -- --variables DNN_NNOutput --skip-file-validation
+  histograms/scripts/hists.sh --datasets DY_amcatnlo --era Run3_2024 --output-suffix _DNN -- --variables DNN_NNOutput
   histograms/scripts/hists.sh --datasets all --era Run3_2025 --extra-opts "--n-cores 8"
-  histograms/scripts/hists.sh --datasets signals,EWK --era Run3_2024 --condor -- --variables m_mumu --skip-file-validation
+  histograms/scripts/hists.sh --datasets signals,EWK --era Run3_2024 --condor -- --variables m_mumu
 EOF
 }
 
@@ -110,6 +126,41 @@ strip_condor_arg_quotes() {
   printf '%s' "${value}"
 }
 
+short_label() {
+  local raw="$1"
+  local max_len="${2:-48}"
+  local sanitized hash prefix_len
+
+  sanitized="${raw//[^A-Za-z0-9_.-]/_}"
+  if [[ ${#sanitized} -le ${max_len} ]]; then
+    printf '%s' "${sanitized}"
+    return
+  fi
+
+  hash="$(printf '%s' "${sanitized}" | cksum | awk '{print $1}')"
+  prefix_len=$((max_len - ${#hash} - 3))
+  [[ ${prefix_len} -ge 8 ]] || prefix_len=8
+  printf '%s_h%s' "${sanitized:0:${prefix_len}}" "${hash}"
+}
+
+condor_group_label() {
+  local requested_group
+
+  if [[ -n "${single_dataset_name}" ]]; then
+    short_label "dataset_${single_dataset_name}" 48
+    return
+  fi
+
+  for requested_group in "${dataset_groups[@]}"; do
+    if [[ "$(normalize_group "${requested_group}")" == "all" ]]; then
+      printf 'all'
+      return
+    fi
+  done
+
+  short_label "$(IFS=_; echo "${normalized_groups[*]}")" 48
+}
+
 hist_output_exists() {
   local output_file="$1"
   [[ -s "${output_file}" ]] && return 0
@@ -119,6 +170,32 @@ hist_output_exists() {
   [[ "${size}" =~ ^[0-9]+$ && "${size}" -gt 0 ]]
 }
 
+stage_output_exists() {
+  python3 "${ANALYSIS_PATH}/common/check_stage_output.py" "$1" "$2"
+}
+
+histogram_output_path() {
+  local output_base="$1"
+  local era_name="$2"
+  local dataset_name="$3"
+  local suffix="$4"
+  printf '%s/%s/%s%s.root' "${output_base}" "${era_name}" "${dataset_name}" "${suffix}"
+}
+
+manifest_path() {
+  local manifest_base="$1"
+  local era_name="$2"
+  local dataset_name="$3"
+  local era_manifest="${manifest_base}/${era_name}/${dataset_name}.json"
+  local flat_manifest="${manifest_base}/${dataset_name}.json"
+
+  if [[ -f "${era_manifest}" || ! -f "${flat_manifest}" ]]; then
+    printf '%s' "${era_manifest}"
+  else
+    printf '%s' "${flat_manifest}"
+  fi
+}
+
 is_output_already_queued() {
   local wanted_output="$1"
   command -v condor_q >/dev/null 2>&1 || return 1
@@ -126,12 +203,12 @@ is_output_already_queued() {
   local owner
   owner="$(id -un)"
 
-  local line ad_proc analysis_arg jobs_file_arg queued_proc_id queued_era queued_input queued_output_dir rest
-  local job_line queued_dataset queued_chunk queued_suffix queued_opts queued_output
+  local line _ad_proc _analysis_arg jobs_file_arg queued_proc_id _queued_mode _queued_era _queued_manifest _queued_root _queued_json queued_output_dir rest
+  local job_line queued_dataset _queued_chunk queued_suffix _queued_opts queued_output
 
   while IFS= read -r line; do
     [[ -n "${line}" ]] || continue
-    read -r ad_proc analysis_arg jobs_file_arg queued_proc_id queued_era queued_input queued_output_dir rest <<< "${line}"
+    read -r _ad_proc _analysis_arg jobs_file_arg queued_proc_id _queued_mode _queued_era _queued_manifest _queued_root _queued_json queued_output_dir rest <<< "${line}"
     jobs_file_arg="$(strip_condor_arg_quotes "${jobs_file_arg:-}")"
     queued_proc_id="$(strip_condor_arg_quotes "${queued_proc_id:-}")"
     queued_output_dir="$(strip_condor_arg_quotes "${queued_output_dir:-}")"
@@ -142,8 +219,8 @@ is_output_already_queued() {
     job_line="$(sed -n "$((queued_proc_id + 1))p" "${jobs_file_arg}" 2>/dev/null || true)"
     [[ -n "${job_line}" ]] || continue
 
-    IFS=$'\t' read -r queued_dataset queued_chunk queued_suffix queued_opts <<< "${job_line}"
-    queued_output="${queued_output_dir}/${queued_dataset}${queued_suffix}.root"
+    IFS=$'\t' read -r queued_dataset _queued_chunk queued_suffix _queued_opts <<< "${job_line}"
+    queued_output="$(histogram_output_path "${queued_output_dir}" "${_queued_era}" "${queued_dataset}" "${queued_suffix}")"
 
     if [[ "${queued_output}" == "${wanted_output}" ]]; then
       return 0
@@ -190,6 +267,69 @@ dataset_is_configured() {
   ' "${samples_file}"
 }
 
+configured_dataset_key() {
+  local era="$1"
+  local dataset_name="$2"
+  local samples_file="config/${era}/samples.yaml"
+
+  [[ -r "${samples_file}" ]] || return 1
+  awk -v dataset="${dataset_name}" '
+    $0 ~ "^[A-Za-z0-9_]+:" {
+      key = $1
+      sub(/:$/, "", key)
+      if (tolower(key) == tolower(dataset)) {
+        print key
+        found = 1
+        exit
+      }
+    }
+    END { exit(found ? 0 : 1) }
+  ' "${samples_file}"
+}
+
+configured_dataset_alias() {
+  local era="$1"
+  local dataset_name="$2"
+  local candidate
+  local candidates=()
+
+  case "${dataset_name}" in
+    VBFHto2Mu_M120) candidates=(VBFHto2Mu_M120_amcatnlo) ;;
+    VBFHto2Mu_M125_amcatnlo) candidates=(VBFHto2Mu_m125_amcatnlo) ;;
+    VBFHto2Mu_M130) candidates=(VBFHto2Mu_M130_amcatnlo) ;;
+    TBbarQto2Q_t_channel_4FS|TBbarQtoLNu_t_channel_4FS) candidates=(TBbarQ_t_channel_4FS) ;;
+    TbarBQto2Q_t_channel_4FS|TbarBQtoLNu_t_channel_4FS) candidates=(TbarBQ_t_channel_4FS) ;;
+    TTZH_ZHto4B) candidates=(TTZH) ;;
+  esac
+
+  for candidate in "${candidates[@]}"; do
+    if configured_dataset_key "${era}" "${candidate}" >/dev/null; then
+      configured_dataset_key "${era}" "${candidate}"
+      return 0
+    fi
+  done
+
+  return 1
+}
+
+resolve_configured_dataset() {
+  local era="$1"
+  local dataset_name="$2"
+  local resolved
+
+  if resolved="$(configured_dataset_key "${era}" "${dataset_name}")"; then
+    printf '%s' "${resolved}"
+    return 0
+  fi
+
+  if resolved="$(configured_dataset_alias "${era}" "${dataset_name}")"; then
+    printf '%s' "${resolved}"
+    return 0
+  fi
+
+  return 1
+}
+
 add_job() {
   local dataset_name="$1"
   local chunk_size="$2"
@@ -214,12 +354,16 @@ drop_unconfigured_jobs() {
   local filtered_file_suffixes=()
   local filtered_specific_opts=()
   local dataset_name
+  local resolved_dataset
   local skipped=0
 
   for i in "${!job_datasets[@]}"; do
     dataset_name="${job_datasets[$i]}"
-    if dataset_is_configured "${era}" "${dataset_name}"; then
-      filtered_datasets+=("${job_datasets[$i]}")
+    if resolved_dataset="$(resolve_configured_dataset "${era}" "${dataset_name}")"; then
+      if [[ "${resolved_dataset}" != "${dataset_name}" ]]; then
+        echo "[INFO] Mapping ${dataset_name} -> ${resolved_dataset} for config/${era}/samples.yaml"
+      fi
+      filtered_datasets+=("${resolved_dataset}")
       filtered_chunk_sizes+=("${job_chunk_sizes[$i]}")
       filtered_file_suffixes+=("${job_file_suffixes[$i]}")
       filtered_specific_opts+=("${job_specific_opts[$i]}")
@@ -234,6 +378,65 @@ drop_unconfigured_jobs() {
     job_chunk_sizes=("${filtered_chunk_sizes[@]}")
     job_file_suffixes=("${filtered_file_suffixes[@]}")
     job_specific_opts=("${filtered_specific_opts[@]}")
+  fi
+}
+
+deduplicate_validation_jobs() {
+  local unique_datasets=()
+  local unique_chunk_sizes=()
+  local unique_file_suffixes=()
+  local unique_specific_opts=()
+  local seen=" "
+  local dataset_name
+
+  for i in "${!job_datasets[@]}"; do
+    dataset_name="${job_datasets[$i]}"
+    if [[ "${seen}" == *" ${dataset_name} "* ]]; then
+      echo "[INFO] Validation deduplication: reusing dataset ${dataset_name}"
+      continue
+    fi
+    seen+="${dataset_name} "
+    unique_datasets+=("${dataset_name}")
+    unique_chunk_sizes+=("${job_chunk_sizes[$i]}")
+    # Validation is tied to physical files, not histogram suffixes/cuts.
+    unique_file_suffixes+=("")
+    unique_specific_opts+=("")
+  done
+
+  job_datasets=("${unique_datasets[@]}")
+  job_chunk_sizes=("${unique_chunk_sizes[@]}")
+  job_file_suffixes=("${unique_file_suffixes[@]}")
+  job_specific_opts=("${unique_specific_opts[@]}")
+}
+
+deduplicate_output_jobs() {
+  local unique_datasets=()
+  local unique_chunk_sizes=()
+  local unique_file_suffixes=()
+  local unique_specific_opts=()
+  local seen=$'\n'
+  local key
+  local skipped=0
+
+  for i in "${!job_datasets[@]}"; do
+    key="${job_datasets[$i]}"$'\t'"${job_file_suffixes[$i]}"$'\t'"${job_specific_opts[$i]}"
+    if [[ "${seen}" == *$'\n'"${key}"$'\n'* ]]; then
+      echo "[INFO] Job deduplication: skipping duplicate ${job_datasets[$i]}${job_file_suffixes[$i]}"
+      skipped=$((skipped + 1))
+      continue
+    fi
+    seen+="${key}"$'\n'
+    unique_datasets+=("${job_datasets[$i]}")
+    unique_chunk_sizes+=("${job_chunk_sizes[$i]}")
+    unique_file_suffixes+=("${job_file_suffixes[$i]}")
+    unique_specific_opts+=("${job_specific_opts[$i]}")
+  done
+
+  if [[ ${skipped} -gt 0 ]]; then
+    job_datasets=("${unique_datasets[@]}")
+    job_chunk_sizes=("${unique_chunk_sizes[@]}")
+    job_file_suffixes=("${unique_file_suffixes[@]}")
+    job_specific_opts=("${unique_specific_opts[@]}")
   fi
 }
 
@@ -308,25 +511,22 @@ add_dy_amcatnlo_jobs() {
 
 add_dy_105_160_jobs() {
   local era="$1"
-  local datasets=()
 
   case "${era}" in
     Run3_2024|Run3_2025|Run3_2026)
-      datasets=(
-        DYto2Mu_MLL_105to160_amcatnloFXFX
-        DYto2Mu_MLL_105to160_amcatnloFXFX_Fil_VBF
-        DYto2Mu_MLL_105to160_amcatnloFXFX_Flashsim
-      )
+      # Full-simulation samples form the stitched pair; FlashSim is kept
+      # independently and must never receive the generator VBF split.
+      add_job DYto2Mu_MLL_105to160_amcatnloFXFX 20 \
+        "_stitched" --additional-cuts "GenVBFFilter==0"
+      add_job DYto2Mu_MLL_105to160_amcatnloFXFX_Fil_VBF 20 \
+        "_stitched" --additional-cuts "GenVBFFilter==1"
+      add_job DYto2Mu_MLL_105to160_amcatnloFXFX_Flashsim 20 \
+        "_nonStitched"
       ;;
     Run3_2022|Run3_2022EE|Run3_2023|Run3_2023BPix)
-      datasets=(DYto2Mu_MLL_105to160_amcatnloFXFX)
+      add_job DYto2Mu_MLL_105to160_amcatnloFXFX 20 "_nonStitched"
       ;;
   esac
-
-  local dataset_name
-  for dataset_name in "${datasets[@]}"; do
-    add_job "${dataset_name}" 20 "_nonStitched"
-  done
 }
 add_dy_105_160_VBFFil_stitched_jobs() {
   local era="$1"
@@ -485,18 +685,26 @@ chunk_size_override=""
 era=""
 input_folder="skim_v2_noUnc"
 root_input_folder=""
+json_input_folder=""
+manifest_input_folder=""
+additional_metadata_inputs=()
+requested_systematics=()
+file_open_retries=3
+file_open_retry_delay=2
 output_suffix=""
 output_dir_override=""
+campaign_mode="histograms"
 extra_opts=()
 dry_run=0
 condor=0
-condor_dir="htcondor/hists"
+condor_dir=""
 job_flavour="workday"
 request_cpus=4
 request_memory="8GB"
 request_disk="4GB"
 max_jobs=""
 max_parallel_jobs=""
+chunk_retries=1
 summary_file=""
 queued_registry_file=""
 job_count_file=""
@@ -506,6 +714,12 @@ missing_only=0
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
+    --campaign-mode)
+      [[ $# -ge 2 ]] || die "$1 requires a value"
+      campaign_mode="$2"
+      [[ "${campaign_mode}" == "histograms" || "${campaign_mode}" == "systematics" || "${campaign_mode}" == "validation" ]] || die "invalid campaign mode '${campaign_mode}'"
+      shift 2
+      ;;
     --datasets|--dataset-groups|--groups)
       [[ $# -ge 2 ]] || die "$1 requires a value"
       split_csv "$2" dataset_groups
@@ -524,6 +738,11 @@ while [[ $# -gt 0 ]]; do
       chunk_size_override="${single_dataset_chunk_size}"
       shift 2
       ;;
+    --retries|--retry-delay|--progress-every)
+      [[ $# -ge 2 ]] || die "$1 requires a value"
+      extra_opts+=("$1" "$2")
+      shift 2
+      ;;
     --era)
       [[ $# -ge 2 ]] || die "$1 requires a value"
       era="$2"
@@ -534,9 +753,42 @@ while [[ $# -gt 0 ]]; do
       input_folder="$2"
       shift 2
       ;;
-    --root-input-folder)
+    --root-input-folder|--root-input)
       [[ $# -ge 2 ]] || die "$1 requires a value"
       root_input_folder="$2"
+      shift 2
+      ;;
+    --json-input-folder|--json-input)
+      [[ $# -ge 2 ]] || die "$1 requires a value"
+      json_input_folder="$2"
+      shift 2
+      ;;
+    --manifest-input-folder|--manifest-input)
+      [[ $# -ge 2 ]] || die "$1 requires a value"
+      manifest_input_folder="$2"
+      shift 2
+      ;;
+    --additional-metadata-input|--extra-metadata-input)
+      [[ $# -ge 2 ]] || die "$1 requires a value"
+      additional_metadata_inputs+=("$2")
+      shift 2
+      ;;
+    --systematics)
+      [[ $# -ge 2 ]] || die "$1 requires a value"
+      IFS=',' read -r -a _systematics_part <<< "$2"
+      requested_systematics+=("${_systematics_part[@]}")
+      shift 2
+      ;;
+    --file-open-retries|--validation-retries)
+      [[ $# -ge 2 ]] || die "$1 requires a value"
+      file_open_retries="$2"
+      [[ "${file_open_retries}" =~ ^[0-9]+$ && "${file_open_retries}" -ge 1 ]] || die "$1 must be >= 1"
+      shift 2
+      ;;
+    --file-open-retry-delay)
+      [[ $# -ge 2 ]] || die "$1 requires a value"
+      file_open_retry_delay="$2"
+      [[ "${file_open_retry_delay}" =~ ^[0-9]+([.][0-9]+)?$ ]] || die "$1 must be a non-negative number"
       shift 2
       ;;
     --output-suffix)
@@ -601,6 +853,12 @@ while [[ $# -gt 0 ]]; do
       [[ "${max_parallel_jobs}" -ge 1 ]] || die "$1 must be >= 1"
       shift 2
       ;;
+    --chunk-retries)
+      [[ $# -ge 2 ]] || die "$1 requires a value"
+      chunk_retries="$2"
+      [[ "${chunk_retries}" =~ ^[0-9]+$ ]] || die "$1 must be a non-negative integer"
+      shift 2
+      ;;
     --summary-file)
       [[ $# -ge 2 ]] || die "$1 requires a value"
       summary_file="$2"
@@ -642,6 +900,18 @@ while [[ $# -gt 0 ]]; do
       ;;
   esac
 done
+
+if [[ -z "${condor_dir}" ]]; then
+  case "${campaign_mode}" in
+    validation) condor_dir="htcondor/validation" ;;
+    histograms) condor_dir="htcondor/hists" ;;
+    systematics) condor_dir="htcondor/systematics" ;;
+  esac
+fi
+
+if [[ "${campaign_mode}" == "validation" ]]; then
+  [[ -n "${output_dir_override}" ]] || die "${campaign_mode} stage requires --output-dir DIR"
+fi
 
 [[ ${#dataset_groups[@]} -gt 0 || -n "${single_dataset_name}" ]] || die "Missing --datasets or --dataset-name"
 [[ -n "${era}" ]] || die "Missing --era"
@@ -686,6 +956,11 @@ fi
 if [[ -z "${single_dataset_name}" ]]; then
   drop_unconfigured_jobs "${era}"
 fi
+if [[ "${campaign_mode}" == "validation" ]]; then
+  deduplicate_validation_jobs
+else
+  deduplicate_output_jobs
+fi
 
 [[ ${#job_datasets[@]} -gt 0 ]] || die "No jobs selected"
 
@@ -695,17 +970,38 @@ dataset_input_path() {
   if [[ "${folder}" = /* ]]; then
     printf '%s/%s/%s/' "${folder}" "${era}" "${dataset}"
   else
-    printf '/eos/user/a/ayeagle/%s/%s/%s/' "${folder}" "${era}" "${dataset}"
+    printf '/eos/cms/store/group/phys_higgs/cmshmm/vdamante/%s/%s/%s/' "${folder}" "${era}" "${dataset}"
   fi
 }
 
+if [[ -z "${manifest_input_folder}" ]]; then
+  manifest_input_folder="${input_folder}"
+fi
+if [[ -z "${root_input_folder}" && -n "${json_input_folder}" ]]; then
+  root_input_folder="${json_input_folder}"
+fi
 if [[ -z "${root_input_folder}" ]]; then
   root_input_folder="${input_folder}"
+fi
+if [[ -z "${json_input_folder}" ]]; then
+  json_input_folder="${input_folder}"
+fi
+if [[ ${#requested_systematics[@]} -eq 0 ]]; then
+  if [[ "${campaign_mode}" == "systematics" ]]; then
+    requested_systematics=(all)
+  else
+    requested_systematics=(Central)
+  fi
 fi
 
 if [[ -n "${chunk_size_override}" ]]; then
   for i in "${!job_chunk_sizes[@]}"; do
     job_chunk_sizes[$i]="${chunk_size_override}"
+  done
+fi
+if [[ "${campaign_mode}" == "validation" && -z "${chunk_size_override}" ]]; then
+  for i in "${!job_chunk_sizes[@]}"; do
+    job_chunk_sizes[$i]="${request_cpus}"
   done
 fi
 
@@ -717,8 +1013,8 @@ fi
 if [[ ${condor} -eq 1 ]]; then
   analysis_path="${ANALYSIS_PATH:-$(pwd)}"
   timestamp="$(date +%Y%m%d_%H%M%S)"
-  group_label="$(IFS=_; echo "${normalized_groups[*]}")"
-  group_label="${group_label//[^A-Za-z0-9_.-]/_}"
+  full_group_label="$(IFS=_; echo "${normalized_groups[*]}")"
+  group_label="$(condor_group_label)"
   submit_dir="${condor_dir}/${era}${output_suffix}_${group_label}_${timestamp}"
   condor_output_dir="${submit_dir}/output"
   condor_error_dir="${submit_dir}/error"
@@ -727,7 +1023,27 @@ if [[ ${condor} -eq 1 ]]; then
   extra_opts_file="${submit_dir}/extra_opts.txt"
   monitoring_file="${submit_dir}/monitoring.txt"
   submit_file="${submit_dir}/submit.sub"
-  wrapper="${analysis_path}/htcondor/run_hist_condor.sh"
+  wrapper="${analysis_path}/htcondor/run_stage_condor.sh"
+
+  if [[ "${jobs_file}" = /* ]]; then
+    jobs_file_arg="${jobs_file}"
+  else
+    jobs_file_arg="${analysis_path}/${jobs_file}"
+  fi
+  if [[ "${extra_opts_file}" = /* ]]; then
+    extra_opts_file_arg="${extra_opts_file}"
+  else
+    extra_opts_file_arg="${analysis_path}/${extra_opts_file}"
+  fi
+  if [[ "${condor_output_dir}" = /* ]]; then
+    condor_output_dir_arg="${condor_output_dir}"
+    condor_error_dir_arg="${condor_error_dir}"
+    condor_log_dir_arg="${condor_log_dir}"
+  else
+    condor_output_dir_arg="${analysis_path}/${condor_output_dir}"
+    condor_error_dir_arg="${analysis_path}/${condor_error_dir}"
+    condor_log_dir_arg="${analysis_path}/${condor_log_dir}"
+  fi
 
   mkdir -p "${condor_output_dir}" "${condor_error_dir}" "${condor_log_dir}"
 
@@ -746,10 +1062,13 @@ if [[ ${condor} -eq 1 ]]; then
   for i in "${!job_datasets[@]}"; do
     dataset_name="${job_datasets[$i]}"
     file_suffix="${job_file_suffixes[$i]}"
-    output_file="${output_dir}/${dataset_name}${file_suffix}.root"
+    case "${campaign_mode}" in
+      validation) output_file="${output_dir}/${era}/${dataset_name}.json" ;;
+      histograms|systematics) output_file="$(histogram_output_path "${output_dir}" "${era}" "${dataset_name}" "${file_suffix}")" ;;
+    esac
     total_selected=$((total_selected + 1))
 
-    if hist_output_exists "${output_file}"; then
+    if stage_output_exists "${campaign_mode}" "${output_file}"; then
       if [[ ${erase_existing} -eq 1 ]]; then
         echo "[ERASE] ${output_file}" | tee -a "${monitoring_file}"
         if [[ ${dry_run} -eq 0 ]]; then
@@ -789,7 +1108,14 @@ if [[ ${condor} -eq 1 ]]; then
     jobs_to_submit=$((jobs_to_submit + 1))
   done
 
-  printf '%s\n' "${extra_opts[*]}" > "${extra_opts_file}"
+  {
+    printf '%s' "${extra_opts[*]}"
+    if [[ "${campaign_mode}" != "validation" ]]; then
+      printf ' --systematics'
+      printf ' %q' "${requested_systematics[@]}"
+    fi
+    printf '\n'
+  } > "${extra_opts_file}"
   if [[ -n "${job_count_file}" ]]; then
     printf '%s\n' "${jobs_to_submit}" > "${job_count_file}"
   fi
@@ -817,6 +1143,7 @@ if [[ ${condor} -eq 1 ]]; then
     echo "========== HISTOGRAM CONDOR MONITORING =========="
     echo "era                : ${era}"
     echo "group              : ${group_label}"
+    echo "group full         : ${full_group_label}"
     echo "selected datasets  : ${total_selected}"
     echo "completed existing : ${completed_existing}"
     echo "already queued     : ${queued_existing}"
@@ -846,14 +1173,19 @@ if [[ ${condor} -eq 1 ]]; then
     exit 0
   fi
 
+  additional_metadata_bases_csv="$(IFS=,; echo "${additional_metadata_inputs[*]}")"
+
   cat > "${submit_file}" <<EOF
 universe = vanilla
 executable = ${wrapper}
-arguments = ${analysis_path} ${analysis_path}/${jobs_file} \$(ProcId) ${era} ${input_folder} ${output_dir} ${analysis_path}/${extra_opts_file} ${root_input_folder}
+# run_stage_condor.sh positional interface:
+# analysis jobs.tsv ProcId mode era manifest_base root_base json_base output_dir
+# extra_opts_file open_retries retry_delay additional_metadata_bases_csv
+arguments = ${analysis_path} ${jobs_file_arg} \$(ProcId) ${campaign_mode} ${era} ${manifest_input_folder} ${root_input_folder} ${json_input_folder} ${output_dir} ${extra_opts_file_arg} ${file_open_retries} ${file_open_retry_delay} ${additional_metadata_bases_csv}
 
-output = ${analysis_path}/${condor_output_dir}/\$(ProcId).out
-error  = ${analysis_path}/${condor_error_dir}/\$(ProcId).err
-log    = ${analysis_path}/${condor_log_dir}/condor.log
+output = ${condor_output_dir_arg}/\$(ProcId).out
+error  = ${condor_error_dir_arg}/\$(ProcId).err
+log    = ${condor_log_dir_arg}/condor.log
 
 request_cpus = ${request_cpus}
 request_memory = ${request_memory}
@@ -861,9 +1193,9 @@ request_disk = ${request_disk}
 +JobFlavour = "${job_flavour}"
 +Era = "${era}"
 +HistGroup = "${group_label}"
-batch_name = Hists_${era}_${group_label}
+batch_name = Hists_${campaign_mode}_${era}_${group_label}
 
-max_retries = 1
+max_retries = ${chunk_retries}
 getenv = True
 EOF
 
@@ -905,9 +1237,9 @@ EOF
   condor_submit "${submit_file}"
   if [[ -n "${queued_registry_file}" ]]; then
     mkdir -p "$(dirname "${queued_registry_file}")"
-    while IFS=$'\t' read -r submitted_dataset submitted_chunk submitted_suffix submitted_opts; do
+    while IFS=$'\t' read -r submitted_dataset _submitted_chunk submitted_suffix _submitted_opts; do
       [[ -n "${submitted_dataset}" ]] || continue
-      printf '%s\n' "${output_dir}/${submitted_dataset}${submitted_suffix}.root" >> "${queued_registry_file}"
+      printf '%s\n' "$(histogram_output_path "${output_dir}" "${era}" "${submitted_dataset}" "${submitted_suffix}")" >> "${queued_registry_file}"
     done < "${jobs_file}"
     sort -u -o "${queued_registry_file}" "${queued_registry_file}"
   fi
@@ -918,13 +1250,25 @@ for i in "${!job_datasets[@]}"; do
   dataset_name="${job_datasets[$i]}"
   chunk_size="${job_chunk_sizes[$i]}"
   file_suffix="${job_file_suffixes[$i]}"
-  metadata_input_path="$(dataset_input_path "${input_folder}" "${dataset_name}")"
+  metadata_input_path="$(dataset_input_path "${json_input_folder}" "${dataset_name}")"
   input_path="$(dataset_input_path "${root_input_folder}" "${dataset_name}")"
-  output_file="${output_dir}/${dataset_name}${file_suffix}.root"
+  additional_metadata_args=()
+  for metadata_base in "${additional_metadata_inputs[@]}"; do
+    additional_metadata_args+=(
+      --additional-metadata-input
+      "$(dataset_input_path "${metadata_base}" "${dataset_name}")"
+    )
+  done
+  output_file="$(histogram_output_path "${output_dir}" "${era}" "${dataset_name}" "${file_suffix}")"
+
+  case "${campaign_mode}" in
+    validation) expected_output="${output_dir}/${era}/${dataset_name}.json" ;;
+    histograms|systematics) expected_output="${output_file}" ;;
+  esac
 
   if [[ ${missing_only} -eq 1 && ${force_submit} -eq 0 && ${erase_existing} -eq 0 ]]; then
-    if hist_output_exists "${output_file}"; then
-      echo "[DONE]  ${output_file}"
+    if stage_output_exists "${campaign_mode}" "${expected_output}"; then
+      echo "[DONE]  ${expected_output}"
       echo "[INFO] --missing-only: output already exists, skipping ${dataset_name}."
       continue
     fi
@@ -936,24 +1280,67 @@ for i in "${!job_datasets[@]}"; do
     specific_opts=(${job_specific_opts[$i]})
   fi
 
-  command=(
-    python3 histograms/hist_maker.py
-    --era "${era}"
-    --dataset-name "${dataset_name}"
-    --input "${input_path}"
-    --metadata-input "${metadata_input_path}"
-    --output-file "${output_file}"
-    --chunk-size "${chunk_size}"
-  )
+  if [[ "${campaign_mode}" == "validation" ]]; then
+    output_file="${output_dir}/${era}/${dataset_name}.json"
+    command=(
+      python3 analysis/validate_dataset.py
+      --era "${era}"
+      --dataset-name "${dataset_name}"
+      --root-input "${input_path}"
+      --json-input "${metadata_input_path}"
+      --output-manifest "${output_file}"
+      --workers "${chunk_size}"
+      --retries "${file_open_retries}"
+      --retry-delay "${file_open_retry_delay}"
+    )
+  elif [[ "${campaign_mode}" == "systematics" ]]; then
+    validation_manifest="$(manifest_path "${manifest_input_folder}" "${era}" "${dataset_name}")"
+    command=(
+      python3 histograms/hist_maker.py
+      --era "${era}"
+      --root-input "${input_path}"
+      --json-input "${metadata_input_path}"
+      "${additional_metadata_args[@]}"
+      --dataset-name "${dataset_name}"
+      --input-manifest "${validation_manifest}"
+      --output-file "${output_file}"
+      --systematics "${requested_systematics[@]}"
+      --chunk-size "${chunk_size}"
+      --file-open-retries "${file_open_retries}"
+      --file-open-retry-delay "${file_open_retry_delay}"
+    )
+  else
+    validation_manifest="$(manifest_path "${manifest_input_folder}" "${era}" "${dataset_name}")"
+    command=(
+      python3 histograms/hist_maker.py
+      --era "${era}"
+      --root-input "${input_path}"
+      --json-input "${metadata_input_path}"
+      "${additional_metadata_args[@]}"
+      --dataset-name "${dataset_name}"
+      --input-manifest "${validation_manifest}"
+      --output-file "${output_file}"
+      --systematics "${requested_systematics[@]}"
+      --chunk-size "${chunk_size}"
+      --file-open-retries "${file_open_retries}"
+      --file-open-retry-delay "${file_open_retry_delay}"
+    )
+  fi
   command+=("${specific_opts[@]}")
-  command+=("${extra_opts[@]}")
+  if [[ "${campaign_mode}" != "validation" ]]; then
+    command+=("${extra_opts[@]}")
+  fi
 
   echo
   echo "============================================================"
   echo "[INFO] Era     : ${era}"
   echo "[INFO] Dataset : ${dataset_name}"
   echo "[INFO] Input   : ${input_path}"
-  echo "[INFO] Metadata: ${metadata_input_path}"
+  echo "[INFO] JSON    : ${metadata_input_path}"
+  echo "[INFO] Manifest: ${manifest_input_folder}"
+  if [[ "${campaign_mode}" != "validation" ]]; then
+    echo "[INFO] Systs   : ${requested_systematics[*]}"
+  fi
   echo "[INFO] Output  : ${output_file}"
   echo "[INFO] Command : ${command[*]}"
   echo "============================================================"

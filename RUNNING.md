@@ -588,7 +588,7 @@ python3 histograms/hist_maker.py \
 The preferred histogram submitter is:
 
 ```bash
-python3 htcondor/hist_condorsubmit.py
+python3 htcondor/histogram_condorsubmit.py
 ```
 
 It writes a jobs table and Condor submit file under:
@@ -658,11 +658,11 @@ other_signals
 One era, one group:
 
 ```bash
-python3 htcondor/hist_condorsubmit.py \
-  --eras Run3_2024 \
+python3 htcondor/histogram_condorsubmit.py \
+  --era Run3_2024 \
   --datasets DY_amcatnlo \
   --condor \
-  --submit-missing \
+  --missing-only \
   --max-parallel-jobs 5000 \
   -- --skip-file-validation
 ```
@@ -670,12 +670,12 @@ python3 htcondor/hist_condorsubmit.py \
 One explicit dataset:
 
 ```bash
-python3 htcondor/hist_condorsubmit.py \
-  --eras Run3_2024 \
+python3 htcondor/histogram_condorsubmit.py \
+  --era Run3_2024 \
   --dataset-name TTto2L2Nu \
   --chunk-size 10 \
   --condor \
-  --submit-missing \
+  --missing-only \
   --max-parallel-jobs 5000 \
   -- --skip-file-validation
 ```
@@ -683,10 +683,10 @@ python3 htcondor/hist_condorsubmit.py \
 All Run 3 eras:
 
 ```bash
-python3 htcondor/hist_condorsubmit.py \
-  --eras all \
+python3 htcondor/histogram_condorsubmit.py \
+  --era all \
   --condor \
-  --submit-missing \
+  --missing-only \
   --max-parallel-jobs 5000 \
   -- --skip-file-validation
 ```
@@ -694,10 +694,10 @@ python3 htcondor/hist_condorsubmit.py \
 2024, 2025, 2026:
 
 ```bash
-python3 htcondor/hist_condorsubmit.py \
-  --eras Run3_2024,Run3_2025,Run3_2026 \
+python3 htcondor/histogram_condorsubmit.py \
+  --era Run3_2024,Run3_2025,Run3_2026 \
   --condor \
-  --submit-missing \
+  --missing-only \
   --max-parallel-jobs 5000 \
   -- --skip-file-validation
 ```
@@ -705,8 +705,8 @@ python3 htcondor/hist_condorsubmit.py \
 Dry-run:
 
 ```bash
-python3 htcondor/hist_condorsubmit.py \
-  --eras Run3_2024 \
+python3 htcondor/histogram_condorsubmit.py \
+  --era Run3_2024 \
   --datasets EWK \
   --condor \
   --dry-run \
@@ -716,8 +716,8 @@ python3 htcondor/hist_condorsubmit.py \
 Monitor only:
 
 ```bash
-python3 htcondor/hist_condorsubmit.py \
-  --eras Run3_2024 \
+python3 htcondor/histogram_condorsubmit.py \
+  --era Run3_2024 \
   --datasets EWK \
   --monitor \
   -- --skip-file-validation
@@ -726,10 +726,10 @@ python3 htcondor/hist_condorsubmit.py \
 Continuous monitor plus refill:
 
 ```bash
-python3 htcondor/hist_condorsubmit.py \
-  --eras Run3_2024 \
+python3 htcondor/histogram_condorsubmit.py \
+  --era Run3_2024 \
   --watch \
-  --submit-missing \
+  --missing-only \
   --max-parallel-jobs 5000 \
   --poll-interval 120 \
   -- --skip-file-validation
@@ -738,11 +738,11 @@ python3 htcondor/hist_condorsubmit.py \
 Submit at most one job for testing:
 
 ```bash
-python3 htcondor/hist_condorsubmit.py \
-  --eras Run3_2024 \
+python3 htcondor/histogram_condorsubmit.py \
+  --era Run3_2024 \
   --datasets EWK \
   --condor \
-  --submit-missing \
+  --missing-only \
   --max-submit-jobs 1 \
   --output-suffix _test \
   -- --skip-file-validation
@@ -753,8 +753,8 @@ python3 htcondor/hist_condorsubmit.py \
 Put `hist_maker.py` options after a standalone `--`:
 
 ```bash
-python3 htcondor/hist_condorsubmit.py \
-  --eras Run3_2024 \
+python3 htcondor/histogram_condorsubmit.py \
+  --era Run3_2024 \
   --datasets signals \
   --condor \
   --dry-run \
@@ -771,7 +771,7 @@ Do not use:
 --hist_opts "--categories ggF_0J ggF_1J"
 ```
 
-There is no `--hist_opts` parser option in `hist_condorsubmit.py`.
+There is no `--hist_opts` parser option in `histogram_condorsubmit.py`.
 
 Also make sure the line-continuation backslash has no trailing space:
 
@@ -875,11 +875,11 @@ files to subtract.
 Produce the input histograms:
 
 ```bash
-python3 htcondor/hist_condorsubmit.py \
-  --eras Run3_2024 \
+python3 htcondor/histogram_condorsubmit.py \
+  --era Run3_2024 \
   --datasets data,DY_amcatnlo,EWK,SingleTop,TTX,W,DiTriBoson,SingleH,signals,other_signals \
   --condor \
-  --submit-missing \
+  --missing-only \
   --output-suffix _ptllRW \
   -- \
   --variables pt_mumu \
@@ -963,11 +963,11 @@ and non-DY MC jobs are unchanged. The output of this step is used only to derive
 the second, `NJets`, correction.
 
 ```bash
-python3 htcondor/hist_condorsubmit.py \
-  --eras Run3_2024 \
+python3 htcondor/histogram_condorsubmit.py \
+  --era Run3_2024 \
   --datasets data,DY_amcatnlo,EWK,SingleTop,TTX,W,DiTriBoson,SingleH,signals,other_signals \
   --condor \
-  --submit-missing \
+  --missing-only \
   --output-suffix _njetsRW \
   -- \
   --variables N_SelectedJets \
@@ -1217,11 +1217,11 @@ DY_amcatnlo_105_160_VBFFil
 Produce all pieces:
 
 ```bash
-python3 htcondor/hist_condorsubmit.py \
-  --eras Run3_2024 \
+python3 htcondor/histogram_condorsubmit.py \
+  --era Run3_2024 \
   --datasets DY_amcatnlo_105_160,DY_amcatnlo_105_160_stitched,DY_amcatnlo_105_160_VBFFil \
   --condor \
-  --submit-missing \
+  --missing-only \
   --max-parallel-jobs 5000 \
   --output-suffix TT \
   -- --skip-file-validation
@@ -1357,14 +1357,14 @@ Plot runner:
 ```bash
 bash histograms/scripts/run_plotter.sh --dryrun
 bash histograms/scripts/run_plotter.sh
-bash histograms/scripts/run_plotter.sh --eras "Run3_2024" --mode 2024_all
+bash histograms/scripts/run_plotter.sh --era "Run3_2024" --mode 2024_all
 ```
 
 Use a suffixed hadded directory:
 
 ```bash
 bash histograms/scripts/run_plotter.sh \
-  --eras "Run3_2024" \
+  --era "Run3_2024" \
   --mode 2024_all \
   --input-tag-template newHists_ERA_TT_hadded
 ```
@@ -1383,11 +1383,11 @@ cp /eos/user/v/vdamante/www/H_mumu/index.php /eos/user/v/vdamante/www/H_mumu/plo
 One group:
 
 ```bash
-python3 htcondor/hist_condorsubmit.py \
-  --eras Run3_2022EE \
+python3 htcondor/histogram_condorsubmit.py \
+  --era Run3_2022EE \
   --datasets signals \
   --condor \
-  --submit-missing \
+  --missing-only \
   --output-suffix _ZSideband_mass_shifted \
   -- \
   --variables DNN_NNOutput \
@@ -1400,11 +1400,11 @@ All usual 2022EE groups:
 
 ```bash
 for group in signals data DiTriBoson DY_amcatnlo EWK SingleH SingleTop TTX W DY_amcatnlo_105_160; do
-  python3 htcondor/hist_condorsubmit.py \
-    --eras Run3_2022EE \
+  python3 htcondor/histogram_condorsubmit.py \
+    --era Run3_2022EE \
     --datasets ${group} \
     --condor \
-    --submit-missing \
+    --missing-only \
     --output-suffix _ZSideband_mass_shifted \
     -- \
     --variables DNN_NNOutput \
@@ -1420,11 +1420,11 @@ done
 tt_vars="DNN_NNOutput m_mumu pt_mumu eta_mumu mu1_pt mu2_pt mu1_eta mu2_eta leadingjet_pt leadingjet_eta subleadingjet_pt subleadingjet_eta delta_eta_jj_ls m_jj_ls m_jj delta_eta_jj vbfjet1_pt vbfjet2_pt vbfjet1_eta vbfjet2_eta vbfjet1_phi vbfjet2_phi"
 
 for group in data DiTriBoson DY_amcatnlo DY_amcatnlo_105_160 DY_amcatnlo_105_160_stitched DY_amcatnlo_105_160_VBFFil DY_minnlo EWK signals SingleH SingleTop TTX W other_signals; do
-  python3 htcondor/hist_condorsubmit.py \
-    --eras Run3_2024 \
+  python3 htcondor/histogram_condorsubmit.py \
+    --era Run3_2024 \
     --datasets ${group} \
     --condor \
-    --submit-missing \
+    --missing-only \
     --max-parallel-jobs 5000 \
     --output-suffix TT \
     -- \
@@ -1434,16 +1434,16 @@ for group in data DiTriBoson DY_amcatnlo DY_amcatnlo_105_160 DY_amcatnlo_105_160
 done
 ```
 
-For 2025 change `--eras Run3_2024` to `--eras Run3_2025`.
+For 2025 change `--era Run3_2024` to `--era Run3_2025`.
 
 ### One group only
 
 ```bash
-python3 htcondor/hist_condorsubmit.py \
-  --eras Run3_2025 \
+python3 htcondor/histogram_condorsubmit.py \
+  --era Run3_2025 \
   --datasets data \
   --condor \
-  --submit-missing \
+  --missing-only \
   --max-parallel-jobs 5000 \
   -- --skip-file-validation
 ```
@@ -1451,12 +1451,12 @@ python3 htcondor/hist_condorsubmit.py \
 ### One dataset only
 
 ```bash
-python3 htcondor/hist_condorsubmit.py \
-  --eras Run3_2025 \
+python3 htcondor/histogram_condorsubmit.py \
+  --era Run3_2025 \
   --dataset-name TTto2L2Nu \
   --chunk-size 10 \
   --condor \
-  --submit-missing \
+  --missing-only \
   --max-parallel-jobs 5000 \
   -- --skip-file-validation
 ```

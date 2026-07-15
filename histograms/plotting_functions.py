@@ -1,16 +1,66 @@
 import os
-import numpy as np
+
+os.environ.setdefault(
+    "MPLCONFIGDIR",
+    os.path.join("/tmp", os.environ.get("USER", "user"), "matplotlib"),
+)
+
 import matplotlib.pyplot as plt
 import matplotlib.ticker as mticker
 import mplhep as hep
+import numpy as np
 
-from common.helpers import *
+from common.helpers import findBinEntry
 
 plt.style.use(hep.style.CMS)
 
 
 def normalize_sample_name(name):
     return os.path.splitext(os.path.basename(name))[0]
+
+
+def get_total_hist_integral(root_hist):
+    return root_hist.Integral(0, root_hist.GetNbinsX() + 1)
+
+
+def parse_sample_targets(target_spec):
+    if target_spec is None:
+        return []
+
+    if isinstance(target_spec, (list, tuple, set)):
+        raw_items = target_spec
+    else:
+        raw_items = str(target_spec).replace(",", " ").split()
+
+    return [item.strip() for item in raw_items if item and item.strip()]
+
+
+def starts_with_dy(candidate):
+    return normalize_sample_name(candidate).lower().startswith("dy")
+
+
+def resolve_background_targets(target_spec, ratio_candidates, mc_keys):
+    targets = []
+
+    for target in parse_sample_targets(target_spec):
+        target_key = resolve_ratio_reference(target, ratio_candidates)
+
+        if target_key is not None and target_key in mc_keys and target_key not in targets:
+            targets.append(target_key)
+
+    requested_targets = parse_sample_targets(target_spec)
+
+    if (
+        not targets
+        and len(requested_targets) == 1
+        and normalize_sample_name(requested_targets[0]).lower() == "dy"
+    ):
+        for sample_key in mc_keys:
+            candidate = ratio_candidates[sample_key]
+            if starts_with_dy(sample_key) or starts_with_dy(candidate.get("name", "")):
+                targets.append(sample_key)
+
+    return targets
 
 
 def get_bins_and_content(root_hist, want_overflow=False, divide_by_bin_width=False):
@@ -255,6 +305,9 @@ def resolve_ratio_reference(ratio_reference, ratio_candidates):
             candidate.get("name", key),
             normalize_sample_name(candidate.get("name", key)),
         }
+        for alias in candidate.get("aliases", []):
+            aliases.add(alias)
+            aliases.add(normalize_sample_name(alias))
 
         if ratio_reference in aliases or normalized_reference in aliases:
             return key
@@ -318,6 +371,7 @@ def make_stacked_plot(
 
     data_vals = None
     data_errs = None
+    data_integral_total = None
     data_label_legend = None
 
     bin_edges = None
@@ -367,7 +421,7 @@ def make_stacked_plot(
         if bin_edges is None:
             bin_edges = edges
 
-        hist_integral = root_hist.Integral()
+        hist_integral = get_total_hist_integral(root_hist)
         sample_label = sample_info.get("name", sample_id)
 
         if sample_info["is_data"]:
@@ -384,6 +438,7 @@ def make_stacked_plot(
 
             data_vals = content
             data_errs = errors
+            data_integral_total = hist_integral
             data_key = sample_id
 
             ratio_candidates[sample_id] = {
@@ -393,6 +448,7 @@ def make_stacked_plot(
                 "color": "black",
                 "is_data": True,
                 "is_signal": False,
+                "aliases": sample_info.get("aliases", []),
             }
 
             data_label_base = sample_label
@@ -416,6 +472,7 @@ def make_stacked_plot(
                 "color": sample_info["color"],
                 "is_data": False,
                 "is_signal": True,
+                "aliases": sample_info.get("aliases", []),
             }
 
         else:
@@ -433,6 +490,7 @@ def make_stacked_plot(
                 "color": sample_info["color"],
                 "is_data": False,
                 "is_signal": False,
+                "aliases": sample_info.get("aliases", []),
             }
 
     if bin_edges is None:
@@ -451,13 +509,9 @@ def make_stacked_plot(
                 "but no background MC is available."
             )
         else:
-            normalization_bins = np.isfinite(data_vals)
-            data_integral = np.sum(data_vals[normalization_bins][1:])
-            mc_integral = np.sum(
-                [np.sum(values[normalization_bins][1:]) for values in mc_vals]
-            )
-            print(data_integral)
-            print(mc_integral)
+            data_integral = data_integral_total
+            mc_integral = np.sum(mc_integrals)
+
             if mc_integral <= 0:
                 print(
                     f"  [WARNING] MC normalization skipped for {variable}: "
@@ -472,10 +526,7 @@ def make_stacked_plot(
                     mc_integrals[idx] = mc_integrals[idx] * mc_scale
 
                     sample_label = ratio_candidates[sample_key]["name"]
-                    mc_labels[idx] = (
-                        f"{sample_label} [{mc_integrals[idx]*mc_scale:.2f}]"
-                        # f" x {mc_scale:.4g}"
-                    )
+                    mc_labels[idx] = f"{sample_label} [{mc_integrals[idx]:.2f}]"
                     ratio_candidates[sample_key]["values"] = mc_vals[idx]
                     ratio_candidates[sample_key]["errors"] = mc_errs[idx]
 
@@ -492,19 +543,22 @@ def make_stacked_plot(
                 "but data is not available."
             )
         else:
-            dy_key = resolve_ratio_reference(dy_normalization_sample, ratio_candidates)
+            dy_keys = resolve_background_targets(
+                dy_normalization_sample,
+                ratio_candidates,
+                mc_keys,
+            )
 
-            if dy_key is None or dy_key not in mc_keys:
+            if not dy_keys:
                 print(
                     f"  [WARNING] DY normalization sample "
                     f"'{dy_normalization_sample}' not found among backgrounds "
                     f"for {variable}."
                 )
             else:
-                dy_idx = mc_keys.index(dy_key)
-                normalization_bins = np.isfinite(data_vals)
-                data_integral = np.sum(data_vals[normalization_bins])
-                dy_integral = np.sum(mc_vals[dy_idx][normalization_bins])
+                data_integral = data_integral_total
+                dy_indices = [mc_keys.index(dy_key) for dy_key in dy_keys]
+                dy_integral = np.sum([mc_integrals[dy_idx] for dy_idx in dy_indices])
 
                 if dy_integral <= 0:
                     print(
@@ -513,21 +567,24 @@ def make_stacked_plot(
                     )
                 else:
                     dy_scale = data_integral / dy_integral
-                    mc_vals[dy_idx] = mc_vals[dy_idx] * dy_scale
-                    mc_errs[dy_idx] = mc_errs[dy_idx] * dy_scale
-                    mc_integrals[dy_idx] = mc_integrals[dy_idx] * dy_scale
 
-                    dy_label = ratio_candidates[dy_key]["name"]
-                    mc_labels[dy_idx] = (
-                        f"{dy_label} [{mc_integrals[dy_idx]:.2f}]"
-                        f" x {dy_scale:.4g}"
-                    )
-                    ratio_candidates[dy_key]["values"] = mc_vals[dy_idx]
-                    ratio_candidates[dy_key]["errors"] = mc_errs[dy_idx]
+                    for dy_idx in dy_indices:
+                        dy_key = mc_keys[dy_idx]
+                        mc_vals[dy_idx] = mc_vals[dy_idx] * dy_scale
+                        mc_errs[dy_idx] = mc_errs[dy_idx] * dy_scale
+                        mc_integrals[dy_idx] = mc_integrals[dy_idx] * dy_scale
+
+                        dy_label = ratio_candidates[dy_key]["name"]
+                        mc_labels[dy_idx] = (
+                            f"{dy_label} [{mc_integrals[dy_idx]:.2f}]"
+                            f" x {dy_scale:.4g}"
+                        )
+                        ratio_candidates[dy_key]["values"] = mc_vals[dy_idx]
+                        ratio_candidates[dy_key]["errors"] = mc_errs[dy_idx]
 
                     print(
                         f"  [DY NORM] {variable}: "
-                        f"scale {dy_key} by {dy_scale:.6g} "
+                        f"scale {', '.join(dy_keys)} by {dy_scale:.6g} "
                         f"({dy_integral:.6g} -> {data_integral:.6g})"
                     )
 

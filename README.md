@@ -162,75 +162,38 @@ Main skim outputs:
 
 ## Histogram Campaigns
 
-The preferred histogram Condor submitter is:
+The canonical local and Condor entry points are:
 
 ```bash
-python3 htcondor/hist_condorsubmit.py
+bash histograms/scripts/hists.sh --era Run3_2024 ...
+python3 htcondor/histogram_condorsubmit.py --era Run3_2024 ...
 ```
 
-Submit one era and one group:
+Dataset selection, retries, throttling, and local/Condor execution share one
+implementation.
+
+Submit one group:
 
 ```bash
-python3 htcondor/hist_condorsubmit.py \
-  --eras Run3_2024 \
+python3 htcondor/histogram_condorsubmit.py \
+  --era Run3_2024 \
   --datasets DY_amcatnlo \
-  --condor \
-  --submit-missing \
-  --max-parallel-jobs 5000 \
-  -- --skip-file-validation
-```
-
-Submit one explicit dataset:
-
-```bash
-python3 htcondor/hist_condorsubmit.py \
-  --eras Run3_2024 \
-  --dataset-name TTto2L2Nu \
-  --chunk-size 10 \
-  --condor \
-  --submit-missing \
-  -- --skip-file-validation
-```
-
-Pass `hist_maker.py` options after a standalone `--`:
-
-```bash
-python3 htcondor/hist_condorsubmit.py \
-  --eras Run3_2024 \
-  --datasets signals \
-  --condor \
-  --dry-run \
-  -- \
-  --variables DNN_NNOutput \
-  --mass-regions Z_sideband \
-  --categories ggF_0J ggF_1J ggF_ge2J VBF_ge2J \
-  --skip-file-validation
-```
-
-Do not use `--hist_opts`; it is not a parser option. Also make sure line-continuation backslashes have no trailing spaces.
-
-Submit every input-file chunk as an independent Condor job and run `hadd`
-automatically after all chunks of a dataset succeed:
-
-```bash
-python3 htcondor/hist_condorsubmit.py \
-  --eras Run3_2022,Run3_2022EE,Run3_2023,Run3_2023BPix,Run3_2024 \
-  --datasets DY_amcatnlo,DY_amcatnlo_105_160 \
-  --output-suffix _with_ptll_only_rw \
-  --input-folder skim_v2_noUnc \
-  --chunks-as-jobs \
-  --split-variable-groups \
+  --input-folder /path/to/manifests \
+  --root-input-folder skim_v2_noUnc \
+  --json-input-folder skim_v2_noUnc \
+  --output-dir /path/to/hists \
   --missing-only \
-  -- \
-  --dy-ptll-reweight-json 'reweights/dy_ptll_reweight/{era}/dy_ptll_reweight_smart.json'
+  --max-parallel-jobs 5000 \
+  -- --variables DNN_NNOutput
 ```
 
-`{era}` and `{ERA}` in forwarded histogram options are expanded separately for
-each era.
+See [WORKFLOW.md](WORKFLOW.md) for the full validation, central histogram, and
+shifted histogram campaigns. For the standard Run3 2024 central plus shifted
+Condor submissions:
 
-With `--split-variable-groups`, each input chunk is processed independently for
-logical groups such as muons, dimuon, jets, dijets, soft activity, and DNN.
-All chunk/group outputs are merged into the usual single dataset ROOT file.
+```bash
+bash histograms/scripts/submit_2024_histograms_condor.sh --dry-run
+```
 
 Common groups:
 
@@ -293,11 +256,11 @@ DY_amcatnlo_105_160_VBFFil    -> GenVBFFilter==1, suffix _stitched
 Produce the pieces:
 
 ```bash
-python3 htcondor/hist_condorsubmit.py \
-  --eras Run3_2024 \
+python3 htcondor/histogram_condorsubmit.py \
+  --era Run3_2024 \
   --datasets DY_amcatnlo_105_160,DY_amcatnlo_105_160_stitched,DY_amcatnlo_105_160_VBFFil \
   --condor \
-  --submit-missing \
+  --missing-only \
   --max-parallel-jobs 5000 \
   --output-suffix TT \
   -- --skip-file-validation
@@ -329,11 +292,11 @@ cp ${input_dir}/DYto2Mu_MLL_105to160_amcatnloFXFX_Fil_VBF_stitched.root \
 Z-sideband shifted DNN:
 
 ```bash
-python3 htcondor/hist_condorsubmit.py \
-  --eras Run3_2022EE \
+python3 htcondor/histogram_condorsubmit.py \
+  --era Run3_2022EE \
   --datasets signals \
   --condor \
-  --submit-missing \
+  --missing-only \
   --output-suffix _ZSideband_mass_shifted \
   -- \
   --variables DNN_NNOutput \
@@ -345,11 +308,11 @@ python3 htcondor/hist_condorsubmit.py \
 Low-pT/TT categories:
 
 ```bash
-python3 htcondor/hist_condorsubmit.py \
-  --eras Run3_2024 \
+python3 htcondor/histogram_condorsubmit.py \
+  --era Run3_2024 \
   --datasets signals \
   --condor \
-  --submit-missing \
+  --missing-only \
   --output-suffix TT \
   -- \
   --categories baseline_lowPtTT ggF_lowPtTT VBF_lowPtTT \
@@ -382,3 +345,8 @@ ls /eos/user/v/vdamante/H_mumu/newHists_Run3_2024_hadded/
 ```
 
 If the plotter cannot find a sample, check the exact ROOT filename in the hadded directory and pass that name without `.root`.
+## Production workflow
+
+The skim-to-histogram production is organized as two manifest-driven stages:
+input validation and histogram production. See
+[WORKFLOW.md](WORKFLOW.md) for local and HTCondor commands.

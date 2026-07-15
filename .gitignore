@@ -1,7 +1,9 @@
 *.txt
 .vscode/
-__pycache__
+__pycache__/
 *.pyc
+.pytest_cache/
+.ruff_cache/
 studies/*
 data/
 logs/
@@ -20,3 +22,7 @@ soft/
 *.root
 plot*
 analysis/patches/
+results/
+htcondor/validation/
+htcondor/systematics/
+pyproject.toml

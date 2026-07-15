@@ -1,14 +1,16 @@
 #!/usr/bin/env python3
 
-import ROOT
-import sys
-import os
 import argparse
+import copy
+import os
+import subprocess
+import sys
 import time
 import traceback
-import subprocess
-import copy
 from multiprocessing import get_context
+from pathlib import Path
+
+import ROOT
 
 ROOT.gROOT.SetBatch(True)
 ROOT.EnableThreadSafety()
@@ -16,33 +18,73 @@ ROOT.EnableThreadSafety()
 sys.path.append(os.environ["ANALYSIS_PATH"])
 
 import common.utilities as utilities
-from common.helpers import GetModel,GetRdfForDataset,get_root_files,get_valid_root_files,get_segmentation_dict,is_valid_tmp_root
 from common.add_vars_to_skim_tuples import (
-    DefineHistogramSelections,
     GetSelectionSuffixForSystematic,
     SelectedJetObservablesDef,
     VBFJetObservablesDef,
 )
-from common.dy_ptll_reweight import (
-    ApplyDYAmcatnloNormalization,
-    ApplyDYNJetsReweight,
-    ApplyDYPtLLReweight,
+from common.histogram_pipeline import finalize_histogram_dataframe
+from common.manifests import read_manifest
+from common.runtime import initialize_root_runtime
+from common.helpers import (
+    GetModel,
+    GetRdfForDataset,
+    get_root_files,
+    get_segmentation_dict,
+    is_valid_tmp_root,
 )
 from corrections.qcd_scale import get_qcd_scale_points
-HEADERS = ["analysis/AnalysisTools.h"]
-for header in HEADERS:
-    utilities.DeclareHeader(f"{os.environ['ANALYSIS_PATH']}/{header}")
+
+initialize_root_runtime()
 
 DNN_SIDEBAND_SHIFTED_PAYLOADS = {
     "Z_sideband": "DNNZSidebandMassShift",
     "H_sideband": "DNNHSidebandMassShift",
 }
 
+# Dataset-level normalization metadata. The parent process builds these
+# dictionaries once; each multiprocessing worker receives one read-only copy
+# through Pool(initializer=...), then reuses it for every chunk.
+_WORKER_SEG_DICT = None
+_WORKER_QCD_SCALE_SEG_DICTS = None
+
+
+def initialize_worker_metadata(seg_dict, qcd_scale_seg_dicts):
+    global _WORKER_SEG_DICT
+    global _WORKER_QCD_SCALE_SEG_DICTS
+
+    _WORKER_SEG_DICT = seg_dict
+    _WORKER_QCD_SCALE_SEG_DICTS = qcd_scale_seg_dicts
+    print(
+        f"[WORKER {os.getpid()}] Installed dataset metadata: "
+        f"{len(seg_dict)} central entries, "
+        f"{len(qcd_scale_seg_dicts)} QCD-scale dictionaries"
+    )
+
+# Per-process metadata cache. With multiprocessing=spawn each worker builds the
+# combined dictionaries once, then reuses them for all subsequent chunks.
+_METADATA_CACHE = {}
+
+
+def profile_log(chunk_index, phase, started_at):
+    elapsed = time.perf_counter() - started_at
+    print(f"[PROFILE][CHUNK {chunk_index}] {phase}: {elapsed:.3f} s", flush=True)
+    return time.perf_counter()
+
+
 def chunk_list(items, chunk_size):
-    return [items[i:i + chunk_size] for i in range(0, len(items), chunk_size)]
+    return [items[i : i + chunk_size] for i in range(0, len(items), chunk_size)]
+
+
+def chunk_output_path(args, chunk_index):
+    return str(Path(args.tmp_output_dir) / f"chunk_{chunk_index + 1}.root")
+
+
 def safe_mkdir(path):
     if path:
         os.makedirs(path, exist_ok=True)
+
+
 def remove_file_if_exists(path):
     if path and os.path.exists(path):
         try:
@@ -50,33 +92,53 @@ def remove_file_if_exists(path):
         except Exception as e:
             print(f"[WARNING] Could not remove file {path}: {e}")
 
-def has_usable_events_tree(path):
-    root_file = ROOT.TFile.Open(path, "READ")
 
-    if not root_file or root_file.IsZombie():
-        return False
+def has_usable_events_tree(path, retries=3, retry_delay=2.0):
+    last_error = None
 
-    tree = root_file.Get("Events")
+    for attempt in range(1, retries + 1):
+        root_file = None
+        try:
+            root_file = ROOT.TFile.Open(path, "READ")
+            if not root_file or root_file.IsZombie():
+                raise OSError("cannot open ROOT file or file is a zombie")
 
-    if not tree:
-        root_file.Close()
-        return False
+            tree = root_file.Get("Events")
+            if not tree:
+                raise KeyError("missing Events tree")
 
-    has_branches = tree.GetListOfBranches().GetEntries() > 0
-    root_file.Close()
-    return has_branches
+            return tree.GetListOfBranches().GetEntries() > 0
+        except Exception as error:
+            last_error = error
+            if attempt < retries:
+                print(
+                    f"[WARNING] Could not validate {path} "
+                    f"(attempt {attempt}/{retries}): {error}. Retrying..."
+                )
+                time.sleep(retry_delay)
+        finally:
+            if root_file:
+                root_file.Close()
 
-def filter_usable_chunk_files(chunk_files):
+    print(
+        f"[WARNING] Giving up opening {path} after {retries} attempt(s): "
+        f"{last_error}"
+    )
+    return False
+
+
+def filter_usable_chunk_files(chunk_files, retries=3, retry_delay=2.0):
     usable_files = []
     skipped_files = []
 
     for path in chunk_files:
-        if has_usable_events_tree(path):
+        if has_usable_events_tree(path, retries=retries, retry_delay=retry_delay):
             usable_files.append(path)
         else:
             skipped_files.append(path)
 
     return usable_files, skipped_files
+
 
 def print_chunk_error(chunk_index, chunk_files, error):
     print("\n" + "=" * 80)
@@ -90,6 +152,7 @@ def print_chunk_error(chunk_index, chunk_files, error):
     print("[ERROR] Traceback:")
     traceback.print_exc()
     print("=" * 80 + "\n")
+
 
 def format_systematic_info(syst_info, scale=None):
     formatted = {}
@@ -141,10 +204,19 @@ def get_combined_segmentation_dict(
     fallback_to_initial=True,
     warn_if_missing=True,
 ):
-    combined = {}
     metadata_inputs = unique_metadata_inputs(input_paths)
+    cache_key = (
+        tuple(os.path.abspath(path) for path in metadata_inputs),
+        node,
+        bool(fallback_to_initial),
+    )
+    if cache_key in _METADATA_CACHE:
+        return _METADATA_CACHE[cache_key]
+
+    combined = {}
 
     for input_path in metadata_inputs:
+        # print(input_path)
         sums = get_segmentation_dict(
             input_path,
             node=node,
@@ -152,13 +224,15 @@ def get_combined_segmentation_dict(
             warn_if_missing=False,
         )
         combined.update(sums)
-
+    print(combined)
     if not combined and warn_if_missing:
         print(
             "[WARNING] No segmentation JSON information found under: "
             + ", ".join(metadata_inputs)
         )
 
+    _METADATA_CACHE[cache_key] = combined
+    print(combined)
     return combined
 
 
@@ -408,6 +482,104 @@ def get_systs_to_run(syst_cfg, mode):
     return systs_to_run
 
 
+def parse_requested_systematics(values):
+    if not values:
+        return []
+
+    requested = []
+    for value in values:
+        for item in str(value).replace(",", " ").split():
+            if item:
+                requested.append(item)
+
+    return list(dict.fromkeys(requested))
+
+
+def expand_systematic_group_alias(requested_name, available_systematics):
+    normalized_name = requested_name.lower().replace("_", "").replace("-", "")
+    aliases = {
+        "jerc": (
+            "JERUp",
+            "JERDown",
+            "JES_TotalUp",
+            "JES_TotalDown",
+        ),
+        "qcdscale": tuple(
+            name
+            for name in available_systematics
+            if name.startswith("QCDScale__")
+        ),
+        "qcdscales": tuple(
+            name
+            for name in available_systematics
+            if name.startswith("QCDScale__")
+        ),
+        "pdf": tuple(
+            name
+            for name in available_systematics
+            if name.startswith("PDF_")
+        ),
+        "scaleweight": tuple(
+            name
+            for name in available_systematics
+            if name.startswith("QCDScale__") or name.startswith("PDF_")
+        ),
+        "scare": (
+            "MuonScaleUp",
+            "MuonScaleDown",
+            "MuonResUp",
+            "MuonResDown",
+        ),
+        "muon": (
+            "MuonID_up",
+            "MuonID_down",
+            "MuonIso_up",
+            "MuonIso_down",
+            "singleMuTrigger_up",
+            "singleMuTrigger_down",
+        ),
+        "pu": (
+            "PU_up",
+            "PU_down",
+        ),
+    }
+
+    return [
+        name
+        for name in aliases.get(normalized_name, ())
+        if name in available_systematics
+    ]
+
+
+def filter_systs_to_run(systs_to_run, requested_systematics):
+    requested_raw = parse_requested_systematics(requested_systematics)
+    requested = []
+
+    for name in requested_raw:
+        expanded = expand_systematic_group_alias(name, systs_to_run)
+        if expanded:
+            requested.extend(expanded)
+        else:
+            requested.append(name)
+
+    requested = list(dict.fromkeys(requested))
+
+    if not requested:
+        return systs_to_run
+
+    missing = [name for name in requested if name not in systs_to_run]
+    if missing:
+        available = ", ".join(sorted(systs_to_run))
+        raise ValueError(
+            "Unknown requested systematic(s): "
+            + ", ".join(missing)
+            + ". Available systematics: "
+            + available
+        )
+
+    return {name: systs_to_run[name] for name in requested}
+
+
 def write_qcd_scale_variations(
     output_file,
     syst_cfg,
@@ -438,10 +610,6 @@ def write_qcd_scale_variations(
             if not directory:
                 continue
             for variable in variables:
-                central = directory.Get(variable)
-                if not central or not central.InheritsFrom("TH1"):
-                    continue
-
                 for variation in variations:
                     nuisance_name = variation["name"].format(
                         era=era.removeprefix("Run3_"),
@@ -454,7 +622,7 @@ def write_qcd_scale_variations(
                         source = directory.Get(
                             f"{variable}_QCDScale__{variation[direction]}"
                         )
-                        if source is None or not source.InheritsFrom("TH1"):
+                        if not source or not source.InheritsFrom(ROOT.TH1.Class()):
                             continue
                         hist = source.Clone(
                             f"{variable}_{nuisance_name}{shape_direction}"
@@ -544,185 +712,314 @@ def apply_sideband_mass_shifted_dnn(rdf, mass_region, btag_algo, era):
     )
 
 def process_single_chunk(args_tuple):
-    (chunk_index,n_chunks,chunk_files,args,is_data,sel_cfg,syst_cfg,vars_to_make_hist,masses_regions,masses_regions_list,categories,categories_list,hist_cfg,systs_to_run,dnn_payloads,btag_algo) = args_tuple
-    tmp_output = f"{args.output_file}.tmp_{chunk_index}.root"
-    try:
-        print(f"[CHUNK {chunk_index} / {n_chunks}] Starting with {len(chunk_files)} file(s)")
-        # for f in chunk_files:
-        #     print(f"[CHUNK {chunk_index}]   {f}")
-        usable_chunk_files, skipped_empty_files = filter_usable_chunk_files(chunk_files)
+    (
+        chunk_index,
+        n_chunks,
+        chunk_files,
+        args,
+        is_data,
+        sel_cfg,
+        syst_cfg,
+        vars_to_make_hist,
+        masses_regions,
+        masses_regions_list,
+        categories,
+        categories_list,
+        hist_cfg,
+        systs_to_run,
+        dnn_payloads,
+        btag_algo,
+    ) = args_tuple
+    tmp_output = chunk_output_path(args, chunk_index)
+    out_file = None
 
-        if skipped_empty_files:
-            print(
-                f"[CHUNK {chunk_index} / {n_chunks}] Skipping "
-                f"{len(skipped_empty_files)} file(s) with missing/empty Events branches."
+    try:
+        if args.rdf_threads > 1 and not ROOT.IsImplicitMTEnabled():
+            ROOT.EnableImplicitMT(args.rdf_threads)
+        print(
+            f"[CHUNK {chunk_index} / {n_chunks}] Starting with "
+            f"{len(chunk_files)} file(s)"
+        )
+        phase_started = time.perf_counter()
+        usable_chunk_files = chunk_files
+        profile_log(chunk_index, "chunk setup", phase_started)
+
+        global _WORKER_SEG_DICT
+        global _WORKER_QCD_SCALE_SEG_DICTS
+
+        if _WORKER_SEG_DICT is None:
+            raise RuntimeError(
+                "Dataset segmentation metadata was not initialized in this worker"
             )
 
-        chunk_seg_dict = get_combined_segmentation_dict(args.metadata_inputs)# ,root_files=usable_chunk_files)
-        qcd_scale_seg_dicts = {}
-        if (
-            not is_data
-            and args.systematics != "central"
-            and syst_cfg.get("qcd_scale", {}).get("enabled", False)
-        ):
-            for point in get_qcd_scale_points(syst_cfg["qcd_scale"]):
-                point_name = point["name"]
-                qcd_scale_seg_dicts[point_name] = get_qcd_scale_segmentation_dict(
-                    args.metadata_inputs,
-                    point_name,
-                    fallback_to_initial=False,
-                )
-        print(f"[CHUNK {chunk_index} / {n_chunks}] Using {len(chunk_seg_dict)} segmentation entries for {len(usable_chunk_files)} ROOT file(s)")
+        # These denominators are global to the dataset, not to the chunk.
+        # Reuse the dictionaries installed once when the worker started.
+        chunk_seg_dict = _WORKER_SEG_DICT
+        qcd_scale_seg_dicts = _WORKER_QCD_SCALE_SEG_DICTS or {}
+        print(
+            f"[CHUNK {chunk_index} / {n_chunks}] Using {len(chunk_seg_dict)} "
+            f"segmentation entries for {len(usable_chunk_files)} ROOT file(s)"
+        )
 
+        rdf_started = time.perf_counter()
+        rdf_base = None
         if usable_chunk_files:
-            rdf_base = GetRdfForDataset(input_dir=args.input,is_data=is_data,weight_dict=syst_cfg["weights"],store_shifted_weights=args.systematics != "central",treeName="Events",explicit_files=usable_chunk_files,seg_dict=chunk_seg_dict,skip_validation=True,dnn_payloads=dnn_payloads,btag_algo=btag_algo,additional_cuts = args.additional_cuts,era=args.era,qcd_scale_config=syst_cfg.get("qcd_scale"),qcd_scale_seg_dicts=qcd_scale_seg_dicts,pdf_config=syst_cfg.get("pdf"))
-            # print(rdf_base.GetColumnNames())
-        else:
-            rdf_base = None
+            rdf_base = GetRdfForDataset(
+                input_dir=args.root_input,
+                is_data=is_data,
+                weight_dict=syst_cfg["weights"],
+                store_shifted_weights=args.systematics_mode != "central",
+                treeName="Events",
+                explicit_files=usable_chunk_files,
+                seg_dict=chunk_seg_dict,
+                skip_validation=True,
+                dnn_payloads=dnn_payloads,
+                btag_algo=btag_algo,
+                additional_cuts=args.additional_cuts,
+                era=args.era,
+                qcd_scale_config=syst_cfg.get("qcd_scale"),
+                qcd_scale_seg_dicts=qcd_scale_seg_dicts,
+                pdf_config=syst_cfg.get("pdf"),
+            )
+
+        profile_log(chunk_index, "RDataFrame construction", rdf_started)
+
+        dataframe_finalize_started = time.perf_counter()
         if rdf_base is None:
-            print(f"[CHUNK {chunk_index} / {n_chunks}] WARNING: rdf_base is None. Writing empty histograms.")
+            print(
+                f"[CHUNK {chunk_index} / {n_chunks}] WARNING: no usable input "
+                "events. Writing empty histograms."
+            )
         else:
             rdf_base = define_shifted_jet_observables(rdf_base, systs_to_run)
-            rdf_base = DefineHistogramSelections(
-                rdf_base,
-                sel_cfg,
-                syst_cfg=syst_cfg,
-                want_variations=args.systematics != "central",
-            )
-            weight_columns = sorted(
-                {
-                    syst_info["weight"]
-                    for syst_info in systs_to_run.values()
-                    if "weight" in syst_info
-                }
-            )
-            rdf_base = ApplyDYAmcatnloNormalization(
+            weight_columns = sorted({
+                syst_info["weight"]
+                for syst_info in systs_to_run.values()
+                if "weight" in syst_info
+            })
+            rdf_base = finalize_histogram_dataframe(
                 rdf_base,
                 args.dataset_name,
+                sel_cfg,
+                syst_cfg,
                 weight_columns,
+                want_variations=args.systematics_mode != "central",
+                dy_ptll_reweight_json=args.dy_ptll_njets_reweight_json,
+                dy_njets_reweight_json=args.dy_njets_reweight_json,
             )
-            if args.dy_ptll_njets_reweight_json:
-                rdf_base = ApplyDYPtLLReweight(
-                    rdf_base,
-                    args.dataset_name,
-                    args.dy_ptll_njets_reweight_json,
-                    weight_columns,
-                )
-            if args.dy_njets_reweight_json:
-                rdf_base = ApplyDYNJetsReweight(
-                    rdf_base,
-                    args.dataset_name,
-                    args.dy_njets_reweight_json,
-                    weight_columns,
-                )
 
-        outFile = ROOT.TFile(tmp_output, "RECREATE")
-        if not outFile or outFile.IsZombie():
+        profile_log(chunk_index, "dataframe definitions/finalization", dataframe_finalize_started)
+
+        booking_setup_started = time.perf_counter()
+        stored_regions = [
+            name
+            for name, info in masses_regions.items()
+            if name in masses_regions_list and info.get("store", False)
+        ]
+        stored_categories = [
+            name
+            for name, info in categories.items()
+            if name in categories_list and info.get("store", False)
+        ]
+        hist_models = {
+            variable: GetModel(hist_cfg, variable, dims=1)
+            for variable in vars_to_make_hist
+        }
+
+        base_columns = (
+            {str(column) for column in rdf_base.GetColumnNames()}
+            if rdf_base is not None
+            else set()
+        )
+        selection_suffixes = {
+            GetSelectionSuffixForSystematic(name, info)
+            for name, info in systs_to_run.items()
+        }
+        required_selection_columns = {
+            f"{selection}{suffix}"
+            for suffix in selection_suffixes
+            for selection in (*stored_regions, *stored_categories)
+        }
+        missing_selection_columns = sorted(required_selection_columns - base_columns)
+        if rdf_base is not None and missing_selection_columns:
+            raise RuntimeError(
+                "Missing histogram selection column(s): "
+                + ", ".join(missing_selection_columns)
+            )
+
+        # Apply each sideband DNN once per distinct selection suffix, before any
+        # histograms are booked. ApplyDNN materializes its inputs; doing this in
+        # the booking loop would otherwise trigger repeated RDF event loops.
+        shifted_rdfs = {}
+        if rdf_base is not None and "DNN_NNOutput" in vars_to_make_hist:
+            for mass_region in stored_regions:
+                if not should_shift_sideband_dnn_mass(
+                    mass_region, "DNN_NNOutput"
+                ):
+                    continue
+                for selection_suffix in selection_suffixes:
+                    mass_column = f"{mass_region}{selection_suffix}"
+                    region_rdf = rdf_base.Filter(
+                        mass_column,
+                        f"{mass_region}_{selection_suffix or 'central'}_dnn_input",
+                    )
+                    shifted_rdf = apply_sideband_mass_shifted_dnn(
+                        region_rdf,
+                        mass_region,
+                        btag_algo=btag_algo,
+                        era=args.era,
+                    )
+                    shifted_rdfs[(mass_region, selection_suffix)] = (
+                        shifted_rdf,
+                        {str(column) for column in shifted_rdf.GetColumnNames()},
+                    )
+
+        # Weight-only systematics share their selection suffix. Cache each
+        # region/category filter so its predicate is evaluated once per event,
+        # rather than once for every weight variation.
+        filtered_rdfs = {}
+        if rdf_base is not None:
+            for selection_suffix in selection_suffixes:
+                for mass_region in stored_regions:
+                    mass_column = f"{mass_region}{selection_suffix}"
+                    shifted_entry = shifted_rdfs.get(
+                        (mass_region, selection_suffix)
+                    )
+                    region_rdf = (
+                        shifted_entry[0]
+                        if shifted_entry is not None
+                        else rdf_base.Filter(mass_column)
+                    )
+                    for category in stored_categories:
+                        category_column = f"{category}{selection_suffix}"
+                        cache_key = (
+                            mass_region,
+                            category,
+                            selection_suffix,
+                        )
+                        if shifted_entry is not None:
+                            _, available_columns = shifted_entry
+                        else:
+                            available_columns = base_columns
+                        filtered_rdf = region_rdf.Filter(category_column)
+                        filtered_rdfs[cache_key] = (
+                            filtered_rdf,
+                            available_columns,
+                        )
+
+        profile_log(chunk_index, "selection and DNN graph construction", booking_setup_started)
+
+        output_open_started = time.perf_counter()
+        out_file = ROOT.TFile(tmp_output, "RECREATE")
+        if not out_file or out_file.IsZombie():
             raise RuntimeError(f"Could not create output file: {tmp_output}")
+
+        directories = {
+            (mass_region, category): utilities.mkdir_recursive(
+                out_file, f"{mass_region}_{category}"
+            )
+            for mass_region in stored_regions
+            for category in stored_categories
+        }
+        profile_log(chunk_index, "temporary output open/directory creation", output_open_started)
+        histogram_booking_started = time.perf_counter()
         booked_hists = []
         for syst_name, syst_info in systs_to_run.items():
             weight_name = syst_info["weight"]
-            selection_suffix = GetSelectionSuffixForSystematic(syst_name, syst_info)
-            for mass_region, mass_info in masses_regions.items():
-                if mass_region not in masses_regions_list:
-                    continue
-                if not mass_info.get("store", False):
-                    continue
-                for category, cat_info in categories.items():
-                    if category not in categories_list:
-                        continue
-                    if not cat_info.get("store", False):
-                        continue
-                    rdf_for_category = rdf_base
-                    if rdf_for_category is not None:
-                        mass_region_column = f"{mass_region}{selection_suffix}"
-                        category_column = f"{category}{selection_suffix}"
-                        available_columns = set(str(c) for c in rdf_for_category.GetColumnNames())
+            selection_suffix = GetSelectionSuffixForSystematic(
+                syst_name, syst_info
+            )
+            if rdf_base is not None and weight_name not in base_columns:
+                raise RuntimeError(
+                    f"Weight column '{weight_name}' not found for systematic "
+                    f"'{syst_name}'"
+                )
 
-                        missing_selection_columns = [
-                            col
-                            for col in (mass_region_column, category_column)
-                            if col not in available_columns
-                        ]
-                        if missing_selection_columns:
-                            raise RuntimeError(
-                                "Missing histogram selection column(s): "
-                                + ", ".join(missing_selection_columns)
-                            )
+            for mass_region in stored_regions:
+                for category in stored_categories:
+                    rdf_filtered = None
+                    available_columns = base_columns
+                    filtered_entry = filtered_rdfs.get(
+                        (mass_region, category, selection_suffix)
+                    )
+                    if filtered_entry is not None:
+                        rdf_filtered, available_columns = filtered_entry
 
-                        rdf_filtered = rdf_for_category.Filter(
-                            f"{mass_region_column} && {category_column}",
-                            f"{mass_region}_{category}_{syst_name}",
-                        )
-                    else:
-                        rdf_filtered = None
-                    dir_ptr = utilities.mkdir_recursive(outFile,f"{mass_region}_{category}")
-                    for var in vars_to_make_hist:
-                        model = GetModel(hist_cfg, var, dims=1)
+                    directory = directories[(mass_region, category)]
+                    for variable, model in hist_models.items():
                         hist_name = nuisance_histogram_name(
-                            var,
+                            variable,
                             syst_name,
                             syst_info,
                             args.era,
                             args.process_name,
                         )
-                        if rdf_filtered is not None:
-                            rdf_for_hist = rdf_filtered
-                            available_columns = {
-                                str(c) for c in rdf_for_hist.GetColumnNames()
-                            }
-                            hist_var = get_histogram_variable(
-                                var,
-                                syst_info,
-                                available_columns,
+                        hist_var = get_histogram_variable(
+                            variable, syst_info, available_columns
+                        )
+                        if should_shift_sideband_dnn_mass(mass_region, variable):
+                            shifted_payload = DNN_SIDEBAND_SHIFTED_PAYLOADS[
+                                mass_region
+                            ]
+                            hist_var = f"{shifted_payload}_NNOutput"
+
+                        if rdf_filtered is not None and hist_var in available_columns:
+                            hist_ptr = rdf_filtered.Histo1D(
+                                model, hist_var, weight_name
                             )
+                            booked_hists.append(
+                                (directory, hist_name, hist_ptr, True)
+                            )
+                            continue
 
-                            if should_shift_sideband_dnn_mass(mass_region, var):
-                                print(f"going to shift in {mass_region}, {var}")
-                                rdf_for_hist = apply_sideband_mass_shifted_dnn(
-                                    rdf_for_hist,
-                                    mass_region,
-                                    btag_algo=btag_algo,
-                                    era=args.era,
-                                )
-                                shifted_payload = DNN_SIDEBAND_SHIFTED_PAYLOADS[mass_region]
-                                hist_var = f"{shifted_payload}_NNOutput"
+                        if rdf_filtered is not None:
+                            print(
+                                f"[CHUNK {chunk_index}] WARNING: variable "
+                                f"'{variable}' not found for systematic "
+                                f"'{syst_name}'. Booking empty histogram."
+                            )
+                        hist = model.GetHistogram().Clone(hist_name)
+                        hist.SetTitle(hist_name)
+                        hist.Reset("ICES")
+                        hist.SetDirectory(0)
+                        booked_hists.append((directory, hist_name, hist, False))
 
-                            if hist_var is not None and hist_var not in available_columns:
-                                available_columns = set(str(c) for c in rdf_for_hist.GetColumnNames())
+        profile_log(
+            chunk_index,
+            f"histogram booking ({len(booked_hists)} histograms)",
+            histogram_booking_started,
+        )
+        print(
+            f"[CHUNK {chunk_index} / {n_chunks}] Booked "
+            f"{len(booked_hists)} histograms. Running event loop..."
+        )
+        histogram_actions = [
+            hist_obj
+            for _, _, hist_obj, needs_getvalue in booked_hists
+            if needs_getvalue
+        ]
+        event_loop_started = time.perf_counter()
+        if histogram_actions:
+            ROOT.RDF.RunGraphs(histogram_actions)
+        profile_log(chunk_index, "ROOT event loop (RunGraphs)", event_loop_started)
 
-                            if hist_var is None or hist_var not in available_columns:
-                                print(
-                                    f"[CHUNK {chunk_index}] WARNING: variable '{var}' "
-                                    f"not found for systematic '{syst_name}'. "
-                                    "Booking empty histogram."
-                                )
-                                hist = ROOT.TH1D(hist_name,hist_name,model.fNbinsX,model.fXLow,model.fXUp)
-                                hist.SetDirectory(0)
-                                booked_hists.append((dir_ptr, hist_name, hist, False))
-                                continue
-                            if weight_name not in available_columns:
-                                raise RuntimeError(f"Weight column '{weight_name}' not found for systematic '{syst_name}'")
-                            hist_ptr = rdf_for_hist.Histo1D(model, hist_var, weight_name)
-                            booked_hists.append((dir_ptr, hist_name, hist_ptr, True))
-                        else:
-                            hist = ROOT.TH1D(hist_name,hist_name,model.fNbinsX,model.fXLow,model.fXUp)
-                            hist.SetDirectory(0)
-                            booked_hists.append((dir_ptr, hist_name, hist, False))
-
-        print(f"[CHUNK {chunk_index} / {n_chunks}] Booked {len(booked_hists)} histograms. Running event loop...")
-        for dir_ptr, hist_name, hist_obj, needs_getvalue in booked_hists:
+        output_write_started = time.perf_counter()
+        for directory, hist_name, hist_obj, needs_getvalue in booked_hists:
             hist = hist_obj.GetValue() if needs_getvalue else hist_obj
             hist.SetName(hist_name)
             hist.SetTitle(hist_name)
             hist.SetDirectory(0)
-            dir_ptr.cd()
-            dir_ptr.WriteTObject(hist, hist_name, "Overwrite")
-        outFile.Close()
+            directory.cd()
+            directory.WriteTObject(hist, hist_name, "Overwrite")
+        out_file.Close()
+        out_file = None
+        profile_log(chunk_index, "histogram materialization/write/close", output_write_started)
         print(f"[CHUNK {chunk_index} / {n_chunks}] Done -> {tmp_output}")
         return tmp_output
-    except Exception as e:
-        print_chunk_error(chunk_index, chunk_files, e)
+    except Exception as error:
+        if out_file:
+            out_file.Close()
+        print_chunk_error(chunk_index, chunk_files, error)
         remove_file_if_exists(tmp_output)
         raise
 
@@ -740,101 +1037,253 @@ def write_failed_chunks_report(output_file, failed_chunks):
 
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser()
-    parser.add_argument("--era", required=True, type=str)
-    parser.add_argument("--input", required=True, type=str)
+    parser = argparse.ArgumentParser(
+        description="Produce histograms from validated skimmed ROOT ntuples."
+    )
+    parser.add_argument("--era", required=True, help="Era, e.g. Run3_2022EE")
     parser.add_argument(
-        "--metadata-input",
+        "--root-input",
+        "--input",
+        dest="root_input",
+        default=None,
         help=(
-            "Directory or file used to read skim report/segmentation JSONs. "
-            "It is merged with --input and can be used as a temporary metadata patch."
+            "Skimmed ROOT ntuple file or directory. Required only when "
+            "--input-manifest is not provided."
         ),
     )
     parser.add_argument(
+        "--json-input",
+        "--metadata-input",
+        dest="json_input",
+        default=None,
+        help=(
+            "Skim-report/segmentation JSON file or directory. Required only "
+            "when --input-manifest is not provided; it may equal --root-input."
+        ),
+    )
+    parser.add_argument(
+        "--additional-metadata-input",
         "--extra-metadata-input",
+        dest="additional_metadata_inputs",
         action="append",
         default=[],
         help=(
-            "Additional directory or file with skim report/segmentation JSONs. "
-            "Can be passed multiple times."
+            "Optional extra metadata JSON file/directory. May be repeated; "
+            "later inputs override duplicate segmentation keys."
         ),
     )
     parser.add_argument(
         "--input-files-file",
-        help=(
-            "Text file containing the ROOT files to process, one per line. "
-            "--input is still used for dataset metadata and segmentation JSONs."
-        ),
+        help="Optional text file listing ROOT files, one per line.",
     )
-    parser.add_argument("--dataset-name", "--dataset", dest="dataset_name", required=True, type=str)
-    parser.add_argument("--output-file", required=True, type=str)
+    parser.add_argument(
+        "--input-manifest",
+        help="Optional validation manifest containing known-good ROOT/JSON files.",
+    )
+    parser.add_argument(
+        "--file-open-retries",
+        "--validation-retries",
+        dest="file_open_retries",
+        type=int,
+        default=3,
+        help="Number of attempts when ROOT opens fail during processing.",
+    )
+    parser.add_argument(
+        "--file-open-retry-delay",
+        type=float,
+        default=2.0,
+        help="Seconds between file-open attempts (default: 2).",
+    )
+    parser.add_argument(
+        "--dataset-name", "--dataset", dest="dataset_name", required=True
+    )
+    parser.add_argument("--output-file", required=True)
     parser.add_argument(
         "--systematics",
-        choices=["central", "jec-jer", "all"],
-        default="central",#jec-jer",
+        nargs="+",
+        default=["Central"],
         help=(
-            "central: nominal only; jec-jer: nominal, JEC/JER shapes and all "
-            "configured weight shifts (default); all: every configured variation."
+            "One or more systematic keys/groups to calculate. Examples: "
+            "Central; Central JERUp JERDown; JERC Muon PU; all. "
+            "Comma-separated values are also accepted."
         ),
+    )
+    parser.add_argument(
+        "--list-systematics",
+        action="store_true",
+        help="Print all available systematic keys and exit.",
     )
     parser.add_argument("--chunk-size", type=int, default=6)
     parser.add_argument("--n-cores", type=int, default=4)
-    parser.add_argument("--skip-file-validation", action="store_true")
+    parser.add_argument(
+        "--rdf-threads",
+        type=int,
+        default=1,
+        help="ROOT RDataFrame worker threads per histogram process.",
+    )
     parser.add_argument("--variables", nargs="+")
-    parser.add_argument("--mass-regions", nargs="+", default=["mass_inclusive", "Z_sideband", "Signal_Fit"])
-    parser.add_argument("--categories", nargs="+", default=["baseline", "ggF", "VBF"])
+    parser.add_argument(
+        "--mass-regions",
+        nargs="+",
+        default=["mass_inclusive", "Z_sideband", "Signal_Fit"],
+    )
+    parser.add_argument(
+        "--categories", nargs="+", default=["baseline", "ggF", "VBF"]
+    )
+    parser.add_argument("--additional-cuts", default=None)
     parser.add_argument("--dryrun", action="store_true")
     parser.add_argument("--keep-tmp", action="store_true")
     parser.add_argument("--resume", action="store_true")
     parser.add_argument("--skip-failed-chunks", action="store_true")
     parser.add_argument("--force-multiprocessing-with-dnn", action="store_true")
-    parser.add_argument("--multiprocessing-method", choices=["spawn", "fork"], default="spawn")
-    parser.add_argument("--additional-cuts",type=str, default=None)
     parser.add_argument(
+        "--multiprocessing-method", choices=["spawn", "fork"], default="spawn"
+    )
+    parser.add_argument(
+        "--dy-ptll-reweight-json",
         "--dy-ptll-njets-reweight-json",
         "--dy-ptll-njets-reweight",
-        "--dy-ptll-reweight-json",
         "--dy-ptll-reweight",
         "--dy-reweight-json",
         dest="dy_ptll_njets_reweight_json",
         default=None,
-        help=(
-            "JSON produced by histograms/derive_dy_ptll_njets_reweight.py. "
-            "When provided, only DY datasets get an extra pt(ll) weight "
-            "evaluated with isVBF, N_SelectedJets, and pt_mumu."
-        ),
+        help="Optional DY pT(ll) reweight JSON.",
     )
     parser.add_argument(
         "--dy-njets-reweight-json",
         "--dy-njets-reweight",
         dest="dy_njets_reweight_json",
         default=None,
-        help=(
-            "JSON produced by histograms/derive_dy_njets_reweight.py. "
-            "When provided, only DY datasets get an extra NJets weight "
-            "evaluated with isVBF and N_SelectedJets."
-        ),
+        help="Optional DY N(jets) reweight JSON.",
     )
     parser.add_argument(
-        "--shift-z-sideband-dnn-mass",
-        action="store_true",
-        help=argparse.SUPPRESS,
+        "--shift-z-sideband-dnn-mass", action="store_true", help=argparse.SUPPRESS
     )
     args = parser.parse_args()
-    args.metadata_inputs = unique_metadata_inputs(
-        [args.input, args.metadata_input, *args.extra_metadata_input]
-    )
-    startTime = time.time()
+
+    workflow_manifest = None
+    if args.input_manifest:
+        if not os.path.isfile(args.input_manifest):
+            raise FileNotFoundError(
+                f"Input manifest does not exist: {args.input_manifest}"
+            )
+
+        workflow_manifest = read_manifest(args.input_manifest)
+        if (
+            workflow_manifest.get("era") != args.era
+            or workflow_manifest.get("dataset") != args.dataset_name
+        ):
+            raise ValueError(
+                "Input manifest era/dataset does not match histogram job: "
+                f"manifest=({workflow_manifest.get('era')}, "
+                f"{workflow_manifest.get('dataset')}), "
+                f"requested=({args.era}, {args.dataset_name})"
+            )
+
+        manifest_stage = workflow_manifest.get("stage")
+        if manifest_stage == "validation":
+            if "valid_root_files" not in workflow_manifest:
+                raise ValueError(
+                    "Validation manifest is missing 'valid_root_files'"
+                )
+            if "valid_json_files" not in workflow_manifest:
+                raise ValueError(
+                    "Validation manifest is missing 'valid_json_files'"
+                )
+            if workflow_manifest.get("status", "passed") != "passed":
+                invalid_roots = len(workflow_manifest.get("invalid_root_files", []))
+                valid_roots = len(workflow_manifest.get("valid_root_files", []))
+                print(
+                    "[WARNING] Using partially failed validation manifest "
+                    f"{args.input_manifest}: {valid_roots} valid ROOT file(s), "
+                    f"{invalid_roots} invalid ROOT file(s)."
+                )
+
+            # The manifest is the source of truth. Folder arguments, when also
+            # supplied, are intentionally ignored for the validated file lists.
+            args.root_input = workflow_manifest.get("root_input")
+            args.json_input = workflow_manifest.get("json_input")
+            args.metadata_inputs = unique_metadata_inputs(
+                [
+                    *workflow_manifest["valid_json_files"],
+                    *args.additional_metadata_inputs,
+                ]
+            )
+
+        else:
+            raise ValueError(
+                f"Unsupported histogram input manifest stage: {manifest_stage}"
+            )
+
+    else:
+        if not args.root_input:
+            parser.error(
+                "--root-input is required when --input-manifest is not provided"
+            )
+        if not args.json_input:
+            parser.error(
+                "--json-input is required when --input-manifest is not provided"
+            )
+
+        # Standalone mode: consume exactly the ROOT and JSON inputs supplied by
+        # the caller. Validation is a separate workflow stage.
+        args.metadata_inputs = unique_metadata_inputs(
+            [args.json_input, *args.additional_metadata_inputs]
+        )
+
+    start_time = time.time()
     if args.chunk_size < 1:
         raise ValueError("--chunk-size must be >= 1")
     if args.n_cores < 1:
         raise ValueError("--n-cores must be >= 1")
+    if args.rdf_threads < 1:
+        raise ValueError("--rdf-threads must be >= 1")
+    if args.file_open_retries < 1:
+        raise ValueError("--file-open-retries must be >= 1")
+    if args.file_open_retry_delay < 0:
+        raise ValueError("--file-open-retry-delay must be >= 0")
+    if (
+        args.n_cores > 1
+        and args.rdf_threads > 1
+        and args.multiprocessing_method == "fork"
+    ):
+        raise ValueError(
+            "--rdf-threads > 1 cannot be combined with "
+            "--multiprocessing-method fork; use spawn"
+        )
+    if args.rdf_threads > 1 and args.n_cores == 1:
+        ROOT.EnableImplicitMT(args.rdf_threads)
+        print(
+            "[INFO] Enabled ROOT implicit multithreading with "
+            f"{args.rdf_threads} threads"
+        )
     analysis_path = os.environ["ANALYSIS_PATH"]
     cfg_dir = os.path.join(analysis_path, "config", args.era)
     main_cfg = utilities.get_config(os.path.join(cfg_dir, "maincfg.yaml"))
     samples_cfg = utilities.get_config(os.path.join(cfg_dir, "samples.yaml"))
     dataset_cfg = samples_cfg.get(args.dataset_name, {})
-    is_data = dataset_cfg.get("is_data", False) or "data" in args.dataset_name.lower()
+    is_data = (
+        dataset_cfg.get("is_data", False)
+        or "data" in args.dataset_name.lower()
+    )
+    requested_systematics = parse_requested_systematics(args.systematics)
+    request_all = any(name.lower() == "all" for name in requested_systematics)
+    request_central_only = {
+        name.lower() for name in requested_systematics
+    } <= {"central", "nominal"}
+    systematics_mode = "central" if request_central_only else "all"
+    if args.list_systematics:
+        request_all = True
+        systematics_mode = "all"
+    print(systematics_mode)
+    if is_data and systematics_mode != "central":
+        print(
+            f"[INFO] Dataset {args.dataset_name} is data: ignoring non-central "
+            "systematics and producing Central histograms only."
+        )
+        requested_systematics = ["Central"]
+        systematics_mode = "central"
+    args.systematics_mode = systematics_mode
     process_cfg = utilities.get_config(os.path.join(cfg_dir, "process_names.yaml"))
     args.process_name = (
         utilities.process_from_dataset(process_cfg, args.dataset_name)
@@ -842,26 +1291,81 @@ if __name__ == "__main__":
     )
     sel_cfg = utilities.get_config(os.path.join(cfg_dir, "selections.yaml"))
     syst_cfg = utilities.get_config(os.path.join(cfg_dir, "systematics.yaml"))
-    hist_cfg = utilities.get_config(os.path.join(analysis_path, "config", "plot", "histograms.yaml"))
+    hist_cfg = utilities.get_config(
+        os.path.join(analysis_path, "config", "plot", "histograms.yaml")
+    )
     masses_regions = sel_cfg["masses_regions"]
     categories = sel_cfg["categories"]
     masses_regions_list = args.mass_regions
     categories_list = args.categories
     vars_to_make_hist = list(dict.fromkeys(args.variables or main_cfg["variables"]))
 
-    dnn_payloads = sorted({var.rsplit("_NNOutput", 1)[0]for var in vars_to_make_hist if var.endswith("_NNOutput")})
+    dnn_payloads = sorted(
+        {
+            variable.rsplit("_NNOutput", 1)[0]
+            for variable in vars_to_make_hist
+            if variable.endswith("_NNOutput")
+        }
+    )
     btag_algo = main_cfg.get("bTagAlgo", "PNet")
-    # if len(dnn_payloads) > 0 and args.n_cores > 1 and not args.force_multiprocessing_with_dnn:
-    #     print("[WARNING] DNN payloads requested: forcing n_cores = 1.")
-    #     args.n_cores = 1
     syst_cfg = configure_available_qcd_scale(
         syst_cfg,
         args.metadata_inputs,
         is_data,
-        args.systematics,
+        systematics_mode,
     )
-    systs_to_run = get_systs_to_run(syst_cfg, args.systematics)
-    if args.input_files_file:
+    systs_to_run = get_systs_to_run(syst_cfg, systematics_mode)
+    if not request_all:
+        requested_systematics = [
+            "Central" if name.lower() == "nominal" else name
+            for name in requested_systematics
+        ]
+        systs_to_run = filter_systs_to_run(systs_to_run, requested_systematics)
+    if args.list_systematics:
+        for syst_name in systs_to_run:
+            print(syst_name)
+        sys.exit(0)
+
+    metadata_started = time.perf_counter()
+    print(
+        f"[INFO] Loading dataset normalization metadata once from "
+        f"{len(args.metadata_inputs)} JSON input(s)..."
+    )
+
+    dataset_seg_dict = get_combined_segmentation_dict(args.metadata_inputs)
+
+    profile_log(None, "central dataset metadata loading", metadata_started)
+
+    dataset_qcd_scale_seg_dicts = {}
+    if (
+        not is_data
+        and systematics_mode != "central"
+        and syst_cfg.get("qcd_scale", {}).get("enabled", False)
+    ):
+        qcd_metadata_started = time.perf_counter()
+        for point in get_qcd_scale_points(syst_cfg["qcd_scale"]):
+            point_name = point["name"]
+            dataset_qcd_scale_seg_dicts[point_name] = (
+                get_qcd_scale_segmentation_dict(
+                    args.metadata_inputs,
+                    point_name,
+                    fallback_to_initial=False,
+                )
+            )
+        profile_log(
+            None,
+            "QCD-scale dataset metadata loading",
+            qcd_metadata_started,
+        )
+
+    print(
+        f"[INFO] Dataset metadata ready: {len(dataset_seg_dict)} central "
+        f"entries and {len(dataset_qcd_scale_seg_dicts)} QCD-scale dictionaries"
+    )
+
+    if args.input_manifest:
+        all_root_files = workflow_manifest["valid_root_files"]
+    elif args.input_files_file:
         with open(args.input_files_file) as input_files_handle:
             all_root_files = [
                 line.strip()
@@ -869,12 +1373,10 @@ if __name__ == "__main__":
                 if line.strip() and not line.lstrip().startswith("#")
             ]
     else:
-        all_root_files = get_root_files(args.input)
-    if args.skip_file_validation:
-        valid_root_files = all_root_files
-    else:
-        valid_root_files = get_valid_root_files(all_root_files, tree_name="Events")
-    valid_root_files = [os.path.abspath(f) for f in valid_root_files]
+        all_root_files = get_root_files(args.root_input)
+    # Validation is external. Files from a manifest are already known-good;
+    # standalone inputs are consumed exactly as supplied/discovered.
+    valid_root_files = [os.path.abspath(f) for f in all_root_files]
     if len(valid_root_files) == 0:
         if len(all_root_files) == 0:
             print("[WARNING] No ROOT files found. Producing empty histograms.")
@@ -886,49 +1388,55 @@ if __name__ == "__main__":
         chunks = [[]]
     else:
         chunks = chunk_list(valid_root_files, args.chunk_size)
-    # print("\n" + "=" * 80)
-    # print("[INFO] Histogram maker configuration")
-    # print(f"[INFO] Era:              {args.era}")
-    # print(f"[INFO] Dataset:          {args.dataset_name}")
-    # print(f"[INFO] Is data:          {is_data}")
-    # print(f"[INFO] Input:            {args.input}")
-    # print(f"[INFO] Output:           {args.output_file}")
-    # print(f"[INFO] Systematics:      {args.systematics}")
-    # print(f"[INFO] Chunk size:       {args.chunk_size}")
-    # print(f"[INFO] Chunks:           {len(chunks)}")
-    # print(f"[INFO] Cores:            {args.n_cores}")
-    # print(f"[INFO] Resume:           {args.resume}")
-    # print(f"[INFO] Skip failed:      {args.skip_failed_chunks}")
-    # print(f"[INFO] Variables:        {vars_to_make_hist}")
-    # print(f"[INFO] Mass regions:     {masses_regions_list}")
-    # print(f"[INFO] Categories:       {categories_list}")
-    # print(f"[INFO] DNN payloads:     {dnn_payloads}")
-    # print(f"[INFO] bTag algo:        {btag_algo}")
-    # print(f"[INFO] Valid files:      {len(valid_root_files)} / {len(all_root_files)}")
-    # print("=" * 80 + "\n")
     if args.dryrun:
         print("[DRYRUN] Chunks:")
+        print(f"[DRYRUN] Segmentation entries: {len(dataset_seg_dict)}")
+        print(
+            f"[DRYRUN] QCD-scale dictionaries: "
+            f"{len(dataset_qcd_scale_seg_dicts)}"
+        )
         for idx, chunk_files in enumerate(chunks):
             print(f"\n[DRYRUN] Chunk {idx}: {len(chunk_files)} file(s)")
-            chunk_seg_dict = get_combined_segmentation_dict(args.metadata_inputs)
-            print(f"[DRYRUN] Segmentation entries: {len(chunk_seg_dict)}")
             for f in chunk_files:
                 print(f"  {f}")
         print("\n[DRYRUN] Exiting.")
         sys.exit(0)
     output_dir = os.path.dirname(args.output_file)
     safe_mkdir(output_dir)
+    output_path = Path(args.output_file)
+    args.tmp_output_dir = str(
+        output_path.parent / f"{output_path.stem}_tmp"
+    )
+    safe_mkdir(args.tmp_output_dir)
     if os.path.exists(args.output_file):
         print(f"[INFO] Removing existing output file: {args.output_file}")
         os.remove(args.output_file)
     if not args.resume:
-        for idx in range(len(chunks)):
-            stale_tmp = f"{args.output_file}.tmp_{idx}.root"
-            remove_file_if_exists(stale_tmp)
+        for stale_tmp in Path(args.tmp_output_dir).glob("chunk_*.root"):
+            remove_file_if_exists(str(stale_tmp))
     pool_inputs = []
     n_chunks = len(chunks)
     for idx, chunk_files in enumerate(chunks):
-        pool_inputs.append((idx,n_chunks,chunk_files,args,is_data,sel_cfg,syst_cfg,vars_to_make_hist,masses_regions,masses_regions_list,categories,categories_list,hist_cfg,systs_to_run,dnn_payloads,btag_algo))
+        pool_inputs.append(
+            (
+                idx,
+                n_chunks,
+                chunk_files,
+                args,
+                is_data,
+                sel_cfg,
+                syst_cfg,
+                vars_to_make_hist,
+                masses_regions,
+                masses_regions_list,
+                categories,
+                categories_list,
+                hist_cfg,
+                systs_to_run,
+                dnn_payloads,
+                btag_algo,
+            )
+        )
     tmp_files = []
     failed_chunks = []
     print("\n[INFO] Starting chunk processing...\n")
@@ -938,10 +1446,14 @@ if __name__ == "__main__":
         print(f"[INFO] Finished chunk -> {tmp}")
 
     if args.n_cores == 1:
+        initialize_worker_metadata(
+            dataset_seg_dict,
+            dataset_qcd_scale_seg_dicts,
+        )
         for item in pool_inputs:
             chunk_index = item[0]
             chunk_files = item[2]
-            tmp_output = f"{args.output_file}.tmp_{chunk_index}.root"
+            tmp_output = chunk_output_path(args, chunk_index)
             if args.resume and is_valid_tmp_root(tmp_output):
                 print(f"[RESUME] Chunk {chunk_index} already processed: {tmp_output}")
                 tmp_files.append(tmp_output)
@@ -964,7 +1476,7 @@ if __name__ == "__main__":
         items_to_run = []
         for item in pool_inputs:
             chunk_index = item[0]
-            tmp_output = f"{args.output_file}.tmp_{chunk_index}.root"
+            tmp_output = chunk_output_path(args, chunk_index)
             if args.resume and is_valid_tmp_root(tmp_output):
                 print(f"[RESUME] Chunk {chunk_index} already processed: {tmp_output}")
                 tmp_files.append(tmp_output)
@@ -972,8 +1484,17 @@ if __name__ == "__main__":
                 items_to_run.append(item)
         ctx = get_context(args.multiprocessing_method)
         try:
-            with ctx.Pool(processes=args.n_cores) as pool:
-                for tmp in pool.imap_unordered(process_single_chunk, items_to_run, chunksize=1):
+            with ctx.Pool(
+                processes=args.n_cores,
+                initializer=initialize_worker_metadata,
+                initargs=(
+                    dataset_seg_dict,
+                    dataset_qcd_scale_seg_dicts,
+                ),
+            ) as pool:
+                for tmp in pool.imap_unordered(
+                    process_single_chunk, items_to_run, chunksize=1
+                ):
                     handle_success(tmp)
         except Exception as e:
             print(f"[ERROR] A multiprocessing chunk failed: {repr(e)}")
@@ -996,7 +1517,9 @@ if __name__ == "__main__":
     hadd_cmd = ["hadd", "-f", args.output_file] + sorted(tmp_files)
     print("[INFO] Running:")
     print(" ".join(hadd_cmd))
+    hadd_started = time.perf_counter()
     result = subprocess.run(hadd_cmd)
+    print(f"[PROFILE] hadd: {time.perf_counter() - hadd_started:.3f} s")
     if result.returncode != 0:
         print("[ERROR] hadd failed.")
         sys.exit(result.returncode)
@@ -1006,7 +1529,7 @@ if __name__ == "__main__":
         raise RuntimeError(
             f"Could not reopen merged output file: {args.output_file}"
         )
-    if args.systematics != "central":
+    if systematics_mode != "central":
         write_qcd_scale_variations(
             merged_output,
             syst_cfg,
@@ -1023,11 +1546,15 @@ if __name__ == "__main__":
         print("[INFO] Cleaning temporary files...")
         for tmp_f in tmp_files:
             remove_file_if_exists(tmp_f)
-    executionTime = time.time() - startTime
+        try:
+            Path(args.tmp_output_dir).rmdir()
+        except OSError:
+            pass
+    execution_time = time.time() - start_time
     print("\n" + "=" * 80)
     print("[INFO] Histogram production completed successfully.")
     print(f"[INFO] Output file: {args.output_file}")
     print(f"[INFO] Successful chunks: {len(tmp_files)} / {len(chunks)}")
     print(f"[INFO] Failed chunks:     {len(failed_chunks)}")
-    print(f"[INFO] Execution time:    {executionTime:.2f} s")
+    print(f"[INFO] Execution time:    {execution_time:.2f} s")
     print("=" * 80 + "\n")
