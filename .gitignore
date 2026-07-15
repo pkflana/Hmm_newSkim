@@ -16,6 +16,7 @@ htcondor/denominator_json/
 prova*
 test/
 plots*/
+results/
 vdamante.cc
 samples_withfiles.yaml
 soft/
