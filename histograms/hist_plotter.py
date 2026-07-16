@@ -25,7 +25,7 @@ if __name__ == "__main__":
 
 import common.utilities as utilities
 from common.runtime import initialize_root_runtime
-from common.helpers import RebinHisto, findBinEntry, findNewBins, getNewBins
+from common.helpers import RebinHisto, findBinEntry, findNewBins, getNewBins,is_valid_histogram
 from histograms.plotting_functions import make_stacked_plot
 
 initialize_root_runtime()
@@ -862,7 +862,7 @@ if __name__ == "__main__":
                         available_hist,
                         new_bins,
                         process_name,
-                        wantOverflow=False,
+                        wantOverflow=True,
                     )
 
                 if rebinned_hist is None:

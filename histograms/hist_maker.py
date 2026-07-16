@@ -205,6 +205,7 @@ def get_combined_segmentation_dict(
     warn_if_missing=True,
 ):
     metadata_inputs = unique_metadata_inputs(input_paths)
+    print(metadata_inputs)
     cache_key = (
         tuple(os.path.abspath(path) for path in metadata_inputs),
         node,
@@ -213,26 +214,26 @@ def get_combined_segmentation_dict(
     if cache_key in _METADATA_CACHE:
         return _METADATA_CACHE[cache_key]
 
-    combined = {}
-
-    for input_path in metadata_inputs:
-        # print(input_path)
-        sums = get_segmentation_dict(
-            input_path,
-            node=node,
-            fallback_to_initial=fallback_to_initial,
-            warn_if_missing=False,
-        )
-        combined.update(sums)
+    combined = get_segmentation_dict(metadata_inputs)
     print(combined)
-    if not combined and warn_if_missing:
-        print(
-            "[WARNING] No segmentation JSON information found under: "
-            + ", ".join(metadata_inputs)
-        )
+    # for input_path in metadata_inputs:
+    #     # print(input_path)
+    #     sums = get_segmentation_dict(
+    #         input_path,
+    #         node=node,
+    #         fallback_to_initial=fallback_to_initial,
+    #         warn_if_missing=False,
+    #     )
+    #     combined.update(sums)
+    #     print(combined)
+    # print(combined)
+    # if not combined and warn_if_missing:
+    #     print(
+    #         "[WARNING] No segmentation JSON information found under: "
+    #         + ", ".join(metadata_inputs)
+    #     )
 
     _METADATA_CACHE[cache_key] = combined
-    print(combined)
     return combined
 
 

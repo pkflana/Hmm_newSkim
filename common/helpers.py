@@ -91,33 +91,33 @@ def is_valid_tmp_root(path):
             root_file.Close()
 
 def get_segmentation_dict(
-    input_dir,
+    json_paths,
     node="gen",
     fallback_to_initial=True,
     warn_if_missing=True,
 ):
     global_segmentation = {}
 
-    input_path = os.path.abspath(input_dir)
+    # input_path = os.path.abspath(input_dir)
 
-    if input_path.endswith(".root"):
-        search_dir = os.path.dirname(input_path)
-        stem = os.path.splitext(os.path.basename(input_path))[0]
-        report_path = os.path.join(search_dir, f"{stem}_report.json")
-        json_paths = [report_path] if os.path.isfile(report_path) else []
+    # if input_path.endswith(".root"):
+    #     search_dir = os.path.dirname(input_path)
+    #     stem = os.path.splitext(os.path.basename(input_path))[0]
+    #     report_path = os.path.join(search_dir, f"{stem}_report.json")
+    #     json_paths = [report_path] if os.path.isfile(report_path) else []
 
-    elif input_path.endswith(".json"):
-        search_dir = os.path.dirname(input_path)
-        json_paths = [input_path] if os.path.isfile(input_path) else []
+    # elif input_path.endswith(".json"):
+    #     search_dir = os.path.dirname(input_path)
+    #     json_paths = [input_path] if os.path.isfile(input_path) else []
 
-    else:
-        search_dir = input_path
-        json_paths = [
-            os.path.join(root, filename)
-            for root, _, files in os.walk(search_dir)
-            for filename in files
-            if filename.endswith(".json")
-        ]
+    # else:
+    #     search_dir = input_path
+    #     json_paths = [
+    #         os.path.join(root, filename)
+    #         for root, _, files in os.walk(search_dir)
+    #         for filename in files
+    #         if filename.endswith(".json")
+    #     ]
 
     for json_path in json_paths:
         try:

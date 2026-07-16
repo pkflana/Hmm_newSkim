@@ -380,7 +380,7 @@ def make_stacked_plot(
     hist_cfg = config_page.get(hist_entry, {}) if hist_entry is not None else {}
 
     divide_by_bin_width = hist_cfg.get("divide_by_bin_width", False)
-    include_overflow = False # hist_cfg.get("include_overflow", False)
+    include_overflow = True # hist_cfg.get("include_overflow", False)
     auto_trim_empty_edges = hist_cfg.get(
         "auto_trim_empty_edges",
         config_page.get("auto_trim_empty_edges", False),
