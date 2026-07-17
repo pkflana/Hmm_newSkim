@@ -41,19 +41,19 @@ variables:
   - mu2_pt
   - mu1_eta
   - mu2_eta
-  # - phi_CS
-  # - cosTheta_CS
+  - phi_CS
+  - cosTheta_CS
 
   # ## Jets vars #
   - N_SelectedJets
   - leadingjet_pt
   - leadingjet_eta
-  # - leadingjet_phi
+  - leadingjet_phi
   # - leadingjet_rapidity
   # - SelectedJets_HT
   - subleadingjet_pt
   - subleadingjet_eta
-  # - subleadingjet_phi
+  - subleadingjet_phi
   - delta_eta_jj_ls
   - m_jj_ls
   # - subleadingjet_rapidity
@@ -78,9 +78,9 @@ variables:
   - vbfjet2_phi
 
   ## VBF jets + MUON
-  # - Zeppenfeld_Var
-  # - R_pt
-  # - pt_centrality
+  - Zeppenfeld_Var
+  - R_pt
+  - pt_centrality
   # - minDeltaPhi
   # - minDeltaEta
 

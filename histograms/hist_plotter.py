@@ -862,7 +862,10 @@ if __name__ == "__main__":
                         available_hist,
                         new_bins,
                         process_name,
-                        wantOverflow=True,
+                        # Keep under/overflow in their ROOT bins so they are
+                        # available to the yield, but do not fold them into
+                        # the first/last visible plotting bin.
+                        wantOverflow=False,
                     )
 
                 if rebinned_hist is None:

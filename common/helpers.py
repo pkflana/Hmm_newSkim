@@ -98,27 +98,6 @@ def get_segmentation_dict(
 ):
     global_segmentation = {}
 
-    # input_path = os.path.abspath(input_dir)
-
-    # if input_path.endswith(".root"):
-    #     search_dir = os.path.dirname(input_path)
-    #     stem = os.path.splitext(os.path.basename(input_path))[0]
-    #     report_path = os.path.join(search_dir, f"{stem}_report.json")
-    #     json_paths = [report_path] if os.path.isfile(report_path) else []
-
-    # elif input_path.endswith(".json"):
-    #     search_dir = os.path.dirname(input_path)
-    #     json_paths = [input_path] if os.path.isfile(input_path) else []
-
-    # else:
-    #     search_dir = input_path
-    #     json_paths = [
-    #         os.path.join(root, filename)
-    #         for root, _, files in os.walk(search_dir)
-    #         for filename in files
-    #         if filename.endswith(".json")
-    #     ]
-
     for json_path in json_paths:
         try:
             with open(json_path) as json_file:
@@ -208,11 +187,6 @@ def get_segmentation_dict(
                 global_segmentation.get("return true;", 0.0) + value
             )
 
-    if not global_segmentation and warn_if_missing:
-        print(
-            f"[WARNING] No segmentation JSON information found under: "
-            f"{search_dir}"
-        )
 
     return global_segmentation
 

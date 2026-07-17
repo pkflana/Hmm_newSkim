@@ -42,9 +42,7 @@ DNN_SIDEBAND_SHIFTED_PAYLOADS = {
     "H_sideband": "DNNHSidebandMassShift",
 }
 
-# Dataset-level normalization metadata. The parent process builds these
-# dictionaries once; each multiprocessing worker receives one read-only copy
-# through Pool(initializer=...), then reuses it for every chunk.
+
 _WORKER_SEG_DICT = None
 _WORKER_QCD_SCALE_SEG_DICTS = None
 
@@ -61,8 +59,6 @@ def initialize_worker_metadata(seg_dict, qcd_scale_seg_dicts):
         f"{len(qcd_scale_seg_dicts)} QCD-scale dictionaries"
     )
 
-# Per-process metadata cache. With multiprocessing=spawn each worker builds the
-# combined dictionaries once, then reuses them for all subsequent chunks.
 _METADATA_CACHE = {}
 
 
@@ -216,22 +212,6 @@ def get_combined_segmentation_dict(
 
     combined = get_segmentation_dict(metadata_inputs)
     print(combined)
-    # for input_path in metadata_inputs:
-    #     # print(input_path)
-    #     sums = get_segmentation_dict(
-    #         input_path,
-    #         node=node,
-    #         fallback_to_initial=fallback_to_initial,
-    #         warn_if_missing=False,
-    #     )
-    #     combined.update(sums)
-    #     print(combined)
-    # print(combined)
-    # if not combined and warn_if_missing:
-    #     print(
-    #         "[WARNING] No segmentation JSON information found under: "
-    #         + ", ".join(metadata_inputs)
-    #     )
 
     _METADATA_CACHE[cache_key] = combined
     return combined
@@ -748,19 +728,28 @@ def process_single_chunk(args_tuple):
         global _WORKER_SEG_DICT
         global _WORKER_QCD_SCALE_SEG_DICTS
 
-        if _WORKER_SEG_DICT is None:
+        if not is_data and _WORKER_SEG_DICT is None:
             raise RuntimeError(
                 "Dataset segmentation metadata was not initialized in this worker"
             )
 
-        # These denominators are global to the dataset, not to the chunk.
-        # Reuse the dictionaries installed once when the worker started.
-        chunk_seg_dict = _WORKER_SEG_DICT
-        qcd_scale_seg_dicts = _WORKER_QCD_SCALE_SEG_DICTS or {}
-        print(
-            f"[CHUNK {chunk_index} / {n_chunks}] Using {len(chunk_seg_dict)} "
-            f"segmentation entries for {len(usable_chunk_files)} ROOT file(s)"
+        # MC normalization denominators are global to the dataset, not to the
+        # chunk. Data do not need segmentation metadata at all.
+        chunk_seg_dict = None if is_data else _WORKER_SEG_DICT
+        qcd_scale_seg_dicts = (
+            {} if is_data else (_WORKER_QCD_SCALE_SEG_DICTS or {})
         )
+        if is_data:
+            print(
+                f"[CHUNK {chunk_index} / {n_chunks}] Data dataset: "
+                "segmentation metadata disabled"
+            )
+        else:
+            print(
+                f"[CHUNK {chunk_index} / {n_chunks}] Using "
+                f"{len(chunk_seg_dict)} segmentation entries for "
+                f"{len(usable_chunk_files)} ROOT file(s)"
+            )
 
         rdf_started = time.perf_counter()
         rdf_base = None
@@ -1327,15 +1316,20 @@ if __name__ == "__main__":
             print(syst_name)
         sys.exit(0)
 
-    metadata_started = time.perf_counter()
-    print(
-        f"[INFO] Loading dataset normalization metadata once from "
-        f"{len(args.metadata_inputs)} JSON input(s)..."
-    )
-
-    dataset_seg_dict = get_combined_segmentation_dict(args.metadata_inputs)
-
-    profile_log(None, "central dataset metadata loading", metadata_started)
+    if is_data:
+        dataset_seg_dict = {}
+        print(
+            f"[INFO] Dataset {args.dataset_name} is data: skipping "
+            "segmentation metadata loading."
+        )
+    else:
+        metadata_started = time.perf_counter()
+        print(
+            f"[INFO] Loading dataset normalization metadata once from "
+            f"{len(args.metadata_inputs)} JSON input(s)..."
+        )
+        dataset_seg_dict = get_combined_segmentation_dict(args.metadata_inputs)
+        profile_log(None, "central dataset metadata loading", metadata_started)
 
     dataset_qcd_scale_seg_dicts = {}
     if (
