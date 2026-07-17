@@ -10,12 +10,14 @@
 # ==========================================================
 
 if [ -n "${ZSH_VERSION:-}" ]; then
+    # shellcheck disable=SC2296  # zsh-only expansion; this file is sourceable in zsh.
     this_file="${(%):-%x}"
 else
     this_file="${BASH_SOURCE[0]}"
 fi
 
-export ANALYSIS_PATH="$(cd "$(dirname "$this_file")" && pwd)"
+ANALYSIS_PATH="$(cd "$(dirname "$this_file")" && pwd)"
+export ANALYSIS_PATH
 export ANALYSIS_DATA_PATH="${ANALYSIS_PATH}/data"
 export ANALYSIS_SOFT_PATH="${ANALYSIS_PATH}/soft"
 
@@ -154,7 +156,8 @@ clean_env
 
 source /cvmfs/cms.cern.ch/cmsset_default.sh
 
-export SCRAM_ARCH="$(get_scram_arch "$REQUESTED_CMSSW_VERSION")"
+SCRAM_ARCH="$(get_scram_arch "$REQUESTED_CMSSW_VERSION")"
+export SCRAM_ARCH
 export CMSSW_AREA="${ANALYSIS_SOFT_PATH}/${REQUESTED_CMSSW_VERSION}"
 
 if [[ "$FORCE_REINSTALL" == "1" && -d "$CMSSW_AREA" ]]; then

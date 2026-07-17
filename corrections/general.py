@@ -22,8 +22,8 @@ pog_folder_names = {
         "2023_Summer23BPix": "Run3-23DSep23-Summer23BPix-NanoAODv12",
         "2024_Summer24": "Run3-24CDEReprocessingFGHIPrompt-Summer24-NanoAODv15",
         "2025_Summer24": "Run3-25Prompt-Summer24-NanoAODv15",
-        "2025_Winter25": "",
-        "2026_Summer24":"Run3-25Prompt-Summer24-NanoAODv15", # TMP PATCH AS IT IS NOT AVAILABLE FOR 2026
+        # "2025_Winter25": "",
+        "2026_Summer24":"Run3-26Prompt-Summer24-NanoAODv15",
     },
     "JERC": {
         "2018_UL": "Run2-2018-UL-NanoAODv9",
@@ -38,9 +38,9 @@ pog_folder_names = {
         "2023_Summer23": "Run3-23CSep23-Summer23-NanoAODv12",
         "2024_Winter24": "Run3-24Prompt-Winter24-NanoAODv14",
         "2024_Summer24": "Run3-24CDEReprocessingFGHIPrompt-Summer24-NanoAODv15",  # https://cms-jerc.web.cern.ch/Recommendations/#2024
-        "2025_Summer24": "Run3-25Prompt-Winter25-NanoAODv15",  # TMP PATCH # --> Run3-25Prompt-Summer24-NanoAODv15 IS NOT AVAILABLE FOR JME but JME is the only one having Winter25 available. So by the time being we can have this tmp fix
-        "2025_Winter25": "Run3-25Prompt-Winter25-NanoAODv15",
-        "2026_Summer24":"Run3-25Prompt-Winter25-NanoAODv15", # TMP PATCH AS IT IS NOT AVAILABLE FOR 2026
+        "2025_Summer24": "Run3-25Prompt-Summer24-NanoAODv15",
+        # "2025_Winter25": "Run3-25Prompt-Winter25-NanoAODv15",
+        "2026_Summer24":"Run3-26Prompt-Summer24-NanoAODv15",
     },
     "EGM": {
         "2016postVFP_UL": "Run2-2016postVFP-UL-NanoAODv15",
@@ -57,7 +57,7 @@ pog_folder_names = {
         "2023_Summer23BPix": "Run3-23DSep23-Summer23BPix-NanoAODv12",
         "2024_Summer24": "Run3-24CDEReprocessingFGHIPrompt-Summer24-NanoAODv15",
         "2025_Summer24": "Run3-25Prompt-Summer24-NanoAODv15",
-        "2025_Winter25": "",
+        # "2025_Winter25": "",
         "2026_Summer24":"Run3-26Prompt-Summer24-NanoAODv15"
     },
     "LUM": {
@@ -71,8 +71,9 @@ pog_folder_names = {
         "2023_Summer23BPix": "Run3-23DSep23-Summer23BPix-NanoAODv12",
         "2024_Summer24": "Run3-24CDEReprocessingFGHIPrompt-Summer24-NanoAODv15",
         "2025_Summer24": "Run3-25Prompt-Summer24-NanoAODv15",
-        "2025_Winter25": "",
-        "2026_Summer24":"Run3-25Prompt-Summer24-NanoAODv15", # TMP
+        # "2025_Winter25": "",
+        # "2026_Summer24": "Run3-26Prompt-Summer24-NanoAODv15"
+        "2026_Summer24": "Run3-25Prompt-Summer24-NanoAODv15"
     },
     "MUO": {
         "2016postVFP_UL": "Run2-2016postVFP-UL-NanoAODv9",
@@ -85,9 +86,8 @@ pog_folder_names = {
         "2023_Summer23BPix": "Run3-23DSep23-Summer23BPix-NanoAODv12",
         "2024_Summer24": "Run3-24CDEReprocessingFGHIPrompt-Summer24-NanoAODv15",
         "2025_Summer24": "Run3-25Prompt-Summer24-NanoAODv15",
-        "2025_Winter25": "",
-        # "2026_Summer24":"Run3-26Prompt-Summer24-NanoAODv15"
-        "2026_Summer24":"Run3-25Prompt-Summer24-NanoAODv15", # TMP PATCH AS IT IS NOT AVAILABLE FOR 2026
+        # "2025_Winter25": "",
+        "2026_Summer24": "Run3-26Prompt-Summer24-NanoAODv15"
     },
     "TAU": {
         "2016postVFP_UL": "Run2-2016postVFP-UL-NanoAODv15",
@@ -104,7 +104,7 @@ pog_folder_names = {
         "2023_Summer23BPix": "Run3-23DSep23-Summer23BPix-NanoAODv12",
         "2024_Summer24": "Run3-24CDEReprocessingFGHIPrompt-Summer24-NanoAODv15",
         "2025_Summer24": "",
-        "2025_Winter25": "",
+        # "2025_Winter25": "",
         "2026_Summer24":""
     },
 }

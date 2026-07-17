@@ -1,7 +1,9 @@
 *.txt
 .vscode/
-__pycache__
+__pycache__/
 *.pyc
+.pytest_cache/
+.ruff_cache/
 studies/*
 data/
 logs/
@@ -14,9 +16,14 @@ htcondor/denominator_json/
 prova*
 test/
 plots*/
+results/
 vdamante.cc
 samples_withfiles.yaml
 soft/
 *.root
 plot*
 analysis/patches/
+results/
+htcondor/validation/
+htcondor/systematics/
+pyproject.toml

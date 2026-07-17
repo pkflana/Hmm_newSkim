@@ -23,8 +23,8 @@ def InitializeVetoMap(config):
         "2023_Summer23": "Summer23Prompt23_RunC_V1",
         "2024_Summer24": "Summer24Prompt24_RunBCDEFGHI_V1",
         "2025_Winter25": "Winter25Prompt25_RunCDEFG_V1",
-        "2025_Summer24": "Winter25Prompt25_RunCDEFG_V1",
-        "2026_Summer24": "Winter25Prompt25_RunCDEFG_V1", # tmp patch as there is no Jet veto maps for 2026
+        "2025_Summer24": "Summer24Prompt25_RunCDEFG_V1",
+        "2026_Summer24": "Summer24Prompt26_RunBCD_V1", # tmp patch as there is no Jet veto maps for 2026
     }
     entry_name = jetvetomap_names[period_unc]
     JME_vetoMap_JsonFile =JME_vetoMap_JsonPath.format(pog_folder_names["JERC"][period_unc])
