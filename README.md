@@ -18,6 +18,10 @@ The quick guide is in
 [docs/SIMPLE_WORKFLOW.md](docs/SIMPLE_WORKFLOW.md); the component map and
 technical-debt overview are in
 [docs/FRAMEWORK_ARCHITECTURE.md](docs/FRAMEWORK_ARCHITECTURE.md).
+The complete reusable production, hadd, merge, and plotting workflow is in
+[docs/RUN3_CAMPAIGN_WORKFLOW.md](docs/RUN3_CAMPAIGN_WORKFLOW.md).
+A shorter student-oriented workflow for producing only `DNN_NNOutput` is in
+[docs/DNN_OUTPUT_QUICKSTART.md](docs/DNN_OUTPUT_QUICKSTART.md).
 
 ## What has become simpler
 
