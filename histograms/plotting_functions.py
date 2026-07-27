@@ -1078,9 +1078,9 @@ def make_stacked_plot(
         "Z_Sideband_ggF": "ggF Z",
         "Z_Sideband_VBF": "VBF Z",
 
-        "Z_sideband_baseline": "baseline Z",
-        "Z_sideband_ggF": "ggF Z",
-        "Z_sideband_VBF": "VBF Z",
+        "H_sideband_baseline": "baseline H SB",
+        "H_sideband_ggF": "ggF H SB",
+        "H_sideband_VBF": "VBF H SB",
 
         "Signal_Fit_ggF": "ggF H",
         "Signal_Fit_VBF": "VBF H",

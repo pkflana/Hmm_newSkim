@@ -98,6 +98,11 @@ def get_segmentation_dict(
 ):
     global_segmentation = {}
 
+    # A single path is a common caller input.  Treat it as one path rather
+    # than iterating over the individual characters of the string.
+    if isinstance(json_paths, (str, os.PathLike)):
+        json_paths = [json_paths]
+
     for json_path in json_paths:
         try:
             with open(json_path) as json_file:
@@ -387,7 +392,10 @@ def GetRdfForDataset(
     # 1. Calcola il denominatore globale guardando SEMPRE tutti i file JSON della cartella,
     #    a meno che non venga fornito già pre-calcolato.
     if seg_dict is None:
-        seg_dict = get_segmentation_dict(input_dir)
+        # Data weights do not use generator-level normalization metadata.
+        # In particular, do not send the input directory string to the JSON
+        # parser (which historically resulted in one warning per character).
+        seg_dict = {} if is_data else get_segmentation_dict(input_dir)
 
     # 2. Seleziona i file ROOT da processare (tutti o solo il chunk richiesto)
     if explicit_files is not None:

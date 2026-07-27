@@ -36,7 +36,8 @@ def SelectedJetObservablesDef(df, suffix=""):
 
 def VBFJetObservablesDef(df, suffix=""):
     columns = {str(col) for col in df.GetColumnNames()}
-    sel_jet_cols = ["SelectedJet_area","SelectedJet_btagDeepFlavQG","SelectedJet_btagPNetB","SelectedJet_btagPNetQvG","SelectedJet_btagUParTAK4QvG","SelectedJet_eta","SelectedJet_idx","SelectedJet_mass","SelectedJet_phi","SelectedJet_pt"]
+    # sel_jet_cols = [c for c in columns if c.startswith("SelectedJet")]
+    sel_jet_cols = ["SelectedJet_area","SelectedJet_btagDeepFlavQG","SelectedJet_btagPNetB","SelectedJet_btagPNetQvG","SelectedJet_btagPNetCvNotB","SelectedJet_btagUParTAK4CvB","SelectedJet_btagUParTAK4QvG","SelectedJet_btagUParTAK4CvNotB","SelectedJet_btagUParTAK4B","SelectedJet_btagUParTAK4CvL","SelectedJet_btagUParTAK4UDG","SelectedJet_eta","SelectedJet_idx","SelectedJet_mass","SelectedJet_phi","SelectedJet_pt"]
     for vbfj_idx in [1,2]:
         df = df.Define(
             f"vbfjet{vbfj_idx}_p4{suffix}",
@@ -76,7 +77,7 @@ def VBFJetObservablesDef(df, suffix=""):
 
     df = df.Define(
         f"pt_vbfj1j2{suffix}",
-        f"(vbfjet1_p4{suffix}+vbfjet2_p4{suffix}).Pt()",
+        f"if (HasVBF{suffix}) return static_cast<float>((vbfjet1_p4{suffix}+vbfjet2_p4{suffix}).Pt()); return -1000.f",
     )
 
     return df

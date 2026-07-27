@@ -39,39 +39,39 @@ process_to_select:
   - Data_Muon
   - DY
   - DYto2Mu_MLL105To160
-  # - DYto2Mu_MLL105To160_VBFFiltered
-  # - DYto2Mu_MLL105To160_FlashSim
-  # - DYto2Mu_minnlo
+  - DYto2Mu_MLL105To160_VBFFiltered
+  - DYto2Mu_MLL105To160_FlashSim
+  - DYto2Mu_minnlo
   - TT
   - W
   - EWK
   - EWK_2Mu2J_MLL_105to160_herwig
   - EWK_2Mu2J_MLL_105to160_pythia
-  # - EWK_2Mu2J_MLL_105to160_pythia_Flashsim
+  - EWK_2Mu2J_MLL_105to160_pythia_Flashsim
   - H_mainBckg
   - VV
-  # - VH_inclusive
+  - VH_inclusive
   - VVV
   - ST
   - TW
   - TTX
   - VBFHto2Mu_M125_amcatnlo
-  # - VBFHto2Mu_m125_Flashsim
+  - VBFHto2Mu_m125_Flashsim
   - VBFHto2Mu_M125_powheg
-  # - VBFHto2Mu_m120
-  # - VBFHto2Mu_m130
-  # - VBFHto2Mu_m125_tuneDown
-  # - VBFHto2Mu_m125_tuneUp
+  - VBFHto2Mu_m120
+  - VBFHto2Mu_m130
+  - VBFHto2Mu_m125_tuneDown
+  - VBFHto2Mu_m125_tuneUp
   - GluGluHto2Mu
-  # - GluGluHto2Mu_tuneDown
-  # - GluGluHto2Mu_tuneUp
-  # - GluGluHto2Mu_amcatnlo
-  # - GluGluHto2Mu_MiNNLO
-  # - GluGluHto2Mu_M120
-  # - GluGluHto2Mu_M130
-  # - VHto2Mu
-  # - TTHto2Mu
-  # - TTH_inclusive
+  - GluGluHto2Mu_tuneDown
+  - GluGluHto2Mu_tuneUp
+  - GluGluHto2Mu_amcatnlo
+  - GluGluHto2Mu_MiNNLO
+  - GluGluHto2Mu_M120
+  - GluGluHto2Mu_M130
+  - VHto2Mu
+  - TTHto2Mu
+  - TTH_inclusive
 
 
 proxy_location: /afs/cern.ch/work/v/vdamante/Hmm_newSkim/data/voms.proxy

@@ -23,7 +23,15 @@ set -- "${_saved_args[@]}"
 
 job_line="$(sed -n "$((proc_id + 1))p" "${jobs_file}")"
 [[ -n "${job_line}" ]] || { echo "Missing job ${proc_id}" >&2; exit 2; }
-IFS=$'\t' read -r dataset chunk_size file_suffix specific_opts_string <<< "${job_line}"
+# A tab belongs to Bash's IFS whitespace class, so `read` collapses adjacent
+# tabs.  That used to shift the fourth field into `file_suffix` whenever the
+# suffix was empty, e.g. `--additional-cuts ...` became part of the ROOT name.
+# Translate tabs to a non-whitespace separator first so empty TSV fields survive.
+job_record="${job_line//$'\t'/$'\x1f'}"
+IFS=$'\x1f' read -r dataset chunk_size file_suffix specific_opts_string \
+  <<< "${job_record}"
+[[ "${file_suffix}" == "-" ]] && file_suffix=""
+[[ "${specific_opts_string}" == "-" ]] && specific_opts_string=""
 
 dataset_path() {
   local base="$1"

@@ -40,6 +40,11 @@ def validate_file(task):
                 tree = root_file.Get(tree_name)
                 if not tree:
                     last_reason = f"missing tree '{tree_name}'"
+                elif tree.GetEntries() == 0:
+                    # Empty skim outputs are structurally usable but contain
+                    # nothing to process.  The dataset validator can classify
+                    # these separately from corrupt/zombie files.
+                    last_reason = f"empty tree '{tree_name}' (0 entries)"
                 elif tree.GetListOfBranches().GetEntries() == 0:
                     last_reason = f"tree '{tree_name}' has no branches"
                 else:

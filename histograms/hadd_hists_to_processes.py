@@ -3,8 +3,17 @@ import copy
 import os
 import re
 import shutil
+import sys
 
 import yaml
+
+ANALYSIS_PATH = os.environ.get(
+    "ANALYSIS_PATH",
+    os.path.abspath(os.path.join(os.path.dirname(__file__), "..")),
+)
+sys.path.append(ANALYSIS_PATH)
+
+from common.dataset_selection import resolve_dataset_selection
 
 
 def load_yaml_config(yaml_path):
@@ -121,38 +130,16 @@ def add_derived_systematics(era, output_dir):
         )
 
 
-def hadd_datasets_to_processes(era,input_dir, output_dir,dryRun=False):
+def hadd_datasets_to_processes(era,input_dir, output_dir,add_derived_systs=True,dryRun=False):
     if not dryRun:
         import uproot
-    yaml_file = f"config/{era}/process_names.yaml"  # Il tuo file YAML
-    config = load_yaml_config(yaml_file)
-    config_processnames = load_yaml_config(os.path.join("config", era, "skim_cfg.yaml"))["process_to_select"]
-    # print(config_processnames)
-    if not config:
-        return
+    selection = resolve_dataset_selection(ANALYSIS_PATH, era)
 
     if not dryRun and not os.path.exists(output_dir):
         os.makedirs(output_dir)
 
     # 1. Costruiamo la mappatura Processo -> Lista di Dataset associati
-    process_mapping = {}
-
-    for yaml_key, info in config.items():
-        if yaml_key not in config_processnames: continue
-        if info is None:
-            continue
-
-        # Estrai i dataset e sub_processes
-        datasets = info.get("datasets", []) + info.get("sub_processes", [])
-        if not datasets or not isinstance(datasets, list):
-            continue
-
-        process_name = yaml_key
-
-        if process_name not in process_mapping:
-            process_mapping[process_name] = []
-
-        process_mapping[process_name].extend(datasets)
+    process_mapping = selection["process_datasets"]
     # print(process_mapping)
     # 2. Controllo file ed Esecuzione/Stampa
     if dryRun:
@@ -246,7 +233,8 @@ def hadd_datasets_to_processes(era,input_dir, output_dir,dryRun=False):
     if dryRun:
         print("\n===============================================================\n")
     else:
-        add_derived_systematics(era, output_dir)
+        if add_derived_systs:
+            add_derived_systematics(era, output_dir)
         print("\n--- HADDing Completato! ---")
 
 
@@ -257,6 +245,7 @@ if __name__ == "__main__":
     parser.add_argument( "--input-dir", required=True, type=str, help="ROOT file or dataset directory")
     parser.add_argument( "--output-dir", required=True, type=str, help="ROOT file or dataset directory")
     parser.add_argument( "--dryRun", action="store_true", help="dryRun only")
+    parser.add_argument( "--add-derived-systs", action="store_true", help="add EWKZ unc")
     args = parser.parse_args()
 
-    hadd_datasets_to_processes(args.era,args.input_dir, args.output_dir,args.dryRun)
+    hadd_datasets_to_processes(args.era,args.input_dir, args.output_dir,args.add_derived_systs,args.dryRun)

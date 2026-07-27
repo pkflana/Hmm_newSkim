@@ -59,6 +59,10 @@ def pairing_key(path, is_json=False):
     return stem
 
 
+def is_empty_root_result(result):
+    return not result[1] and result[2].startswith("empty tree ")
+
+
 def pair_mc_results(root_results, json_results):
     roots_by_key = {}
     jsons_by_key = {}
@@ -71,20 +75,39 @@ def pair_mc_results(root_results, json_results):
     valid_jsons = []
     invalid_roots = []
     invalid_jsons = []
+    ignored_empty_roots = []
     for key in sorted(set(roots_by_key) | set(jsons_by_key)):
         root_items = roots_by_key.get(key, [])
         json_items = jsons_by_key.get(key, [])
         good_roots = [item for item in root_items if item[1]]
+        empty_roots = [item for item in root_items if is_empty_root_result(item)]
         good_jsons = [item for item in json_items if item[1]]
         pair_is_valid = len(good_roots) == 1 and len(good_jsons) == 1
+        empty_pair_is_valid = (
+            not good_roots and len(empty_roots) == 1 and len(good_jsons) == 1
+        )
         if pair_is_valid:
             root_path = good_roots[0][0]
             json_path = good_jsons[0][0]
             valid_roots.append(root_path)
             valid_jsons.append(json_path)
+        elif empty_pair_is_valid:
+            empty_path = empty_roots[0][0]
+            valid_jsons.append(good_jsons[0][0])
+            ignored_empty_roots.append(
+                {
+                    "path": empty_path,
+                    "pairing_key": key,
+                    "reason": empty_roots[0][2],
+                }
+            )
 
         for path, intrinsically_valid, intrinsic_reason in root_items:
-            if pair_is_valid and intrinsically_valid:
+            if (pair_is_valid and intrinsically_valid) or (
+                empty_pair_is_valid and is_empty_root_result(
+                    (path, intrinsically_valid, intrinsic_reason)
+                )
+            ):
                 continue
             if not intrinsically_valid:
                 reason = intrinsic_reason
@@ -97,7 +120,7 @@ def pair_mc_results(root_results, json_results):
             invalid_roots.append({"path": path, "pairing_key": key, "reason": reason})
 
         for path, intrinsically_valid, intrinsic_reason in json_items:
-            if pair_is_valid and intrinsically_valid:
+            if (pair_is_valid or empty_pair_is_valid) and intrinsically_valid:
                 continue
             if not intrinsically_valid:
                 reason = intrinsic_reason
@@ -109,7 +132,55 @@ def pair_mc_results(root_results, json_results):
                 reason = "ambiguous ROOT/JSON pairing"
             invalid_jsons.append({"path": path, "pairing_key": key, "reason": reason})
 
-    return valid_roots, valid_jsons, invalid_roots, invalid_jsons
+    return (
+        valid_roots,
+        valid_jsons,
+        invalid_roots,
+        invalid_jsons,
+        ignored_empty_roots,
+    )
+
+
+def expected_input_completeness(
+    samples_with_files,
+    dataset_name,
+    root_results,
+    json_results,
+    is_data,
+):
+    dataset_cfg = samples_with_files.get(dataset_name)
+    if not isinstance(dataset_cfg, dict) or not isinstance(
+        dataset_cfg.get("filelist"), list
+    ):
+        return [], [], f"missing filelist for {dataset_name}"
+
+    expected_files = dataset_cfg["filelist"]
+    root_results_by_key = {}
+    json_results_by_key = {}
+    for result in root_results:
+        root_results_by_key.setdefault(pairing_key(result[0]), []).append(result)
+    for result in json_results:
+        json_results_by_key.setdefault(
+            pairing_key(result[0], is_json=True), []
+        ).append(result)
+
+    missing = []
+    for source_path in expected_files:
+        key = pairing_key(source_path)
+        roots = root_results_by_key.get(key, [])
+        if is_data:
+            # Corrupt/zombie data do not satisfy completeness; a readable
+            # zero-entry skim does.
+            covered = any(result[1] or is_empty_root_result(result) for result in roots)
+        else:
+            # A zombie MC skim is accounted for as produced, but its JSON is
+            # required and will be excluded from normalization downstream.
+            jsons = json_results_by_key.get(key, [])
+            covered = bool(roots) and any(result[1] for result in jsons)
+        if not covered:
+            missing.append(source_path)
+
+    return expected_files, missing, ""
 
 
 def main():
@@ -137,6 +208,10 @@ def main():
         analysis_path, "config", args.era, "samples.yaml"
     )
     samples = utilities.get_config(samples_path)
+    samples_with_files_path = os.path.join(
+        analysis_path, "config", args.era, "samples_withfiles.yaml"
+    )
+    samples_with_files = utilities.get_config(samples_with_files_path)
     dataset_cfg = samples.get(args.dataset_name, {})
     is_data = dataset_cfg.get("is_data", False) or "data" in args.dataset_name.lower()
 
@@ -160,6 +235,7 @@ def main():
     root_results = []
     root_valid_count = 0
     root_invalid_count = 0
+    root_empty_count = 0
     with context.Pool(args.workers) as pool:
         results = pool.imap_unordered(
             validate_file,
@@ -173,13 +249,22 @@ def main():
             root_results.append(result)
             if result[1]:
                 root_valid_count += 1
+            elif is_empty_root_result(result):
+                root_empty_count += 1
+                disposition = (
+                    "ignored for data"
+                    if is_data
+                    else "events skipped; JSON retained for normalization"
+                )
+                print(f"[ROOT EMPTY] {result[0]}: {disposition}", flush=True)
             else:
                 root_invalid_count += 1
                 print(f"[ROOT INVALID] {result[0]}: {result[2]}", flush=True)
             if done % args.progress_every == 0 or done == len(root_files):
                 print(
                     f"[ROOT PROGRESS] {done}/{len(root_files)} checked; "
-                    f"valid={root_valid_count}, invalid={root_invalid_count}",
+                    f"valid={root_valid_count}, empty={root_empty_count}, "
+                    f"invalid={root_invalid_count}",
                     flush=True,
                 )
     json_results = []
@@ -202,10 +287,15 @@ def main():
     if is_data:
         valid_roots = sorted(path for path, valid, _ in root_results if valid)
         valid_jsons = sorted(path for path, valid, _ in json_results if valid)
+        ignored_empty_roots = [
+            {"path": path, "reason": reason}
+            for path, valid, reason in root_results
+            if not valid and reason.startswith("empty tree ")
+        ]
         invalid_roots = [
             {"path": path, "reason": reason}
             for path, valid, reason in root_results
-            if not valid
+            if not valid and not reason.startswith("empty tree ")
         ]
         invalid_jsons = [
             {"path": path, "reason": reason}
@@ -213,23 +303,47 @@ def main():
             if not valid
         ]
     else:
+        ignored_empty_roots = []
         print("[PAIRING] Matching validated ROOT and JSON files", flush=True)
         (
             valid_roots,
             valid_jsons,
             invalid_roots,
             invalid_jsons,
+            ignored_empty_roots,
         ) = pair_mc_results(root_results, json_results)
         print(
             f"[PAIRING] accepted={len(valid_roots)} pairs; "
             f"invalid ROOT={len(invalid_roots)}; invalid JSON={len(invalid_jsons)}",
             flush=True,
         )
+    expected_files, missing_input_files, completeness_error = (
+        expected_input_completeness(
+            samples_with_files,
+            args.dataset_name,
+            root_results,
+            json_results,
+            is_data,
+        )
+    )
+    print(
+        f"[COMPLETENESS] {args.dataset_name}: expected={len(expected_files)}, "
+        f"missing={len(missing_input_files)}",
+        flush=True,
+    )
     failures = []
+    if completeness_error:
+        failures.append(completeness_error)
+    if missing_input_files:
+        failures.append(
+            f"{len(missing_input_files)} expected skim output(s) missing or unusable"
+        )
     if not valid_roots:
-        failures.append("no valid ROOT files")
-    if not valid_jsons and not is_data:
-        failures.append("no valid paired JSON reports")
+        print(
+            "[WARNING] No processable ROOT files remain; downstream histogram "
+            "production will write empty histograms.",
+            flush=True,
+        )
     if is_data and (invalid_roots or invalid_jsons):
         failures.append(
             f"data requires zero invalid files: {len(invalid_roots)} ROOT, "
@@ -250,10 +364,16 @@ def main():
         valid_root_files=valid_roots,
         valid_json_files=valid_jsons,
         invalid_root_files=invalid_roots,
+        ignored_empty_root_files=ignored_empty_roots,
         invalid_json_files=invalid_jsons,
+        expected_input_files=expected_files,
+        missing_input_files=missing_input_files,
         summary={
+            "input_expected": len(expected_files),
+            "input_missing": len(missing_input_files),
             "root_valid": len(valid_roots),
             "root_invalid": len(invalid_roots),
+            "root_empty_ignored": len(ignored_empty_roots),
             "json_valid": len(valid_jsons),
             "json_invalid": len(invalid_jsons),
             "json_required": not is_data,
