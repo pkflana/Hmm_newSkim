@@ -236,6 +236,7 @@ def build_rdf(
     dnn_payloads=None,
     btag_algo="PNet",
     era=None,
+    dnn_model_set="updated",
     qcd_scale_config=None,
     qcd_scale_seg_dicts=None,
     pdf_config=None,
@@ -364,7 +365,13 @@ def build_rdf(
     if dnn_payloads:
         from common.dnn_application import ApplyDNN
 
-        rdf = ApplyDNN(rdf, dnn_payloads, btag_algo=btag_algo, era=era)
+        rdf = ApplyDNN(
+            rdf,
+            dnn_payloads,
+            btag_algo=btag_algo,
+            era=era,
+            model_set=dnn_model_set,
+        )
     return rdf
 
 
@@ -381,6 +388,7 @@ def GetRdfForDataset(
     btag_algo="PNet",
     additional_cuts=None,
     era=None,
+    dnn_model_set="updated",
     qcd_scale_config=None,
     qcd_scale_seg_dicts=None,
     pdf_config=None,
@@ -429,6 +437,7 @@ def GetRdfForDataset(
         dnn_payloads=dnn_payloads,
         btag_algo=btag_algo,
         era=era,
+        dnn_model_set=dnn_model_set,
         qcd_scale_config=qcd_scale_config,
         qcd_scale_seg_dicts=qcd_scale_seg_dicts,
         pdf_config=pdf_config,

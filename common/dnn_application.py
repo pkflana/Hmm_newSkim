@@ -135,7 +135,14 @@ class DNNApplication:
         "Run3_2025": 5,
     }
 
-    def __init__(self, payload_name="DNN", base_dir=None, btag_algo="PNet", era=None):
+    def __init__(
+        self,
+        payload_name="DNN",
+        base_dir=None,
+        btag_algo="PNet",
+        era=None,
+        model_set="updated",
+    ):
         try:
             import onnxruntime as ort
         except ImportError as exc:
@@ -145,6 +152,7 @@ class DNNApplication:
         self.payload_name = payload_name
         self.btag_algo = btag_algo
         self.era = era
+        self.model_set = model_set
         self.base_dir = base_dir or os.environ["ANALYSIS_PATH"]
         self.config_dir, self.models_dir = self._resolve_payload_directories()
         self.parity, self.input_features = self._load_config()
@@ -156,6 +164,13 @@ class DNNApplication:
         if self.payload_name == "VBFNet":
             config_name = "vbfnet_configs"
             models_name = "vbfnet_models"
+        elif self.model_set == "legacy":
+            if self.era in {"Run3_2024", "Run3_2025"}:
+                config_name = "dnn_configs_2024"
+                models_name = "dnn_models_2024"
+            else:
+                config_name = "dnn_configs"
+                models_name = "dnn_models"
         else:
             # Use one trained DNN consistently across every Run 3 era,
             # including the sideband payload aliases.
@@ -350,12 +365,15 @@ class DNNApplication:
         return df.Define(output_name, f"dnn_application::getPrediction({payload_id}, DNNEntryKey)")
 
 
-def ApplyDNN(df, payload_names=None, btag_algo="PNet", era=None):
+def ApplyDNN(
+    df, payload_names=None, btag_algo="PNet", era=None, model_set="updated"
+):
     payload_names = payload_names or ["DNN"]
     for payload_name in payload_names:
         df = DNNApplication(
             payload_name=payload_name,
             btag_algo=btag_algo,
             era=era,
+            model_set=model_set,
         ).apply(df)
     return df

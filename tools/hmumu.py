@@ -287,6 +287,7 @@ class HistRequest:
     dy_jet_components: bool
     vbf_eta_regions: bool
     max_files: int | None
+    dnn_model_set: str
     extra: list[str]
 
 
@@ -388,6 +389,7 @@ def histogram_command(request: HistRequest, era: str, systematic: str) -> list[s
         command.append("--vbf-eta-regions")
     if request.max_files is not None:
         command += ["--max-files", str(request.max_files)]
+    command += ["--dnn-model-set", request.dnn_model_set]
 
     era_name = normalized_era(era)
     command += [
@@ -442,6 +444,7 @@ def run_hist(args: argparse.Namespace) -> int:
         dy_jet_components=args.dy_jet_components,
         vbf_eta_regions=args.vbf_eta_regions,
         max_files=1 if args.one_file else args.max_files,
+        dnn_model_set=args.dnn_model_set,
         extra=args.extra[1:] if args.extra[:1] == ["--"] else args.extra,
     )
     if not request.eras:
@@ -668,6 +671,15 @@ def build_parser() -> argparse.ArgumentParser:
         "--vbf-eta-regions",
         action="store_true",
         help="split VBF events into nested incl/CC/CF/FF eta regions",
+    )
+    hist.add_argument(
+        "--dnn-model-set",
+        choices=["updated", "legacy"],
+        default="updated",
+        help=(
+            "select updated unified DNN or legacy era-split DNN "
+            "(2022-2023 versus 2024-2025)"
+        ),
     )
     file_limit = hist.add_mutually_exclusive_group()
     file_limit.add_argument(

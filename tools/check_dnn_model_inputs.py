@@ -31,7 +31,12 @@ def configured_features(config_dir: Path) -> list[str]:
         with columns_path.open() as handle:
             columns = yaml.safe_load(handle)
         if isinstance(columns, dict) and "features" in columns:
-            return list(dict.fromkeys(columns["features"]))
+            return list(
+                dict.fromkeys(
+                    feature.format(algo="PNet")
+                    for feature in columns["features"]
+                )
+            )
         raise ValueError(
             f"{columns_path} must contain a top-level 'features' list"
         )
@@ -43,7 +48,9 @@ def configured_features(config_dir: Path) -> list[str]:
             f"No features found in {columns_path} or "
             f"{config_dir / 'config.toml'}"
         )
-    return list(dict.fromkeys(features))
+    return list(
+        dict.fromkeys(feature.format(algo="PNet") for feature in features)
+    )
 
 
 def constant_arrays(model) -> dict[str, np.ndarray]:
@@ -422,12 +429,21 @@ def main() -> int:
     parser.add_argument(
         "--config-dir",
         type=Path,
-        default=repo / "common" / "updated_DNN_configs",
+        help="override the configuration directory (single model set only)",
     )
     parser.add_argument(
         "--models-dir",
         type=Path,
-        default=repo / "common" / "updated_DNN_models",
+        help="override the ONNX directory (single model set only)",
+    )
+    parser.add_argument(
+        "--dnn-model-set",
+        choices=["updated", "legacy"],
+        default="updated",
+        help=(
+            "'updated' checks the unified model; 'legacy' checks both the "
+            "2022-2023 and 2024-2025 model generations"
+        ),
     )
     parser.add_argument(
         "--std-threshold",
@@ -464,31 +480,87 @@ def main() -> int:
     args = parser.parse_args()
 
     try:
-        model_status = inspect_models(
-            args.config_dir.resolve(),
-            args.models_dir.resolve(),
-            args.std_threshold,
-        )
-        histogram_status = 0
-        if args.histograms_base:
-            requested_eras = [
-                era.strip()
-                for era in args.eras.split(",")
-                if era.strip()
+        if bool(args.config_dir) != bool(args.models_dir):
+            raise ValueError("--config-dir and --models-dir must be used together")
+
+        requested_eras = [
+            era if era.startswith("Run3_") else f"Run3_{era}"
+            for era in (item.strip() for item in args.eras.split(","))
+            if era
+        ]
+        if args.config_dir:
+            checks = [
+                (
+                    "custom",
+                    args.config_dir.resolve(),
+                    args.models_dir.resolve(),
+                    requested_eras,
+                )
             ]
-            histogram_status = compare_central_histograms(
-                args.config_dir.resolve(),
-                args.models_dir.resolve(),
-                args.histograms_base.resolve(),
-                args.region,
-                requested_eras,
-                args.max_files,
+        elif args.dnn_model_set == "legacy":
+            era_groups = [
+                (
+                    "legacy 2022-2023",
+                    repo / "common/dnn_configs",
+                    repo / "common/dnn_models",
+                    {
+                        "Run3_2022",
+                        "Run3_2022EE",
+                        "Run3_2023",
+                        "Run3_2023BPix",
+                    },
+                ),
+                (
+                    "legacy 2024-2025",
+                    repo / "common/dnn_configs_2024",
+                    repo / "common/dnn_models_2024",
+                    {"Run3_2024", "Run3_2025"},
+                ),
+            ]
+            checks = []
+            for label, config_dir, models_dir, valid_eras in era_groups:
+                eras = (
+                    [era for era in requested_eras if era in valid_eras]
+                    if requested_eras
+                    else sorted(valid_eras)
+                )
+                if eras:
+                    checks.append((label, config_dir, models_dir, eras))
+        else:
+            checks = [
+                (
+                    "updated",
+                    repo / "common/updated_DNN_configs",
+                    repo / "common/updated_DNN_models",
+                    requested_eras,
+                )
+            ]
+
+        status = 0
+        for label, config_dir, models_dir, eras in checks:
+            print()
+            print("#" * 100)
+            print(f"DNN MODEL SET: {label}")
+            print("#" * 100)
+            status |= inspect_models(
+                config_dir.resolve(),
+                models_dir.resolve(),
                 args.std_threshold,
-                args.mean_z_threshold,
-                args.min_std_ratio,
-                args.max_std_ratio,
             )
-        return 1 if model_status or histogram_status else 0
+            if args.histograms_base:
+                status |= compare_central_histograms(
+                    config_dir.resolve(),
+                    models_dir.resolve(),
+                    args.histograms_base.resolve(),
+                    args.region,
+                    eras,
+                    args.max_files,
+                    args.std_threshold,
+                    args.mean_z_threshold,
+                    args.min_std_ratio,
+                    args.max_std_ratio,
+                )
+        return 1 if status else 0
     except Exception as error:
         print(f"[ERROR] {error}", file=sys.stderr)
         return 2

@@ -896,6 +896,7 @@ def process_single_chunk(args_tuple):
                 btag_algo=btag_algo,
                 additional_cuts=args.additional_cuts,
                 era=args.era,
+                dnn_model_set=args.dnn_model_set,
                 qcd_scale_config=syst_cfg.get("qcd_scale"),
                 qcd_scale_seg_dicts=qcd_scale_seg_dicts,
                 pdf_config=syst_cfg.get("pdf"),
@@ -1336,6 +1337,15 @@ if __name__ == "__main__":
         ),
     )
     parser.add_argument("--force-multiprocessing-with-dnn", action="store_true")
+    parser.add_argument(
+        "--dnn-model-set",
+        choices=["updated", "legacy"],
+        default="updated",
+        help=(
+            "DNN payload generation. 'legacy' uses the 2022-2023 model for "
+            "2022/2022EE/2023/2023BPix and the 2024-2025 model for 2024/2025."
+        ),
+    )
     parser.add_argument(
         "--multiprocessing-method", choices=["spawn", "fork"], default="spawn"
     )
