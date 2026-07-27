@@ -148,7 +148,59 @@ def run_hadd_processes(args: argparse.Namespace) -> int:
     return 0
 
 
+def run_plot(args: argparse.Namespace) -> int:
+    regions = csv_or_repeated(args.regions)
+    variables = csv_or_repeated(args.variables or [])
+    commands = []
+    for region in regions:
+        command = [
+            sys.executable,
+            str(REPO / "histograms/hist_plotter.py"),
+            "--era",
+            normalized_era(args.era),
+            "--input",
+            args.input_dir,
+            "--output",
+            args.output_dir,
+            "--region",
+            region,
+            "--samples",
+            *args.samples,
+        ]
+        if variables:
+            command += ["--vars", ",".join(variables)]
+        for enabled, option in (
+            (args.systematics, "--systematics"),
+            (args.want_data, "--wantData"),
+            (args.log_y, "--wantLogY"),
+            (args.rebin, "--rebin"),
+            (args.normalize_dy_to_data, "--normalize-dy-to-data"),
+            (args.normalize_mc_to_data, "--normalize-mc-to-data"),
+        ):
+            if enabled:
+                command.append(option)
+        if args.dy_normalization_sample:
+            command += [
+                "--dy-normalization-sample",
+                args.dy_normalization_sample,
+            ]
+        commands.append(command)
+
+    for index, command in enumerate(commands, start=1):
+        print(f"[{index}/{len(commands)}] {shell_join(command)}", flush=True)
+        if args.execute:
+            completed = subprocess.run(command, cwd=REPO, check=False)
+            if completed.returncode:
+                return completed.returncode
+    if not args.execute:
+        print("\nPlan only: add --run to create the plots.")
+    return 0
+
+
 def systematic_directory(central_dir: Path, systematic: str) -> Path:
+    if central_dir.name.endswith("_Central_hadded"):
+        prefix = central_dir.name.removesuffix("_Central_hadded")
+        return central_dir.with_name(f"{prefix}_{systematic}_hadded")
     if central_dir.name.endswith("_Central"):
         return central_dir.with_name(
             f"{central_dir.name.removesuffix('_Central')}_{systematic}"
@@ -181,6 +233,10 @@ def run_merge_systematics(args: argparse.Namespace) -> int:
     relative_paths = sorted({relative for files in sources.values() for relative in files})
     if args.output_dir:
         output_dir = Path(args.output_dir).expanduser()
+    elif central_dir.name.endswith("_Central_hadded"):
+        output_dir = central_dir.with_name(
+            f"{central_dir.name.removesuffix('_Central_hadded')}_merged_hadded"
+        )
     elif central_dir.name.endswith("_Central"):
         output_dir = central_dir.with_name(
             f"{central_dir.name.removesuffix('_Central')}_merged"
@@ -229,6 +285,7 @@ class HistRequest:
     dry_run: bool
     execute: bool
     dy_jet_components: bool
+    vbf_eta_regions: bool
     max_files: int | None
     extra: list[str]
 
@@ -247,6 +304,32 @@ def output_dir_for(request: HistRequest, systematic: str) -> str:
     return str(Path(output_base) / f"Hists_{systematic}")
 
 
+def is_data_dataset_name(dataset_name: str) -> bool:
+    """Recognize the explicit data dataset names used by Run 3 campaigns."""
+    return bool(re.match(r"^(?:Data(?:_|$)|Muon\d?_|SingleMuon_)", dataset_name, re.I))
+
+
+def datasets_for_systematic(request: HistRequest, systematic: str) -> tuple[str | None, str | None]:
+    """Return (dataset name, dataset groups), excluding data from shifted jobs."""
+    if systematic.lower() == "central":
+        return request.dataset_name, request.datasets or DEFAULT_GROUPS
+    if request.dataset_name:
+        if is_data_dataset_name(request.dataset_name):
+            raise ValueError(
+                f"data dataset {request.dataset_name!r} cannot be run with shifted "
+                f"systematic {systematic!r}"
+            )
+        return request.dataset_name, None
+    requested = csv_or_repeated([request.datasets or DEFAULT_MC_GROUPS])
+    mc_groups = [group for group in requested if group.lower() != "data"]
+    if not mc_groups:
+        raise ValueError(
+            f"shifted systematic {systematic!r} has no MC dataset groups after "
+            "excluding data"
+        )
+    return None, ",".join(mc_groups)
+
+
 def histogram_command(request: HistRequest, era: str, systematic: str) -> list[str]:
     is_central = systematic.lower() == "central"
     script = (
@@ -260,11 +343,11 @@ def histogram_command(request: HistRequest, era: str, systematic: str) -> list[s
         "--era",
         normalized_era(era),
     ]
-    if request.dataset_name:
-        command += ["--dataset-name", request.dataset_name]
+    dataset_name, dataset_groups = datasets_for_systematic(request, systematic)
+    if dataset_name:
+        command += ["--dataset-name", dataset_name]
     else:
-        default_groups = DEFAULT_GROUPS if is_central else DEFAULT_MC_GROUPS
-        command += ["--datasets", request.datasets or default_groups]
+        command += ["--datasets", dataset_groups]
     command += [
         "--manifest-input-folder",
         request.manifests,
@@ -301,6 +384,8 @@ def histogram_command(request: HistRequest, era: str, systematic: str) -> list[s
         command += ["--categories", *request.categories]
     if request.dy_jet_components:
         command.append("--dy-jet-components")
+    if request.vbf_eta_regions:
+        command.append("--vbf-eta-regions")
     if request.max_files is not None:
         command += ["--max-files", str(request.max_files)]
 
@@ -355,6 +440,7 @@ def run_hist(args: argparse.Namespace) -> int:
         dry_run=args.dry_run or check_only,
         execute=args.execute or check_only,
         dy_jet_components=args.dy_jet_components,
+        vbf_eta_regions=args.vbf_eta_regions,
         max_files=1 if args.one_file else args.max_files,
         extra=args.extra[1:] if args.extra[:1] == ["--"] else args.extra,
     )
@@ -578,6 +664,11 @@ def build_parser() -> argparse.ArgumentParser:
             "including the prescribed 2D eta:pT fit templates"
         ),
     )
+    hist.add_argument(
+        "--vbf-eta-regions",
+        action="store_true",
+        help="split VBF events into nested incl/CC/CF/FF eta regions",
+    )
     file_limit = hist.add_mutually_exclusive_group()
     file_limit.add_argument(
         "--one-file",
@@ -647,6 +738,44 @@ def build_parser() -> argparse.ArgumentParser:
     )
     hadd_processes.add_argument("--run", dest="execute", action="store_true")
     hadd_processes.set_defaults(func=run_hadd_processes)
+
+    plot = subparsers.add_parser(
+        "plot",
+        help="plot one or more regions from hadded histogram files",
+    )
+    plot.add_argument("-e", "--era", required=True)
+    plot.add_argument("-i", "--input", dest="input_dir", required=True)
+    plot.add_argument("-o", "--output", dest="output_dir", required=True)
+    plot.add_argument(
+        "-r",
+        "--region",
+        dest="regions",
+        action="append",
+        required=True,
+        help="region, repeat or use commas",
+    )
+    plot.add_argument(
+        "--samples",
+        nargs="+",
+        required=True,
+        help="ROOT filenames, configured processes, or plotting groups",
+    )
+    plot.add_argument(
+        "-v",
+        "--variable",
+        dest="variables",
+        action="append",
+        help="variable, repeat or use commas; omit to plot all",
+    )
+    plot.add_argument("--systematics", action="store_true")
+    plot.add_argument("--data", dest="want_data", action="store_true")
+    plot.add_argument("--log-y", action="store_true")
+    plot.add_argument("--rebin", action="store_true")
+    plot.add_argument("--normalize-dy-to-data", action="store_true")
+    plot.add_argument("--normalize-mc-to-data", action="store_true")
+    plot.add_argument("--dy-normalization-sample")
+    plot.add_argument("--run", dest="execute", action="store_true")
+    plot.set_defaults(func=run_plot)
 
     merge_systematics = subparsers.add_parser(
         "merge-systematics",

@@ -30,9 +30,14 @@ from common.add_vars_to_skim_tuples import (
 )
 from common.histogram_pipeline import finalize_histogram_dataframe
 from common.jet_component_splitting import (
-    DY_JET_COMPONENTS,
+    DY_COMPONENT_FILE_LABELS,
+    GGF_COMPONENT_VARIABLES,
+    VBF_COMPONENTS,
+    VBF_ETA_REGIONS,
     add_jet_component_categories,
+    add_vbf_eta_region_categories,
     define_jet_gen_matching,
+    expanded_jet_component_categories,
     variable_for_component,
 )
 from common.manifests import read_manifest
@@ -99,6 +104,91 @@ def remove_file_if_exists(path):
             os.remove(path)
         except Exception as e:
             print(f"[WARNING] Could not remove file {path}: {e}")
+
+
+def histogram_directory_path(mass_region, category):
+    if category.startswith("VBF_eta_"):
+        eta_region = category.removeprefix("VBF_eta_")
+        return f"{mass_region}_VBF/{eta_region}"
+    return f"{mass_region}_{category}"
+
+
+def copy_root_directory(source_file, source_path, target_file, target_path):
+    """Copy all objects from one ROOT directory into a nested target directory."""
+    source = source_file.GetDirectory(source_path)
+    if not source:
+        return False
+    target = utilities.mkdir_recursive(target_file, target_path)
+    for key in source.GetListOfKeys():
+        obj = key.ReadObj()
+        target.cd()
+        target.WriteTObject(obj, obj.GetName(), "Overwrite")
+    return True
+
+
+def split_dy_jet_component_outputs(output_file, mass_regions):
+    """Create the inclusive and per-component DY files with fit-ready layout."""
+    output_path = Path(output_file)
+    source = ROOT.TFile.Open(str(output_path), "READ")
+    if not source or source.IsZombie():
+        raise RuntimeError(f"Could not open DY component staging file: {output_file}")
+
+    inclusive_tmp = output_path.with_name(f".{output_path.name}.inclusive.tmp.root")
+    inclusive = ROOT.TFile.Open(str(inclusive_tmp), "RECREATE")
+    component_files = {}
+    try:
+        for component, label in DY_COMPONENT_FILE_LABELS.items():
+            component_path = output_path.with_name(
+                f"{output_path.stem}_{label}{output_path.suffix}"
+            )
+            component_files[component] = (
+                component_path,
+                ROOT.TFile.Open(str(component_path), "RECREATE"),
+            )
+
+        for mass_region in mass_regions:
+            copy_root_directory(
+                source,
+                f"{mass_region}_DY_inclusive_ggF",
+                inclusive,
+                f"{mass_region}_ggF/incl",
+            )
+            for eta_region in VBF_ETA_REGIONS:
+                copy_root_directory(
+                    source,
+                    f"{mass_region}_DY_inclusive_VBF_{eta_region}",
+                    inclusive,
+                    f"{mass_region}_VBF/{eta_region}",
+                )
+
+            for component in GGF_COMPONENT_VARIABLES:
+                _, target = component_files[component]
+                copy_root_directory(
+                    source,
+                    f"{mass_region}_{component}",
+                    target,
+                    f"{mass_region}_ggF/incl",
+                )
+            for component in VBF_COMPONENTS:
+                _, target = component_files[component]
+                for eta_region in VBF_ETA_REGIONS:
+                    copy_root_directory(
+                        source,
+                        f"{mass_region}_{component}_{eta_region}",
+                        target,
+                        f"{mass_region}_VBF/{eta_region}",
+                    )
+    finally:
+        source.Close()
+        inclusive.Close()
+        for _, target in component_files.values():
+            target.Close()
+
+    os.replace(inclusive_tmp, output_path)
+    print("[INFO] DY inclusive/component outputs:")
+    print(f"[INFO]   inclusive: {output_path}")
+    for component in DY_COMPONENT_FILE_LABELS:
+        print(f"[INFO]   {component}: {component_files[component][0]}")
 
 
 def has_usable_events_tree(path, retries=3, retry_delay=2.0):
@@ -625,7 +715,7 @@ def write_qcd_scale_variations(
     for mass_region in mass_regions:
         for category in categories:
             directory = output_file.GetDirectory(
-                f"{mass_region}_{category}"
+                histogram_directory_path(mass_region, category)
             )
             if not directory:
                 continue
@@ -958,7 +1048,7 @@ def process_single_chunk(args_tuple):
 
         directories = {
             (mass_region, category): utilities.mkdir_recursive(
-                out_file, f"{mass_region}_{category}"
+                out_file, histogram_directory_path(mass_region, category)
             )
             for mass_region in stored_regions
             for category in stored_categories
@@ -1236,6 +1326,15 @@ if __name__ == "__main__":
             "2J eta(j2):pt(j2) fit templates."
         ),
     )
+    parser.add_argument(
+        "--vbf-eta-regions",
+        action="store_true",
+        help=(
+            "Split the VBF category into nested incl/CC/CF/FF directories "
+            "using |eta(VBF jet)| = 2.5. This is independent of DY "
+            "Hard/PU component splitting."
+        ),
+    )
     parser.add_argument("--force-multiprocessing-with-dnn", action="store_true")
     parser.add_argument(
         "--multiprocessing-method", choices=["spawn", "fork"], default="spawn"
@@ -1440,6 +1539,16 @@ if __name__ == "__main__":
     hist_cfg = utilities.get_config(
         os.path.join(analysis_path, "config", "plot", "histograms.yaml")
     )
+    if args.dy_jet_components and args.vbf_eta_regions:
+        raise ValueError(
+            "--dy-jet-components already includes VBF eta regions; do not "
+            "combine it with --vbf-eta-regions"
+        )
+    if args.vbf_eta_regions:
+        if is_data:
+            raise ValueError("--vbf-eta-regions is restricted to MC")
+        sel_cfg = add_vbf_eta_region_categories(sel_cfg)
+        args.categories = [f"VBF_eta_{region}" for region in VBF_ETA_REGIONS]
     if args.dy_jet_components:
         if is_data:
             raise ValueError("--dy-jet-components cannot be used on data")
@@ -1449,7 +1558,7 @@ if __name__ == "__main__":
                 "underlying matching helpers are reusable for other MC."
             )
         sel_cfg = add_jet_component_categories(sel_cfg)
-        args.categories = list(DY_JET_COMPONENTS)
+        args.categories = list(expanded_jet_component_categories())
         args.vbf_component_variables = list(args.variables or ["m_mumu"])
         vars_to_add = [
             "m_mumu",
@@ -1767,6 +1876,11 @@ if __name__ == "__main__":
             args.process_name,
         )
     merged_output.Close()
+    if args.dy_jet_components:
+        split_dy_jet_component_outputs(
+            args.output_file,
+            masses_regions_list,
+        )
     if args.keep_tmp:
         print("[INFO] Keeping temporary files because --keep-tmp was used.")
     else:

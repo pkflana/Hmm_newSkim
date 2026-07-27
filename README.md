@@ -209,9 +209,13 @@ For the dedicated jet-response fit:
   --dy-jet-components
 ```
 
-This mode divides events into `0J Hard`, `1J Hard/PU`, `2J Hard/PU1/PU2`, and
+This mode divides events into `0J`, `1J Hard/PU`, `2J Hard/PU1/PU2`, and
 `VBF Hard/PU1/PU2`. It produces `m_mumu` in 0J, `eta(j1):pT(j1)` in 1J, and
 `eta(j2):pT(j2)` in ≥2J. VBF matching uses the two actual VBF indices.
+Each component is written to a separate `*_DY_*.root` file, while the original
+dataset filename remains the inclusive DY output. VBF directories contain the
+subdirectories `incl`, `CC`, `CF`, and `FF`, where a central jet has
+`|eta| < 2.5` and a forward jet has `|eta| >= 2.5`.
 
 A jet with `genJetIdx >= 0` is hard; a jet without an associated gen jet is PU.
 This mode requires regenerated DY skims containing `Jet_genJetIdx`: the

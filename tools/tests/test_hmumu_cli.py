@@ -37,6 +37,7 @@ class HmumuCliTest(unittest.TestCase):
             dry_run=True,
             execute=False,
             dy_jet_components=False,
+            vbf_eta_regions=False,
             max_files=None,
             extra=[],
         )
@@ -60,6 +61,31 @@ class HmumuCliTest(unittest.TestCase):
         command = hmumu.histogram_command(request, "Run3_2024", "ScaRe")
         self.assertIn("histograms/scripts/systematics.sh", command[1])
         self.assertIn("--condor", command)
+
+    def test_shifted_removes_explicit_data_group(self):
+        request = self.request(
+            systematics=["JERC"],
+            dataset_name=None,
+            datasets="data,signals,EWK",
+        )
+        command = hmumu.histogram_command(request, "2023", "JERC")
+        self.assertEqual(command[command.index("--datasets") + 1], "signals,EWK")
+
+    def test_shifted_rejects_explicit_data_dataset(self):
+        request = self.request(
+            systematics=["Muon"],
+            dataset_name="Muon1_Run2023C_v1",
+        )
+        with self.assertRaisesRegex(ValueError, "cannot be run"):
+            hmumu.histogram_command(request, "2023", "Muon")
+
+    def test_central_keeps_explicit_data_group(self):
+        request = self.request(
+            dataset_name=None,
+            datasets="data,signals",
+        )
+        command = hmumu.histogram_command(request, "2023", "Central")
+        self.assertEqual(command[command.index("--datasets") + 1], "data,signals")
 
     def test_output_override_rejects_multiple_systematics(self):
         request = self.request(
@@ -87,6 +113,12 @@ class HmumuCliTest(unittest.TestCase):
         command = hmumu.histogram_command(request, "2025", "Central")
         separator = command.index("--")
         self.assertGreater(command.index("--dy-jet-components"), separator)
+
+    def test_vbf_eta_regions_is_forwarded_to_hist_maker(self):
+        request = self.request(vbf_eta_regions=True)
+        command = hmumu.histogram_command(request, "2025", "Central")
+        separator = command.index("--")
+        self.assertGreater(command.index("--vbf-eta-regions"), separator)
 
     def test_one_file_limit_is_forwarded_after_separator(self):
         request = self.request(
@@ -129,6 +161,17 @@ class HmumuCliTest(unittest.TestCase):
         self.assertEqual(
             hmumu.systematic_directory(central, "JERC"),
             Path("/analysis/Hists_JERC"),
+        )
+
+    def test_hadded_systematic_directories_are_inferred_from_central(self):
+        central = Path("/analysis/Hists_Central_hadded")
+        self.assertEqual(
+            hmumu.systematic_directory(central, "JERC"),
+            Path("/analysis/Hists_JERC_hadded"),
+        )
+        self.assertEqual(
+            hmumu.systematic_directory(central, "Central"),
+            central,
         )
 
     def test_root_discovery_ignores_temporary_chunks(self):
@@ -175,6 +218,31 @@ class HmumuCliTest(unittest.TestCase):
         output = "\n".join(str(call) for call in printer.call_args_list)
         self.assertIn("/analysis/Hists_Central/Run3_2023BPix", output)
         self.assertIn("/analysis/Hists_Central_hadded/Run3_2023BPix", output)
+
+    def test_plot_builds_one_command_per_region(self):
+        args = type("Args", (), {
+            "era": "2022",
+            "input_dir": "/analysis/Hists_merged_hadded/Run3_2022",
+            "output_dir": "plots",
+            "regions": ["Signal_Fit_VBF,Z_sideband_VBF"],
+            "samples": ["Data_Muon", "DY_amcatnlo"],
+            "variables": ["DNN_NNOutput"],
+            "systematics": True,
+            "want_data": True,
+            "log_y": True,
+            "rebin": True,
+            "normalize_dy_to_data": True,
+            "normalize_mc_to_data": False,
+            "dy_normalization_sample": "DY_amcatnlo",
+            "execute": False,
+        })()
+        with patch("builtins.print") as printer:
+            self.assertEqual(hmumu.run_plot(args), 0)
+        output = "\n".join(str(call) for call in printer.call_args_list)
+        self.assertIn("Signal_Fit_VBF", output)
+        self.assertIn("Z_sideband_VBF", output)
+        self.assertIn("--systematics", output)
+        self.assertIn("DNN_NNOutput", output)
 
     def test_temporary_histogram_report_lists_missing_final(self):
         with tempfile.TemporaryDirectory() as tmp:

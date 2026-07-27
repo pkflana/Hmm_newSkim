@@ -14,6 +14,7 @@ ANALYSIS_PATH = os.environ.get(
 sys.path.append(ANALYSIS_PATH)
 
 from common.dataset_selection import resolve_dataset_selection
+from common.jet_component_splitting import DY_COMPONENT_FILE_LABELS
 
 
 def load_yaml_config(yaml_path):
@@ -30,7 +31,7 @@ def hist_sum_value(histogram):
     return float(getattr(total, "value", total))
 
 
-def dataset_file_candidates(input_dir, process, dataset):
+def dataset_file_candidates(input_dir, process, dataset, component_label=None):
     suffix_by_process = {
         "DYto2Mu_MLL105To160": ["_stitched", "_nonStitched", ""],
         "DYto2Mu_MLL105To160_nonStitched": ["_nonStitched", ""],
@@ -39,7 +40,11 @@ def dataset_file_candidates(input_dir, process, dataset):
         "DYto2Mu_MLL105To160_FlashSim": ["_nonStitched", ""],
     }
     suffixes = suffix_by_process.get(process, [""])
-    return [os.path.join(input_dir, f"{dataset}{suffix}.root") for suffix in suffixes]
+    component_suffix = f"_{component_label}" if component_label else ""
+    return [
+        os.path.join(input_dir, f"{dataset}{suffix}{component_suffix}.root")
+        for suffix in suffixes
+    ]
 
 
 def add_derived_systematics(era, output_dir):
@@ -145,13 +150,17 @@ def hadd_datasets_to_processes(era,input_dir, output_dir,add_derived_systs=True,
     if dryRun:
         print("\n=== [DRY-RUN] PIANO DI ACCOPPIAMENTO (Solo file esistenti) ===")
 
+    output_variants = (None, *DY_COMPONENT_FILE_LABELS.values())
     for process, datasets in process_mapping.items():
+      for component_label in output_variants:
         datasets = list(dict.fromkeys(datasets))  # Rimuove duplicati
 
         # Filtra i dataset tenendo solo quelli CHE ESISTONO SUL DISCO
         valid_dataset_files = []
         for dataset in datasets:
-            for dataset_file_path in dataset_file_candidates(input_dir, process, dataset):
+            for dataset_file_path in dataset_file_candidates(
+                input_dir, process, dataset, component_label
+            ):
                 if os.path.exists(dataset_file_path):
                     valid_dataset_files.append(dataset_file_path)
                     break
@@ -160,11 +169,13 @@ def hadd_datasets_to_processes(era,input_dir, output_dir,add_derived_systs=True,
         if not valid_dataset_files:
             continue
 
-        output_file_path = os.path.join(output_dir, f"{process}.root")
+        output_suffix = f"_{component_label}" if component_label else ""
+        output_name = f"{process}{output_suffix}.root"
+        output_file_path = os.path.join(output_dir, output_name)
 
         # --- SE DRY-RUN: Stampa solo quello che farebbe ---
         if dryRun:
-            print(f"\n📦 File di output previsto: {process}.root")
+            print(f"\n📦 File di output previsto: {output_name}")
             print(
                 f"   ↳ Unione (hadd) di {len(valid_dataset_files)}/{len(datasets)} file trovati:"
             )
@@ -174,7 +185,7 @@ def hadd_datasets_to_processes(era,input_dir, output_dir,add_derived_systs=True,
 
         # --- SE ESECUZIONE REALE ---
         print(
-            f"📦 Creazione di {process}.root da {len(valid_dataset_files)} file..."
+            f"📦 Creazione di {output_name} da {len(valid_dataset_files)} file..."
         )
 
         if len(valid_dataset_files) == 1:
@@ -187,7 +198,7 @@ def hadd_datasets_to_processes(era,input_dir, output_dir,add_derived_systs=True,
             seen_keys = set()
             for file_path in valid_dataset_files:
                 with uproot.open(file_path) as current_file:
-                    for key in current_file.keys():
+                    for key in current_file.keys(recursive=True):
                         clean_key = key.split(";")[0]
                         if clean_key in seen_keys:
                             continue
