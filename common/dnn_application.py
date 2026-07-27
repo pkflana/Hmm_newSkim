@@ -104,7 +104,37 @@ def _load_toml(path):
     return config
 
 
+def validate_predictions(predictions, payload_name):
+    """Reject fully saturated output instead of silently writing bad shapes."""
+    if predictions.size == 0:
+        return
+    if not np.isfinite(predictions).all():
+        raise RuntimeError(
+            f"DNN payload {payload_name!r} produced non-finite predictions"
+        )
+    epsilon = 1.0e-12
+    all_zero = np.all(predictions <= epsilon)
+    all_one = np.all(predictions >= 1.0 - epsilon)
+    if all_zero or all_one:
+        edge = "zero" if all_zero else "one"
+        raise RuntimeError(
+            f"DNN payload {payload_name!r} produced predictions saturated at "
+            f"{edge} for every event. Check the ONNX preprocessing constants "
+            "and training feature distributions. In the current updated model, "
+            "pt_vbfj1j2 was exported with effectively zero variance."
+        )
+
+
 class DNNApplication:
+    ERA_CODES = {
+        "Run3_2022": 0,
+        "Run3_2022EE": 1,
+        "Run3_2023": 2,
+        "Run3_2023BPix": 3,
+        "Run3_2024": 4,
+        "Run3_2025": 5,
+    }
+
     def __init__(self, payload_name="DNN", base_dir=None, btag_algo="PNet", era=None):
         try:
             import onnxruntime as ort
@@ -201,6 +231,16 @@ class DNNApplication:
 
     def define_feature_aliases(self, df):
         columns = {str(col) for col in df.GetColumnNames()}
+
+        if "era_code" not in columns:
+            if self.era not in self.ERA_CODES:
+                supported = ", ".join(self.ERA_CODES)
+                raise ValueError(
+                    f"Cannot define era_code for era {self.era!r}. "
+                    f"Supported eras: {supported}"
+                )
+            df = df.Define("era_code", str(self.ERA_CODES[self.era]))
+            columns.add("era_code")
 
         aliases = {
             "pt_jj": "pt_vbfj1j2",
@@ -299,6 +339,7 @@ class DNNApplication:
 
             predictions = predictions.astype(np.float32)
 
+        validate_predictions(predictions, self.payload_name)
         _declare_prediction_registry()
         keys = ROOT.std.vector("ULong64_t")()
         values = ROOT.std.vector("float")()
