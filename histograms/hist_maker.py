@@ -1545,8 +1545,6 @@ if __name__ == "__main__":
             "combine it with --vbf-eta-regions"
         )
     if args.vbf_eta_regions:
-        if is_data:
-            raise ValueError("--vbf-eta-regions is restricted to MC")
         sel_cfg = add_vbf_eta_region_categories(sel_cfg)
         args.categories = [f"VBF_eta_{region}" for region in VBF_ETA_REGIONS]
     if args.dy_jet_components:

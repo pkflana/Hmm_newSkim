@@ -147,6 +147,10 @@ Advanced options remain available without complicating the common case:
   --run -- --no-skip-failed-chunks
 ```
 
+`DNN_NNOutput` uses `common/updated_DNN_configs` and
+`common/updated_DNN_models` for every Run 3 era. This also applies when the DNN
+is reevaluated with the shifted sideband mass.
+
 ### Histogram workflow diagram
 
 ```mermaid

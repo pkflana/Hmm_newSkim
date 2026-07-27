@@ -126,12 +126,11 @@ class DNNApplication:
         if self.payload_name == "VBFNet":
             config_name = "vbfnet_configs"
             models_name = "vbfnet_models"
-        elif self.era == "Run3_2024":
-            config_name = "dnn_configs_2024"
-            models_name = "dnn_models_2024"
         else:
-            config_name = "dnn_configs"
-            models_name = "dnn_models"
+            # Use one trained DNN consistently across every Run 3 era,
+            # including the sideband payload aliases.
+            config_name = "updated_DNN_configs"
+            models_name = "updated_DNN_models"
 
         config_dir = os.path.join(common_dir, config_name)
         models_dir = os.path.join(common_dir, models_name)
