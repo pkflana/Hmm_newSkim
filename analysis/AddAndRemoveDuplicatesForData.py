@@ -90,9 +90,17 @@ def extract_dataset_name(path):
 # JSON utilities
 # =========================================================
 
+def report_path_for_root(root_file):
+    directory = os.path.dirname(root_file)
+    stem = os.path.splitext(os.path.basename(root_file))[0]
+    if stem.startswith("skim_") and stem[len("skim_"):].isdigit():
+        return os.path.join(directory, f"report_{stem[len('skim_'):]}.json")
+    return os.path.splitext(root_file)[0] + "_report.json"
+
+
 def load_report_json(root_file):
 
-    json_file = os.path.splitext(root_file)[0] + "_report.json"
+    json_file = report_path_for_root(root_file)
 
     if not os.path.exists(json_file):
 
@@ -326,10 +334,7 @@ def merge_dataset(
 
                 os.remove(f)
 
-                json_file = (
-                    os.path.splitext(f)[0]
-                    + "_report.json"
-                )
+                json_file = report_path_for_root(f)
 
                 if os.path.exists(json_file):
 

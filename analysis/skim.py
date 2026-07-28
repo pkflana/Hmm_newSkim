@@ -17,9 +17,22 @@ import common.utilities as utilities
 
 parser = argparse.ArgumentParser(description="Run the Hmumu skim.")
 parser.add_argument("--era", required=True)
-parser.add_argument("--input-file", required=True)
+parser.add_argument(
+    "--input-file",
+    required=True,
+    action="append",
+    help=(
+        "NanoAOD input. Repeat the option or pass a comma-separated list to "
+        "process multiple files into one skim."
+    ),
+)
 parser.add_argument("--dataset-name", required=True)
 parser.add_argument("--output-file", required=True)
+parser.add_argument(
+    "--report-file",
+    default=None,
+    help="Explicit JSON report path (default: <output stem>_report.json).",
+)
 parser.add_argument("--want-variations", required=False, action="store_true", help="request for variations from command line")
 parser.add_argument(
     "--jerc-2025-mc-mode",
@@ -37,6 +50,14 @@ parser.add_argument(
     help="Deprecated alias for --jerc-2025-mc-mode jec2024_jer2025.",
 )
 args = parser.parse_args()
+input_files = [
+    path
+    for value in args.input_file
+    for path in value.split(",")
+    if path
+]
+if not input_files:
+    parser.error("--input-file did not contain any input paths")
 
 ## all configurations to load ##
 config = utilities.get_config(os.path.join(os.environ["ANALYSIS_PATH"], "config", args.era, "maincfg.yaml"))
@@ -71,9 +92,13 @@ muon_pt_default_suffix = sel_config.get("muon_pt_default_suffix", "")
 
 # columns to save #
 cols_to_save = []
-# open root file #
-root_file = ROOT.TFile.Open(args.input_file)
-df = ROOT.RDataFrame(root_file.Get("Events"))
+# Open all files in one chain so one Snapshot and one report are produced per
+# size-balanced Condor chunk.
+input_chain = ROOT.TChain("Events")
+for input_file in input_files:
+    if input_chain.Add(input_file) == 0:
+        raise RuntimeError(f"Could not add input ROOT file: {input_file}")
+df = ROOT.RDataFrame(input_chain)
 ROOT.RDF.Experimental.AddProgressBar(df)
 
 # useful definitions #
@@ -82,7 +107,7 @@ df = df.Define("is_data", "true" if is_data else "false")
 df = df.Define("is_data_int", "1" if is_data else "0")
 df = df.Define("is_signal", "true" if is_signal else "false")
 dataset_crc = zlib.crc32(args.dataset_name.encode()) & 0xFFFF
-input_crc = zlib.crc32(args.input_file.encode()) & 0xFFFF
+input_crc = zlib.crc32("\n".join(input_files).encode()) & 0xFFFF
 df = df.Define("FullEventId",f"eventId::encodeFullEventId({dataset_crc}, {input_crc}, rdfentry_)")
 # default columns to store: #
 cols_to_save.extend(utilities.GetObservablesCols("default", is_data, nano_version))
@@ -218,7 +243,11 @@ if not is_data:
                 xs_dict['value_unsigned']=xs_dict['value_unsigned'].GetValue()
     report_json.update(json_dict_to_store)
 
-json_file = os.path.splitext(args.output_file)[0] + "_report.json"
+json_file = (
+    args.report_file
+    if args.report_file is not None
+    else os.path.splitext(args.output_file)[0] + "_report.json"
+)
 with open(json_file, "w") as f:
     json.dump(report_json, f, indent=4)
 out_tfile = ROOT.TFile.Open(args.output_file, "UPDATE")

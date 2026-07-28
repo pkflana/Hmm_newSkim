@@ -2,12 +2,17 @@
 
 import argparse
 import getpass
+import json
 import os
 import shlex
 import subprocess
+import sys
 import time
 import yaml
 from collections import defaultdict, OrderedDict
+
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
+from common.skim_chunking import chunk_files_by_size
 
 
 parser = argparse.ArgumentParser(
@@ -77,6 +82,19 @@ parser.add_argument(
         "Deprecated alias for --jerc-2025-mc-mode jec2024_jer2025."
     ),
 )
+parser.add_argument(
+    "--proxy",
+    default=None,
+    help=(
+        "VOMS proxy to forward to workers. Default: X509_USER_PROXY, then "
+        "proxy_location from skim_cfg.yaml."
+    ),
+)
+parser.add_argument(
+    "--output-dir",
+    default=None,
+    help="Override the skim output base directory from skim_cfg.yaml.",
+)
 args = parser.parse_args()
 
 era = args.era
@@ -141,21 +159,35 @@ disk = skim_config["request_disk"]
 
 max_files = skim_config["max_files"]
 chunk_size = skim_config["chunk_size"]
+target_chunk_size_gb = float(skim_config.get("target_chunk_size_gb", 5.0))
+max_files_per_chunk = int(
+    skim_config.get("max_files_per_chunk", max(chunk_size, 5))
+)
+target_chunk_size_bytes = int(target_chunk_size_gb * 1024**3)
+if target_chunk_size_bytes <= 0:
+    raise SystemExit("[ERROR] target_chunk_size_gb must be greater than zero")
+if max_files_per_chunk <= 0:
+    raise SystemExit("[ERROR] max_files_per_chunk must be greater than zero")
 
 datasets_whitelist = skim_config.get("datasets_whitelist", [])
 process_to_select = skim_config.get("process_to_select", [])
 
-proxy_location = skim_config["proxy_location"]
+proxy_location = (
+    args.proxy
+    or os.environ.get("X509_USER_PROXY")
+    or skim_config["proxy_location"]
+)
 proxy_location = os.path.abspath(os.path.expanduser(proxy_location))
-if "X509_USER_PROXY" not in os.environ:
-    if os.path.exists(proxy_location):
-        os.environ["X509_USER_PROXY"] = proxy_location
-        print(f"Using X509_USER_PROXY={proxy_location}")
-    else:
-        print(
-            f"[WARNING] X509_USER_PROXY is not set and proxy_location does not "
-            f"exist: {proxy_location}"
-        )
+if os.path.exists(proxy_location):
+    os.environ["X509_USER_PROXY"] = proxy_location
+    print(f"Using X509_USER_PROXY={proxy_location}")
+elif args.submit:
+    raise SystemExit(
+        f"[ERROR] VOMS proxy does not exist: {proxy_location}. "
+        "Run voms-proxy-init and export X509_USER_PROXY, or pass --proxy."
+    )
+else:
+    print(f"[WARNING] VOMS proxy does not exist: {proxy_location}")
 cmssw_version = skim_config.get("cmssw_version", "CMSSW_15_0_2")
 
 submit_jobs = args.submit
@@ -184,7 +216,9 @@ if jerc_2025_mc_mode not in ("2025", "jec2024_jer2025", "2024"):
     )
 
 output_dirs = skim_config.get("output_dirs_by_jerc_2025_mc_mode", {})
-if output_dirs:
+if args.output_dir:
+    output_dir = args.output_dir
+elif output_dirs:
     if jerc_2025_mc_mode not in output_dirs:
         raise SystemExit(
             "[ERROR] output_dirs_by_jerc_2025_mc_mode has no entry for "
@@ -239,7 +273,7 @@ def resolve_nanoaod_files(nanoaod_paths, instance=None):
         if instance:
             query += f" instance={instance}"
 
-        command = ["dasgoclient", f"--query={query}"]
+        command = ["dasgoclient", f"--query={query}", "--json"]
         print(f"[DAS] {shlex.join(command)}")
 
         result = subprocess.run(
@@ -262,9 +296,21 @@ def resolve_nanoaod_files(nanoaod_paths, instance=None):
                 print(result.stderr.strip())
             raise SystemExit(result.returncode)
 
-        filelist = result.stdout.splitlines()
+        try:
+            das_payload = json.loads(result.stdout)
+        except json.JSONDecodeError as error:
+            raise SystemExit(f"[ERROR] Invalid DAS JSON for {nanoaod_path}: {error}")
 
-        for filepath in filelist:
+        file_entries = []
+        for record in das_payload:
+            for file_info in record.get("file", []):
+                filepath = file_info.get("name")
+                if filepath:
+                    file_entries.append(
+                        (filepath, int(file_info.get("size") or 0))
+                    )
+
+        for filepath, file_size in sorted(file_entries):
             eos_path = f"/eos/cms/{filepath}"
 
             if os.path.exists(eos_path):
@@ -275,7 +321,9 @@ def resolve_nanoaod_files(nanoaod_paths, instance=None):
             if resolved_path in seen_files:
                 continue
 
-            resolved_files.append(resolved_path)
+            resolved_files.append(
+                {"path": resolved_path, "size": file_size}
+            )
             seen_files.add(resolved_path)
 
     return resolved_files
@@ -310,20 +358,19 @@ def log_dataset_message(dataset, message, also_print=True):
         print(line, flush=True)
 
 
-def get_output_paths(infile, dataset):
-    basename = os.path.basename(infile)
-
-    output_file_root = basename.replace(".root", "_skim.root")
-    output_file_json = basename.replace(".root", "_skim_report.json")
-
-    outfile_root = os.path.join(output_directory, era, dataset, output_file_root)
-    outfile_json = os.path.join(output_directory, era, dataset, output_file_json)
+def get_output_paths(chunk_index, dataset):
+    outfile_root = os.path.join(
+        output_directory, era, dataset, f"skim_{chunk_index}.root"
+    )
+    outfile_json = os.path.join(
+        output_directory, era, dataset, f"report_{chunk_index}.json"
+    )
 
     return outfile_root, outfile_json
 
 
-def is_completed(infile, dataset, completed_files_set):
-    outfile_root, outfile_json = get_output_paths(infile, dataset)
+def is_completed(chunk_index, dataset, completed_files_set):
+    outfile_root, outfile_json = get_output_paths(chunk_index, dataset)
 
     in_completed_list = (
         outfile_root in completed_files_set
@@ -335,8 +382,8 @@ def is_completed(infile, dataset, completed_files_set):
     return in_completed_list or exists_on_disk
 
 
-def make_filename_key(infile):
-    return os.path.basename(infile).replace(".root", "")
+def make_filename_key(chunk_index):
+    return f"skim_{chunk_index}"
 
 
 def make_job_key(dataset, filename_key):
@@ -434,7 +481,7 @@ def print_dryrun_summary(dataset_stats):
     total_jobs = 0
 
     for dataset, stats in dataset_stats.items():
-        n_total = stats["total_files"]
+        n_total = stats["total_chunks"]
         n_completed = stats["completed_files"]
         n_missing = stats["missing_files"]
         n_jobs = stats["jobs_to_run"]
@@ -447,9 +494,10 @@ def print_dryrun_summary(dataset_stats):
         percent = 100.0 * n_completed / n_total if n_total > 0 else 0.0
 
         print(f"\n{dataset}")
-        print(f"  files total      : {n_total}")
-        print(f"  files completed  : {n_completed}")
-        print(f"  files missing    : {n_missing}")
+        print(f"  chunks total     : {n_total}")
+        print(f"  chunks completed : {n_completed}")
+        print(f"  chunks missing   : {n_missing}")
+        print(f"  NanoAOD inputs   : {stats['total_files']}")
         print(f"  completion       : {percent:.1f}%")
         print(f"  jobs to submit   : {n_jobs}")
 
@@ -459,9 +507,9 @@ def print_dryrun_summary(dataset_stats):
     global_percent = 100.0 * total_completed / total_files if total_files > 0 else 0.0
 
     print("\n========== GLOBAL SUMMARY ==========")
-    print(f"files total      : {total_files}")
-    print(f"files completed  : {total_completed}")
-    print(f"files missing    : {total_missing}")
+    print(f"chunks total     : {total_files}")
+    print(f"chunks completed : {total_completed}")
+    print(f"chunks missing   : {total_missing}")
     print(f"completion       : {global_percent:.1f}%")
     print(f"jobs to submit   : {total_jobs}")
     print("====================================\n")
@@ -754,49 +802,79 @@ for dataset in all_datasets:
             completed_files_set = {line.strip() for line in cf if line.strip()}
 
     filelist = data[dataset]["filelist"]
+    if filelist and isinstance(filelist[0], str) and "nanoAOD" in data[dataset]:
+        # Legacy samples_withfiles.yaml stores only paths. Re-resolve DAS
+        # metadata so size-based chunking has the real byte count.
+        selected_nanoaod_paths = select_nanoaod_paths(
+            data[dataset]["nanoAOD"],
+            use_ext=use_ext,
+        )
+        filelist = resolve_nanoaod_files(
+            selected_nanoaod_paths,
+            instance=data[dataset].get("instance", None),
+        )
 
     if max_files > 0:
         filelist = filelist[:max_files]
 
+    chunks = chunk_files_by_size(
+        filelist,
+        target_chunk_size_bytes,
+        max_files_per_chunk,
+    )
+    chunk_manifest = {
+        "era": era,
+        "dataset": dataset,
+        "target_chunk_size_gb": target_chunk_size_gb,
+        "max_files_per_chunk": max_files_per_chunk,
+        "chunks": [],
+    }
+    for chunk_index, chunk_entries in enumerate(chunks):
+        outfile_root, outfile_json = get_output_paths(chunk_index, dataset)
+        chunk_manifest["chunks"].append(
+            {
+                "index": chunk_index,
+                "input_size_bytes": sum(
+                    max(0, int(entry.get("size", 0)))
+                    for entry in chunk_entries
+                ),
+                "input_files": [entry["path"] for entry in chunk_entries],
+                "root_file": outfile_root,
+                "report_file": outfile_json,
+            }
+        )
+    chunk_manifest_path = os.path.join(
+        get_dataset_log_dir(dataset), "skim_chunks.json"
+    )
+    with open(chunk_manifest_path, "w") as manifest_handle:
+        json.dump(chunk_manifest, manifest_handle, indent=2)
+
     total_files = len(filelist)
+    total_chunks = len(chunks)
     completed_files_count = 0
     missing_files_count = 0
     jobs_to_run = 0
 
     dataset_condorinputs[dataset] = []
 
-    for i in range(0, len(filelist), chunk_size):
-        chunk = filelist[i:i + chunk_size]
+    for chunk_index, chunk_entries in enumerate(chunks):
+        input_files = [entry["path"] for entry in chunk_entries]
+        outfile_root, outfile_json = get_output_paths(chunk_index, dataset)
 
-        input_files = []
-        output_files_root = []
-        output_files_json = []
-
-        for infile in chunk:
-            outfile_root, outfile_json = get_output_paths(infile, dataset)
-
-            if is_completed(infile, dataset, completed_files_set):
-                completed_files_count += 1
-                continue
-
-            missing_files_count += 1
-            missing_files_by_dataset[dataset].append(infile)
-
-            input_files.append(infile)
-            output_files_root.append(outfile_root)
-            output_files_json.append(outfile_json)
-
-        if len(input_files) == 0:
+        if is_completed(chunk_index, dataset, completed_files_set):
+            completed_files_count += 1
             continue
+
+        missing_files_count += 1
+        missing_files_by_dataset[dataset].extend(input_files)
 
         if MAX_SUBMIT_JOBS is not None and selected_submit_jobs >= MAX_SUBMIT_JOBS:
             hit_max_submit_jobs = True
             break
 
         input_list = ",".join(input_files)
-        output_list = ",".join(output_files_root)
 
-        filename_key = make_filename_key(input_files[0])
+        filename_key = make_filename_key(chunk_index)
         job_key = make_job_key(dataset, filename_key)
 
         arguments = (
@@ -805,7 +883,8 @@ for dataset in all_datasets:
             f"{era} "
             f"{input_list} "
             f"{dataset} "
-            f"{output_list} "
+            f"{outfile_root} "
+            f"{outfile_json} "
             f"{cmssw_version} "
             f"{jerc_2025_mc_mode}"
         )
@@ -821,8 +900,8 @@ for dataset in all_datasets:
             "dataset": dataset,
             "filename": filename_key,
             "input_files": input_files,
-            "root_files": output_files_root,
-            "json_files": output_files_json,
+            "root_files": [outfile_root],
+            "json_files": [outfile_json],
         }
 
         jobs_to_run += 1
@@ -842,18 +921,24 @@ for dataset in all_datasets:
 
     dataset_stats[dataset] = {
         "total_files": total_files,
+        "total_chunks": total_chunks,
         "completed_files": completed_files_count,
         "missing_files": missing_files_count,
         "jobs_to_run": jobs_to_run,
         "missing_report": missing_report,
     }
 
-    percent = 100.0 * completed_files_count / total_files if total_files > 0 else 0.0
+    percent = (
+        100.0 * completed_files_count / total_chunks
+        if total_chunks > 0
+        else 0.0
+    )
 
     log_dataset_message(dataset, "[SCAN SUMMARY]")
-    log_dataset_message(dataset, f"  files total      : {total_files}")
-    log_dataset_message(dataset, f"  files completed  : {completed_files_count}")
-    log_dataset_message(dataset, f"  files missing    : {missing_files_count}")
+    log_dataset_message(dataset, f"  NanoAOD inputs   : {total_files}")
+    log_dataset_message(dataset, f"  chunks total     : {total_chunks}")
+    log_dataset_message(dataset, f"  chunks completed : {completed_files_count}")
+    log_dataset_message(dataset, f"  chunks missing   : {missing_files_count}")
     log_dataset_message(dataset, f"  completion       : {percent:.1f}%")
     log_dataset_message(dataset, f"  jobs to submit   : {jobs_to_run}")
     if missing_report:

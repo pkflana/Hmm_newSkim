@@ -46,6 +46,19 @@ class FailedChunkPolicyTest(unittest.TestCase):
             )
             self.assertEqual(selected, [str(json_b)])
 
+    def test_indexed_skim_and_report_names_are_paired(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            skim = root / "skim_7.root"
+            report = root / "report_7.json"
+            skim.touch()
+            report.touch()
+            selected = self.metadata_for_root_files(
+                [str(report)],
+                [str(skim)],
+            )
+            self.assertEqual(selected, [str(report)])
+
 
 if __name__ == "__main__":
     unittest.main()

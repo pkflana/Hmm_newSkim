@@ -5,6 +5,7 @@ import argparse
 import json
 import multiprocessing
 import os
+import re
 import sys
 import time
 from pathlib import Path
@@ -49,6 +50,12 @@ def validate_json(path, retries=3, retry_delay=2.0):
 
 def pairing_key(path, is_json=False):
     stem = Path(path).stem
+    indexed_match = re.fullmatch(
+        r"report_(\d+)" if is_json else r"skim_(\d+)",
+        stem,
+    )
+    if indexed_match:
+        return indexed_match.group(1)
     if is_json:
         for suffix in ("_skim_report", "_report"):
             if stem.endswith(suffix):

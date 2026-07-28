@@ -1,6 +1,7 @@
 """Validation and per-file metadata selection for failed histogram chunks."""
 
 from pathlib import Path
+import re
 
 
 def resolve_skip_failed_chunks(requested, is_data, n_cores):
@@ -33,6 +34,9 @@ def validate_skip_failed_chunks(skip_failed_chunks, is_data, n_cores, resume):
 def input_file_id(path):
     """Return the shared identifier of a skim ROOT file and report JSON."""
     stem = Path(path).stem
+    indexed_match = re.fullmatch(r"(?:skim|report)_(\d+)", stem)
+    if indexed_match:
+        return indexed_match.group(1)
     if stem.endswith("_report"):
         stem = stem[: -len("_report")]
     return stem
