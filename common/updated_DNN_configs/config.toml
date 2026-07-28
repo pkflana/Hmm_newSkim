@@ -49,7 +49,7 @@ data_columns = [
 validation_size = 0.33
 k = 4
 
-[network]  
+[network]
 # Hidden layers only, input layer size pulled from the used columns
 layer_list = [86, 86, 86, 86]
 batch_renorm = false

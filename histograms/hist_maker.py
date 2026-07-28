@@ -807,7 +807,9 @@ def get_sideband_shifted_mass_expression(mass_region):
         )
     raise ValueError(f"Unsupported DNN mass-shift region: {mass_region}")
 
-def apply_sideband_mass_shifted_dnn(rdf, mass_region, btag_algo, era):
+def apply_sideband_mass_shifted_dnn(
+    rdf, mass_region, btag_algo, era, dnn_model_set
+):
     from common.dnn_application import ApplyDNN
 
     shifted_rdf = rdf.Redefine(
@@ -819,6 +821,7 @@ def apply_sideband_mass_shifted_dnn(rdf, mass_region, btag_algo, era):
         [DNN_SIDEBAND_SHIFTED_PAYLOADS[mass_region]],
         btag_algo=btag_algo,
         era=era,
+        model_set=dnn_model_set,
     )
 
 def process_single_chunk(args_tuple):
@@ -1001,6 +1004,7 @@ def process_single_chunk(args_tuple):
                         mass_region,
                         btag_algo=btag_algo,
                         era=args.era,
+                        dnn_model_set=args.dnn_model_set,
                     )
                     shifted_rdfs[(mass_region, selection_suffix)] = (
                         shifted_rdf,

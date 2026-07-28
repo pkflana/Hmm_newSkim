@@ -32,7 +32,7 @@ process_to_select:
   - Data_Muon
   - DY
   - DYto2Mu_MLL105To160
-  - DYto2Mu_MLL105To160_VBFFiltered
+  - DYto2Mu_MLL105To160_combined
   - DYto2Mu_MLL105To160_FlashSim
   - DYto2Mu_minnlo
   - TT
@@ -67,7 +67,6 @@ process_to_select:
 
   # - DY
   # - DYto2Mu_MLL105To160
-  # - DYto2Mu_MLL105To160_VBFFiltered
   # - DYto2Mu_MLL105To160_FlashSim
   # - DYto2Mu_FlashSim
   # - DYto2L_FlashSim

@@ -243,6 +243,108 @@ def _column_names(df):
     return {str(col) for col in df.GetColumnNames()}
 
 
+def DefineDimuonMassResolution(df):
+    """Define per-event dimuon mass resolution and ScaRe uncertainty terms.
+
+    ``muN_pt_err`` is selected upstream from the beam-spot-constrained pT
+    uncertainty when the BSC fit has chi2 < 30, and from the NanoAOD pT
+    uncertainty otherwise.  Scale and smearing up/down shifts are systematic
+    uncertainties, so they are propagated directly through the shifted
+    dimuon masses instead of being folded into the detector resolution.
+    """
+    columns = _column_names(df)
+
+    def define(name, expression):
+        nonlocal df
+        if name not in columns:
+            df = df.Define(name, expression)
+            columns.add(name)
+
+    error_inputs = {"mu1_pt_err", "mu2_pt_err"}
+    if error_inputs.issubset(columns):
+        denominator_suffix = (
+            "_noCorr"
+            if {"mu1_pt_noCorr", "mu2_pt_noCorr"}.issubset(columns)
+            else ""
+        )
+        denominator_columns = {
+            f"mu1_pt{denominator_suffix}",
+            f"mu2_pt{denominator_suffix}",
+        }
+        if denominator_columns.issubset(columns):
+            for muon in (1, 2):
+                pt = f"mu{muon}_pt{denominator_suffix}"
+                define(
+                    f"mu{muon}_pt_resolution_rel",
+                    (
+                        f"({pt} > 0.f && mu{muon}_pt_err >= 0.f) ? "
+                        f"static_cast<float>(mu{muon}_pt_err / {pt}) : -1.f"
+                    ),
+                )
+            define(
+                "m_mumu_resolution",
+                (
+                    "(mu1_pt_resolution_rel >= 0.f && "
+                    "mu2_pt_resolution_rel >= 0.f) ? "
+                    "static_cast<float>(std::sqrt(0.5 * "
+                    "(mu1_pt_resolution_rel * mu1_pt_resolution_rel + "
+                    "mu2_pt_resolution_rel * mu2_pt_resolution_rel))) : -1.f"
+                ),
+            )
+            # Explicit alias: m_mumu_resolution is dimensionless.
+            define("m_mumu_resolution_detector", "m_mumu_resolution")
+            if "m_mumu" in columns:
+                define(
+                    "m_mumu_resolution_abs",
+                    (
+                        "(m_mumu_resolution >= 0.f && m_mumu >= 0.f) ? "
+                        "static_cast<float>(m_mumu_resolution * m_mumu) : -1.f"
+                    ),
+                )
+
+    variation_pairs = {
+        "scale": ("m_mumu_FSR_scale_up", "m_mumu_FSR_scale_down"),
+        "res": ("m_mumu_FSR_res_up", "m_mumu_FSR_res_down"),
+    }
+    if "m_mumu" in columns:
+        for component, (up, down) in variation_pairs.items():
+            if {up, down}.issubset(columns):
+                define(
+                    f"m_mumu_resolution_{component}",
+                    (
+                        f"(m_mumu > 0.f) ? static_cast<float>"
+                        f"(0.5 * std::abs({up} - {down}) / m_mumu) : -1.f"
+                    ),
+                )
+
+    total_components = (
+        "m_mumu_resolution_detector",
+        "m_mumu_resolution_scale",
+        "m_mumu_resolution_res",
+    )
+    if set(total_components).issubset(columns):
+        valid = " && ".join(f"{name} >= 0.f" for name in total_components)
+        quadrature = " + ".join(f"{name} * {name}" for name in total_components)
+        define(
+            "m_mumu_resolution_total",
+            (
+                f"({valid}) ? "
+                f"static_cast<float>(std::sqrt({quadrature})) : -1.f"
+            ),
+        )
+        if "m_mumu" in columns:
+            define(
+                "m_mumu_resolution_total_abs",
+                (
+                    "(m_mumu_resolution_total >= 0.f && m_mumu >= 0.f) ? "
+                    "static_cast<float>(m_mumu_resolution_total * m_mumu) "
+                    ": -1.f"
+                ),
+            )
+
+    return df
+
+
 def _selection_suffixes(syst_cfg=None, want_variations=False):
     suffixes = [("", "", "")]
 
@@ -410,6 +512,8 @@ def GetAllMuonsObservablesNew(df):
                 "(mu1_p4_noCorr + mu2_p4_noCorr).M()",
             )
             columns.add("m_mumu_noCorr")
+
+    df = DefineDimuonMassResolution(df)
 
     # for mu_idx in [1, 2]:
     #     df = df.Define(

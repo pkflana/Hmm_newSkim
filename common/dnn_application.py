@@ -104,7 +104,7 @@ def _load_toml(path):
     return config
 
 
-def validate_predictions(predictions, payload_name):
+def validate_predictions(predictions, payload_name, model_set="updated"):
     """Reject fully saturated output instead of silently writing bad shapes."""
     if predictions.size == 0:
         return
@@ -117,11 +117,17 @@ def validate_predictions(predictions, payload_name):
     all_one = np.all(predictions >= 1.0 - epsilon)
     if all_zero or all_one:
         edge = "zero" if all_zero else "one"
+        detail = (
+            " The updated model is known to contain an effectively zero "
+            "variance pt_vbfj1j2 feature."
+            if model_set == "updated"
+            else ""
+        )
         raise RuntimeError(
-            f"DNN payload {payload_name!r} produced predictions saturated at "
-            f"{edge} for every event. Check the ONNX preprocessing constants "
-            "and training feature distributions. In the current updated model, "
-            "pt_vbfj1j2 was exported with effectively zero variance."
+            f"DNN payload {payload_name!r} using model set {model_set!r} "
+            f"produced predictions saturated at {edge} for every event. "
+            "Check the selected model generation, input features, and "
+            f"preprocessing constants.{detail}"
         )
 
 
@@ -299,6 +305,9 @@ class DNNApplication:
             raise RuntimeError(f"Missing DNN input feature columns: {missing}")
 
         cols = ["DNNEntryKey", "FullEventId"] + self.input_features
+        validation_column = "HasVBF" if "HasVBF" in columns else None
+        if validation_column and validation_column not in cols:
+            cols.append(validation_column)
 
         available = set(str(c) for c in df.GetColumnNames())
         missing = [c for c in cols if c not in available]
@@ -354,7 +363,16 @@ class DNNApplication:
 
             predictions = predictions.astype(np.float32)
 
-        validate_predictions(predictions, self.payload_name)
+        validation_predictions = predictions
+        if validation_column:
+            validation_predictions = predictions[
+                np.asarray(arrays[validation_column], dtype=bool)
+            ]
+        validate_predictions(
+            validation_predictions,
+            self.payload_name,
+            self.model_set,
+        )
         _declare_prediction_registry()
         keys = ROOT.std.vector("ULong64_t")()
         values = ROOT.std.vector("float")()

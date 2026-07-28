@@ -135,6 +135,14 @@ class HmumuCliTest(unittest.TestCase):
             "/tmp/vdamante/hmumu_tests/Hists_Central",
         )
 
+    def test_overwrite_is_forwarded_before_separator(self):
+        command = hmumu.histogram_command(
+            self.request(overwrite=True), "2025", "Central"
+        )
+        separator = command.index("--")
+        self.assertIn("--erase-existing", command[:separator])
+        self.assertNotIn("--erase-existing", command[separator:])
+
     def test_merge_eras_matches_files_by_relative_path(self):
         with tempfile.TemporaryDirectory() as tmp:
             base = Path(tmp)

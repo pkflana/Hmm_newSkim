@@ -531,9 +531,7 @@ def make_stacked_plot(
 
                     sample_label = ratio_candidates[sample_key]["name"]
                     input_yield = mc_integrals_before_normalization[idx]
-                    mc_labels[idx] = (
-                        f"{sample_label} [{input_yield:.2f}] x {mc_scale:.4g}"
-                    )
+                    mc_labels[idx] = f"{sample_label} [{input_yield:.2f}]"
                     ratio_candidates[sample_key]["values"] = mc_vals[idx]
                     ratio_candidates[sample_key]["errors"] = mc_errs[idx]
 
@@ -604,10 +602,7 @@ def make_stacked_plot(
 
                         dy_label = ratio_candidates[dy_key]["name"]
                         input_yield = mc_integrals_before_normalization[dy_idx]
-                        mc_labels[dy_idx] = (
-                            f"{dy_label} [{input_yield:.2f}]"
-                            f" x {dy_scale:.4g}"
-                        )
+                        mc_labels[dy_idx] = f"{dy_label} [{input_yield:.2f}]"
                         ratio_candidates[dy_key]["values"] = mc_vals[dy_idx]
                         ratio_candidates[dy_key]["errors"] = mc_errs[dy_idx]
 

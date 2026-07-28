@@ -623,6 +623,25 @@ if __name__ == "__main__":
         "config",
         args.era,
     )
+    if not os.path.isdir(cfg_dir):
+        combined_config_fallbacks = {
+            "Run3_2022_25": "Run3_2025",
+        }
+        fallback_era = combined_config_fallbacks.get(args.era)
+        if fallback_era is None:
+            raise FileNotFoundError(
+                f"No plotting configuration found for era {args.era}: "
+                f"{cfg_dir}"
+            )
+        cfg_dir = os.path.join(
+            os.environ["ANALYSIS_PATH"],
+            "config",
+            fallback_era,
+        )
+        print(
+            f"[INFO] Using {fallback_era} process/selection definitions "
+            f"for combined era {args.era}"
+        )
 
     main_cfg = utilities.get_config(
         os.path.join(cfg_dir, "maincfg.yaml")
@@ -725,6 +744,7 @@ if __name__ == "__main__":
 
         print("\nRequested macro-samples:")
 
+
         for sample in sorted(requested_samples_raw):
 
             if (
@@ -826,7 +846,7 @@ if __name__ == "__main__":
                 region_path,
                 scale_factor=scale_factor,
                 recursive=True,
-            )
+            ) 
 
             for available_hist, hist_name in available_hists:
 

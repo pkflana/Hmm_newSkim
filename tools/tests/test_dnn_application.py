@@ -51,6 +51,9 @@ class DNNApplicationTest(unittest.TestCase):
     def test_non_saturated_predictions_are_accepted(self):
         validate_predictions(np.array([0.1, 0.5, 0.9]), "DNN")
 
+    def test_empty_vbf_prediction_selection_is_accepted(self):
+        validate_predictions(np.array([], dtype=np.float32), "DNN", "legacy")
+
 
 if __name__ == "__main__":
     unittest.main()

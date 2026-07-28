@@ -164,14 +164,39 @@ cols_to_save.extend(jet_veto_map_cols)
 df, selected_jet_cols = SelectJetVars(df,is_data,jet_cols_initial,sel_config,config.get("bTagAlgo", "PNet"),bTagWPDict,want_variations,systematics_cfg)
 cols_to_save.extend(selected_jet_cols)
 
-## category definitions ##
-from analysis.other import DefineCategories
-df, cat_cols = DefineCategories(df, sel_config, is_data, want_variations,systematics_cfg)
-cols_to_save.extend(cat_cols)
+# Final analysis categories, including their shifted versions, are intentionally
+# defined at histogram level by DefineHistogramSelections.  The skim stores only
+# the nominal/shifted object and selection columns needed to build them.
 
 ## additional col to store ##
 collections = ["SoftActivityJet"]
 if not is_data:
+    # Store the complete small-R GenJet collection and a stable per-event index.
+    # The flavour and hadron-count branches are useful for reco/gen matching and
+    # jet-composition studies; retain only branches available in the input NanoAOD.
+    input_columns = {str(column) for column in df.GetColumnNames()}
+    genjet_columns = [
+        "GenJet_pt",
+        "GenJet_eta",
+        "GenJet_phi",
+        "GenJet_mass",
+        "GenJet_partonFlavour",
+        "GenJet_hadronFlavour",
+        "GenJet_nBHadrons",
+        "GenJet_nCHadrons",
+    ]
+    cols_to_save.extend(
+        column for column in genjet_columns if column in input_columns
+    )
+    if "GenJet_pt" in input_columns:
+        df = df.Define("GenJet_idx", "CreateIndexes(GenJet_pt.size())")
+        cols_to_save.append("GenJet_idx")
+
+    # Keep the raw reco-to-gen association explicitly.  SelectJetVars also
+    # stores SelectedJet_genJetIdx for the nominal and every JER/JES selection.
+    if "Jet_genJetIdx" in input_columns:
+        cols_to_save.append("Jet_genJetIdx")
+
     if "LHE_Vpt" in df.GetColumnNames():
         collections.append("LHE")
     if "LHEScaleWeight" in df.GetColumnNames():

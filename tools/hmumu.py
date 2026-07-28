@@ -287,8 +287,9 @@ class HistRequest:
     dy_jet_components: bool
     vbf_eta_regions: bool
     max_files: int | None
-    dnn_model_set: str
     extra: list[str]
+    dnn_model_set: str = "updated"
+    overwrite: bool = False
 
 
 def output_dir_for(request: HistRequest, systematic: str) -> str:
@@ -371,6 +372,8 @@ def histogram_command(request: HistRequest, era: str, systematic: str) -> list[s
         command.append("--missing-only")
     if request.condor:
         command.append("--condor")
+    if request.overwrite:
+        command.append("--erase-existing")
     if request.dry_run:
         command.append("--dry-run")
 
@@ -445,6 +448,7 @@ def run_hist(args: argparse.Namespace) -> int:
         vbf_eta_regions=args.vbf_eta_regions,
         max_files=1 if args.one_file else args.max_files,
         dnn_model_set=args.dnn_model_set,
+        overwrite=args.overwrite,
         extra=args.extra[1:] if args.extra[:1] == ["--"] else args.extra,
     )
     if not request.eras:
@@ -657,6 +661,14 @@ def build_parser() -> argparse.ArgumentParser:
     execution.add_argument("--condor", action="store_true")
     execution.add_argument("--local", action="store_true")
     hist.add_argument("--missing-only", action=argparse.BooleanOptionalAction, default=True)
+    hist.add_argument(
+        "--overwrite",
+        action="store_true",
+        help=(
+            "remove selected existing final ROOT outputs before local execution "
+            "or Condor submission"
+        ),
+    )
     hist.add_argument("--dry-run", action="store_true",
                       help="also pass dry-run to the campaign engine")
     hist.add_argument(
