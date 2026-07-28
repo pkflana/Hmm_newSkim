@@ -95,7 +95,10 @@ def ProcessAllJetVariables(df,is_data,jet_columns,config,bTagAlgo,bTagDict,want_
 
     jet_extra = {}
     for col in jet_columns:
-        if any(x in col.lower() for x in ["pt", "eta", "phi", "mass", "idx"]):
+        if (
+            any(x in col.lower() for x in ["pt", "eta", "phi", "mass", "idx"])
+            and col != "Jet_genJetIdx"
+        ):
             continue
         jet_extra[col.split("Jet_")[-1]] = col
 
@@ -165,7 +168,10 @@ def SelectJetVars(df,is_data,jet_columns,config,bTagAlgo,bTagDict,want_variation
 
     jet_extra = {}
     for col in jet_columns:
-        if any(x in col.lower() for x in ["pt", "eta", "phi", "mass", "idx"]):
+        if (
+            any(x in col.lower() for x in ["pt", "eta", "phi", "mass", "idx"])
+            and col != "Jet_genJetIdx"
+        ):
             continue
         jet_extra[col.split("Jet_")[-1]] = col
 

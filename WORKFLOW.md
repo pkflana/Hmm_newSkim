@@ -13,7 +13,7 @@ ROOT/JSON lists.
 bash analysis/scripts/validate.sh \
   --era Run3_2024 \
   --datasets data,EWK,DY_amcatnlo,DY_amcatnlo_105_160,signals \
-  --input-folder skim_v2_noUnc \
+  --input-folder skim_v2 \
   --output-dir /eos/user/v/vdamante/H_mumu/manifests \
   --chunk-size 8
 ```
@@ -37,8 +37,8 @@ bash histograms/scripts/hists.sh \
   --era Run3_2024 \
   --datasets data,EWK,DY_amcatnlo,DY_amcatnlo_105_160,signals \
   --input-folder /eos/user/v/vdamante/H_mumu/manifests \
-  --root-input-folder skim_v2_noUnc \
-  --json-input-folder skim_v2_noUnc \
+  --root-input-folder skim_v2 \
+  --json-input-folder skim_v2 \
   --output-dir /eos/user/v/vdamante/H_mumu/hists \
   --chunk-size 20 \
   -- \

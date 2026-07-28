@@ -2,6 +2,7 @@
 
 import os
 import argparse
+import json
 import yaml
 from collections import OrderedDict
 
@@ -137,32 +138,33 @@ summary = OrderedDict()
 
 for dataset in all_datasets:
 
-    if dataset not in samples_cfg or "filelist" not in samples_cfg[dataset]:
-        print(f"[WARNING] Missing filelist for dataset: {dataset}")
+    chunk_manifest_path = os.path.join(
+        get_dataset_log_dir(dataset), "skim_chunks.json"
+    )
+    if not os.path.exists(chunk_manifest_path):
+        print(
+            f"[WARNING] Missing chunk manifest for dataset {dataset}: "
+            f"{chunk_manifest_path}. Run condorsubmit.py --no-submit first."
+        )
         continue
 
-    filelist = samples_cfg[dataset]["filelist"]
-
-    max_files = args.max_files
-    if max_files is None:
-        max_files = max_files_cfg
-
-    if max_files is not None and max_files > 0:
-        filelist = filelist[:max_files]
+    with open(chunk_manifest_path) as manifest_handle:
+        chunk_manifest = json.load(manifest_handle)
+    chunks = chunk_manifest.get("chunks", [])
 
     missing_files = []
     completed = 0
 
-    for infile in filelist:
-        outfile_root, outfile_json = get_output_paths(infile, dataset)
-
+    for chunk in chunks:
+        outfile_root = chunk["root_file"]
+        outfile_json = chunk["report_file"]
         if valid_file(outfile_root) and valid_file(outfile_json):
             completed += 1
         else:
-            missing_files.append(infile)
+            missing_files.extend(chunk.get("input_files", []))
 
-    total = len(filelist)
-    missing = len(missing_files)
+    total = len(chunks)
+    missing = total - completed
 
     report = None
     if args.write_missing:
@@ -212,7 +214,7 @@ for dataset, s in summary.items():
         print(f"{'':45s} report  = {s['report']}")
 
 print("\n========== GLOBAL ==========")
-print(f"total files     : {global_total}")
-print(f"completed files : {global_completed}")
-print(f"missing files   : {global_missing}")
+print(f"total chunks     : {global_total}")
+print(f"completed chunks : {global_completed}")
+print(f"missing chunks   : {global_missing}")
 print("=========================================\n")

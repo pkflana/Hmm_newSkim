@@ -531,9 +531,7 @@ def make_stacked_plot(
 
                     sample_label = ratio_candidates[sample_key]["name"]
                     input_yield = mc_integrals_before_normalization[idx]
-                    mc_labels[idx] = (
-                        f"{sample_label} [{input_yield:.2f}] x {mc_scale:.4g}"
-                    )
+                    mc_labels[idx] = f"{sample_label} [{input_yield:.2f}]"
                     ratio_candidates[sample_key]["values"] = mc_vals[idx]
                     ratio_candidates[sample_key]["errors"] = mc_errs[idx]
 
@@ -604,10 +602,7 @@ def make_stacked_plot(
 
                         dy_label = ratio_candidates[dy_key]["name"]
                         input_yield = mc_integrals_before_normalization[dy_idx]
-                        mc_labels[dy_idx] = (
-                            f"{dy_label} [{input_yield:.2f}]"
-                            f" x {dy_scale:.4g}"
-                        )
+                        mc_labels[dy_idx] = f"{dy_label} [{input_yield:.2f}]"
                         ratio_candidates[dy_key]["values"] = mc_vals[dy_idx]
                         ratio_candidates[dy_key]["errors"] = mc_errs[dy_idx]
 
@@ -1074,13 +1069,13 @@ def make_stacked_plot(
         "mass_inclusive_baseline": "baseline incl",
         "mass_inclusive_ggF": "ggF incl",
         "mass_inclusive_VBF": "VBF incl",
-        "Z_Sideband_baseline": "baseline Z",
-        "Z_Sideband_ggF": "ggF Z",
-        "Z_Sideband_VBF": "VBF Z",
-
         "Z_sideband_baseline": "baseline Z",
         "Z_sideband_ggF": "ggF Z",
         "Z_sideband_VBF": "VBF Z",
+
+        "H_sideband_baseline": "baseline H SB",
+        "H_sideband_ggF": "ggF H SB",
+        "H_sideband_VBF": "VBF H SB",
 
         "Signal_Fit_ggF": "ggF H",
         "Signal_Fit_VBF": "VBF H",
@@ -1092,9 +1087,9 @@ def make_stacked_plot(
         "mass_inclusive_baseline_lowPtTT": "baseline incl",
         "mass_inclusive_ggF_lowPtTT": "ggF incl",
         "mass_inclusive_VBF_lowPtTT": "VBF incl",
-        "Z_Sideband_baseline_lowPtTT": "baseline Z",
-        "Z_Sideband_ggF_lowPtTT": "ggF Z",
-        "Z_Sideband_VBF_lowPtTT": "VBF Z",
+        "Z_sideband_baseline_lowPtTT": "baseline Z",
+        "Z_sideband_ggF_lowPtTT": "ggF Z",
+        "Z_sideband_VBF_lowPtTT": "VBF Z",
 
         "Z_sideband_baseline_lowPtTT": "baseline Z",
         "Z_sideband_ggF_lowPtTT": "ggF Z",

@@ -25,6 +25,12 @@ DYto2Mu_MLL105To160:
   datasets:
     - DYto2Mu_MLL_105to160_amcatnloFXFX
 
+DYto2Mu_MLL105To160_combined:
+  name: "DY MLL 105-160"
+  color: dodgerblue
+  datasets:
+    - DYto2Mu_MLL_105to160_amcatnloFXFX
+
 DYto2Mu_MLL105To160_FlashSim:
   name: "DY"
   color: dodgerblue
@@ -77,7 +83,7 @@ W_NJets:
   datasets:
     - WtoLNu_0J_amcatnloFXFX
     - WtoLNu_1J_amcatnloFXFX
-    - WtoLNu_2J_amcatnloFXFX 
+    - WtoLNu_2J_amcatnloFXFX
 
 ############## EWK ##############
 EWK_LLJJ:

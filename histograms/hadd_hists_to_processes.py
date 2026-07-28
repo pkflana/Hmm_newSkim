@@ -3,8 +3,18 @@ import copy
 import os
 import re
 import shutil
+import sys
 
 import yaml
+
+ANALYSIS_PATH = os.environ.get(
+    "ANALYSIS_PATH",
+    os.path.abspath(os.path.join(os.path.dirname(__file__), "..")),
+)
+sys.path.append(ANALYSIS_PATH)
+
+from common.dataset_selection import resolve_dataset_selection
+from common.jet_component_splitting import DY_COMPONENT_FILE_LABELS
 
 
 def load_yaml_config(yaml_path):
@@ -21,7 +31,7 @@ def hist_sum_value(histogram):
     return float(getattr(total, "value", total))
 
 
-def dataset_file_candidates(input_dir, process, dataset):
+def dataset_file_candidates(input_dir, process, dataset, component_label=None):
     suffix_by_process = {
         "DYto2Mu_MLL105To160": ["_stitched", "_nonStitched", ""],
         "DYto2Mu_MLL105To160_nonStitched": ["_nonStitched", ""],
@@ -30,7 +40,11 @@ def dataset_file_candidates(input_dir, process, dataset):
         "DYto2Mu_MLL105To160_FlashSim": ["_nonStitched", ""],
     }
     suffixes = suffix_by_process.get(process, [""])
-    return [os.path.join(input_dir, f"{dataset}{suffix}.root") for suffix in suffixes]
+    component_suffix = f"_{component_label}" if component_label else ""
+    return [
+        os.path.join(input_dir, f"{dataset}{suffix}{component_suffix}.root")
+        for suffix in suffixes
+    ]
 
 
 def add_derived_systematics(era, output_dir):
@@ -121,50 +135,32 @@ def add_derived_systematics(era, output_dir):
         )
 
 
-def hadd_datasets_to_processes(era,input_dir, output_dir,dryRun=False):
+def hadd_datasets_to_processes(era,input_dir, output_dir,add_derived_systs=True,dryRun=False):
     if not dryRun:
         import uproot
-    yaml_file = f"config/{era}/process_names.yaml"  # Il tuo file YAML
-    config = load_yaml_config(yaml_file)
-    config_processnames = load_yaml_config(os.path.join("config", era, "skim_cfg.yaml"))["process_to_select"]
-    # print(config_processnames)
-    if not config:
-        return
+    selection = resolve_dataset_selection(ANALYSIS_PATH, era)
 
     if not dryRun and not os.path.exists(output_dir):
         os.makedirs(output_dir)
 
     # 1. Costruiamo la mappatura Processo -> Lista di Dataset associati
-    process_mapping = {}
-
-    for yaml_key, info in config.items():
-        if yaml_key not in config_processnames: continue
-        if info is None:
-            continue
-
-        # Estrai i dataset e sub_processes
-        datasets = info.get("datasets", []) + info.get("sub_processes", [])
-        if not datasets or not isinstance(datasets, list):
-            continue
-
-        process_name = yaml_key
-
-        if process_name not in process_mapping:
-            process_mapping[process_name] = []
-
-        process_mapping[process_name].extend(datasets)
+    process_mapping = selection["process_datasets"]
     # print(process_mapping)
     # 2. Controllo file ed Esecuzione/Stampa
     if dryRun:
         print("\n=== [DRY-RUN] PIANO DI ACCOPPIAMENTO (Solo file esistenti) ===")
 
+    output_variants = (None, *DY_COMPONENT_FILE_LABELS.values())
     for process, datasets in process_mapping.items():
+      for component_label in output_variants:
         datasets = list(dict.fromkeys(datasets))  # Rimuove duplicati
 
         # Filtra i dataset tenendo solo quelli CHE ESISTONO SUL DISCO
         valid_dataset_files = []
         for dataset in datasets:
-            for dataset_file_path in dataset_file_candidates(input_dir, process, dataset):
+            for dataset_file_path in dataset_file_candidates(
+                input_dir, process, dataset, component_label
+            ):
                 if os.path.exists(dataset_file_path):
                     valid_dataset_files.append(dataset_file_path)
                     break
@@ -173,11 +169,13 @@ def hadd_datasets_to_processes(era,input_dir, output_dir,dryRun=False):
         if not valid_dataset_files:
             continue
 
-        output_file_path = os.path.join(output_dir, f"{process}.root")
+        output_suffix = f"_{component_label}" if component_label else ""
+        output_name = f"{process}{output_suffix}.root"
+        output_file_path = os.path.join(output_dir, output_name)
 
         # --- SE DRY-RUN: Stampa solo quello che farebbe ---
         if dryRun:
-            print(f"\n📦 File di output previsto: {process}.root")
+            print(f"\n📦 File di output previsto: {output_name}")
             print(
                 f"   ↳ Unione (hadd) di {len(valid_dataset_files)}/{len(datasets)} file trovati:"
             )
@@ -187,7 +185,7 @@ def hadd_datasets_to_processes(era,input_dir, output_dir,dryRun=False):
 
         # --- SE ESECUZIONE REALE ---
         print(
-            f"📦 Creazione di {process}.root da {len(valid_dataset_files)} file..."
+            f"📦 Creazione di {output_name} da {len(valid_dataset_files)} file..."
         )
 
         if len(valid_dataset_files) == 1:
@@ -200,7 +198,7 @@ def hadd_datasets_to_processes(era,input_dir, output_dir,dryRun=False):
             seen_keys = set()
             for file_path in valid_dataset_files:
                 with uproot.open(file_path) as current_file:
-                    for key in current_file.keys():
+                    for key in current_file.keys(recursive=True):
                         clean_key = key.split(";")[0]
                         if clean_key in seen_keys:
                             continue
@@ -246,7 +244,8 @@ def hadd_datasets_to_processes(era,input_dir, output_dir,dryRun=False):
     if dryRun:
         print("\n===============================================================\n")
     else:
-        add_derived_systematics(era, output_dir)
+        if add_derived_systs:
+            add_derived_systematics(era, output_dir)
         print("\n--- HADDing Completato! ---")
 
 
@@ -257,6 +256,7 @@ if __name__ == "__main__":
     parser.add_argument( "--input-dir", required=True, type=str, help="ROOT file or dataset directory")
     parser.add_argument( "--output-dir", required=True, type=str, help="ROOT file or dataset directory")
     parser.add_argument( "--dryRun", action="store_true", help="dryRun only")
+    parser.add_argument( "--add-derived-systs", action="store_true", help="add EWKZ unc")
     args = parser.parse_args()
 
-    hadd_datasets_to_processes(args.era,args.input_dir, args.output_dir,args.dryRun)
+    hadd_datasets_to_processes(args.era,args.input_dir, args.output_dir,args.add_derived_systs,args.dryRun)

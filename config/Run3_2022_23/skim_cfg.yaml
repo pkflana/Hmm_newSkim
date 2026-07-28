@@ -3,9 +3,11 @@ submit: true
 job_flavour: microcentury
 
 chunk_size: 1        # files per job
+target_chunk_size_gb: 5.0
+max_files_per_chunk: 5
 max_files: -1        # -1 = all files
 
-output_dir: /eos/cms/store/group/phys_higgs/cmshmm/vdamante/skim_v2_noUnc/
+output_dir: /eos/cms/store/group/phys_higgs/cmshmm/vdamante/skim_v2//
 
 # ---------------------------------------------------------
 # condor configuration
@@ -32,7 +34,7 @@ process_to_select:
   - Data_Muon
   - DY
   - DYto2Mu_MLL105To160
-  - DYto2Mu_MLL105To160_VBFFiltered
+  - DYto2Mu_MLL105To160_combined
   - DYto2Mu_MLL105To160_FlashSim
   - DYto2Mu_minnlo
   - TT
@@ -67,7 +69,6 @@ process_to_select:
 
   # - DY
   # - DYto2Mu_MLL105To160
-  # - DYto2Mu_MLL105To160_VBFFiltered
   # - DYto2Mu_MLL105To160_FlashSim
   # - DYto2Mu_FlashSim
   # - DYto2L_FlashSim

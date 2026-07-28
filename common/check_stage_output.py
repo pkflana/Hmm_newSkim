@@ -21,8 +21,12 @@ def validation_complete(path):
         return False
     return (
         manifest.get("stage") == "validation"
+        and manifest.get("status") == "passed"
         and isinstance(manifest.get("valid_root_files"), list)
-        and bool(manifest["valid_root_files"])
+        and (
+            bool(manifest["valid_root_files"])
+            or bool(manifest.get("ignored_empty_root_files", []))
+        )
     )
 
 

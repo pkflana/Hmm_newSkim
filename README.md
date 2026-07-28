@@ -1,6 +1,280 @@
-# Running Guide: Skim, Histograms, Hadd, Plots
+# H→μμ analysis framework
 
-This is the practical end-to-end running guide for the framework: local tests, skim campaigns, histogram campaigns, hadd, and plotting.
+Use the unified `hmumu` interface for day-to-day work. For example:
+
+```bash
+# One histogram: first show the plan, then add --run
+./hmumu hist -e 2025 -d DYto2Mu_MLL_105to160_amcatnloFXFX \
+  -v m_mumu -r Signal_Fit -c VBF
+
+# Where is a variable computed?
+./hmumu where m_mumu
+
+# Which columns are defined in the framework?
+./hmumu vars weight
+```
+
+The quick guide is in
+[docs/SIMPLE_WORKFLOW.md](docs/SIMPLE_WORKFLOW.md); the component map and
+technical-debt overview are in
+[docs/FRAMEWORK_ARCHITECTURE.md](docs/FRAMEWORK_ARCHITECTURE.md).
+The complete reusable production, hadd, merge, and plotting workflow is in
+[docs/RUN3_CAMPAIGN_WORKFLOW.md](docs/RUN3_CAMPAIGN_WORKFLOW.md).
+A shorter student-oriented workflow for producing only `DNN_NNOutput` is in
+[docs/DNN_OUTPUT_QUICKSTART.md](docs/DNN_OUTPUT_QUICKSTART.md).
+
+## What has become simpler
+
+Previously, histogram production required knowing all of the following:
+
+- which wrapper to use, `hists.sh` or `systematics.sh`;
+- which options belonged to the campaign and which to `hist_maker.py`;
+- where to place the `--` separator;
+- the input, manifest, and reweighting JSON paths;
+- dataset-group names and the differences between Central and shifted systematics;
+- the Bash loops needed to combine eras and systematics.
+
+These decisions are now handled by the single public `hmumu` command:
+
+| Operation | Command |
+|---|---|
+| One histogram | `./hmumu hist -e 2025 -d DATASET -v m_mumu -r Signal_Fit -c VBF` |
+| Execute the plan | add `--run` |
+| Use Condor | add `--condor` |
+| Multiple eras | `-e 2022,2022EE,2023,2023BPix,2024,2025` |
+| Multiple systematics | `-s Central,JERC,ScaRe,Muon,PU,QCDScale,PDF` |
+| Hadd 2022+2023 | `./hmumu merge-eras /path/Hists_Central` |
+| Datasets → processes | `./hmumu hadd-processes /path/Hists_Central -e 2023BPix` |
+| Central + shifted | `./hmumu merge-systematics /path/Hists_Central` |
+| Find a variable | `./hmumu where NAME` |
+| List columns | `./hmumu vars [FILTER]` |
+| Check the setup | `./hmumu doctor` |
+| DY hard/PU components | `./hmumu hist ... --dy-jet-components` |
+| Test on one file | `./hmumu hist ... --one-file --run` |
+
+Without `--run`, `hmumu hist` only prints the plan. This lets you inspect the
+datasets, outputs, and options before starting a production.
+
+To inspect an existing production, use the same arguments with `--check`. The
+command lists complete and missing outputs, jobs that are already queued, and
+`*_tmp` directories without submitting anything:
+
+```bash
+./hmumu hist -e 2023 -s Central,JERC -v DNN_NNOutput \
+  -r Signal_Fit,Z_sideband,H_sideband -c VBF \
+  --output-base /eos/user/v/vdamante/H_mumu/campaigns/DNN \
+  --condor --check
+```
+
+When `--check` is replaced with `--run`, `--missing-only` resubmits only
+missing outputs; valid outputs and jobs already in the queue are skipped.
+
+For a quick test on the first valid file:
+
+```bash
+./hmumu hist -e 2025 -d DATASET -v m_mumu -r Z_sideband -c ggF \
+  --one-file --run
+```
+
+Tests limited with `--one-file` or `--max-files N` are written to
+`/tmp/vdamante/hmumu_tests` by default, not to official production directories.
+
+Failed chunks are handled automatically: serial MC jobs (`--n-cores 1`) exclude
+the failed chunk, recompute denominators from the remaining JSON reports, and
+reprocess the surviving chunks. Data and parallel MC jobs remain fail-fast.
+`--no-skip-failed-chunks` also forces fail-fast behavior for MC.
+
+Merge commands also show the plan first and require `--run` to execute:
+
+```bash
+# Create Hists_Central/Run3_2022_23 from the four 2022/2023 periods.
+./hmumu merge-eras /eos/user/v/vdamante/H_mumu/Hists_Central
+./hmumu merge-eras /eos/user/v/vdamante/H_mumu/Hists_Central --run
+
+# Read the sibling directories Hists_Central, Hists_JERC, Hists_Muon,
+# Hists_PDF, Hists_PU, Hists_QCDScale, and Hists_ScaRe.
+# The default output is Hists_merged.
+./hmumu merge-systematics /eos/user/v/vdamante/H_mumu/Hists_Central
+./hmumu merge-systematics /eos/user/v/vdamante/H_mumu/Hists_Central --run
+
+# Limit the merge to one era:
+./hmumu merge-systematics /eos/user/v/vdamante/H_mumu/Hists_Central \
+  -e 2022 --run
+```
+
+Both commands automatically discover all `.root` files, preserve any
+subdirectories, and include a file even when it is not present in every input
+(the typical case is data that exist only in `Central`). Temporary `*_tmp`
+directories and their chunks are ignored.
+
+A ready-to-customize file covering Central, shifted systematics, and merging is
+available at [`examples/run_histograms.sh`](examples/run_histograms.sh). For
+example:
+
+```bash
+bash examples/run_histograms.sh plan-all
+bash examples/run_histograms.sh run-all
+```
+
+The complete driver for DNN, jet-component, and plain campaigns across all eras
+through the final merges is
+[`campaigns/run3_histogram_workflows.sh`](campaigns/run3_histogram_workflows.sh).
+Running it without arguments prints the interface and an end-to-end example.
+
+### Example: one histogram
+
+```bash
+./hmumu hist \
+  -e 2025 \
+  -d DYto2Mu_MLL_105to160_amcatnloFXFX \
+  -v m_mumu \
+  -r Signal_Fit \
+  -c VBF
+```
+
+After checking the printed command:
+
+```bash
+./hmumu hist \
+  -e 2025 \
+  -d DYto2Mu_MLL_105to160_amcatnloFXFX \
+  -v m_mumu \
+  -r Signal_Fit \
+  -c VBF \
+  --run
+```
+
+Advanced options remain available without complicating the common case:
+
+```bash
+./hmumu hist -e 2025 -d DATASET -v m_mumu \
+  --run -- --no-skip-failed-chunks
+```
+
+`DNN_NNOutput` uses `common/updated_DNN_configs` and
+`common/updated_DNN_models` for every Run 3 era. This also applies when the DNN
+is reevaluated with the shifted sideband mass.
+
+### Histogram workflow diagram
+
+```mermaid
+flowchart TD
+    U["User: ./hmumu hist"] --> P["HistRequest<br/>era, dataset, variables,<br/>regions, and systematics"]
+    P --> V{"Plan only<br/>or --run?"}
+    V -->|plan only| S["Print commands<br/>without executing"]
+    V -->|--run| C["Campaign resolution"]
+    C --> A["Aliases and datasets by era<br/>e.g. VBFFiltered → Fil_VBF"]
+    A --> M["Validated manifests and inputs"]
+    M --> E{"Local or Condor?"}
+    E -->|local| H["hist_maker.py"]
+    E -->|Condor| J["job Condor"] --> H
+    H --> R["Temporary ROOT chunks"]
+    R --> O["Merge into final ROOT file"]
+```
+
+The internal layers remain for compatibility, but users no longer need to
+compose them manually. `hmumu` selects the correct wrapper, places options on
+the appropriate sides of `--`, applies defaults, and resolves dataset aliases.
+
+## Tracing how a variable is computed
+
+A simple text search was not sufficient because many columns are defined across
+multiple lines or built with f-strings. The `common/variable_catalog.py`
+catalog analyzes Python `Define` and `Redefine` calls and links each column name
+to the function that produces it.
+
+```bash
+./hmumu where m_mumu
+```
+
+The output is organized into:
+
+1. `DEFINITIONS`: file, line, and producer function;
+2. `expression`: expression passed to `RDataFrame.Define`;
+3. `known inputs`: other columns recognized in the expression;
+4. `CONFIGURATION`: uses in YAML/TOML files;
+5. `REFERENCE`: other uses in the code.
+
+To explore the available columns:
+
+```bash
+./hmumu vars
+./hmumu vars weight
+./hmumu vars mu --dynamic
+```
+
+`--dynamic` also includes generated-name templates such as `mu{...}_pt`.
+
+## DY hard/PU components
+
+For the dedicated jet-response fit:
+
+```bash
+./hmumu hist \
+  -e 2025 \
+  --datasets DY_amcatnlo,DY_amcatnlo_105_160 \
+  -r Z_sideband \
+  --dy-jet-components
+```
+
+This mode divides events into `0J`, `1J Hard/PU`, `2J Hard/PU1/PU2`, and
+`VBF Hard/PU1/PU2`. It produces `m_mumu` in 0J, `eta(j1):pT(j1)` in 1J, and
+`eta(j2):pT(j2)` in ≥2J. VBF matching uses the two actual VBF indices.
+Each component is written to a separate `*_DY_*.root` file, while the original
+dataset filename remains the inclusive DY output. VBF directories contain the
+subdirectories `incl`, `CC`, `CF`, and `FF`, where a central jet has
+`|eta| < 2.5` and a forward jet has `|eta| >= 2.5`.
+
+A jet with `genJetIdx >= 0` is hard; a jet without an associated gen jet is PU.
+This mode requires regenerated DY skims containing `Jet_genJetIdx`: the
+currently verified 2025 `skim_v2` files do not yet contain this branch.
+Details and complete component names are in the
+[quick guide](docs/SIMPLE_WORKFLOW.md#componenti-dy-hardpu-per-il-fit-dei-jet).
+
+### Variable-path diagram
+
+```mermaid
+flowchart LR
+    N["NanoAOD"] --> SK["analysis/skim.py"]
+    SK --> CO["corrections/*"]
+    SK --> OB["analysis/muons.py<br/>analysis/jets.py<br/>analysis/other.py"]
+    CO --> SR["Skim ROOT"]
+    OB --> SR
+    SR --> AV["add_vars_to_skim_tuples.py"]
+    AV --> HP["histogram_pipeline.py"]
+    HP --> HM["hist_maker.py"]
+    HM --> HR["ROOT histogram"]
+
+    W["./hmumu where VAR"] -. indexes .-> CO
+    W -. indexes .-> OB
+    W -. indexes .-> AV
+    W -. searches configuration .-> CFG["config/Run3_*/<br/>maincfg, selections,<br/>systematics"]
+```
+
+## What has not been hidden
+
+`dataset_campaign.sh` and `hist_maker.py` are still large backends because they
+contain logic already used in production. They have been placed behind
+`hmumu`, not rewritten in a single pass: splitting them further requires
+numerical comparisons of ROOT outputs to ensure that the physics does not
+change.
+
+For new code, the rule is:
+
+- user interaction belongs in `hmumu`;
+- declarative configuration belongs in `config/`;
+- dataframe transformations belong in small, named functions;
+- local/Condor orchestration is shared;
+- do not add new Bash wrappers for ordinary use cases.
+
+The following sections document the low-level backends. They are useful for
+debugging and development, but they are not the recommended interface for new
+productions.
+
+## Running Guide: Skim, Histograms, Hadd, Plots
+
+This is the low-level end-to-end running guide for the framework: local tests,
+skim campaigns, histogram campaigns, hadd, and plotting.
 
 ## Setup
 
@@ -54,7 +328,7 @@ Produces one histogram ROOT file from a skim directory or a skim ROOT file.
 python3 histograms/hist_maker.py \
   --era Run3_2024 \
   --dataset-name DYto2Mu_M_50_amcatnloFXFX \
-  --input /eos/cms/store/group/phys_higgs/cmshmm/vdamante/skim_v2_noUnc/Run3_2024/DYto2Mu_M_50_amcatnloFXFX/ \
+  --input /eos/cms/store/group/phys_higgs/cmshmm/vdamante/skim_v2/Run3_2024/DYto2Mu_M_50_amcatnloFXFX/ \
   --output-file /tmp/vdamante/DYto2Mu_M_50_amcatnloFXFX.root \
   --variables DNN_NNOutput \
   --mass-regions Z_sideband \
@@ -157,7 +431,7 @@ python3 htcondor/condorsubmit.py \
 Main skim outputs:
 
 ```text
-/eos/cms/store/group/phys_higgs/cmshmm/vdamante/skim_v2_noUnc/<ERA>/<DATASET>/
+/eos/cms/store/group/phys_higgs/cmshmm/vdamante/skim_v2/<ERA>/<DATASET>/
 ```
 
 ## Histogram Campaigns
@@ -179,8 +453,8 @@ python3 htcondor/histogram_condorsubmit.py \
   --era Run3_2024 \
   --datasets DY_amcatnlo \
   --input-folder /path/to/manifests \
-  --root-input-folder skim_v2_noUnc \
-  --json-input-folder skim_v2_noUnc \
+  --root-input-folder skim_v2 \
+  --json-input-folder skim_v2 \
   --output-dir /path/to/hists \
   --missing-only \
   --max-parallel-jobs 5000 \
@@ -328,7 +602,7 @@ dataset_name=GluGluHto2Mu
 python3 histograms/hist_maker.py \
   --era Run3_2022 \
   --dataset-name ${dataset_name} \
-  --input /eos/cms/store/group/phys_higgs/cmshmm/vdamante/skim_v2_noUnc/Run3_2022/${dataset_name}/ \
+  --input /eos/cms/store/group/phys_higgs/cmshmm/vdamante/skim_v2/Run3_2022/${dataset_name}/ \
   --output-file prova_DNN_NNOutput_${dataset_name}.root \
   --variables DNN_NNOutput \
   --skip-file-validation
