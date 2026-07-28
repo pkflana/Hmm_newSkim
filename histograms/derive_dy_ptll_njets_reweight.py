@@ -28,7 +28,7 @@ from common.helpers import RebinHisto, findBinEntry, findNewBins, getNewBins
 DEFAULT_CATEGORIES = ["ggF_0J", "ggF_1J", "ggF_ge2J", "VBF_ge2J"]
 NON_DY_SUBTRACT_SAMPLES = [
     "EWK",
-    "H_mainBckg",
+    "SingleH",
     "ST",
     "TT",
     "TTX",

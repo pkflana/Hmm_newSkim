@@ -49,6 +49,9 @@ def GetPtConfigurations(only_default, want_variations):
         "Muon_pt_corr_FSR": ["Muon_pt_nano_corr_FSR", "Muon_pt_bsc_corr_FSR"],
         "Muon_pt_FSR_scale": ["Muon_pt_nano_scale_FSR", "Muon_pt_bsc_scale_FSR"],
         "Muon_pt_scale": ["Muon_pt_nano_scale", "Muon_pt_bsc_scale"],
+        # Explicit aliases for the central scale+resolution corrected pT.
+        "Muon_pt_res": ["Muon_pt_nano_corr", "Muon_pt_bsc_corr"],
+        "Muon_pt_FSR_res": ["Muon_pt_nano_corr_FSR", "Muon_pt_bsc_corr_FSR"],
     }
     if not only_default:
         configs.update({
@@ -56,6 +59,10 @@ def GetPtConfigurations(only_default, want_variations):
         })
     if want_variations:
         configs.update({
+            "Muon_pt_scale_up": ["Muon_pt_nano_scale_up", "Muon_pt_bsc_scale_up"],
+            "Muon_pt_scale_down": ["Muon_pt_nano_scale_down", "Muon_pt_bsc_scale_down"],
+            "Muon_pt_res_up": ["Muon_pt_nano_res_up", "Muon_pt_bsc_res_up"],
+            "Muon_pt_res_down": ["Muon_pt_nano_res_down", "Muon_pt_bsc_res_down"],
             "Muon_pt_FSR_scale_up": ["Muon_pt_nano_FSR_scale_up", "Muon_pt_bsc_FSR_scale_up"],
             "Muon_pt_FSR_scale_down": ["Muon_pt_nano_FSR_scale_down", "Muon_pt_bsc_FSR_scale_down"],
             "Muon_pt_FSR_res_up": ["Muon_pt_nano_FSR_res_up", "Muon_pt_bsc_FSR_res_up"],
@@ -145,7 +152,28 @@ def ProcessMuonVariables(df,muon_columns,default_suffix,trigger_config,only_defa
     df = df.Filter(" && ".join(event_filters), "Exactly 2 muons")
     df = df.Filter(" && ".join(mass_filters), "dimuon mass cut")
 
-    onlyCentral_branches = ["Muon_pt_noCorr"]
+    # These observables are evaluated for the nominally selected muons. The
+    # FSR scale/res branches used to build shifted categories are already
+    # stored above with their own shifted muon indices.
+    onlyCentral_branches = [
+        "Muon_pt_noCorr",
+        "Muon_pt_corr",
+        "Muon_pt_scale",
+        "Muon_pt_res",
+        "Muon_pt_FSR_scale",
+        "Muon_pt_FSR_res",
+    ]
+    if want_variations:
+        onlyCentral_branches.extend([
+            "Muon_pt_scale_up",
+            "Muon_pt_scale_down",
+            "Muon_pt_res_up",
+            "Muon_pt_res_down",
+            "Muon_pt_FSR_scale_up",
+            "Muon_pt_FSR_scale_down",
+            "Muon_pt_FSR_res_up",
+            "Muon_pt_FSR_res_down",
+        ])
     idx1 = "mu1_idx"
     idx2 = "mu2_idx"
     for centr_br in onlyCentral_branches:
@@ -205,4 +233,3 @@ def DefineMuonSelection(df,sel_config,only_default,want_variations,syst_cfg):
             if sel_subdict.get("store", False):
                 vars_to_store.append(full_name)
     return df, vars_to_store
-

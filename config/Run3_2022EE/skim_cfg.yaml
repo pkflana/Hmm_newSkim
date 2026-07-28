@@ -40,7 +40,7 @@ process_to_select:
   - EWK
   - EWK_2Mu2J_MLL_105to160_herwig
   - EWK_2Mu2J_MLL_105to160_pythia
-  - H_mainBckg
+  - SingleH
   - VV
   - VH_inclusive
   - VVV

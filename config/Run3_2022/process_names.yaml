@@ -83,7 +83,7 @@ W_NJets:
   datasets:
     - WtoLNu_0J_amcatnloFXFX
     - WtoLNu_1J_amcatnloFXFX
-    - WtoLNu_2J_amcatnloFXFX 
+    - WtoLNu_2J_amcatnloFXFX
 
 ############## EWK ##############
 EWK_LLJJ:
@@ -118,7 +118,7 @@ EWK_2Mu2J_MLL_105to160_pythia_Flashsim:
   color: lavender
   datasets: [ ]
 ############## Other single H  ##############
-H_mainBckg:
+SingleH:
   name: "Single H"
   color: aqua
   datasets:

@@ -27,7 +27,7 @@ DEFAULT_CATEGORIES = ["ggF", "VBF"]
 CORRECTIONLIB_NJETS_MAX_EDGE = 999.5
 NON_DY_SUBTRACT_SAMPLES = [
     "EWK",
-    "H_mainBckg",
+    "SingleH",
     "ST",
     "TT",
     "TTX",

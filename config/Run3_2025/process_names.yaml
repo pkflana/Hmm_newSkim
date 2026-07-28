@@ -159,7 +159,7 @@ EWK_2Mu2J_MLL_105to160_pythia_Flashsim:
   datasets:
     - EWK_2Mu2J_MLL_105to160_pythia_Flashsim
 ############## Other single H  ##############
-H_mainBckg:
+SingleH:
   name: "Single H"
   color_mplhep: peachpuff
   datasets:

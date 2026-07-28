@@ -152,6 +152,22 @@ if "MET_flags" in config:
 from analysis.muons import DefineMuonPtAndP4,ProcessMuonVariables,ApplyMuonTriggerMatching,ProcessExtraMuonVariables,ApplyElectronVeto,DefineMuonSelection
 # definitions of p4
 df = DefineMuonPtAndP4(df,only_default,want_variations)
+# Persist the selected track-fit uncertainty and its inputs. Muon_pt_err uses
+# the BSC uncertainty when Muon_bsConstrainedChi2 < 30, otherwise NanoAOD
+# Muon_ptErr. ProcessMuonVariables also stores mu1/mu2_pt_err for the nominal
+# and every muon scale/resolution selection.
+muon_error_columns = {
+    "Muon_pt_err",
+    "Muon_ptErr",
+    "Muon_bsConstrainedPtErr",
+    "Muon_bsConstrainedChi2",
+}
+available_muon_columns = {str(column) for column in df.GetColumnNames()}
+cols_to_save.extend(
+    column
+    for column in muon_error_columns
+    if column in available_muon_columns
+)
 # trigger application && matching
 df, trigger_cols = ApplyMuonTriggerMatching(df, trigger_config, sel_config.get("apply_trg_filter", True))
 cols_to_save.extend(trigger_cols)
