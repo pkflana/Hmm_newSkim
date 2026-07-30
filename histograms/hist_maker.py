@@ -126,8 +126,8 @@ def copy_root_directory(source_file, source_path, target_file, target_path):
     return True
 
 
-def split_dy_jet_component_outputs(output_file, mass_regions):
-    """Create the inclusive and per-component DY files with fit-ready layout."""
+def split_dy_jet_component_outputs(output_file, mass_regions, process_label="DY"):
+    """Create inclusive and per-component files with fit-ready layout."""
     output_path = Path(output_file)
     source = ROOT.TFile.Open(str(output_path), "READ")
     if not source or source.IsZombie():
@@ -138,6 +138,8 @@ def split_dy_jet_component_outputs(output_file, mass_regions):
     component_files = {}
     try:
         for component, label in DY_COMPONENT_FILE_LABELS.items():
+            if process_label != "DY" and label.startswith("DY_"):
+                label = f"{process_label}_{label[len('DY_'):]}"
             component_path = output_path.with_name(
                 f"{output_path.stem}_{label}{output_path.suffix}"
             )
@@ -915,7 +917,16 @@ def process_single_chunk(args_tuple):
             )
         else:
             rdf_base = define_shifted_jet_observables(rdf_base, systs_to_run)
-            if args.dy_jet_components:
+            matching_columns = {
+                str(column) for column in rdf_base.GetColumnNames()
+            }
+            if (
+                not is_data
+                and (
+                    "Jet_genJetIdx" in matching_columns
+                    or "SelectedJet_genJetIdx" in matching_columns
+                )
+            ):
                 rdf_base = define_jet_gen_matching(
                     rdf_base,
                     {
@@ -1324,11 +1335,22 @@ if __name__ == "__main__":
     )
     parser.add_argument(
         "--dy-jet-components",
+        "--jet-gen-components",
+        dest="dy_jet_components",
         action="store_true",
         help=(
-            "Split DY MC into exclusive reco-jet/gen-matching components and "
+            "Split selected MC into exclusive reco-jet/gen-matching components and "
             "book the prescribed 0J m_mumu, 1J eta(j1):pt(j1), and "
             "2J eta(j2):pt(j2) fit templates."
+        ),
+    )
+    parser.add_argument(
+        "--jet-gen-component-processes",
+        nargs="+",
+        default=["DY", "EWK"],
+        help=(
+            "Process names allowed for --jet-gen-components. Defaults to "
+            "DY and EWK and can be replaced with a custom list."
         ),
     )
     parser.add_argument(
@@ -1563,11 +1585,11 @@ if __name__ == "__main__":
         args.categories = [f"VBF_eta_{region}" for region in VBF_ETA_REGIONS]
     if args.dy_jet_components:
         if is_data:
-            raise ValueError("--dy-jet-components cannot be used on data")
-        if not args.dataset_name.startswith("DY"):
+            raise ValueError("--jet-gen-components cannot be used on data")
+        if args.process_name not in args.jet_gen_component_processes:
             raise ValueError(
-                "--dy-jet-components is restricted to DY datasets; the "
-                "underlying matching helpers are reusable for other MC."
+                f"Process {args.process_name!r} is not enabled for reco/gen "
+                "splitting. Add it to --jet-gen-component-processes."
             )
         sel_cfg = add_jet_component_categories(sel_cfg)
         args.categories = list(expanded_jet_component_categories())
@@ -1892,6 +1914,7 @@ if __name__ == "__main__":
         split_dy_jet_component_outputs(
             args.output_file,
             masses_regions_list,
+            process_label=args.process_name,
         )
     if args.keep_tmp:
         print("[INFO] Keeping temporary files because --keep-tmp was used.")

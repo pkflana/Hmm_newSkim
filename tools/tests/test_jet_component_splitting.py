@@ -7,6 +7,7 @@ from common.jet_component_splitting import (
     VBF_ETA_REGIONS,
     add_jet_component_categories,
     add_vbf_eta_region_categories,
+    define_jet_gen_matching,
     expanded_jet_component_categories,
     variable_for_component,
     vbf_eta_region_expressions,
@@ -64,6 +65,29 @@ class JetComponentSplittingTest(unittest.TestCase):
             variable_for_component("VBF_PU1_CC", ["m_mumu", "DNN_NNOutput"]),
             ("m_mumu", "DNN_NNOutput"),
         )
+
+    def test_generic_reco_gen_flags_are_declared(self):
+        class FakeDataFrame:
+            def __init__(self):
+                self.columns = {
+                    "SelectedJet_idx",
+                    "SelectedJet_genJetIdx",
+                    "N_SelectedJets",
+                    "HasVBF",
+                    "VBFJetIdx_1",
+                    "VBFJetIdx_2",
+                }
+
+            def GetColumnNames(self):
+                return self.columns
+
+            def Define(self, name, expression):
+                self.columns.add(name)
+                return self
+
+        dataframe = define_jet_gen_matching(FakeDataFrame(), {""})
+        for count in (0, 1, 2):
+            self.assertIn(f"RecoGenJetMatch_{count}J", dataframe.columns)
 
 
 if __name__ == "__main__":

@@ -148,6 +148,35 @@ def run_hadd_processes(args: argparse.Namespace) -> int:
     return 0
 
 
+def run_check_hists(args: argparse.Namespace) -> int:
+    command = [
+        sys.executable,
+        str(REPO / "tools/check_missing_histograms.py"),
+        args.folder,
+    ]
+    for era in args.eras or []:
+        command += ["--era", era]
+    for systematic in args.systematics or []:
+        command += ["--systematics", systematic]
+    for group in args.groups or []:
+        command += ["--group", group]
+    for dataset in args.datasets or []:
+        command += ["--dataset", dataset]
+    for process in args.processes or []:
+        command += ["--process", process]
+    if args.datasets_file:
+        command += ["--datasets-file", args.datasets_file]
+    if args.suffix:
+        command += ["--suffix", args.suffix]
+    if args.exact:
+        command.append("--exact")
+    if args.json:
+        command.append("--json")
+    if args.show_unexpected:
+        command.append("--show-unexpected")
+    return subprocess.run(command, cwd=REPO, check=False).returncode
+
+
 def run_plot(args: argparse.Namespace) -> int:
     regions = csv_or_repeated(args.regions)
     variables = csv_or_repeated(args.variables or [])
@@ -762,6 +791,38 @@ def build_parser() -> argparse.ArgumentParser:
     )
     hadd_processes.add_argument("--run", dest="execute", action="store_true")
     hadd_processes.set_defaults(func=run_hadd_processes)
+
+    check_hists = subparsers.add_parser(
+        "check-hists",
+        help="read-only report of missing per-dataset histogram files",
+    )
+    check_hists.add_argument("folder")
+    check_hists.add_argument("-e", "--era", dest="eras", action="append")
+    check_hists.add_argument(
+        "-s", "--systematics", action="append",
+        help="campaign mode: systematic groups to check; repeat/use commas",
+    )
+    check_hists.add_argument("--dataset", dest="datasets", action="append")
+    check_hists.add_argument(
+        "--group", dest="groups", action="append",
+        help=(
+            "MC macrogroup used by histogram production; repeat/use commas"
+        ),
+    )
+    check_hists.add_argument(
+        "--process", dest="processes", action="append",
+        help="configured process from process_names.yaml; repeat/use commas",
+    )
+    check_hists.add_argument("--datasets-file")
+    check_hists.add_argument("--suffix", default="")
+    check_hists.add_argument(
+        "--exact",
+        action="store_true",
+        help="treat --dataset values as literal filenames (for hadded outputs)",
+    )
+    check_hists.add_argument("--json", action="store_true")
+    check_hists.add_argument("--show-unexpected", action="store_true")
+    check_hists.set_defaults(func=run_check_hists)
 
     plot = subparsers.add_parser(
         "plot",

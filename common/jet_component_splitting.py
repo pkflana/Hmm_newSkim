@@ -167,6 +167,14 @@ def define_jet_gen_matching(df, selection_suffixes):
             )
             columns.add(first_two_count)
 
+        # Generic, process-independent 0/1/2J flags. Here J denotes the
+        # number of the first two selected reco jets without a GenJet match.
+        for count in (0, 1, 2):
+            flag = f"RecoGenJetMatch_{count}J{suffix}"
+            if flag not in columns:
+                df = df.Define(flag, f"{first_two_count} == {count}")
+                columns.add(flag)
+
         vbf_count = f"N_PU_VBFJets{suffix}"
         if vbf_count not in columns:
             df = df.Define(
