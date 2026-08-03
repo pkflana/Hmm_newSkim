@@ -78,27 +78,55 @@ def DefineMuonPtAndP4(df, want_variations):
          df = _define_if_missing(df,name_err,f"Muon_pt_err_sel({nano_err}, {bsc_err}, Muon_bsConstrainedChi2)")
     return df
 
-def ApplyMuonTriggerMatching(df, trigger_config, apply_filter):
+def ApplyMuonTriggerMatching(df, trigger_config, apply_filter, want_variations, syst_cfg):
     cols = _column_names(df)
     if "TrigObj_pt" in cols:
         df = _define_if_missing(df, "TrigObj_idx", "CreateIndexes(TrigObj_pt.size())")
         df = _define_if_missing(df, "TrigObj_mass", "RVecF(TrigObj_pt.size(), 0.f)")
         df = _define_if_missing(df, "TrigObj_p4","GetP4(TrigObj_pt, TrigObj_eta, TrigObj_phi, TrigObj_mass, TrigObj_idx)")
+
+    syst_suffixes = [""]
+    if want_variations:
+        scales = syst_cfg.get("scales", ["up", "down"])
+        syst_suffixes.extend(
+            syst_cfg["systematics"][syst]["muon_suffix"].format(scale=scale)
+            for syst in ("MuonScale", "MuonRes")
+            for scale in scales
+        )
+
     filters = []
+    cols_to_save = []
     for path, config in trigger_config.items():
         path_name = config["path"][0]
+        cols_to_save.append(path_name)
         leg = config["legs"][0]
-        offline = leg["offline_obj"]["cut"].format(obj="Muon", pt="pt_FSR_corr")
         online = leg["online_obj"]["cut"]
-        df = _define_if_missing(df, f"Muon_passOfflineCut_{path}", offline)
         df = _define_if_missing(df, f"TrigObj_passOnlineCut_{path}", online)
-        df = _define_if_missing(df,f"Muon_TriggerMatchingIdx_{path}",f"FindMatching(Muon_passOfflineCut_{path}, TrigObj_passOnlineCut_{path}, Muon_p4_FSR_corr, TrigObj_p4, 0.4)")
-        evt = f"Event_HasTriggerMatching_{path}"
-        df = df.Define(evt, f"{path_name} && Any(Muon_TriggerMatchingIdx_{path} > -1)")
-        filters.append(evt)
+        cols_to_save.append(f"TrigObj_passOnlineCut_{path}")
+
+        for suff in syst_suffixes:
+            pt = "pt_FSR_corr" if not suff else f"pt{suff}"
+            muon_p4 = "Muon_p4_FSR_corr" if not suff else f"Muon_p4{suff}"
+            offline_col = f"Muon_passOfflineCut_{path}{suff}"
+            matching_col = f"Muon_TriggerMatchingIdx_{path}{suff}"
+            evt = f"Event_HasTriggerMatching_{path}{suff}"
+
+            offline = leg["offline_obj"]["cut"].format(obj="Muon", pt=pt)
+            df = _define_if_missing(df, offline_col, offline)
+            df = _define_if_missing(
+                df,
+                matching_col,
+                f"FindMatching({offline_col}, TrigObj_passOnlineCut_{path}, "
+                f"{muon_p4}, TrigObj_p4, 0.4)",
+            )
+            df = _define_if_missing(df, evt, f"{path_name} && Any({matching_col} > -1)")
+
+            filters.append(evt)
+            cols_to_save.extend([offline_col, matching_col, evt])
     if apply_filter:
         df = df.Filter(" || ".join(filters), "Trigger matching for " + "__".join(trigger_config.keys()))
-    return df, filters
+    print(filters, cols_to_save)
+    return df, cols_to_save
 
 def ProcessMuonVariables(df,muon_columns,default_suffix,trigger_config,want_variations,pt_min,lower_mass_cut,upper_mass_cut,syst_cfg):
     cols = _column_names(df)
@@ -137,7 +165,7 @@ def ProcessMuonVariables(df,muon_columns,default_suffix,trigger_config,want_vari
                 suffix_clean = "_".join(c for c in muon_col.split("_")[1:])
                 df = track(df, f"mu{i}_{suffix_clean}{suff}", f"{idx}>=0 ? {muon_col}[{idx}] : -999.f")
             for path in trigger_config.keys():
-                df = track(df, f"mu{i}_HasTriggerMatching_{path}{suff}", f"{idx} >= 0 ? (Muon_TriggerMatchingIdx_{path}[{idx}] >= 0) : false")
+                df = track(df, f"mu{i}_HasTriggerMatching_{path}{suff}", f"{idx} >= 0 ? (Muon_TriggerMatchingIdx_{path}{suff}[{idx}] >= 0) : false")
 
         p4 = f"(mu1_p4{suff} + mu2_p4{suff})"
         df = track(df, f"m_mumu{suff}", f"{p4}.M()")
