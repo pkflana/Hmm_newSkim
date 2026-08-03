@@ -12,17 +12,54 @@ Outputs are stored by era and dataset:
 ```
 
 ## To check before submitting the campaign:
-- after loading the environment
+- open a ZSH shell (just running `zsh`)
+- from Hmm_newSkim/ be sure you're up-to-date with master branch: `git pull origin master`
+- after loading the environment (in ZSH shell!!)
 
-```bash
+```sh
 cd /afs/cern.ch/work/v/vdamante/Hmm_newSkim
 source env.sh
 ```
 try running the era locally via `skim.py` (see [Local Skim Smoke Tests](RUNNING_INSTRUCTIONS.md#local-skim-smoke-tests)) with the specific ERA to run.
 
+- FOR THIS CAMPAIGN: when you run the skim.py on a MC sample please check the presence of the following branches in the produced sample:
+  - GenJet observables
+  - SelectedJet_genJetIdx
+  - HLT_IsoMu24
+  - Event_HasTriggerMatching_singleMu (with all muon resolution/scale variations for MC)
+  - Muon_TriggerMatchingIdx_singleMu (with all muon resolution/scale variations for MC)
+  - Muon_passOfflineCut_singleMu (with all muon resolution/scale variations for MC)
+  - HasVBF (with all JERC variations for MC)
+  - VBFJetIndex (for jet 1, 2, and with all JERC variations for MC)
+  - Jet_btag{ALGO}CvL (with ALGO = PNet, DeepJet, Robust, and inclusion of UParT for 2024-2025-2026)
+  - SelectedJets observables (with all JERC variations for MC)
+
+to do this check, run ``` python3 tools/getDfTypes.py --inFile <SKIMMED_FILE_TEST> > Skim_v3_MC_df_types.txt```
+
+Example of what I run: ``` python3 tools/getDfTypes.py --inFile /eos/cms/store/group/phys_higgs/cmshmm/vdamante/skim_v3/Run3_2022/VBFHto2Mu_M125_powheg/skim_1.root > Skim_v3_MC_df_types.txt```
+
+- FOR THIS CAMPAIGN:
+  open the generated json file from the test. It has to include, for MC only (data jsons are not produced), the following entries:
+    - "gen"
+    - "pu"
+    - "pu_up"
+    - "pu_down"
+    - "gen_qcdScale_muR0p5_muF0p5"
+    - "gen_qcdScale_muR0p5_muF1"
+    - "pu_qcdScale_muR0p5_muF1"
+    - "gen_qcdScale_muR1_muF0p5"
+    - "pu_qcdScale_muR1_muF0p5"
+    - "gen_qcdScale_muR1_muF2"
+    - "pu_qcdScale_muR1_muF2"
+    - "gen_qcdScale_muR2_muF1"
+    - "pu_qcdScale_muR2_muF1"
+    - "gen_qcdScale_muR2_muF2"
+    - "pu_qcdScale_muR2_muF2"
+    - "pu_qcdScale_muR0p5_muF0p5"
+
 - Create/check your own VOMS proxy:
 
-```bash
+```sh
 voms-proxy-init --voms cms --valid 192:00
 export X509_USER_PROXY="$(voms-proxy-info -path)"
 voms-proxy-info --timeleft
@@ -30,7 +67,7 @@ voms-proxy-info --timeleft
 
 - Check that the shared destination is writable:
 
-```bash
+```sh
 test -w /eos/cms/store/group/phys_higgs/cmshmm/vdamante/skim_v3 \
   && echo "EOS writable" \
   || echo "EOS is not writable for this user"
@@ -39,7 +76,7 @@ If the directory is not writable, contact Valeria.
 
 - Check NanoAOD dataset versions
 
-```bash
+```sh
 python3 htcondor/update_nanoaod_versions.py \
   --era <ERA> \
   --include-data \
@@ -50,7 +87,7 @@ Note: if you want to try dry-runs you replace ```--in-place``` with ```--dry-run
 
 - Regenerate the DAS file lists:
 
-```bash
+```sh
 python3 htcondor/getfiles.py \
   --era <ERA>
 ```
@@ -59,9 +96,8 @@ python3 htcondor/getfiles.py \
 
 Replace <ERA> with the era assigned to you.
 
-First create the chunk plan without submitting:
-
-```bash
+First create the chunk plan without submitting, from A BRAND NEW TERMINAL, NO `source env.sh` has to be done in this case, anf from a ZSH shell (just running `zsh`):
+```sh
 campaigns/run3_skim_v3.sh dry-run \
   --era <ERA>
 ```
@@ -74,7 +110,7 @@ Check the following in the summary:
 
 Submit exactly one job:
 
-```bash
+```sh
 campaigns/run3_skim_v3.sh submit \
   --era <ERA> \
   --max-submit-jobs 1
@@ -86,7 +122,7 @@ Do not start the full campaign until this job finishes successfully!!
 
 To check condor queue:
 
-```bash
+```sh
 condor_q "$USER"
 ```
 
@@ -107,44 +143,44 @@ report_N.json
 
 Run the missing-output check:
 
-```bash
+```sh
 campaigns/run3_skim_v3.sh check \
   --era <ERA>
 ```
 
 Perform a minimal manual ROOT check:
 
-```bash
+```sh
 rootls -t \
   /eos/cms/store/group/phys_higgs/cmshmm/vdamante/skim_v3/<ERA>/<DATASET>/skim_0.root
 ```
 
 Also check that the JSON report is readable:
 
-```bash
+```sh
 python3 -m json.tool \
   /eos/cms/store/group/phys_higgs/cmshmm/vdamante/skim_v3/<ERA>/<DATASET>/report_0.json \
   >/dev/null
 ```
 
 ## Submitting a complete era
+After the test succeeds, open a ZSH shell (just running `zsh`)
 
-After the test succeeds:
-
-```bash
+```sh
 campaigns/run3_skim_v3.sh submit \
-  --era <ERA>
+  --era <ERA>\
+  --max-parallel-jobs <NUMBER>
 ```
-
+Replace NUMBER with number of maximum parallel jobs you prefer.
 If (prior talking to Valeria about) you intend to use an alternative destination:
 
-```bash
+```sh
 campaigns/run3_skim_v3.sh submit \
   --era <ERA> \
   --output-dir <OUTPUT_DIR>
 ```
 
-## Dataset validation - AFTER final production
+## Dataset validation - AFTER final production, mainly for Valeria
 
 The missing-output check only verifies that the expected files exist and are
 non-empty. The validation stage must also be run before histogram production.
@@ -158,8 +194,8 @@ It:
 - writes one validation manifest per era and dataset.
 
 
-```bash
-bash analysis/scripts/validate.sh \
+```sh
+sh analysis/scripts/validate.sh \
   --era <ERA> \
   --datasets skim_cfg \
   --root-input-folder /eos/cms/store/group/phys_higgs/cmshmm/vdamante/skim_v3 \
@@ -169,13 +205,13 @@ bash analysis/scripts/validate.sh \
 The expected output is:
 
 ```text
-<MANIFEST_BASE>/Run3_2024/<DATASET>.json
+<MANIFEST_BASE>/<ERA>/<DATASET>.json
 ```
 
 After this test succeeds, validate all datasets configured for the era. To submit on condor one validation job per dataset:
 
-```bash
-bash analysis/scripts/validate.sh \
+```sh
+sh analysis/scripts/validate.sh \
   --era <ERA> \
   --datasets skim_cfg \
   --root-input-folder /eos/cms/store/group/phys_higgs/cmshmm/vdamante/skim_v3 \
