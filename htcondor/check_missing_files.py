@@ -14,15 +14,6 @@ parser.add_argument("-e", "--era", required=True, help="e.g. Run3_2022EE")
 parser.add_argument("--max-files", type=int, default=None)
 parser.add_argument("--write-missing", action="store_true")
 parser.add_argument("--only-missing", action="store_true")
-parser.add_argument(
-    "--jerc-2025-mc-mode",
-    choices=["2025", "jec2024_jer2025", "2024"],
-    default=None,
-    help=(
-        "Check the output directory for this Run3_2025 MC JERC mode. "
-        "Default comes from maincfg.yaml."
-    ),
-)
 
 args = parser.parse_args()
 era = args.era
@@ -53,20 +44,7 @@ with open(processes_yaml) as f:
 with open(samples_yaml) as f:
     samples_cfg = yaml.safe_load(f)
 
-jerc_2025_mc_mode = args.jerc_2025_mc_mode
-if jerc_2025_mc_mode is None:
-    jerc_2025_mc_mode = main_config.get("jerc_2025_mc_mode", "2025")
-jerc_2025_mc_mode = str(jerc_2025_mc_mode)
-output_dirs = skim_config.get("output_dirs_by_jerc_2025_mc_mode", {})
-if output_dirs:
-    if jerc_2025_mc_mode not in output_dirs:
-        raise SystemExit(
-            "[ERROR] output_dirs_by_jerc_2025_mc_mode has no entry for "
-            f"{jerc_2025_mc_mode!r}"
-        )
-    output_dir = output_dirs[jerc_2025_mc_mode]
-else:
-    output_dir = skim_config["output_dir"]
+output_dir = skim_config["output_dir"]
 output_directory = os.path.abspath(output_dir)
 max_files_cfg = skim_config.get("max_files", -1)
 

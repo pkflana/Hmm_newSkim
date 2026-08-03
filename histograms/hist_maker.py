@@ -23,12 +23,17 @@ from common.failed_chunk_policy import (
     resolve_skip_failed_chunks,
     validate_skip_failed_chunks,
 )
+from common.add_var_to_skim import GetSelectionSuffixForSystematic
 from common.add_vars_to_skim_tuples import (
-    GetSelectionSuffixForSystematic,
     SelectedJetObservablesDef,
     VBFJetObservablesDef,
 )
 from common.histogram_pipeline import finalize_histogram_dataframe
+from common.dnn_histogram_production import (
+    apply_sideband_mass_shifted_dnn,
+    needs_sideband_mass_shift,
+    shifted_output_column,
+)
 from common.jet_component_splitting import (
     DY_COMPONENT_FILE_LABELS,
     GGF_COMPONENT_VARIABLES,
@@ -53,12 +58,6 @@ from common.helpers import (
 from corrections.qcd_scale import get_qcd_scale_points
 
 initialize_root_runtime()
-
-DNN_SIDEBAND_SHIFTED_PAYLOADS = {
-    "Z_sideband": "DNNZSidebandMassShift",
-    "H_sideband": "DNNHSidebandMassShift",
-}
-
 
 _WORKER_SEG_DICT = None
 _WORKER_QCD_SCALE_SEG_DICTS = None
@@ -796,36 +795,6 @@ def get_histogram_variable(variable, syst_info, available_columns):
         None,
     )
 
-def should_shift_sideband_dnn_mass(mass_region, variable):
-    return mass_region in DNN_SIDEBAND_SHIFTED_PAYLOADS and variable == "DNN_NNOutput"
-
-def get_sideband_shifted_mass_expression(mass_region):
-    if mass_region == "Z_sideband":
-        return "static_cast<float>(115.0 + 0.5 * (m_mumu - 70.0))"
-    if mass_region == "H_sideband":
-        return (
-            "static_cast<float>(m_mumu < 115.0 ? "
-            "115.0 + (m_mumu - 110.0) : 120.0 + (m_mumu - 135.0))"
-        )
-    raise ValueError(f"Unsupported DNN mass-shift region: {mass_region}")
-
-def apply_sideband_mass_shifted_dnn(
-    rdf, mass_region, btag_algo, era, dnn_model_set
-):
-    from common.dnn_application import ApplyDNN
-
-    shifted_rdf = rdf.Redefine(
-        "m_mumu",
-        get_sideband_shifted_mass_expression(mass_region),
-    )
-    return ApplyDNN(
-        shifted_rdf,
-        [DNN_SIDEBAND_SHIFTED_PAYLOADS[mass_region]],
-        btag_algo=btag_algo,
-        era=era,
-        model_set=dnn_model_set,
-    )
-
 def process_single_chunk(args_tuple):
     (
         chunk_index,
@@ -1000,7 +969,7 @@ def process_single_chunk(args_tuple):
         shifted_rdfs = {}
         if rdf_base is not None and "DNN_NNOutput" in vars_to_make_hist:
             for mass_region in stored_regions:
-                if not should_shift_sideband_dnn_mass(
+                if not needs_sideband_mass_shift(
                     mass_region, "DNN_NNOutput"
                 ):
                     continue
@@ -1015,7 +984,7 @@ def process_single_chunk(args_tuple):
                         mass_region,
                         btag_algo=btag_algo,
                         era=args.era,
-                        dnn_model_set=args.dnn_model_set,
+                        model_set=args.dnn_model_set,
                     )
                     shifted_rdfs[(mass_region, selection_suffix)] = (
                         shifted_rdf,
@@ -1118,11 +1087,8 @@ def process_single_chunk(args_tuple):
                             )
                             for column in spec["columns"]
                         )
-                        if should_shift_sideband_dnn_mass(mass_region, variable):
-                            shifted_payload = DNN_SIDEBAND_SHIFTED_PAYLOADS[
-                                mass_region
-                            ]
-                            hist_columns = (f"{shifted_payload}_NNOutput",)
+                        if needs_sideband_mass_shift(mass_region, variable):
+                            hist_columns = (shifted_output_column(mass_region),)
 
                         if (
                             rdf_filtered is not None

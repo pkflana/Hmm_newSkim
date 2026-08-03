@@ -1,6 +1,6 @@
 """Shared dataframe transformations for histogram production."""
 
-from common.add_vars_to_skim_tuples import DefineHistogramSelections
+from common.add_var_to_skim import DefineHistogramSelections
 from common.dy_ptll_reweight import (
     ApplyDYAmcatnloNormalization,
     ApplyDYNJetsReweight,
