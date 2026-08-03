@@ -37,6 +37,7 @@ try running the era locally via `skim.py` (see [Local Skim Smoke Tests](RUNNING_
 
   to do this check, run ``` python3 tools/getDfTypes.py --inFile <SKIMMED_FILE_TEST> > Skim_v3_MC_df_types.txt```
 
+  Anyhow the content should be the same as the [`Skim v3 MC DataFrame column types`](Skim_v3_MC_df_types.md) reference.
   Example of what I run: ``` python3 tools/getDfTypes.py --inFile /eos/cms/store/group/phys_higgs/cmshmm/vdamante/skim_v3/Run3_2022/VBFHto2Mu_M125_powheg/skim_1.root > Skim_v3_MC_df_types.txt```
 
 - FOR THIS CAMPAIGN: open the generated json file from the test. It has to include, for MC only (data jsons are not produced), the following entries:
@@ -219,6 +220,5 @@ sh analysis/scripts/validate.sh \
   --output-dir /eos/user/v/vdamante/H_mumu/manifests_skim_v3
   --condor
 ```
-
 
 
