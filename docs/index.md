@@ -5,7 +5,7 @@ istogrammi, DNN e reweight DY.
 
 ## Collegamenti principali
 
-- [Istruzioni di esecuzione](RUNNING_INSTRUCTIONS.md)
-- [Workflow di analisi](ANALYSIS_WORKFLOW.md)
-- [Organizzazione degli script](SCRIPT_LAYOUT.md)
-- [Campagna skim v3](SKIM_V3_CAMPAIGN.md)
+- [Running instructions](RUNNING_INSTRUCTIONS.md)
+- [Analysis workflow](ANALYSIS_WORKFLOW.md)
+- [Script organization](SCRIPT_LAYOUT.md)
+- [Skim v3 campaign (updated on Aug 3rd 2026)](SKIM_V3_CAMPAIGN.md)
