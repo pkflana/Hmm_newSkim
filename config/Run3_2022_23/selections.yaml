@@ -1,5 +1,5 @@
 
-muon_pt_default_suffix: corr_FSR
+muon_pt_default_suffix: FSR_corr
 muon_pt_min: 15.0
 dimuon_mass_min: 50
 dimuon_mass_max: 200

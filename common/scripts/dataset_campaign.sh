@@ -21,8 +21,10 @@ Dataset groups:
   DiTriBoson
   DY_amcatnlo
   DY_amcatnlo_105_160
+  DY_012J
   DY_minnlo
   EWK
+  EWK_105_160
   signals
   SingleH
   SingleTop
@@ -171,7 +173,7 @@ hist_output_exists() {
 }
 
 stage_output_exists() {
-  python3 "${ANALYSIS_PATH}/common/check_stage_output.py" "$1" "$2"
+  python3 "${ANALYSIS_PATH}/tools/check_stage_output.py" "$1" "$2"
 }
 
 histogram_output_path() {
@@ -532,6 +534,22 @@ add_dy_105_160_jobs() {
   esac
 }
 
+add_dy_012j_jobs() {
+  local era="$1"
+  local prefix
+  case "${era}" in
+    Run3_2024|Run3_2025|Run3_2026) prefix="DYto2Mu" ;;
+    Run3_2022|Run3_2022EE|Run3_2023|Run3_2023BPix) prefix="DYto2L" ;;
+  esac
+  add_job "${prefix}_M_50_0J_amcatnloFXFX" 20
+  add_job "${prefix}_M_50_1J_amcatnloFXFX" 20
+  add_job "${prefix}_M_50_2J_amcatnloFXFX" 20
+}
+
+add_ewk_105_160_jobs() {
+  add_job EWK_2Mu2J_MLL_105to160_herwig 15
+}
+
 add_static_group_jobs() {
   local group="$1"
   local datasets=()
@@ -551,7 +569,7 @@ add_static_group_jobs() {
       datasets=(  DYto2Mu_MLL_130to200_powheg_minnlo DYto2Mu_MLL_1000to1500_powheg_minnlo  DYto2Mu_MLL_1500to2000_powheg_minnlo DYto2Mu_MLL_2000to4000_powheg_minnlo DYto2Mu_MLL_200to400_powheg_minnlo DYto2Mu_MLL_4000to6000_powheg_minnlo DYto2Mu_MLL_400to600_powheg_minnlo DYto2Mu_MLL_50to130_powheg_minnlo DYto2Mu_MLL_6000to13600_powheg_minnlo DYto2Mu_MLL_600to800_powheg_minnlo )
       ;;
     EWK)
-      datasets=(EWK_2L2J_madgraph_herwig EWK_2Mu2J_MLL_105to160_herwig EWK_2Mu2J_MLL_105to160_pythia EWK_2Mu2J_MLL_105to160_pythia_Flashsim)
+      datasets=(EWK_2L2J_madgraph_herwig)
       ;;
     signals)
       datasets=(
@@ -628,8 +646,10 @@ normalize_group() {
     ditriboson|DiTriBoson) echo "DiTriBoson" ;;
     dy_amcatnlo|DY_amcatnlo) echo "DY_amcatnlo" ;;
     dy_amcatnlo_105_160|DY_amcatnlo_105_160) echo "DY_amcatnlo_105_160" ;;
+    dy_012j|DY_012J) echo "DY_012J" ;;
     dy_minnlo|DY_minnlo) echo "DY_minnlo" ;;
     ewk|EWK) echo "EWK" ;;
+    ewk_105_160|EWK_105_160) echo "EWK_105_160" ;;
     signals|Signals) echo "signals" ;;
     other_signals) echo "other_signals" ;;
     singleh|SingleH) echo "SingleH" ;;
@@ -652,7 +672,7 @@ add_skim_cfg_jobs() {
     [[ -n "${dataset_name}" ]] || continue
     add_job "${dataset_name}" "${default_chunk_size}"
   done < <(
-    python3 "${ANALYSIS_PATH}/common/resolve_datasets.py" \
+    python3 "${ANALYSIS_PATH}/tools/resolve_datasets.py" \
       --era "${era}" --format lines
   )
 }
@@ -662,10 +682,10 @@ groups_for_era() {
 
   case "${era}" in
     Run3_2024|Run3_2025|Run3_2026)
-      echo "data DiTriBoson DY_amcatnlo DY_amcatnlo_105_160 DY_minnlo EWK signals other_signals SingleH SingleTop TTX TT W"
+      echo "data DiTriBoson DY_amcatnlo DY_amcatnlo_105_160 DY_012J DY_minnlo EWK EWK_105_160 signals other_signals SingleH SingleTop TTX TT W"
       ;;
     Run3_2022|Run3_2022EE|Run3_2023|Run3_2023BPix)
-      echo "data DiTriBoson DY_amcatnlo DY_amcatnlo_105_160 EWK signals other_signals SingleH SingleTop TTX TT W"
+      echo "data DiTriBoson DY_amcatnlo DY_amcatnlo_105_160 DY_012J EWK EWK_105_160 signals other_signals SingleH SingleTop TTX TT W"
       ;;
     *)
       die "Unknown era '${era}'"
@@ -951,6 +971,8 @@ else
       data) add_data_jobs "${era}" ;;
       DY_amcatnlo) add_dy_amcatnlo_jobs "${era}" ;;
       DY_amcatnlo_105_160) add_dy_105_160_jobs "${era}" ;;
+      DY_012J) add_dy_012j_jobs "${era}" ;;
+      EWK_105_160) add_ewk_105_160_jobs ;;
       W) add_w_jobs "${era}" ;;
       DiTriBoson|DY_minnlo|EWK|signals|SingleH|SingleTop|TTX|other_signals|TT) add_static_group_jobs "${group}" ;;
       *) die "Internal error: unhandled group '${group}'" ;;

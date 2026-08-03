@@ -13,8 +13,6 @@ ignore_missing_nanoAOD_files:
   backgrounds: True
 
 
-# datasets_link_to_era: Run3_2024
-
 MET_flags: # https://twiki.cern.ch/twiki/bin/view/CMS/MissingETOptionalFiltersRun2#Run_3_2024_data_and_MC_Recommend
   - Flag_goodVertices
   - Flag_globalSuperTightHalo2016Filter

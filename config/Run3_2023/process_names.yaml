@@ -118,7 +118,7 @@ EWK_2Mu2J_MLL_105to160_pythia_Flashsim:
   color: lavender
   datasets: [ ]
 ############## Other single H  ##############
-H_mainBckg:
+SingleH:
   name: "Single H"
   color: aqua
   datasets:

@@ -1,4 +1,16 @@
 
+"""Physics observables added to skim tuples.
+
+Histogram selections were moved to :mod:`common.add_var_to_skim`; the imports
+below preserve older callers without duplicating their implementation.
+"""
+
+from common.add_var_to_skim import (
+    DefineHistogramSelections,
+    GetSelectionSuffixForSystematic,
+)
+
+
 def SelectedJetObservablesDef(df, suffix=""):
     columns = {str(col) for col in df.GetColumnNames()}
     jet_names = {
@@ -341,94 +353,6 @@ def DefineDimuonMassResolution(df):
                     ": -1.f"
                 ),
             )
-
-    return df
-
-
-def _selection_suffixes(syst_cfg=None, want_variations=False):
-    suffixes = [("", "", "")]
-
-    if not want_variations or not syst_cfg:
-        return suffixes
-
-    scales = syst_cfg.get("scales", ["up", "down"])
-
-    for syst_name, syst_info in syst_cfg.get("systematics", {}).items():
-        if syst_name == "Central":
-            continue
-
-        for scale in scales:
-            suffixes.append(
-                (
-                    f"_{syst_name}{scale.capitalize()}",
-                    syst_info.get("muon_suffix", "").format(scale=scale),
-                    syst_info.get("jet_suffix", "").format(scale=scale),
-                )
-            )
-
-    return suffixes
-
-
-def GetSelectionSuffixForSystematic(syst_name, syst_info=None):
-    if syst_name == "Central" or syst_info is None:
-        return ""
-
-    if not syst_info.get("muon_suffix", "") and not syst_info.get("jet_suffix", ""):
-        return ""
-
-    return f"_{syst_name}"
-
-
-def DefineHistogramSelections(df, sel_config, syst_cfg=None, want_variations=False):
-    """
-    Define mass-region and category columns used by histogram production.
-
-    The variation suffix policy mirrors analysis/other.py:
-      - final selection column: {selection}_{Systematic}{Up/Down}
-      - expression placeholders: {tot_suff}, {mu_suff}, {jet_suff}
-    """
-    defined_columns = _column_names(df)
-
-    section_suffix_key = {
-        "masses_regions": "tot",
-        "muons_selection": "mu",
-        "jets_selection": "jet",
-        "categories": "tot",
-    }
-
-    for section, suffix_key in section_suffix_key.items():
-        for sel_name, sel_content in sel_config.get(section, {}).items():
-            if isinstance(sel_content, dict):
-                base_expression = sel_content.get("expression", "")
-            else:
-                base_expression = sel_content
-
-            if not base_expression:
-                print(f"[WARNING] Empty selection expression for {sel_name}. Skipping.")
-                continue
-
-            for tot_suff, mu_suff, jet_suff in _selection_suffixes(
-                syst_cfg=syst_cfg,
-                want_variations=want_variations,
-            ):
-                output_suff = {
-                    "tot": tot_suff,
-                    "mu": mu_suff,
-                    "jet": jet_suff,
-                }[suffix_key]
-                column_name = f"{sel_name}{output_suff}"
-
-                expression = base_expression.format(
-                    tot_suff=tot_suff,
-                    mu_suff=mu_suff,
-                    jet_suff=jet_suff,
-                )
-                if column_name in defined_columns:
-                    if section != "muons_selection":
-                        df = df.Redefine(column_name, expression)
-                else:
-                    df = df.Define(column_name, expression)
-                    defined_columns.add(column_name)
 
     return df
 

@@ -6,7 +6,7 @@ from pathlib import Path
 class FailedChunkPolicyTest(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
-        from common.failed_chunk_policy import (
+        from common.skim_utilities import (
             metadata_for_root_files,
             resolve_skip_failed_chunks,
             validate_skip_failed_chunks,

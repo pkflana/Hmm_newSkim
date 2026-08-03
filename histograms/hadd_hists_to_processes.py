@@ -13,7 +13,7 @@ ANALYSIS_PATH = os.environ.get(
 )
 sys.path.append(ANALYSIS_PATH)
 
-from common.dataset_selection import resolve_dataset_selection
+from common.dataset_utilities import resolve_dataset_selection
 from common.jet_component_splitting import DY_COMPONENT_FILE_LABELS
 
 

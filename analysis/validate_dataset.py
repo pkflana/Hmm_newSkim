@@ -13,8 +13,8 @@ from pathlib import Path
 sys.path.append(os.environ.get("ANALYSIS_PATH", str(Path(__file__).resolve().parents[1])))
 
 import common.utilities as utilities
-from common.manifests import write_manifest
-from common.validate_root_files import discover_root_files, validate_file
+from common.manifest_utilities import write_manifest
+from common.validation_utilities import discover_root_files, validate_file
 
 
 def discover_json_files(path):
@@ -154,7 +154,40 @@ def expected_input_completeness(
     root_results,
     json_results,
     is_data,
+    chunk_manifest=None,
 ):
+    if chunk_manifest is not None:
+        chunks = chunk_manifest.get("chunks", [])
+        expected_files = [
+            chunk["root_file"]
+            for chunk in chunks
+            if "root_file" in chunk
+        ]
+        discovered_roots = {
+            os.path.abspath(result[0]): result
+            for result in root_results
+        }
+        discovered_jsons = {
+            os.path.abspath(result[0]): result
+            for result in json_results
+        }
+        missing = []
+        for chunk in chunks:
+            root_path = os.path.abspath(chunk["root_file"])
+            root_result = discovered_roots.get(root_path)
+            root_present = root_result is not None
+            if is_data:
+                covered = root_present and (
+                    root_result[1] or is_empty_root_result(root_result)
+                )
+            else:
+                report_path = os.path.abspath(chunk["report_file"])
+                report_result = discovered_jsons.get(report_path)
+                covered = root_present and report_result is not None
+            if not covered:
+                missing.extend(chunk.get("input_files", [root_path]))
+        return expected_files, missing, ""
+
     dataset_cfg = samples_with_files.get(dataset_name)
     if not isinstance(dataset_cfg, dict) or not isinstance(
         dataset_cfg.get("filelist"), list
@@ -221,6 +254,22 @@ def main():
     samples_with_files = utilities.get_config(samples_with_files_path)
     dataset_cfg = samples.get(args.dataset_name, {})
     is_data = dataset_cfg.get("is_data", False) or "data" in args.dataset_name.lower()
+    chunk_manifest_path = os.path.join(
+        analysis_path,
+        "htcondor",
+        "log",
+        args.era,
+        args.dataset_name,
+        "skim_chunks.json",
+    )
+    chunk_manifest = None
+    if os.path.exists(chunk_manifest_path):
+        with open(chunk_manifest_path) as chunk_manifest_handle:
+            chunk_manifest = json.load(chunk_manifest_handle)
+        print(
+            f"[COMPLETENESS] Using chunk manifest: {chunk_manifest_path}",
+            flush=True,
+        )
 
     print(f"[DISCOVERY] Scanning ROOT input: {args.root_input}", flush=True)
     root_files = discover_root_files(args.root_input)
@@ -331,6 +380,7 @@ def main():
             root_results,
             json_results,
             is_data,
+            chunk_manifest=chunk_manifest,
         )
     )
     print(
