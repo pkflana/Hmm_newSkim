@@ -112,7 +112,7 @@ df = DefineMuonPtAndP4(df,want_variations)
 # )
 
 # trigger application && matching
-df, trigger_cols = ApplyMuonTriggerMatching(df, trigger_config, sel_config.get("apply_trg_filter", True))
+df, trigger_cols = ApplyMuonTriggerMatching(df, trigger_config, sel_config.get("apply_trg_filter", True), want_variations, systematics_cfg)
 cols_to_save.extend(trigger_cols)
 # dimuon system definitions
 muon_cols_initial = utilities.GetObservablesCols("Muon", is_data, nano_version)
@@ -169,6 +169,7 @@ cols_to_save = list(set(cols_to_save))
 df, selected_jet_cols = SelectJetVars(df,jet_cols_initial,sel_config,config.get("bTagAlgo", "PNet"),bTagWPDict,want_variations,systematics_cfg)
 cols_to_save.extend(selected_jet_cols)
 df,vbf_jet_cols = SelectVBFJets(df,want_variations,systematics_cfg)
+cols_to_save.extend(vbf_jet_cols)
 
 
 ## snapshot + report store ##
