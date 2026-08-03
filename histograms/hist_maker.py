@@ -18,17 +18,22 @@ ROOT.EnableThreadSafety()
 sys.path.append(os.environ["ANALYSIS_PATH"])
 
 import common.utilities as utilities
-from common.failed_chunk_policy import (
+from common.skim_utilities import (
     metadata_for_root_files,
     resolve_skip_failed_chunks,
     validate_skip_failed_chunks,
 )
+from common.add_var_to_skim import GetSelectionSuffixForSystematic
 from common.add_vars_to_skim_tuples import (
-    GetSelectionSuffixForSystematic,
     SelectedJetObservablesDef,
     VBFJetObservablesDef,
 )
-from common.histogram_pipeline import finalize_histogram_dataframe
+from histograms.histogram_pipeline import finalize_histogram_dataframe
+from histograms.dnn_histogram_production import (
+    apply_sideband_mass_shifted_dnn,
+    needs_sideband_mass_shift,
+    shifted_output_column,
+)
 from common.jet_component_splitting import (
     DY_COMPONENT_FILE_LABELS,
     GGF_COMPONENT_VARIABLES,
@@ -40,9 +45,9 @@ from common.jet_component_splitting import (
     expanded_jet_component_categories,
     variable_for_component,
 )
-from common.manifests import read_manifest
-from common.runtime import initialize_root_runtime
-from common.helpers import (
+from common.manifest_utilities import read_manifest
+from common.utilities import initialize_root_runtime
+from common.rdf_utilities import (
     GetModel,
     GetRdfForDataset,
     findBinEntry,
@@ -53,12 +58,6 @@ from common.helpers import (
 from corrections.qcd_scale import get_qcd_scale_points
 
 initialize_root_runtime()
-
-DNN_SIDEBAND_SHIFTED_PAYLOADS = {
-    "Z_sideband": "DNNZSidebandMassShift",
-    "H_sideband": "DNNHSidebandMassShift",
-}
-
 
 _WORKER_SEG_DICT = None
 _WORKER_QCD_SCALE_SEG_DICTS = None
@@ -126,8 +125,8 @@ def copy_root_directory(source_file, source_path, target_file, target_path):
     return True
 
 
-def split_dy_jet_component_outputs(output_file, mass_regions):
-    """Create the inclusive and per-component DY files with fit-ready layout."""
+def split_dy_jet_component_outputs(output_file, mass_regions, process_label="DY"):
+    """Create inclusive and per-component files with fit-ready layout."""
     output_path = Path(output_file)
     source = ROOT.TFile.Open(str(output_path), "READ")
     if not source or source.IsZombie():
@@ -138,6 +137,8 @@ def split_dy_jet_component_outputs(output_file, mass_regions):
     component_files = {}
     try:
         for component, label in DY_COMPONENT_FILE_LABELS.items():
+            if process_label != "DY" and label.startswith("DY_"):
+                label = f"{process_label}_{label[len('DY_'):]}"
             component_path = output_path.with_name(
                 f"{output_path.stem}_{label}{output_path.suffix}"
             )
@@ -794,36 +795,6 @@ def get_histogram_variable(variable, syst_info, available_columns):
         None,
     )
 
-def should_shift_sideband_dnn_mass(mass_region, variable):
-    return mass_region in DNN_SIDEBAND_SHIFTED_PAYLOADS and variable == "DNN_NNOutput"
-
-def get_sideband_shifted_mass_expression(mass_region):
-    if mass_region == "Z_sideband":
-        return "static_cast<float>(115.0 + 0.5 * (m_mumu - 70.0))"
-    if mass_region == "H_sideband":
-        return (
-            "static_cast<float>(m_mumu < 115.0 ? "
-            "115.0 + (m_mumu - 110.0) : 120.0 + (m_mumu - 135.0))"
-        )
-    raise ValueError(f"Unsupported DNN mass-shift region: {mass_region}")
-
-def apply_sideband_mass_shifted_dnn(
-    rdf, mass_region, btag_algo, era, dnn_model_set
-):
-    from common.dnn_application import ApplyDNN
-
-    shifted_rdf = rdf.Redefine(
-        "m_mumu",
-        get_sideband_shifted_mass_expression(mass_region),
-    )
-    return ApplyDNN(
-        shifted_rdf,
-        [DNN_SIDEBAND_SHIFTED_PAYLOADS[mass_region]],
-        btag_algo=btag_algo,
-        era=era,
-        model_set=dnn_model_set,
-    )
-
 def process_single_chunk(args_tuple):
     (
         chunk_index,
@@ -915,7 +886,16 @@ def process_single_chunk(args_tuple):
             )
         else:
             rdf_base = define_shifted_jet_observables(rdf_base, systs_to_run)
-            if args.dy_jet_components:
+            matching_columns = {
+                str(column) for column in rdf_base.GetColumnNames()
+            }
+            if (
+                not is_data
+                and (
+                    "Jet_genJetIdx" in matching_columns
+                    or "SelectedJet_genJetIdx" in matching_columns
+                )
+            ):
                 rdf_base = define_jet_gen_matching(
                     rdf_base,
                     {
@@ -989,7 +969,7 @@ def process_single_chunk(args_tuple):
         shifted_rdfs = {}
         if rdf_base is not None and "DNN_NNOutput" in vars_to_make_hist:
             for mass_region in stored_regions:
-                if not should_shift_sideband_dnn_mass(
+                if not needs_sideband_mass_shift(
                     mass_region, "DNN_NNOutput"
                 ):
                     continue
@@ -1004,7 +984,7 @@ def process_single_chunk(args_tuple):
                         mass_region,
                         btag_algo=btag_algo,
                         era=args.era,
-                        dnn_model_set=args.dnn_model_set,
+                        model_set=args.dnn_model_set,
                     )
                     shifted_rdfs[(mass_region, selection_suffix)] = (
                         shifted_rdf,
@@ -1107,11 +1087,8 @@ def process_single_chunk(args_tuple):
                             )
                             for column in spec["columns"]
                         )
-                        if should_shift_sideband_dnn_mass(mass_region, variable):
-                            shifted_payload = DNN_SIDEBAND_SHIFTED_PAYLOADS[
-                                mass_region
-                            ]
-                            hist_columns = (f"{shifted_payload}_NNOutput",)
+                        if needs_sideband_mass_shift(mass_region, variable):
+                            hist_columns = (shifted_output_column(mass_region),)
 
                         if (
                             rdf_filtered is not None
@@ -1324,11 +1301,22 @@ if __name__ == "__main__":
     )
     parser.add_argument(
         "--dy-jet-components",
+        "--jet-gen-components",
+        dest="dy_jet_components",
         action="store_true",
         help=(
-            "Split DY MC into exclusive reco-jet/gen-matching components and "
+            "Split selected MC into exclusive reco-jet/gen-matching components and "
             "book the prescribed 0J m_mumu, 1J eta(j1):pt(j1), and "
             "2J eta(j2):pt(j2) fit templates."
+        ),
+    )
+    parser.add_argument(
+        "--jet-gen-component-processes",
+        nargs="+",
+        default=["DY", "EWK"],
+        help=(
+            "Process names allowed for --jet-gen-components. Defaults to "
+            "DY and EWK and can be replaced with a custom list."
         ),
     )
     parser.add_argument(
@@ -1563,11 +1551,11 @@ if __name__ == "__main__":
         args.categories = [f"VBF_eta_{region}" for region in VBF_ETA_REGIONS]
     if args.dy_jet_components:
         if is_data:
-            raise ValueError("--dy-jet-components cannot be used on data")
-        if not args.dataset_name.startswith("DY"):
+            raise ValueError("--jet-gen-components cannot be used on data")
+        if args.process_name not in args.jet_gen_component_processes:
             raise ValueError(
-                "--dy-jet-components is restricted to DY datasets; the "
-                "underlying matching helpers are reusable for other MC."
+                f"Process {args.process_name!r} is not enabled for reco/gen "
+                "splitting. Add it to --jet-gen-component-processes."
             )
         sel_cfg = add_jet_component_categories(sel_cfg)
         args.categories = list(expanded_jet_component_categories())
@@ -1892,6 +1880,7 @@ if __name__ == "__main__":
         split_dy_jet_component_outputs(
             args.output_file,
             masses_regions_list,
+            process_label=args.process_name,
         )
     if args.keep_tmp:
         print("[INFO] Keeping temporary files because --keep-tmp was used.")

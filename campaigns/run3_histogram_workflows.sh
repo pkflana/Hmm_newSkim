@@ -23,8 +23,8 @@ SYSTEMATICS=(Central JERC ScaRe Muon PU QCDScale PDF)
 MASS_REGIONS=(Signal_Fit Z_sideband H_sideband)
 
 EOS_BASE="/eos/user/v/vdamante/H_mumu/campaigns"
-INPUT_DIR="/eos/cms/store/group/phys_higgs/cmshmm/vdamante/skim_v2"
-MANIFESTS="/eos/user/v/vdamante/H_mumu/manifests"
+INPUT_DIR="/eos/cms/store/group/phys_higgs/cmshmm/vdamante/skim_v3"
+MANIFESTS="/eos/user/v/vdamante/H_mumu/manifests_skim_v3"
 
 CHUNK_SIZE=5
 CORES=1
