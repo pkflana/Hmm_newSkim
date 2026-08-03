@@ -14,6 +14,7 @@ Modes:
 Options:
   --era ERA              Run only one era (repeatable).
   --max-submit-jobs N    Limit submitted jobs per era (submit only).
+  --max-parallel-jobs N  Limit concurrently active jobs (submit only).
   --proxy PATH            Use this user's VOMS proxy.
   --output-dir PATH       Override the configured skim_v3 output directory.
   -h, --help             Show this help.
@@ -50,6 +51,7 @@ default_eras=(
 )
 eras=()
 max_submit_jobs=""
+max_parallel_jobs=""
 proxy_path=""
 output_dir=""
 
@@ -61,6 +63,10 @@ while [[ $# -gt 0 ]]; do
       ;;
     --max-submit-jobs)
       max_submit_jobs="$2"
+      shift 2
+      ;;
+    --max-parallel-jobs)
+      max_parallel_jobs="$2"
       shift 2
       ;;
     --proxy)
@@ -119,6 +125,9 @@ for era in "${eras[@]}"; do
       submit_opts=()
       if [[ -n "$max_submit_jobs" ]]; then
         submit_opts+=(--max-submit-jobs "$max_submit_jobs")
+      fi
+      if [[ -n "$max_parallel_jobs" ]]; then
+        submit_opts+=(--max-parallel-jobs "$max_parallel_jobs")
       fi
       python3 htcondor/condorsubmit.py \
         --era "$era" \

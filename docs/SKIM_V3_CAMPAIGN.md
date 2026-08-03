@@ -136,10 +136,10 @@ After the test succeeds, open a ZSH shell (just running `zsh`)
 
 ```sh
 campaigns/run3_skim_v3.sh submit \
-  --era <ERA>\
+  --era <ERA> \
   --max-parallel-jobs <NUMBER>
 ```
-Replace NUMBER with number of maximum parallel jobs you prefer.
+Replace `NUMBER` with the maximum number of jobs that may be active concurrently.
 If (prior talking to Valeria about) you intend to use an alternative destination:
 
 ```sh
@@ -187,5 +187,4 @@ sh analysis/scripts/validate.sh \
   --output-dir /eos/user/v/vdamante/H_mumu/manifests_skim_v3
   --condor
 ```
-
 
