@@ -3,7 +3,7 @@ DNN_NNOutput:
   x_title: DNN_NNOutput
   y_title: Events
   use_log_y: True
-  x_rebin: [ 0.0, 0.22, 0.39, 0.51, 0.61, 0.7, 0.77, 0.82, 0.87, 0.91, 0.94, 0.96, 0.99, 1.0 ]
+  x_rebin: [ 0.0, 0.22, 0.39, 0.51, 0.61, 0.7, 0.77, 0.82, 0.87, 0.91, 0.94, 0.96, 0.99, 1.0 ] 
   blind_range:
     Signal_Fit_VBF: [ 0.8, 1. ]
   max_y_sf: 1.

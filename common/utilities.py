@@ -5,6 +5,42 @@ from pathlib import Path
 import ROOT
 import yaml
 
+
+
+def list_root_files(path):
+    if path.endswith(".root"):
+        return [path]
+
+    files = []
+    for root, _, fnames in os.walk(path):
+        for fname in fnames:
+            if fname.endswith(".root"):
+                files.append(os.path.join(root, fname))
+    return sorted(files)
+
+
+def extract_dataset_name(path):
+    return os.path.basename(path.rstrip("/"))
+
+
+
+
+def report_path_for_root(root_file):
+    directory = os.path.dirname(root_file)
+    stem = os.path.splitext(os.path.basename(root_file))[0]
+    if stem.startswith("skim_") and stem[len("skim_"):].isdigit():
+        return os.path.join(directory, f"report_{stem[len('skim_'):]}.json")
+    return os.path.splitext(root_file)[0] + "_report.json"
+
+
+def load_report_json(root_file):
+    json_file = report_path_for_root(root_file)
+    if not os.path.exists(json_file):
+        print(f"[WARNING] Missing json: {json_file}")
+        return {}
+    with open(json_file) as f:
+        return json.load(f)
+
 from enum import Enum
 class WorkingPointsbTag(Enum):
     Loose = 1
@@ -35,7 +71,7 @@ def SaveReport(rdf, report, verbose=0):
             eff = cut.GetEff()
             report_json[cut_name] = {
                 "pass": passed,
-                # "eff": eff            
+                # "eff": eff
             }
             if verbose > 0:
                 print(

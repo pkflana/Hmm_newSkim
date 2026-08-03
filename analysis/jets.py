@@ -76,7 +76,7 @@ def _define_if_missing(df, name, expression):
 
 
 
-def ProcessAllJetVariables(df,is_data,jet_columns,config,bTagAlgo,bTagDict,want_variations,syst_cfg):
+def ProcessAllJetVariables(df,jet_columns,config,bTagAlgo,bTagDict,want_variations,syst_cfg):
     cols = _column_names(df)
     pt_min = config.get("jet_pt_min", 20.0)
     eta_max = config.get("jet_eta_max", 4.7)
@@ -148,7 +148,7 @@ def ProcessAllJetVariables(df,is_data,jet_columns,config,bTagAlgo,bTagDict,want_
         )
     return df, new_cols
 
-def SelectJetVars(df,is_data,jet_columns,config,bTagAlgo,bTagDict,want_variations,syst_cfg):
+def SelectJetVars(df,jet_columns,config,bTagAlgo,bTagDict,want_variations,syst_cfg):
     cols = _column_names(df)
     pt_min = config.get("jet_pt_min", 20.0)
     eta_max = config.get("jet_eta_max", 4.7)
@@ -243,7 +243,25 @@ def SelectJetVars(df,is_data,jet_columns,config,bTagAlgo,bTagDict,want_variation
             f"SelectedJet_p4{suff}[SelectedJet_btag_medium{suff}].size() < 1 && "
             f"SelectedJet_p4{suff}[SelectedJet_btag_loose{suff}].size() < 2"
         )
+    return df, new_cols
 
+def SelectVBFJets(df,want_variations,syst_cfg):
+
+    syst_suffixes = [""]
+    if want_variations:
+        scales = syst_cfg.get('scales',['up','down'])
+        syst_suffixes.extend([syst_cfg['systematics']['JER']['jet_suffix'].format(scale=scale) for scale in scales])
+        syst_suffixes.extend([syst_cfg['systematics']['JES_Total']['jet_suffix'].format(scale=scale) for scale in scales])
+
+    new_cols = []
+
+    def track(df, name, expr):
+        if name not in new_cols:
+            new_cols.append(name)
+        if name in _column_names(df): return df
+        return df.Define(name, expr)
+
+    for suff in syst_suffixes:
         df = df.Define(
             f"VBFJetCand{suff}",
             f"FindVBFJets(SelectedJet_p4{suff}, SelectedJet_IsOutsideHorn{suff})"

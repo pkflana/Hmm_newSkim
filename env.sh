@@ -186,6 +186,43 @@ prepend_path PYTHONPATH "$ANALYSIS_PATH"
 unalias python 2>/dev/null || true
 alias python=python3 2>/dev/null || true
 
+# Combine is provided by the official pre-built CMS container on CVMFS.  Keep
+# it as a shell function so `source env.sh` works in both bash and zsh and does
+# not require a separate local CombinedLimit build.
+export COMBINE_IMAGE="${COMBINE_IMAGE:-/cvmfs/unpacked.cern.ch/gitlab-registry.cern.ch/cms-analysis/general/combine-container:latest}"
+export COMBINE_EXEC_SCRIPT="/cvmfs/cms.cern.ch/cat/combine_alias/exec_script.sh"
+
+# Remove aliases left by /cvmfs/cms.cern.ch/cat/combine_env.sh: they do not
+# necessarily bind the active Kerberos cache and can make EOS look absent.
+unalias combine 2>/dev/null || true
+run_combine_tool() {
+    local combine_tool="$1"
+    shift
+    local -a combine_apptainer_options
+    combine_apptainer_options=(-s exec --bind /cvmfs,/eos,/afs)
+    if [[ "${KRB5CCNAME:-}" == FILE:* ]]; then
+        local combine_ticket_path="${KRB5CCNAME#FILE:}"
+        local combine_ticket_dir
+        combine_ticket_dir="$(dirname "$combine_ticket_path")"
+        combine_apptainer_options+=(
+            --bind "${combine_ticket_dir}:${combine_ticket_dir}"
+            --env "KRB5CCNAME=${KRB5CCNAME}"
+        )
+    fi
+    apptainer "${combine_apptainer_options[@]}" \
+        "$COMBINE_IMAGE" \
+        "$COMBINE_EXEC_SCRIPT" \
+        "$combine_tool" "$@"
+}
+
+combine() {
+    run_combine_tool combine "$@"
+}
+
+combine_cards() {
+    run_combine_tool combineCards.py "$@"
+}
+
 cd "$ANALYSIS_PATH" || return 1
 
 echo "=========================================================="
@@ -196,6 +233,7 @@ echo "SCRAM_ARCH      = $SCRAM_ARCH"
 echo "python3         = $(which python3)"
 echo "root            = $(which root 2>/dev/null || echo not_found)"
 echo "root-config     = $(which root-config 2>/dev/null || echo not_found)"
+echo "combine         = official CVMFS container (${COMBINE_IMAGE})"
 echo "PYTHONPATH      = $PYTHONPATH"
 echo "=========================================================="
 

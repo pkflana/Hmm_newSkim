@@ -237,7 +237,7 @@ def main() -> int:
     parser.add_argument(
         "--background-pattern",
         action="append",
-        default=["*"],
+        default=None,
         help="background filename glob; default: every non-data, non-signal file",
     )
     parser.add_argument(
@@ -261,7 +261,7 @@ def main() -> int:
 
     era = args.era if args.era.startswith("Run3_") else f"Run3_{args.era}"
     signal_patterns = csv_items(args.signal_pattern)
-    background_patterns = csv_items(args.background_pattern)
+    background_patterns = csv_items(args.background_pattern or ["*"])
     exclude_patterns = csv_items(args.exclude_pattern)
     working_points = tuple(args.working_point or (0.5, 0.7, 0.8, 0.9))
     if any(point <= 0 or point > 1 for point in working_points):
