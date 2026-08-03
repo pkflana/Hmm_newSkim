@@ -7,6 +7,10 @@ The single operational guide is:
 
 [Run 3 H→μμ analysis workflow](docs/ANALYSIS_WORKFLOW.md)
 
+The complete documentation is available at:
+
+[https://valeriadamante.github.io/Hmm_newSkim/](https://valeriadamante.github.io/Hmm_newSkim/)
+
 It covers environment setup, NanoAOD discovery, skim production and
 validation, central and shifted histograms, DY/EWK routing, reco/gen jet
 components, hadd and merge stages, plotting, and Combine datacards.

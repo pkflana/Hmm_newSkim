@@ -1,9 +1,9 @@
 # H→μμ analysis framework
 
-Documentazione per la produzione delle skimmed ntuples, validazione,
-istogrammi, DNN e reweight DY.
+Documentation for skimmed-ntuple production, validation, histograms, DNNs,
+and DY reweighting.
 
-## Collegamenti principali
+## Main links
 
 - [Running instructions](RUNNING_INSTRUCTIONS.md)
 - [Analysis workflow](ANALYSIS_WORKFLOW.md)
