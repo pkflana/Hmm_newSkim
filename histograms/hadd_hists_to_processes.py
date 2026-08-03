@@ -1,10 +1,10 @@
-import os
-import shutil
-import yaml
 import argparse
 import copy
+import os
 import re
+import shutil
 
+import yaml
 
 
 def load_yaml_config(yaml_path):

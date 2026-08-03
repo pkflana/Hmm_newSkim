@@ -1,12 +1,18 @@
 #!/usr/bin/env python3
 
-import ROOT
-import sys
-import os
 import argparse
+import os
+import sys
 import time
+
+os.environ.setdefault(
+    "MPLCONFIGDIR",
+    os.path.join("/tmp", os.environ.get("USER", "user"), "matplotlib"),
+)
+
 import matplotlib.pyplot as plt
 import mplhep as hep
+import ROOT
 
 # =========================================================
 # Global style
@@ -18,13 +24,11 @@ if __name__ == "__main__":
     sys.path.append(os.environ["ANALYSIS_PATH"])
 
 import common.utilities as utilities
-from common.helpers import *
+from common.runtime import initialize_root_runtime
+from common.helpers import RebinHisto, findBinEntry, findNewBins, getNewBins,is_valid_histogram
 from histograms.plotting_functions import make_stacked_plot
 
-HEADERS = ["analysis/AnalysisTools.h"]
-
-for header in HEADERS:
-    utilities.DeclareHeader(f"{os.environ['ANALYSIS_PATH']}/{header}")
+initialize_root_runtime()
 
 
 # =========================================================
@@ -232,6 +236,7 @@ def make_group_process(group_name, group_cfg, members, input_processes):
         "is_data": False,
         "is_signal": False,
         "type": "background",
+        "aliases": list(members),
         "hists": {},
     }
 
@@ -574,8 +579,12 @@ if __name__ == "__main__":
         default="DY",
         type=str,
         help=(
-            "Sample or plotting group to scale when --normalize-dy-to-data "
-            "is used. Default: DY. Examples: DY, DY_amcatnlo."
+            "Sample(s) or plotting group(s) to scale with one common factor "
+            "when --normalize-dy-to-data is used. Separate multiple targets "
+            "with commas. Default: DY; if no literal DY background is present, "
+            "all background samples/groups whose key or label starts with DY "
+            "are scaled. Examples: DY, DY_amcatnlo, "
+            "DYto2Mu_MLL105To160_ptll,DYto2Mu_MLL105To160_VBFFiltered_ptll."
         ),
     )
 
@@ -821,20 +830,25 @@ if __name__ == "__main__":
 
             for available_hist, hist_name in available_hists:
 
-                if (
-                    requested_variables_set is not None
-                    and hist_name not in requested_variables_set
-                ):
-                    continue
+                if requested_variables_set is not None:
+                    base_name = hist_name.rsplit("_CMS_", 1)[0] if "_CMS_" in hist_name else hist_name
+                    if hist_name not in requested_variables_set and base_name not in requested_variables_set:
+                        continue
 
                 var_entry = findBinEntry(hist_cfg, hist_name)
 
                 if var_entry is None or var_entry not in hist_cfg:
-                    print(
-                        f"[WARNING] Nessuna configurazione trovata "
-                        f"per {hist_name}. Skip."
-                    )
-                    continue
+                    base_name = hist_name.rsplit("_CMS_", 1)[0] if "_CMS_" in hist_name else None
+                    base_entry = findBinEntry(hist_cfg, base_name) if base_name else None
+
+                    if base_entry is None or base_entry not in hist_cfg:
+                        print(
+                            f"[WARNING] Nessuna configurazione trovata "
+                            f"per {hist_name}. Skip."
+                        )
+                        continue
+                    var_entry = base_entry
+                
 
                 if "x_rebin" in hist_cfg[var_entry]:
                     bins_to_compute = findNewBins(
@@ -846,6 +860,7 @@ if __name__ == "__main__":
                 else:
                     new_bins = hist_cfg[var_entry].get("x_bins", [])
 
+                is_syst_variant = "_CMS_" in hist_name
                 rebinned_hist = available_hist
 
                 if args.rebin:
@@ -853,6 +868,9 @@ if __name__ == "__main__":
                         available_hist,
                         new_bins,
                         process_name,
+                        # Keep under/overflow in their ROOT bins so they are
+                        # available to the yield, but do not fold them into
+                        # the first/last visible plotting bin.
                         wantOverflow=False,
                     )
 
@@ -966,7 +984,8 @@ if __name__ == "__main__":
                 ratio_reference=args.ratio_reference,
                 normalize_dy_to_data=args.normalize_dy_to_data,
                 normalize_mc_to_data=args.normalize_mc_to_data,
-                dy_normalization_sample=args.dy_normalization_sample,
+                dy_normalization_sample=args.dy_normalization_sample,     
+                era=args.era,             
             )
 
     print(

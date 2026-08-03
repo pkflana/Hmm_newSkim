@@ -49,12 +49,12 @@ jer_tag_map = {
     "2022_Summer22": "Summer22_22Sep2023_JRV2_MC",
     "2022_Prompt": "JR_Winter22Run3_V2_MC",
     "2022_Summer22EE": "Summer22EE_22Sep2023_JRV2_MC",
-    "2023_Summer23BPix": "Summer23BPixPrompt23_RunD_JRV2_MC",
-    "2023_Summer23": "Summer23Prompt23_RunCv1234_JRV2_MC",
-    "2024_Summer24": "Summer24Prompt24_JRV1_MC",
-    "2025_Summer24": "Summer24Prompt25_JRV1_MC",
-    "2025_Winter25": "Summer24Prompt25_JRV1_MC",
-    "2026_Summer24": "Summer24Prompt25_JRV1_MC", # tmp patch as there is no JER tag for 2026 right now
+    "2023_Summer23BPix": "Summer23BPixPrompt23_RunD_JRV3_MC",
+    "2023_Summer23": "Summer23Prompt23_RunCv1234_JRV3_MC",
+    "2024_Summer24": "Summer24Prompt24_JRV2_MC",
+    "2025_Summer24": "Summer24Prompt25_JRV2_MC",
+    # "2025_Winter25": "Summer24Prompt25_JRV2_MC",
+    "2026_Summer24": "Summer24Prompt25_JRV2_MC", # tmp patch as there is no JER tag for 2026 right now
 }
 
 jec_tag_map_mc = {
@@ -63,10 +63,10 @@ jec_tag_map_mc = {
     "2022_Summer22EE": ["Summer22EE_22Sep2023_V4_MC"],
     "2023_Summer23BPix": ["Summer23BPixPrompt23_V4_MC"],
     "2023_Summer23": ["Summer23Prompt23_V4_MC"],
-    "2024_Summer24": ["Summer24Prompt24_V3_MC"],
-    "2025_Summer24": ["Summer24Prompt25_V1_MC"],
-    "2025_Winter25": ["Winter25Prompt25_V3_MC"],
-    "2026_Summer24": ["Winter25Prompt25_V3_MC"],  # tmp patch as there is no JEC tag for 2026 right now
+    "2024_Summer24": ["Summer24Prompt24_V4_MC"],
+    "2025_Summer24": ["Summer24Prompt25_V3_MC"],
+    # "2025_Winter25": ["Winter25Prompt25_V3_MC"],
+    "2026_Summer24": ["Summer24Prompt26_V2_MC"], # tmp patch as there is no JEC tag for 2026 right now
 }
 
 jec_tag_map_data = {
@@ -75,10 +75,10 @@ jec_tag_map_data = {
     "2022_Summer22EE": ["Summer22EE_22Sep2023_Run{}_V4_DATA", "Summer22EE_22Sep2023_V4_DATA"],
     "2023_Summer23BPix": ["Summer23BPixPrompt23_Run{}_V4_DATA", "Summer23BPixPrompt23_V4_DATA"],
     "2023_Summer23": ["Summer23Prompt23_Run{}_V4_DATA", "Summer23Prompt23_V4_DATA"],
-    "2024_Summer24": ["Summer24Prompt24_V3_DATA"],
-    "2025_Summer24": ["Summer24Prompt25_V1_DATA"],
-    "2025_Winter25": ["Winter25Prompt25_Run{}_V3_DATA", "Winter25Prompt25_V3_DATA"],
-    "2026_Summer24": ["Winter25Prompt25_Run{}_V3_DATA", "Winter25Prompt25_V3_DATA"], # tmp patch as there is no JEC tag for 2026 right now
+    "2024_Summer24": ["Summer24Prompt24_V4_DATA"],
+    "2025_Summer24": ["Summer24Prompt25_V3_DATA"],
+    # "2025_Winter25": ["Winter25Prompt25_Run{}_V3_DATA", "Winter25Prompt25_V3_DATA"],
+    "2026_Summer24": ["Summer24Prompt26_Run{}_V1_DATA", "Summer24Prompt26_V1_DATA"], # tmp patch as there is no JEC tag for 2026 right now
 }
 
 run_versions = {
@@ -105,7 +105,7 @@ run_letters = {
     "2024_Summer24": ["CDEReprocessing", "FGHIPrompt"],
     "2025_Winter25": ["C", "D", "E", "F","G"],
     "2025_Summer24": ["C", "D", "E", "F", "G"],
-    "2026_Summer24": ["C", "D", "E", "F","G"],  # tmp patch as there is no JEC for 2026 right now, later they will be ["A", "B", "C", "D"],
+    "2026_Summer24": ["B","C", "D", "E", "F","G"],  # tmp patch as there is no JEC for 2026 right now, later they will be ["A", "B", "C", "D"],
 }
 
 _jet_correction_state = {

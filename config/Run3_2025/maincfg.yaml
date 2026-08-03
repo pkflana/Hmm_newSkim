@@ -25,7 +25,7 @@ MET_flags: # https://twiki.cern.ch/twiki/bin/view/CMS/MissingETOptionalFiltersRu
   - Flag_eeBadScFilter
   - Flag_ecalBadCalibFilter
 
-want_variations: False
+want_variations: True
 bTagAlgo: UParTAK4
 # Run3_2025 MC JERC payload combination:
 #   2025             -> JER 2025, JEC 2025
@@ -41,27 +41,27 @@ variables:
   # - VBFNet_NNOutput
   # - PostVBFNetDNN_NNOutput
   - m_mumu
-  # - m_mumu_noCorr
+  - m_mumu_noCorr
   - pt_mumu
-  # - eta_mumu
-  # - dR_mumu
+  - eta_mumu
+  - dR_mumu
   - mu1_pt
   - mu2_pt
-  # - mu1_eta
-  # - mu2_eta
-  # - phi_CS
-  # - cosTheta_CS
+  - mu1_eta
+  - mu2_eta
+  - phi_CS
+  - cosTheta_CS
 
   # ## Jets vars #
   - N_SelectedJets
   - leadingjet_pt
   - leadingjet_eta
-  # - leadingjet_phi
+  - leadingjet_phi
   # - leadingjet_rapidity
   # - SelectedJets_HT
   - subleadingjet_pt
   - subleadingjet_eta
-  # - subleadingjet_phi
+  - subleadingjet_phi
   - delta_eta_jj_ls
   - m_jj_ls
   # - subleadingjet_rapidity
@@ -86,17 +86,17 @@ variables:
   - vbfjet2_phi
 
   ## VBF jets + MUON
-  # - Zeppenfeld_Var
-  # - R_pt
-  # - pt_centrality
+  - Zeppenfeld_Var
+  - R_pt
+  - pt_centrality
   # - minDeltaPhi
   # - minDeltaEta
 
   ## soft jet activity
-  # - SoftActivityJetHT
-  # - nSoftActivityJet
-  # - SoftJetCleanedActivity_N
-  # - SoftJetCleanedActivity_N
-  # - SoftJetCleanedActivity_ptSum
-  # - SoftJetActivity_NoOverlapWithMuonsAndEtaCleaning_N
-  # - SoftJetActivity_NoOverlapWithMuonsAndEtaCleaning_ptSum
+  - SoftActivityJetHT
+  - nSoftActivityJet
+  - SoftJetCleanedActivity_N
+  - SoftJetCleanedActivity_N
+  - SoftJetCleanedActivity_ptSum
+  - SoftJetActivity_NoOverlapWithMuonsAndEtaCleaning_N
+  - SoftJetActivity_NoOverlapWithMuonsAndEtaCleaning_ptSum

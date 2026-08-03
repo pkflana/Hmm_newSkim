@@ -332,6 +332,10 @@ def apply_muIDIso_weights(df, config, want_variations):
     muIDEff_JsonPath = (
         "/cvmfs/cms-griddata.cern.ch/cat/metadata/MUO/{}/latest/muon_Z.json.gz"
     )
+    if era == "Run3_2025":
+        muIDEff_JsonPath = (
+            "/afs/cern.ch/work/v/vdamante/Hmm_newSkim/corrections/data/MUO/SF/Run3-25Prompt-Summer24-NanoAODv15/muon_Z.json.gz"
+        )
     jsonFile_path = os.path.join(
         os.environ["ANALYSIS_PATH"],
         muIDEff_JsonPath.format(pog_folder_names["MUO"][period_unc]),

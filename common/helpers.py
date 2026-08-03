@@ -1,9 +1,14 @@
 
-import math
-import ROOT, re, array, math, numpy as np, bisect
-import os
-import sys
+import array
+import bisect
 import json
+import math
+import os
+import re
+import sys
+
+import numpy as np
+import ROOT
 
 if __name__ == "__main__":
     sys.path.append(os.environ["ANALYSIS_PATH"])
@@ -12,21 +17,21 @@ import common.utilities as utilities
 
 # ****** root / json files manipulation
 def is_valid_root_file(filename, tree_name="Events"):
+    root_file = None
     try:
-        f = ROOT.TFile.Open(filename)
-        if not f or f.IsZombie():
+        root_file = ROOT.TFile.Open(filename)
+        if not root_file or root_file.IsZombie():
             return False
-        tree = f.Get(tree_name)
-        if tree is None:
-            f.Close()
+        tree = root_file.Get(tree_name)
+        if not tree:
             return False
-        if tree.GetEntries() == 0:
-            f.Close()
-            return False
-        f.Close()
-        return True
+        return tree.GetEntries() > 0
     except Exception:
         return False
+    finally:
+        if root_file:
+            root_file.Close()
+
 
 def get_valid_root_files(files, tree_name="Events"):
     valid_files = []
@@ -45,18 +50,16 @@ def get_root_files(path):
         for f in fnames:
             if not f.endswith(".root"):
                 continue
-            files.append(
-                os.path.join(root, f)
-            )
+            files.append(os.path.join(root, f))
     return sorted(files)
 
 
 # ****** dictionary for denum definition
 def normalize_stem(path):
     base = os.path.basename(str(path))
-    for ext in [".root", ".json"]:
+    for ext in (".root", ".json"):
         if base.endswith(ext):
-            base = base[:-len(ext)]
+            base = base[: -len(ext)]
     return base
 
 
@@ -75,80 +78,115 @@ def is_valid_tmp_root(path):
     if not os.path.exists(path):
         return False
 
+    root_file = None
     try:
-        f = ROOT.TFile.Open(path, "READ")
-        if not f or f.IsZombie():
+        root_file = ROOT.TFile.Open(path, "READ")
+        if not root_file or root_file.IsZombie():
             return False
-        if f.GetNkeys() == 0:
-            return False
-        f.Close()
-        return True
+        return root_file.GetNkeys() > 0
     except Exception:
         return False
+    finally:
+        if root_file:
+            root_file.Close()
 
 def get_segmentation_dict(
-    input_dir,
+    json_paths,
     node="gen",
     fallback_to_initial=True,
     warn_if_missing=True,
 ):
     global_segmentation = {}
-    input_path = os.path.abspath(input_dir)
-    if input_path.endswith(".root"):
-        search_dir = os.path.dirname(input_path)
-        stem = os.path.splitext(os.path.basename(input_path))[0]
-        report_path = os.path.join(search_dir, f"{stem}_report.json")
-        json_paths = [report_path] if os.path.exists(report_path) else []
-    elif input_path.endswith(".json"):
-        search_dir = os.path.dirname(input_path)
-        json_paths = [input_path] if os.path.exists(input_path) else []
-    else:
-        search_dir = input_path
-        json_paths = [
-            os.path.join(root, filename)
-            for root, _, files in os.walk(search_dir)
-            for filename in files
-            if filename.endswith(".json")
-        ]
 
     for json_path in json_paths:
-        with open(json_path) as jf:
+        try:
+            with open(json_path) as json_file:
+                info = json.load(json_file)
+        except (OSError, json.JSONDecodeError) as error:
+            print(
+                f"[WARNING] Could not parse JSON file {json_path}: {error}"
+            )
+            continue
+
+        node_dict = info.get(node)
+
+        if isinstance(node_dict, dict):
+            segmented_keys = [
+                key
+                for key, value in node_dict.items()
+                if key != "total" and isinstance(value, dict)
+            ]
+
+            if segmented_keys:
+                # Dataset con denominatori distinti per segmentazione.
+                # Il total viene ignorato perché è cumulativo.
+                for sub_key in segmented_keys:
+                    sub_info = node_dict[sub_key]
+
+                    selection = sub_info.get("selection")
+                    value = sub_info.get("value", 0.0)
+
+                    if not selection:
+                        continue
+
+                    try:
+                        value = float(value)
+                    except (TypeError, ValueError):
+                        print(
+                            f"[WARNING] Invalid value for node '{node}', "
+                            f"segment '{sub_key}', file {json_path}: {value!r}"
+                        )
+                        continue
+
+                    global_segmentation[selection] = (
+                        global_segmentation.get(selection, 0.0) + value
+                    )
+
+            elif isinstance(node_dict.get("total"), dict):
+                # Dataset non segmentato.
+                total_info = node_dict["total"]
+
+                selection = total_info.get("selection", "return true;")
+                value = total_info.get("value", 0.0)
+
+                try:
+                    value = float(value)
+                except (TypeError, ValueError):
+                    print(
+                        f"[WARNING] Invalid total value for node '{node}', "
+                        f"file {json_path}: {value!r}"
+                    )
+                    continue
+
+                global_segmentation[selection] = (
+                    global_segmentation.get(selection, 0.0) + value
+                )
+
+            else:
+                print(
+                    f"[WARNING] Node '{node}' has no usable segmentation "
+                    f"entries in {json_path}"
+                )
+
+        elif fallback_to_initial and "Initial" in info:
+            initial = info["Initial"]
+
             try:
-                info = json.load(jf)
-            except Exception as e:
-                print(f"[WARNING] Errore nel parsing del file JSON {json_path}: {e}")
+                if isinstance(initial, dict):
+                    value = sum(float(item) for item in initial.values())
+                else:
+                    value = float(initial)
+            except (TypeError, ValueError):
+                print(
+                    f"[WARNING] Invalid Initial value in "
+                    f"{json_path}: {initial!r}"
+                )
                 continue
 
-        # Controlliamo se esiste il blocco centrale 'pu'
-        if node in info and isinstance(info[node], dict):
-            node_dict = info[node]
+            global_segmentation["return true;"] = (
+                global_segmentation.get("return true;", 0.0) + value
+            )
 
-            # Se ci sono più chiavi di 'total', o se 'total' non c'è, è un file DY segmentato
-            has_fine_segmentation = len(node_dict) > 1 #or "total" not in node_dict
-            if has_fine_segmentation:
-                # File DY: cicliamo sulle sotto-selezioni ignorando il total cumulativo interno
-                for sub_key, sub_info in node_dict.items():
-                    if sub_key == "total":
-                        continue
-                    selection = sub_info.get("selection")
-                    val = float(sub_info.get("value", 0.0))
-                    if selection:
-                        global_segmentation[selection] = global_segmentation.get(selection, 0.0) + val
-            else:
-                # File non-DY: prendiamo direttamente la chiave 'total' dentro 'pu'
-                total_node = node_dict["total"]
-                selection = total_node.get("selection", "return true;")
-                val = float(total_node.get("value", 0.0))
-                global_segmentation[selection] = global_segmentation.get(selection, 0.0) + val
-
-        # Fallback su 'Initial' se manca completamente il blocco 'pu'
-        elif fallback_to_initial and "Initial" in info:
-            init_val = info["Initial"]
-            val = float(init_val) if not isinstance(init_val, dict) else sum(float(v) for v in init_val.values())
-            global_segmentation["return true;"] = global_segmentation.get("return true;", 0.0) + val
-
-    if not global_segmentation and warn_if_missing:
-        print(f"[WARNING] No segmentation JSON information found under: {search_dir}")
 
     return global_segmentation
 
@@ -156,7 +194,15 @@ def get_segmentation_dict(
 # ****** RDF manipulation
 
 from histograms.defineTriggerWeights import AddTriggerWeightsAndErrors
-from .add_vars_to_skim_tuples import SelectedJetObservablesDef,VBFJetObservablesDef,GetAllMuonsObservablesNew,SoftJetCollectionCleaningInVBF,VBFJetMuonsObservablesDef
+
+from .add_vars_to_skim_tuples import (
+    GetAllMuonsObservablesNew,
+    SelectedJetObservablesDef,
+    SoftJetCollectionCleaningInVBF,
+    VBFJetMuonsObservablesDef,
+    VBFJetObservablesDef,
+)
+
 
 def _inverse_sum_expression(seg_dict):
     if len(seg_dict) == 1 and "return true;" in seg_dict:
@@ -176,7 +222,19 @@ def _inverse_sum_expression(seg_dict):
     return expression
 
 
-def build_rdf(rdf, is_data, seg_dict,weight_dict, store_shifted_weights, dnn_payloads=None, btag_algo="PNet", era=None, qcd_scale_config=None, qcd_scale_seg_dicts=None, pdf_config=None):
+def build_rdf(
+    rdf,
+    is_data,
+    seg_dict,
+    weight_dict,
+    store_shifted_weights,
+    dnn_payloads=None,
+    btag_algo="PNet",
+    era=None,
+    qcd_scale_config=None,
+    qcd_scale_seg_dicts=None,
+    pdf_config=None,
+):
     if not is_data:
         rdf = AddTriggerWeightsAndErrors(
             rdf,
@@ -187,6 +245,7 @@ def build_rdf(rdf, is_data, seg_dict,weight_dict, store_shifted_weights, dnn_pay
 
         if store_shifted_weights and pdf_config is not None:
             from corrections.pdf import define_pdf_weights
+
             rdf = define_pdf_weights(rdf, pdf_config)
 
     for weight_name_template, weight_info in weight_dict.items():
@@ -299,11 +358,28 @@ def build_rdf(rdf, is_data, seg_dict,weight_dict, store_shifted_weights, dnn_pay
     rdf = SoftJetCollectionCleaningInVBF(rdf)
     if dnn_payloads:
         from common.dnn_application import ApplyDNN
+
         rdf = ApplyDNN(rdf, dnn_payloads, btag_algo=btag_algo, era=era)
     return rdf
 
 
-def GetRdfForDataset(input_dir, is_data, weight_dict, store_shifted_weights, treeName="Events", explicit_files=None, seg_dict=None, skip_validation=False, dnn_payloads=None, btag_algo="PNet", additional_cuts = None, era=None, qcd_scale_config=None, qcd_scale_seg_dicts=None, pdf_config=None):
+def GetRdfForDataset(
+    input_dir,
+    is_data,
+    weight_dict,
+    store_shifted_weights,
+    treeName="Events",
+    explicit_files=None,
+    seg_dict=None,
+    skip_validation=False,
+    dnn_payloads=None,
+    btag_algo="PNet",
+    additional_cuts=None,
+    era=None,
+    qcd_scale_config=None,
+    qcd_scale_seg_dicts=None,
+    pdf_config=None,
+):
     """
     Se explicit_files è una lista di file ROOT, RDataFrame caricherà SOLO quei file (chunk).
     Il seg_dict può essere fornito esternamente per evitare di ricalcolarlo in ogni chunk.
@@ -351,17 +427,6 @@ def GetRdfForDataset(input_dir, is_data, weight_dict, store_shifted_weights, tre
     )
     return rdf_base
 
-# def GetRdfForDataset(input_dir, is_data, weight_dict, store_shifted_weights, treeName="Events"):
-#     input_files = get_valid_root_files(get_root_files(input_dir), treeName)
-#     if len(input_files)==0 :
-#         print("[WARNING] No valid ROOT files with non-empty Events tree found.")
-#         return None
-#     rdf = ROOT.RDataFrame("Events", utilities.ListToVector(input_files))
-#     seg_dict = get_segmentation_dict(input_dir)
-#     # print(seg_dict)
-#     rdf_base = build_rdf(rdf, is_data, seg_dict,weight_dict,store_shifted_weights)
-#     return rdf_base
-
 # ****** histogram manipulation - from config
 
 def findBinEntry(hist_cfg_dict, var_name):
@@ -401,13 +466,15 @@ def findNewBins(hist_cfg_dict, var, **keys):
 
 def GetModel(hist_cfg, var, dims):
     THModel_Inputs = []
-    unit_bin_Inputs = []
     var_entry = findBinEntry(hist_cfg, var)
     if dims == 1:
         x_bins_vec = GetBinVec(hist_cfg[var_entry]["x_bins"])
         THModel_Inputs.append(x_bins_vec.size() - 1)
         THModel_Inputs.append(x_bins_vec.data())
         model = ROOT.RDF.TH1DModel("", "", *THModel_Inputs)
+        # TH1DModel keeps the edge pointer rather than copying its storage.
+        # Retain the vector for at least as long as the Python model wrapper.
+        model._bin_vectors = [x_bins_vec]
         return model
 
     elif (dims == 2) or (dims == 3):
@@ -425,9 +492,12 @@ def GetModel(hist_cfg, var, dims):
             THModel_Inputs.append(var_bins_vec.data())
         if dims == 2:
             model = ROOT.RDF.TH2DModel("", "", *THModel_Inputs)
+            model._bin_vectors = list_var_bins_vec
             return model
         if dims == 3:
             model = ROOT.RDF.TH3DModel("", "", *THModel_Inputs)
+            model._bin_vectors = list_var_bins_vec
+            return model
             return model
     else:
         raise RuntimeError("nD histogram not implemented yet")
