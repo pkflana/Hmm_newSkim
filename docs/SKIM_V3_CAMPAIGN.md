@@ -33,6 +33,7 @@ try running the era locally via `skim.py` (see [Local Skim Smoke Tests](RUNNING_
     - VBFJetIndex (for jet 1, 2, and with all JERC variations for MC)
     - Jet_btag{ALGO}CvL (with ALGO = PNet, DeepJet, Robust, and inclusion of UParT for 2024-2025-2026)
     - SelectedJets observables (with all JERC variations for MC)
+    - Muon obs (with all muon resolution/scale variations for MC) 
 
   to do this check, run ``` python3 tools/getDfTypes.py --inFile <SKIMMED_FILE_TEST> > Skim_v3_MC_df_types.txt```
 
