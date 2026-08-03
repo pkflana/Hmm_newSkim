@@ -5,6 +5,24 @@ from pathlib import Path
 import ROOT
 import yaml
 
+_ROOT_RUNTIME_INITIALIZED = False
+
+
+def initialize_root_runtime(batch=True, thread_safe=True):
+    """Initialize ROOT and the shared analysis header once per process."""
+    global _ROOT_RUNTIME_INITIALIZED
+    if _ROOT_RUNTIME_INITIALIZED:
+        return
+    analysis_path = os.environ.setdefault(
+        "ANALYSIS_PATH", str(Path(__file__).resolve().parents[1])
+    )
+    if batch:
+        ROOT.gROOT.SetBatch(True)
+    if thread_safe:
+        ROOT.EnableThreadSafety()
+    DeclareHeader(f"{analysis_path}/analysis/AnalysisTools.h")
+    _ROOT_RUNTIME_INITIALIZED = True
+
 
 
 def list_root_files(path):

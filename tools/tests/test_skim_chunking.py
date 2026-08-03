@@ -1,6 +1,6 @@
 import unittest
 
-from common.skim_chunking import chunk_files_by_size
+from common.skim_utilities import chunk_files_by_size
 
 
 class SkimChunkingTest(unittest.TestCase):

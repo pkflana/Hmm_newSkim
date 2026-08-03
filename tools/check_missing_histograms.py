@@ -12,7 +12,7 @@ from pathlib import Path
 REPOSITORY = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(REPOSITORY))
 
-from common.histogram_completeness import (  # noqa: E402
+from tools.histogram_completeness import (  # noqa: E402
     check_campaign,
     check_histograms,
     datasets_for_processes,

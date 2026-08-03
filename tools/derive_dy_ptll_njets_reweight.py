@@ -6,6 +6,11 @@ import json
 import math
 import os
 from pathlib import Path
+import sys
+
+REPO = Path(__file__).resolve().parents[1]
+if str(REPO) not in sys.path:
+    sys.path.insert(0, str(REPO))
 
 os.environ.setdefault("MPLCONFIGDIR", "/tmp/vdamante/matplotlib")
 
@@ -22,7 +27,7 @@ plt.style.use(hep.style.CMS)
 
 import common.utilities as utilities
 from common.dy_ptll_reweight import DY_AMCATNLO_NORMALIZATION
-from common.helpers import RebinHisto, findBinEntry, findNewBins, getNewBins
+from common.rdf_utilities import RebinHisto, findBinEntry, findNewBins, getNewBins
 
 
 DEFAULT_CATEGORIES = ["ggF_0J", "ggF_1J", "ggF_ge2J", "VBF_ge2J"]

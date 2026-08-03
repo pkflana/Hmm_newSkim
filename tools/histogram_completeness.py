@@ -8,7 +8,7 @@ import re
 
 import yaml
 
-from common.dataset_selection import resolve_dataset_selection
+from common.dataset_utilities import resolve_dataset_selection
 
 HISTOGRAM_MC_GROUPS = (
     "DiTriBoson",

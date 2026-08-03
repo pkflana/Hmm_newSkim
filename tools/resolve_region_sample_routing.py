@@ -6,7 +6,7 @@ import sys
 from pathlib import Path
 
 sys.path.append(str(Path(__file__).resolve().parents[1]))
-from common.region_sample_routing import (
+from common.dataset_utilities import (
     groups_for_region,
     jet_gen_component_processes,
     load_routing,

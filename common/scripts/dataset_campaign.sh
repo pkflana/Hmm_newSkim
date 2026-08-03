@@ -173,7 +173,7 @@ hist_output_exists() {
 }
 
 stage_output_exists() {
-  python3 "${ANALYSIS_PATH}/common/check_stage_output.py" "$1" "$2"
+  python3 "${ANALYSIS_PATH}/tools/check_stage_output.py" "$1" "$2"
 }
 
 histogram_output_path() {
@@ -672,7 +672,7 @@ add_skim_cfg_jobs() {
     [[ -n "${dataset_name}" ]] || continue
     add_job "${dataset_name}" "${default_chunk_size}"
   done < <(
-    python3 "${ANALYSIS_PATH}/common/resolve_datasets.py" \
+    python3 "${ANALYSIS_PATH}/tools/resolve_datasets.py" \
       --era "${era}" --format lines
   )
 }

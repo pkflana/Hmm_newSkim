@@ -1,6 +1,6 @@
 import unittest
 
-from common.dnn_histogram_production import (
+from histograms.dnn_histogram_production import (
     needs_sideband_mass_shift,
     shifted_output_column,
     sideband_mass_expression,

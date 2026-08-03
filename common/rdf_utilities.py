@@ -1,3 +1,4 @@
+"""RDataFrame construction, metadata, and ROOT histogram helpers."""
 
 import array
 import bisect

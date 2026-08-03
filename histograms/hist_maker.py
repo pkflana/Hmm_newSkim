@@ -18,7 +18,7 @@ ROOT.EnableThreadSafety()
 sys.path.append(os.environ["ANALYSIS_PATH"])
 
 import common.utilities as utilities
-from common.failed_chunk_policy import (
+from common.skim_utilities import (
     metadata_for_root_files,
     resolve_skip_failed_chunks,
     validate_skip_failed_chunks,
@@ -28,8 +28,8 @@ from common.add_vars_to_skim_tuples import (
     SelectedJetObservablesDef,
     VBFJetObservablesDef,
 )
-from common.histogram_pipeline import finalize_histogram_dataframe
-from common.dnn_histogram_production import (
+from histograms.histogram_pipeline import finalize_histogram_dataframe
+from histograms.dnn_histogram_production import (
     apply_sideband_mass_shifted_dnn,
     needs_sideband_mass_shift,
     shifted_output_column,
@@ -45,9 +45,9 @@ from common.jet_component_splitting import (
     expanded_jet_component_categories,
     variable_for_component,
 )
-from common.manifests import read_manifest
-from common.runtime import initialize_root_runtime
-from common.helpers import (
+from common.manifest_utilities import read_manifest
+from common.utilities import initialize_root_runtime
+from common.rdf_utilities import (
     GetModel,
     GetRdfForDataset,
     findBinEntry,

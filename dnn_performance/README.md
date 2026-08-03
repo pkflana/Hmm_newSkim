@@ -2,7 +2,7 @@
 
 This directory is the public entry point for DNN validation and performance
 studies.  Histogram production itself (including sideband dimuon-mass shifts)
-lives in `common/dnn_histogram_production.py` and is called by
+lives in `histograms/dnn_histogram_production.py` and is called by
 `histograms/hist_maker.py`.
 
 Available commands:

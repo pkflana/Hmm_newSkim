@@ -7,9 +7,11 @@ import os
 import sys
 from pathlib import Path
 
-sys.path.append(str(Path(__file__).resolve().parents[1]))
+REPO = Path(__file__).resolve().parents[1]
+if str(REPO) not in sys.path:
+    sys.path.insert(0, str(REPO))
 
-from common.dataset_selection import resolve_dataset_selection
+from common.dataset_utilities import resolve_dataset_selection
 
 
 def main():
@@ -21,9 +23,7 @@ def main():
         default="lines",
     )
     args = parser.parse_args()
-    analysis_path = os.environ.get(
-        "ANALYSIS_PATH", str(Path(__file__).resolve().parents[1])
-    )
+    analysis_path = os.environ.get("ANALYSIS_PATH", str(REPO))
     selection = resolve_dataset_selection(analysis_path, args.era)
 
     if args.format == "lines":

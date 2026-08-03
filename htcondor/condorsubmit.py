@@ -12,7 +12,7 @@ import yaml
 from collections import defaultdict, OrderedDict
 
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
-from common.skim_chunking import chunk_files_by_size
+from common.skim_utilities import chunk_files_by_size
 
 
 parser = argparse.ArgumentParser(

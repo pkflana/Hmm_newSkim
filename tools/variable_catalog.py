@@ -1,4 +1,4 @@
-"""Discover RDataFrame columns and their producers in framework source files."""
+"""Discover RDataFrame columns for the ``hmumu vars`` command."""
 
 from __future__ import annotations
 

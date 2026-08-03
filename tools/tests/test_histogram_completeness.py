@@ -1,6 +1,6 @@
 from pathlib import Path
 
-from common.histogram_completeness import (
+from tools.histogram_completeness import (
     check_campaign,
     check_histograms,
     datasets_for_processes,

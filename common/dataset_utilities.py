@@ -1,4 +1,4 @@
-"""Resolve one campaign dataset/process selection from skim_cfg.yaml."""
+"""Dataset selection and region-routing helpers for campaigns."""
 
 from collections import OrderedDict
 from pathlib import Path
@@ -12,6 +12,7 @@ def _load_yaml(path):
 
 
 def resolve_dataset_selection(analysis_path, era):
+    """Resolve the canonical dataset/process selection from skim_cfg.yaml."""
     config_dir = Path(analysis_path) / "config" / era
     skim_cfg = _load_yaml(config_dir / "skim_cfg.yaml")
     processes_cfg = _load_yaml(config_dir / "process_names.yaml")
@@ -27,8 +28,7 @@ def resolve_dataset_selection(analysis_path, era):
         )
 
     process_datasets = OrderedDict()
-    datasets = []
-    datasets.extend(whitelist)
+    datasets = list(whitelist)
     for process in selected_processes:
         if process not in processes_cfg:
             raise KeyError(
@@ -66,3 +66,29 @@ def resolve_dataset_selection(analysis_path, era):
             or not isinstance(samples_with_files[name].get("filelist"), list)
         ],
     }
+
+
+def load_routing(path):
+    with Path(path).open() as handle:
+        return yaml.safe_load(handle)
+
+
+def era_policy(config, era):
+    for policy in config["mass_region_routing"].values():
+        if era in policy.get("eras", []):
+            return policy
+    raise ValueError(f"No mass-region sample routing configured for {era}")
+
+
+def groups_for_region(config, era, mass_region):
+    policy = era_policy(config, era)
+    key = "Signal_Fit" if mass_region == "Signal_Fit" else "sidebands"
+    return tuple(policy[key])
+
+
+def separate_groups(config, era):
+    return tuple(era_policy(config, era).get("separate", []))
+
+
+def jet_gen_component_processes(config):
+    return tuple(config["jet_gen_components"]["enabled_processes"])

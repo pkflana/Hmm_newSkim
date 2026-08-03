@@ -17,7 +17,7 @@ REPO = Path(__file__).resolve().parents[1]
 if str(REPO) not in sys.path:
     sys.path.insert(0, str(REPO))
 
-from common.variable_catalog import (
+from tools.variable_catalog import (
     configured_in,
     definitions_for,
     dependency_names,
@@ -184,7 +184,7 @@ def run_plot(args: argparse.Namespace) -> int:
     for region in regions:
         command = [
             sys.executable,
-            str(REPO / "histograms/hist_plotter.py"),
+            str(REPO / "plotting_tools/hist_plotter.py"),
             "--era",
             normalized_era(args.era),
             "--input",

@@ -21,7 +21,6 @@ vdamante.cc
 samples_withfiles.yaml
 soft/
 *.root
-plot*
 analysis/patches/
 results/
 htcondor/validation/
