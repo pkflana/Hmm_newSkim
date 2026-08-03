@@ -23,23 +23,22 @@ source env.sh
 try running the era locally via `skim.py` (see [Local Skim Smoke Tests](RUNNING_INSTRUCTIONS.md#local-skim-smoke-tests)) with the specific ERA to run.
 
 - FOR THIS CAMPAIGN: when you run the skim.py on a MC sample please check the presence of the following branches in the produced sample:
-  - GenJet observables
-  - SelectedJet_genJetIdx
-  - HLT_IsoMu24
-  - Event_HasTriggerMatching_singleMu (with all muon resolution/scale variations for MC)
-  - Muon_TriggerMatchingIdx_singleMu (with all muon resolution/scale variations for MC)
-  - Muon_passOfflineCut_singleMu (with all muon resolution/scale variations for MC)
-  - HasVBF (with all JERC variations for MC)
-  - VBFJetIndex (for jet 1, 2, and with all JERC variations for MC)
-  - Jet_btag{ALGO}CvL (with ALGO = PNet, DeepJet, Robust, and inclusion of UParT for 2024-2025-2026)
-  - SelectedJets observables (with all JERC variations for MC)
+    - GenJet observables
+    - SelectedJet_genJetIdx
+    - HLT_IsoMu24
+    - Event_HasTriggerMatching_singleMu (with all muon resolution/scale variations for MC)
+    - Muon_TriggerMatchingIdx_singleMu (with all muon resolution/scale variations for MC)
+    - Muon_passOfflineCut_singleMu (with all muon resolution/scale variations for MC)
+    - HasVBF (with all JERC variations for MC)
+    - VBFJetIndex (for jet 1, 2, and with all JERC variations for MC)
+    - Jet_btag{ALGO}CvL (with ALGO = PNet, DeepJet, Robust, and inclusion of UParT for 2024-2025-2026)
+    - SelectedJets observables (with all JERC variations for MC)
 
-to do this check, run ``` python3 tools/getDfTypes.py --inFile <SKIMMED_FILE_TEST> > Skim_v3_MC_df_types.txt```
+  to do this check, run ``` python3 tools/getDfTypes.py --inFile <SKIMMED_FILE_TEST> > Skim_v3_MC_df_types.txt```
 
-Example of what I run: ``` python3 tools/getDfTypes.py --inFile /eos/cms/store/group/phys_higgs/cmshmm/vdamante/skim_v3/Run3_2022/VBFHto2Mu_M125_powheg/skim_1.root > Skim_v3_MC_df_types.txt```
+  Example of what I run: ``` python3 tools/getDfTypes.py --inFile /eos/cms/store/group/phys_higgs/cmshmm/vdamante/skim_v3/Run3_2022/VBFHto2Mu_M125_powheg/skim_1.root > Skim_v3_MC_df_types.txt```
 
-- FOR THIS CAMPAIGN:
-  open the generated json file from the test. It has to include, for MC only (data jsons are not produced), the following entries:
+- FOR THIS CAMPAIGN: open the generated json file from the test. It has to include, for MC only (data jsons are not produced), the following entries:
     - "gen"
     - "pu"
     - "pu_up"
