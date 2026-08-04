@@ -452,7 +452,7 @@ python3 htcondor/condorsubmit.py -e Run3_2024 --max-submit-jobs 10
 Main skim output:
 
 ```text
-/eos/cms/store/group/phys_higgs/cmshmm/vdamante/skim_v2/<ERA>/<DATASET>/
+/eos/cms/store/group/phys_higgs/cmshmm/vdamante/skim_v3/<ERA>/<DATASET>/
 ```
 
 Condor skim logs:
@@ -475,7 +475,7 @@ Run3_2022:
 python3 histograms/hist_maker.py \
   --era Run3_2022 \
   --dataset-name DYto2L_M_50_amcatnloFXFX \
-  --input /eos/cms/store/group/phys_higgs/cmshmm/vdamante/skim_v2/Run3_2022/DYto2L_M_50_amcatnloFXFX/FILE_skim.root \
+  --input /eos/cms/store/group/phys_higgs/cmshmm/vdamante/skim_v3/Run3_2022/DYto2L_M_50_amcatnloFXFX/FILE_skim.root \
   --output-file test_hists_Run3_2022.root \
   --chunk-size 1 \
   --n-cores 1 \
@@ -488,7 +488,7 @@ Run3_2022EE:
 python3 histograms/hist_maker.py \
   --era Run3_2022EE \
   --dataset-name DYto2L_M_50_amcatnloFXFX \
-  --input /eos/cms/store/group/phys_higgs/cmshmm/vdamante/skim_v2/Run3_2022EE/DYto2L_M_50_amcatnloFXFX/FILE_skim.root \
+  --input /eos/cms/store/group/phys_higgs/cmshmm/vdamante/skim_v3/Run3_2022EE/DYto2L_M_50_amcatnloFXFX/FILE_skim.root \
   --output-file test_hists_Run3_2022EE.root \
   --chunk-size 1 \
   --n-cores 1 \
@@ -501,7 +501,7 @@ Run3_2023:
 python3 histograms/hist_maker.py \
   --era Run3_2023 \
   --dataset-name DYto2L_M_50_amcatnloFXFX \
-  --input /eos/cms/store/group/phys_higgs/cmshmm/vdamante/skim_v2/Run3_2023/DYto2L_M_50_amcatnloFXFX/FILE_skim.root \
+  --input /eos/cms/store/group/phys_higgs/cmshmm/vdamante/skim_v3/Run3_2023/DYto2L_M_50_amcatnloFXFX/FILE_skim.root \
   --output-file test_hists_Run3_2023.root \
   --chunk-size 1 \
   --n-cores 1 \
@@ -514,7 +514,7 @@ Run3_2023BPix:
 python3 histograms/hist_maker.py \
   --era Run3_2023BPix \
   --dataset-name DYto2L_M_50_amcatnloFXFX \
-  --input /eos/cms/store/group/phys_higgs/cmshmm/vdamante/skim_v2/Run3_2023BPix/DYto2L_M_50_amcatnloFXFX/FILE_skim.root \
+  --input /eos/cms/store/group/phys_higgs/cmshmm/vdamante/skim_v3/Run3_2023BPix/DYto2L_M_50_amcatnloFXFX/FILE_skim.root \
   --output-file test_hists_Run3_2023BPix.root \
   --chunk-size 1 \
   --n-cores 1 \
@@ -527,7 +527,7 @@ Run3_2024:
 python3 histograms/hist_maker.py \
   --era Run3_2024 \
   --dataset-name DYto2Mu_M_50_amcatnloFXFX \
-  --input /eos/cms/store/group/phys_higgs/cmshmm/vdamante/skim_v2/Run3_2024/DYto2Mu_M_50_amcatnloFXFX/FILE_skim.root \
+  --input /eos/cms/store/group/phys_higgs/cmshmm/vdamante/skim_v3/Run3_2024/DYto2Mu_M_50_amcatnloFXFX/FILE_skim.root \
   --output-file test_hists_Run3_2024.root \
   --chunk-size 1 \
   --n-cores 1 \
@@ -540,7 +540,7 @@ Run3_2025:
 python3 histograms/hist_maker.py \
   --era Run3_2025 \
   --dataset-name DYto2Mu_M_50_amcatnloFXFX \
-  --input /eos/cms/store/group/phys_higgs/cmshmm/vdamante/skim_v2/Run3_2025/DYto2Mu_M_50_amcatnloFXFX/FILE_skim.root \
+  --input /eos/cms/store/group/phys_higgs/cmshmm/vdamante/skim_v3/Run3_2025/DYto2Mu_M_50_amcatnloFXFX/FILE_skim.root \
   --output-file test_hists_Run3_2025.root \
   --chunk-size 1 \
   --n-cores 1 \
@@ -553,7 +553,7 @@ Run3_2026:
 python3 histograms/hist_maker.py \
   --era Run3_2026 \
   --dataset-name DYto2Mu_M_50_amcatnloFXFX \
-  --input /eos/cms/store/group/phys_higgs/cmshmm/vdamante/skim_v2/Run3_2026/DYto2Mu_M_50_amcatnloFXFX/FILE_skim.root \
+  --input /eos/cms/store/group/phys_higgs/cmshmm/vdamante/skim_v3/Run3_2026/DYto2Mu_M_50_amcatnloFXFX/FILE_skim.root \
   --output-file test_hists_Run3_2026.root \
   --chunk-size 1 \
   --n-cores 1 \
@@ -570,7 +570,7 @@ dataset_name=VBFHto2Mu_M125_powheg
 python3 histograms/hist_maker.py \
   --era Run3_2024 \
   --dataset-name ${dataset_name} \
-  --input /eos/cms/store/group/phys_higgs/cmshmm/vdamante/skim_v2/Run3_2024/${dataset_name}/ \
+  --input /eos/cms/store/group/phys_higgs/cmshmm/vdamante/skim_v3/Run3_2024/${dataset_name}/ \
   --output-file test_DNN_${dataset_name}_SignalFit_VBF.root \
   --variables DNN_NNOutput \
   --mass-regions Signal_Fit \
@@ -586,7 +586,7 @@ dataset_name=GluGluHto2Mu
 python3 histograms/hist_maker.py \
   --era Run3_2022 \
   --dataset-name ${dataset_name} \
-  --input /eos/cms/store/group/phys_higgs/cmshmm/vdamante/skim_v2/Run3_2022/${dataset_name}/ \
+  --input /eos/cms/store/group/phys_higgs/cmshmm/vdamante/skim_v3/Run3_2022/${dataset_name}/ \
   --output-file prova_DNN_NNOutput_${dataset_name}.root \
   --variables DNN_NNOutput \
   --mass-regions Z_sideband \
@@ -1091,7 +1091,7 @@ weights are applied to DY only.
 python3 histograms/hist_maker.py \
   --era Run3_2024 \
   --dataset-name DYto2Mu_M_50_amcatnloFXFX \
-  --input /eos/cms/store/group/phys_higgs/cmshmm/vdamante/skim_v2/Run3_2024/DYto2Mu_M_50_amcatnloFXFX/ \
+  --input /eos/cms/store/group/phys_higgs/cmshmm/vdamante/skim_v3/Run3_2024/DYto2Mu_M_50_amcatnloFXFX/ \
   --output-file test_dy_rw.root \
   --dy-ptll-reweight-json reweights/dy_ptll_reweight/Run3_2024/dy_ptll_reweight.json \
   --dy-njets-reweight-json reweights/dy_njets_reweight/Run3_2024/dy_njets_reweight.json \

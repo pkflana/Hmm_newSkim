@@ -36,8 +36,9 @@ Dataset groups:
 Options:
   --datasets GROUPS       Comma-separated groups, "all", or "skim_cfg".
   --dataset-name NAME     Run one explicit dataset instead of a group.
-  --chunk-size N          Override chunk size for selected jobs. Default: group-specific;
-                          for --dataset-name default is 20.
+  --chunk-size N          Override chunk size for selected jobs. Histogram and
+                          systematic jobs default to 1; validation defaults to
+                          the requested CPU count.
   --era ERA              Era to run, e.g. Run3_2022.
   --input-folder NAME    Backward-compatible stage input base. Validation: skim JSON base;
                          histograms/systematics: validation-manifest base.
@@ -229,7 +230,7 @@ is_output_already_queued() {
     fi
   done < <(
     condor_q "${owner}" \
-      -constraint 'regexp("^Hists_", JobBatchName) && (JobStatus == 1 || JobStatus == 2 || JobStatus == 6)' \
+      -constraint 'regexp("^(Hists_|hists/)", JobBatchName) && (JobStatus == 1 || JobStatus == 2 || JobStatus == 6)' \
       -af ProcId Arguments 2>/dev/null || true
   )
 
@@ -548,6 +549,7 @@ add_dy_012j_jobs() {
 
 add_ewk_105_160_jobs() {
   add_job EWK_2Mu2J_MLL_105to160_herwig 15
+  add_job EWK_2Mu2J_MLL_105to160_pythia 15
 }
 
 add_static_group_jobs() {
@@ -698,7 +700,7 @@ single_dataset_name=""
 single_dataset_chunk_size=20
 chunk_size_override=""
 era=""
-input_folder="skim_v2"
+input_folder="skim_v3"
 root_input_folder=""
 json_input_folder=""
 manifest_input_folder=""
@@ -1026,6 +1028,11 @@ if [[ -n "${chunk_size_override}" ]]; then
     job_chunk_sizes[$i]="${chunk_size_override}"
   done
 fi
+if [[ "${campaign_mode}" != "validation" && -z "${chunk_size_override}" ]]; then
+  for i in "${!job_chunk_sizes[@]}"; do
+    job_chunk_sizes[$i]=1
+  done
+fi
 if [[ "${campaign_mode}" == "validation" && -z "${chunk_size_override}" ]]; then
   for i in "${!job_chunk_sizes[@]}"; do
     job_chunk_sizes[$i]="${request_cpus}"
@@ -1050,12 +1057,18 @@ if [[ ${condor} -eq 1 ]]; then
   extra_opts_file="${submit_dir}/extra_opts.txt"
   monitoring_file="${submit_dir}/monitoring.txt"
   submit_file="${submit_dir}/submit.sub"
+  batch_names_file="${submit_dir}/batch_names.txt"
   wrapper="${analysis_path}/htcondor/run_stage_condor.sh"
 
   if [[ "${jobs_file}" = /* ]]; then
     jobs_file_arg="${jobs_file}"
   else
     jobs_file_arg="${analysis_path}/${jobs_file}"
+  fi
+  if [[ "${batch_names_file}" = /* ]]; then
+    batch_names_file_arg="${batch_names_file}"
+  else
+    batch_names_file_arg="${analysis_path}/${batch_names_file}"
   fi
   if [[ "${extra_opts_file}" = /* ]]; then
     extra_opts_file_arg="${extra_opts_file}"
@@ -1075,6 +1088,7 @@ if [[ ${condor} -eq 1 ]]; then
   mkdir -p "${condor_output_dir}" "${condor_error_dir}" "${condor_log_dir}"
 
   : > "${jobs_file}"
+  : > "${batch_names_file}"
   : > "${monitoring_file}"
 
   total_selected=0
@@ -1137,6 +1151,19 @@ if [[ ${condor} -eq 1 ]]; then
       "${serialized_file_suffix}" \
       "${serialized_specific_opts}" \
       >> "${jobs_file}"
+    if [[ "${campaign_mode}" == "validation" ]]; then
+      printf 'validation/%s_%s\n' \
+        "${era}" \
+        "$(short_label "${dataset_name}" 72)" \
+        >> "${batch_names_file}"
+    else
+      systematic_label="$(IFS=_; echo "${requested_systematics[*]}")"
+      printf 'hists/%s_%s_%s\n' \
+        "$(short_label "${systematic_label}" 32)" \
+        "${era}" \
+        "$(short_label "${dataset_name}${file_suffix}" 72)" \
+        >> "${batch_names_file}"
+    fi
     jobs_to_submit=$((jobs_to_submit + 1))
   done
 
@@ -1225,7 +1252,7 @@ request_disk = ${request_disk}
 +JobFlavour = "${job_flavour}"
 +Era = "${era}"
 +HistGroup = "${group_label}"
-batch_name = Hists_${campaign_mode}_${era}_${group_label}
+batch_name = \$(hist_batch_name)
 
 max_retries = ${chunk_retries}
 getenv = True
@@ -1238,7 +1265,7 @@ EOF
     } >> "${submit_file}"
   fi
 
-  echo "queue ${jobs_to_submit}" >> "${submit_file}"
+  echo "queue hist_batch_name from ${batch_names_file_arg}" >> "${submit_file}"
 
   echo
   echo "============================================================"

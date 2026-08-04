@@ -26,7 +26,7 @@ from tools.variable_catalog import (
 
 
 DEFAULT_ERAS = ("2022", "2022EE", "2023", "2023BPix", "2024", "2025")
-DEFAULT_INPUT = "/eos/cms/store/group/phys_higgs/cmshmm/vdamante/skim_v2"
+DEFAULT_INPUT = "/eos/cms/store/group/phys_higgs/cmshmm/vdamante/skim_v3"
 DEFAULT_MANIFESTS = "/eos/user/v/vdamante/H_mumu/manifests"
 DEFAULT_OUTPUT_BASE = "/eos/user/v/vdamante/H_mumu"
 DEFAULT_TEST_OUTPUT_BASE = "/tmp/vdamante/hmumu_tests"

@@ -29,7 +29,7 @@ exec ./hmumu hist \
   --region Signal_Fit,H_sideband,Z_sideband \
   --dy-jet-components \
   --condor \
-  --chunk-size 5 \
+  --chunk-size 1 \
   --cores 1 \
   --output-dir /eos/user/v/vdamante/H_mumu/Hists_DYJetComponents_Central \
   "${run_args[@]}"

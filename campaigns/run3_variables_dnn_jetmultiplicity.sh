@@ -23,7 +23,7 @@ JET_DATASET_GROUPS=(DY_amcatnlo DY_amcatnlo_105_160 EWK signals)
 INPUT_DIR="${INPUT_DIR:-/eos/cms/store/group/phys_higgs/cmshmm/vdamante/skim_v3}"
 MANIFESTS="${MANIFESTS:-/eos/user/v/vdamante/H_mumu/manifests_skim_v3}"
 OUTPUT_BASE="${OUTPUT_BASE:-/eos/user/v/vdamante/H_mumu/campaigns}"
-CHUNK_SIZE="${CHUNK_SIZE:-5}"
+CHUNK_SIZE="${CHUNK_SIZE:-1}"
 CORES="${CORES:-1}"
 
 join_csv() {

@@ -77,7 +77,7 @@ run_stage() {
     --manifest-input-folder "$manifest_base"
     --output-dir "$output_base/$label"
     --systematics "$systematics"
-    --chunk-size 5
+    --chunk-size 1
     --extra-opts
     "$stage_opts"
   )

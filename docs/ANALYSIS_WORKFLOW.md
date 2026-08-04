@@ -354,6 +354,19 @@ Specific families can be requested, for example:
 
 Data always produces Central histograms only.
 
+Histogram and systematic production use `--chunk-size 1` by default. Override
+it explicitly only when a dataset benefits from larger input chunks.
+
+Condor submissions create one batch per physical dataset. Batch names follow
+this pattern:
+
+```text
+hists/<SYSTEMATIC>_<ERA>_<DATASET>
+```
+
+For example, a central Run3 2022 DY job is grouped under
+`hists/Central_Run3_2022_DYto2L_M_50_amcatnloFXFX`.
+
 ## 9. Automatic DY/EWK routing by mass region
 
 The dedicated campaign guarantees:
