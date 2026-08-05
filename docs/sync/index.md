@@ -25,16 +25,33 @@ The complete document contains the analysis synchronization tables.
 
 ## Corrections
 
-Correction payloads, paths, tags, and keys used by the analysis.
+Correction payloads, paths, tags, and keys used by the analysis. This document
+also explains the PDF-replica and QCD-scale uncertainties derived from the LHE
+information, including the definitions of $\mu_R$ and $\mu_F$ and the exact Up
+and Down variations.
 
 [Open corrections](corrections.pdf){ .md-button }
 
-## Selections
+## NanoAOD skim selections
 
-Selections applied during NanoAOD skimming and histogram production, including
-their execution order, correction state, event weights, and systematic routing.
+Selections applied during NanoAOD skimming, including their execution order and
+the correction state at each step.
 
-[Open selections](selections.pdf){ .md-button }
+[Open skim selections](skim_selections.pdf){ .md-button }
+
+## Histogram production
+
+Histogram-level mass regions, categories, weights, systematic routing, and
+booking workflow.
+
+[Open histogram workflow](histogram_workflow.pdf){ .md-button }
+
+## Combined selection workflow
+
+The skim-selection and histogram-production documents are also available as a
+single combined file for backward compatibility.
+
+[Open the combined document](selections.pdf){ .md-button }
 
 ## Cross sections
 

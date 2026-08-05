@@ -65,6 +65,9 @@ def main() -> int:
         subprocess.run([str(repo / "sync/python" / generator)], cwd=repo, check=True)
 
     compile_tex(repo, repo / "sync/latex/corrections_main.tex", output_dir / "corrections.pdf")
+    compile_tex(repo, repo / "sync/latex/skim_selections_main.tex", output_dir / "skim_selections.pdf")
+    compile_tex(repo, repo / "sync/latex/histogram_workflow_main.tex", output_dir / "histogram_workflow.pdf")
+    # Keep the combined selection document for backward-compatible links.
     compile_tex(repo, repo / "sync/latex/selections_main.tex", output_dir / "selections.pdf")
     compile_tex(repo, repo / "sync/latex/cross_sections_table.tex", output_dir / "cross_sections.pdf")
 

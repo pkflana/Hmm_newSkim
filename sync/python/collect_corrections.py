@@ -93,8 +93,10 @@ def build_inventory(repo: Path, requested_eras: list[str]) -> dict[str, Any]:
     for era in eras:
         cfg_path = repo / "config" / era / "maincfg.yaml"
         trg_path = repo / "config" / era / "triggers.yaml"
+        syst_path = repo / "config" / era / "systematics.yaml"
         cfg = load_yaml(cfg_path)
         trg = load_yaml(trg_path)
+        syst = load_yaml(syst_path)
         period = period_names[era]
         jerc_folder = pog["JERC"][period]
         btv_folder = pog["BTV"][period]
@@ -165,6 +167,10 @@ def build_inventory(repo: Path, requested_eras: list[str]) -> dict[str, Any]:
                 "key": f"{cfg.get('bTagAlgo', 'PNet')}_wp_values",
                 "working_points": ["L", "M", "T"],
             },
+            "lhe_theory_weights": {
+                "PDF": syst.get("pdf", {}),
+                "QCD_scale": syst.get("qcd_scale", {}),
+            },
         }
     return result
 
@@ -191,6 +197,17 @@ def latex(data: dict[str, Any]) -> str:
     rows: list[tuple[str, str, str, str]] = []
     for era, item in data["eras"].items():
         jets = item["jets"]
+        pdf = item["lhe_theory_weights"]["PDF"]
+        qcd = item["lhe_theory_weights"]["QCD_scale"]
+        replica_last = int(pdf.get("replica_start", 1)) + int(pdf.get("replica_count", 100)) - 1
+        qcd_points = "; ".join(
+            f"{point['name']}=index {point['index']}"
+            for point in qcd.get("points", [])
+        )
+        qcd_pairs = "; ".join(
+            f"{variation['name']}: {variation['down']} / {variation['up']}"
+            for variation in qcd.get("variations", [])
+        )
         rows.extend(
             [
                 (era, "JEC/JER", jets["json"],
@@ -211,6 +228,16 @@ def latex(data: dict[str, Any]) -> str:
                 (era, "Golden JSON", item["golden_json"], "data luminosity mask"),
                 (era, "Trigger SF", ", ".join(item["trigger_paths"]),
                  ", ".join(item["trigger_sf_keys"])),
+                (era, "LHE PDF uncertainty", pdf.get("branch", "LHEPdfWeight"),
+                 f"{pdf.get('prescription', 'replicas_rms')}: nominal index "
+                 f"{pdf.get('nominal_index', 0)}; replicas "
+                 f"{pdf.get('replica_start', 1)}--{replica_last}; "
+                 "up=1+RMS, down=max(0,1-RMS); alphaS excluded; "
+                 f"missing branch={pdf.get('missing_branch', 'unity')}"),
+                (era, "LHE QCD scales", qcd.get("branch", "LHEScaleWeight"),
+                 qcd_points + "; dataset-normalized six-point prescription; "
+                 + qcd_pairs + "; denominator sums are stored in skim reports; "
+                 f"missing sums={qcd.get('missing_sums', 'error')}"),
             ]
         )
 
@@ -240,7 +267,32 @@ def latex(data: dict[str, Any]) -> str:
             rf"\path{{{payload}}} & \texttt{{{tex_escape(key)}}} \\"
         )
         previous_era = era
-    lines += [r"\end{longtable}", ""]
+    lines += [
+        r"\end{longtable}",
+        "",
+        r"\paragraph{LHE PDF uncertainty.}",
+        r"The nominal member is \texttt{LHEPdfWeight[0]} and replicas 1--100 are used. "
+        r"For each event, the relative replica RMS is "
+        r"$\sigma_{\mathrm{PDF}}=\sqrt{\sum_i(w_i/w_0-1)^2/(N_{\mathrm{valid}}-1)}$. "
+        r"The multiplicative variations are $w_{\mathrm{PDF}}^{\mathrm{Up}}=1+\sigma_{\mathrm{PDF}}$ "
+        r"and $w_{\mathrm{PDF}}^{\mathrm{Down}}=\max(0,1-\sigma_{\mathrm{PDF}})$. "
+        r"The configured alphaS members are not included.",
+        "",
+        r"\paragraph{LHE QCD-scale uncertainty.}",
+        r"$\mu_R$ is the QCD renormalization scale, which controls the scale at which "
+        r"$\alpha_s$ is evaluated. $\mu_F$ is the factorization scale, which separates "
+        r"long-distance PDF evolution from the short-distance hard process. Values 0.5, 1, "
+        r"and 2 are multiplicative factors relative to the nominal generator scales. "
+        r"The configured final nuisances are: "
+        r"\texttt{QCD\_ren\_scale}: Down=$(\mu_R,\mu_F)=(0.5,1)$ "
+        r"(\texttt{LHEScaleWeight[1]}), Up=$(2,1)$ (index 7); and "
+        r"\texttt{QCD\_fac\_scale}: Down=$(1,0.5)$ (index 3), Up=$(1,2)$ (index 5). "
+        r"The corner points $(0.5,0.5)$ (index 0) and $(2,2)$ (index 8) are listed and "
+        r"normalized in the skim metadata but are not used by the two final Up/Down pairs. "
+        r"Each scale template is normalized with its own dataset-wide denominator from the "
+        r"skim reports before histogram filling.",
+        "",
+    ]
     return "\n".join(lines)
 
 
