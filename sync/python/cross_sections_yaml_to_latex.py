@@ -7,10 +7,9 @@ Handled cases
 * ``BR`` entries, treated as dimensionless branching ratios.
 * Numeric values and arithmetic expressions.
 * Expressions referring to other YAML entries, e.g. ``BR_W_lnu``.
-* Symmetric numerical uncertainties.
-* Numerical uncertainty expressions, e.g. ``183.5 / 3``.
-* Simple asymmetric percentage uncertainties, e.g. ``+0.7% - 1.1%``.
-* Long/free-form uncertainty descriptions, preserved as wrapped text.
+* Named uncertainty components under ``unc``.
+* Absolute and percentage uncertainties, including arithmetic expressions.
+* Symmetric and asymmetric values.
 * ``reference`` and legacy ``ref`` keys.
 * Optional ``comments`` column.
 
@@ -115,13 +114,20 @@ def safe_eval_expression(expression: str, names: Mapping[str, float]) -> float:
 
 
 @dataclass
+class Uncertainty:
+    name: str
+    raw_value: Any
+    numerical_value: float | None
+    is_percentage: bool
+
+
+@dataclass
 class Entry:
     name: str
     quantity: str              # "crossSec" or "BR"
     raw_value: Any
     numerical_value: float | None
-    raw_uncertainty: Any
-    numerical_uncertainty: float | None
+    uncertainties: list[Uncertainty]
     reference: str
     comments: str
 
@@ -198,6 +204,39 @@ def evaluate_uncertainty(raw_uncertainty: Any, names: Mapping[str, float]) -> fl
         return None
 
 
+def normalize_uncertainties(
+    sample_name: str,
+    raw_uncertainties: Any,
+    names: Mapping[str, float],
+) -> list[Uncertainty]:
+    if raw_uncertainties in (None, {}):
+        return []
+    if not isinstance(raw_uncertainties, dict):
+        raise ValueError(f"{sample_name}.unc must be a mapping")
+
+    result: list[Uncertainty] = []
+    for component_name, details in raw_uncertainties.items():
+        if not isinstance(details, dict) or "value" not in details:
+            raise ValueError(
+                f"{sample_name}.unc.{component_name} must contain a value"
+            )
+        is_percentage = details.get("isPercentage", False)
+        if not isinstance(is_percentage, bool):
+            raise ValueError(
+                f"{sample_name}.unc.{component_name}.isPercentage must be boolean"
+            )
+        value = details["value"]
+        result.append(
+            Uncertainty(
+                name=str(component_name),
+                raw_value=value,
+                numerical_value=evaluate_uncertainty(value, names),
+                is_percentage=is_percentage,
+            )
+        )
+    return result
+
+
 def normalize_entries(data: Mapping[str, Any]) -> list[Entry]:
     resolved = resolve_named_values(data)
     entries: list[Entry] = []
@@ -227,8 +266,7 @@ def normalize_entries(data: Mapping[str, Any]) -> list[Entry]:
                 quantity=quantity,
                 raw_value=raw_value,
                 numerical_value=resolved.get(name),
-                raw_uncertainty=info.get("unc"),
-                numerical_uncertainty=evaluate_uncertainty(info.get("unc"), resolved),
+                uncertainties=normalize_uncertainties(name, info.get("unc", {}), resolved),
                 reference="" if reference is None else str(reference),
                 comments="" if info.get("comments") is None else str(info.get("comments")),
             )
@@ -297,37 +335,68 @@ def format_value(entry: Entry, show_formula: bool) -> str:
     return rf"${numerical}$"
 
 
-def format_uncertainty(entry: Entry) -> str:
-    raw = entry.raw_uncertainty
-    if raw is None or str(raw).strip() == "":
-        return r"---"
+def uncertainty_label(name: str) -> str:
+    """Turn schema keys into compact, human-readable table labels."""
+    is_branching_ratio = name.endswith("_BR")
+    base = name[:-3] if is_branching_ratio else name
+    known = {
+        "alpha_s": r"$\alpha_{s}$",
+        "pdf_alpha_s": r"PDF + $\alpha_{s}$",
+        "qcd_scale": r"QCD scale",
+        "m_q": r"$m_{q}$",
+        "th_gaussian": r"theory (Gaussian)",
+        "beam_energy": r"beam energy",
+        "filter_efficiency": r"filter efficiency",
+    }
+    label = known.get(base, latex_escape(base.replace("_", " ")))
+    return label + (" (BR)" if is_branching_ratio else "")
 
-    if entry.numerical_uncertainty is not None:
-        return rf"$\pm {format_number(entry.numerical_uncertainty)}$"
 
-    text = str(raw).strip()
+def format_uncertainty_value(uncertainty: Uncertainty) -> str:
+    """Format one uncertainty without assigning meaning absent from the YAML."""
+    unit = r"\%" if uncertainty.is_percentage else ""
+    if uncertainty.numerical_value is not None:
+        return rf"$\pm {format_number(uncertainty.numerical_value)}{unit}$"
 
-    # Simple asymmetric percentage: +0.7% - 1.1%
+    text = str(uncertainty.raw_value).strip().replace("%", "")
+
+    # Accept either ordering: +up -down or -down +up.
     asymmetric = re.fullmatch(
-        r"\+\s*([0-9]*\.?[0-9]+)\s*%+\s*-\s*([0-9]*\.?[0-9]+)\s*%+",
+        r"([+-])\s*([0-9]*\.?[0-9]+)\s*([+-])\s*([0-9]*\.?[0-9]+)",
         text,
     )
-    if asymmetric:
-        up, down = asymmetric.groups()
-        return rf"$^{{+{up}\%}}_{{-{down}\%}}$"
+    if asymmetric and asymmetric.group(1) != asymmetric.group(3):
+        first_sign, first_value, second_sign, second_value = asymmetric.groups()
+        values = {first_sign: first_value, second_sign: second_value}
+        return rf"$^{{+{values['+']}{unit}}}_{{-{values['-']}{unit}}}$"
 
-    # Simple symmetric percentage forms: 0.8%, ±0.8%, +-0.8%, +/-0.8%
     symmetric = re.fullmatch(
-        r"(?:±|\+\s*-|\+\s*/\s*-)?\s*([0-9]*\.?[0-9]+)\s*%+",
-        text,
+        r"(?:±|\+\s*-|\+\s*/\s*-)?\s*([0-9]*\.?[0-9]+)", text
     )
     if symmetric:
-        return rf"$\pm {symmetric.group(1)}\%$"
+        return rf"$\pm {symmetric.group(1)}{unit}$"
 
-    # Complex uncertainty descriptions are intentionally not interpreted:
-    # preserving labels such as scale, PDF, alpha_s, BR and filter efficiency
-    # avoids silently changing their physical meaning.
-    return latex_escape(text)
+    # Preserve formulas and free-form legacy values rather than inferring a
+    # physical interpretation. The schema flag remains the source of truth.
+    rendered = latex_escape(str(uncertainty.raw_value).strip())
+    if uncertainty.is_percentage and "%" not in str(uncertainty.raw_value):
+        rendered += r"\%"
+    return rendered
+
+
+def format_uncertainties(entry: Entry) -> str:
+    if not entry.uncertainties:
+        return r"---"
+
+    rows = []
+    for uncertainty in entry.uncertainties:
+        kind = "relative" if uncertainty.is_percentage else "absolute"
+        rows.append(
+            rf"\textbf{{{uncertainty_label(uncertainty.name)}}}: "
+            rf"{format_uncertainty_value(uncertainty)} "
+            rf"{{\scriptsize\textit{{({kind})}}}}"
+        )
+    return r"\newline ".join(rows)
 
 
 def quantity_label(entry: Entry) -> str:
@@ -343,12 +412,12 @@ def make_table(
 ) -> str:
     if include_comments:
         columns = (
-            r">{\raggedright\arraybackslash}p{0.235\textwidth} "
+            r">{\raggedright\arraybackslash}p{0.215\textwidth} "
             r">{\centering\arraybackslash}p{0.070\textwidth} "
             r">{\centering\arraybackslash}p{0.105\textwidth} "
-            r">{\raggedright\arraybackslash}p{0.190\textwidth} "
-            r">{\raggedright\arraybackslash}p{0.235\textwidth} "
-            r">{\raggedright\arraybackslash}p{0.130\textwidth}"
+            r">{\raggedright\arraybackslash}p{0.245\textwidth} "
+            r">{\raggedright\arraybackslash}p{0.215\textwidth} "
+            r">{\raggedright\arraybackslash}p{0.115\textwidth}"
         )
         header = (
             r"\textbf{Sample} & \textbf{Type} & \textbf{Value} & "
@@ -397,7 +466,7 @@ def make_table(
             latex_path(entry.name),
             quantity_label(entry),
             format_value(entry, show_formula),
-            format_uncertainty(entry),
+            format_uncertainties(entry),
             reference,
         ]
         if include_comments:
@@ -534,19 +603,17 @@ def main() -> int:
         args.output.write_text(table, encoding="utf-8")
 
         unresolved_values = sum(entry.numerical_value is None for entry in entries)
-        complex_uncertainties = sum(
-            entry.raw_uncertainty not in (None, "")
-            and entry.numerical_uncertainty is None
-            and not re.fullmatch(
-                r"\+\s*[0-9]*\.?[0-9]+\s*%+\s*-\s*[0-9]*\.?[0-9]+\s*%+",
-                str(entry.raw_uncertainty).strip(),
-            )
+        uncertainty_components = sum(len(entry.uncertainties) for entry in entries)
+        percentage_components = sum(
+            uncertainty.is_percentage
             for entry in entries
+            for uncertainty in entry.uncertainties
         )
 
         print(f"Wrote {len(entries)} entries to {args.output}")
         print(f"Unresolved value expressions: {unresolved_values}")
-        print(f"Free-form uncertainty descriptions preserved as text: {complex_uncertainties}")
+        print(f"Uncertainty components: {uncertainty_components}")
+        print(f"Percentage uncertainty components: {percentage_components}")
         return 0
 
     except (OSError, ValueError, yaml.YAMLError) as error:

@@ -6,6 +6,7 @@ from __future__ import annotations
 import argparse
 import shutil
 import subprocess
+import sys
 import tempfile
 from pathlib import Path
 
@@ -63,13 +64,23 @@ def main() -> int:
     )
     for generator in ("collect_skim_selections.py", "collect_histogram_workflow.py"):
         subprocess.run([str(repo / "sync/python" / generator)], cwd=repo, check=True)
+    subprocess.run(
+        [
+            sys.executable,
+            str(repo / "sync/python/cross_sections_yaml_to_latex.py"),
+            "--input", str(repo / "config/crossSections13p6TeV.yaml"),
+            "--output", str(repo / "sync/latex/cross_sections_table.tex"),
+        ],
+        cwd=repo,
+        check=True,
+    )
 
     compile_tex(repo, repo / "sync/latex/corrections_main.tex", output_dir / "corrections.pdf")
     compile_tex(repo, repo / "sync/latex/skim_selections_main.tex", output_dir / "skim_selections.pdf")
     compile_tex(repo, repo / "sync/latex/histogram_workflow_main.tex", output_dir / "histogram_workflow.pdf")
     # Keep the combined selection document for backward-compatible links.
     compile_tex(repo, repo / "sync/latex/selections_main.tex", output_dir / "selections.pdf")
-    compile_tex(repo, repo / "sync/latex/cross_sections_table.tex", output_dir / "cross_sections.pdf")
+    compile_tex(repo, repo / "sync/latex/cross_sections_main.tex", output_dir / "cross_sections.pdf")
 
     with tempfile.TemporaryDirectory(prefix="hmm-datasets-") as tmp_name:
         tmp = Path(tmp_name)
