@@ -1,0 +1,503 @@
+{
+  "repository": "/afs/cern.ch/work/v/vdamante/Hmm_newSkim",
+  "source_files": [
+    "analysis/skim.py",
+    "corrections/general.py",
+    "corrections/jets.py",
+    "corrections/pu.py",
+    "corrections/mu.py",
+    "corrections/muon_scare.py",
+    "corrections/muon_fsr.py",
+    "corrections/jetVetoMap.py",
+    "corrections/btag_wpValues.py"
+  ],
+  "correction_chain": {
+    "data": [
+      "Golden JSON",
+      "Muon ScaRe",
+      "Muon FSR",
+      "JEC",
+      "jet veto map",
+      "b-tag working points"
+    ],
+    "mc": [
+      "pileup",
+      "cross section/luminosity",
+      "Muon ScaRe",
+      "Muon FSR",
+      "JEC",
+      "JER",
+      "muon ID/ISO/trigger SF",
+      "jet veto map",
+      "b-tag working points"
+    ]
+  },
+  "eras": {
+    "Run3_2022": {
+      "period": "2022_Summer22",
+      "nanoAOD": "v12",
+      "variations": true,
+      "golden_json": "corrections/data/golden_json/Cert_Collisions2022_355100_362760_Golden.json",
+      "trigger_paths": [
+        "HLT_IsoMu24"
+      ],
+      "trigger_sf_keys": [
+        "NUM_IsoMu24_DEN_CutBasedIdMedium_and_PFIsoMedium"
+      ],
+      "jets": {
+        "algorithm": "AK4PFPuppi",
+        "apply_JEC": true,
+        "apply_JER_mc": true,
+        "json": "/cvmfs/cms-griddata.cern.ch/cat/metadata/JME/Run3-22CDSep23-Summer22-NanoAODv12/latest/jet_jerc.json.gz",
+        "smearing_json": "/cvmfs/cms-griddata.cern.ch/cat/metadata/JME/JER-Smearing/latest/jer_smear.json.gz",
+        "JEC_MC_tags": [
+          "Summer22_22Sep2023_V4_MC"
+        ],
+        "JEC_DATA_tag_templates": [
+          "Summer22_22Sep2023_V4_DATA"
+        ],
+        "JER_tag": "Summer22_22Sep2023_JRV2_MC",
+        "uncertainty_sources": [
+          "JER",
+          "Total"
+        ]
+      },
+      "pileup": {
+        "json": "/cvmfs/cms-griddata.cern.ch/cat/metadata/LUM/Run3-22CDSep23-Summer22-NanoAODv12/latest/puWeights.json.gz",
+        "key": "Collisions2022_355100_357900_eraBCD_GoldenJson"
+      },
+      "muons": {
+        "SF_json": "/cvmfs/cms-griddata.cern.ch/cat/metadata/MUO/Run3-22CDSep23-Summer22-NanoAODv12/latest/muon_Z.json.gz",
+        "SF_keys": [
+          "NUM_LooseID_DEN_TrackerMuons",
+          "NUM_MediumID_DEN_TrackerMuons",
+          "NUM_TightID_DEN_TrackerMuons",
+          "NUM_LoosePFIso_DEN_LooseID",
+          "NUM_LoosePFIso_DEN_MediumID",
+          "NUM_LoosePFIso_DEN_TightID",
+          "NUM_TightPFIso_DEN_TightID",
+          "NUM_LooseMiniIso_DEN_LooseID",
+          "NUM_LooseMiniIso_DEN_MediumID",
+          "NUM_IsoMu24_DEN_CutBasedIdMedium_and_PFIsoMedium",
+          "NUM_IsoMu24_DEN_CutBasedIdTight_and_PFIsoTight"
+        ],
+        "ScaRe_json": "corrections/data/MUO/MuonScaRe/Run3-22CDSep23-Summer22-NanoAODv12/muon_scalesmearing.json",
+        "ScaRe_VXBS_json": "corrections/data/MUO/MuonScaRe/Run3-22CDSep23-Summer22-NanoAODv12/muon_scalesmearing_VXBS.json",
+        "FSR": "algorithmic correction in corrections/muon_fsr.py (no payload)"
+      },
+      "jet_veto_map": {
+        "json": "/cvmfs/cms-griddata.cern.ch/cat/metadata/JME/Run3-22CDSep23-Summer22-NanoAODv12/latest/jetvetomaps.json.gz",
+        "key": "Summer22_23Sep2023_RunCD_V1"
+      },
+      "btag_working_points": {
+        "tagger": "PNet",
+        "json": "/cvmfs/cms-griddata.cern.ch/cat/metadata/BTV/Run3-22CDSep23-Summer22-NanoAODv12/latest/btagging.json.gz",
+        "fallback_json": "/cvmfs/cms-griddata.cern.ch/cat/metadata/BTV/Run3-22CDSep23-Summer22-NanoAODv12/add_2025_b_and_c_WPs/btagging.json.gz",
+        "key": "PNet_wp_values",
+        "working_points": [
+          "L",
+          "M",
+          "T"
+        ]
+      }
+    },
+    "Run3_2022EE": {
+      "period": "2022_Summer22EE",
+      "nanoAOD": "v12",
+      "variations": true,
+      "golden_json": "corrections/data/golden_json/Cert_Collisions2022_355100_362760_Golden.json",
+      "trigger_paths": [
+        "HLT_IsoMu24"
+      ],
+      "trigger_sf_keys": [
+        "NUM_IsoMu24_DEN_CutBasedIdMedium_and_PFIsoMedium"
+      ],
+      "jets": {
+        "algorithm": "AK4PFPuppi",
+        "apply_JEC": true,
+        "apply_JER_mc": true,
+        "json": "/cvmfs/cms-griddata.cern.ch/cat/metadata/JME/Run3-22EFGSep23-Summer22EE-NanoAODv12/latest/jet_jerc.json.gz",
+        "smearing_json": "/cvmfs/cms-griddata.cern.ch/cat/metadata/JME/JER-Smearing/latest/jer_smear.json.gz",
+        "JEC_MC_tags": [
+          "Summer22EE_22Sep2023_V4_MC"
+        ],
+        "JEC_DATA_tag_templates": [
+          "Summer22EE_22Sep2023_Run{}_V4_DATA",
+          "Summer22EE_22Sep2023_V4_DATA"
+        ],
+        "JER_tag": "Summer22EE_22Sep2023_JRV2_MC",
+        "uncertainty_sources": [
+          "JER",
+          "Total"
+        ]
+      },
+      "pileup": {
+        "json": "/cvmfs/cms-griddata.cern.ch/cat/metadata/LUM/Run3-22EFGSep23-Summer22EE-NanoAODv12/latest/puWeights.json.gz",
+        "key": "Collisions2022_359022_362760_eraEFG_GoldenJson"
+      },
+      "muons": {
+        "SF_json": "/cvmfs/cms-griddata.cern.ch/cat/metadata/MUO/Run3-22EFGSep23-Summer22EE-NanoAODv12/latest/muon_Z.json.gz",
+        "SF_keys": [
+          "NUM_LooseID_DEN_TrackerMuons",
+          "NUM_MediumID_DEN_TrackerMuons",
+          "NUM_TightID_DEN_TrackerMuons",
+          "NUM_LoosePFIso_DEN_LooseID",
+          "NUM_LoosePFIso_DEN_MediumID",
+          "NUM_LoosePFIso_DEN_TightID",
+          "NUM_TightPFIso_DEN_TightID",
+          "NUM_LooseMiniIso_DEN_LooseID",
+          "NUM_LooseMiniIso_DEN_MediumID",
+          "NUM_IsoMu24_DEN_CutBasedIdMedium_and_PFIsoMedium",
+          "NUM_IsoMu24_DEN_CutBasedIdTight_and_PFIsoTight"
+        ],
+        "ScaRe_json": "corrections/data/MUO/MuonScaRe/Run3-22EFGSep23-Summer22EE-NanoAODv12/muon_scalesmearing.json",
+        "ScaRe_VXBS_json": "corrections/data/MUO/MuonScaRe/Run3-22EFGSep23-Summer22EE-NanoAODv12/muon_scalesmearing_VXBS.json",
+        "FSR": "algorithmic correction in corrections/muon_fsr.py (no payload)"
+      },
+      "jet_veto_map": {
+        "json": "/cvmfs/cms-griddata.cern.ch/cat/metadata/JME/Run3-22EFGSep23-Summer22EE-NanoAODv12/latest/jetvetomaps.json.gz",
+        "key": "Summer22EE_23Sep2023_RunEFG_V1"
+      },
+      "btag_working_points": {
+        "tagger": "PNet",
+        "json": "/cvmfs/cms-griddata.cern.ch/cat/metadata/BTV/Run3-22EFGSep23-Summer22EE-NanoAODv12/latest/btagging.json.gz",
+        "fallback_json": "/cvmfs/cms-griddata.cern.ch/cat/metadata/BTV/Run3-22EFGSep23-Summer22EE-NanoAODv12/add_2025_b_and_c_WPs/btagging.json.gz",
+        "key": "PNet_wp_values",
+        "working_points": [
+          "L",
+          "M",
+          "T"
+        ]
+      }
+    },
+    "Run3_2023": {
+      "period": "2023_Summer23",
+      "nanoAOD": "v12",
+      "variations": true,
+      "golden_json": "corrections/data/golden_json/Cert_Collisions2023_366442_370790_Golden.json",
+      "trigger_paths": [
+        "HLT_IsoMu24"
+      ],
+      "trigger_sf_keys": [
+        "NUM_IsoMu24_DEN_CutBasedIdMedium_and_PFIsoMedium"
+      ],
+      "jets": {
+        "algorithm": "AK4PFPuppi",
+        "apply_JEC": true,
+        "apply_JER_mc": true,
+        "json": "/cvmfs/cms-griddata.cern.ch/cat/metadata/JME/Run3-23CSep23-Summer23-NanoAODv12/latest/jet_jerc.json.gz",
+        "smearing_json": "/cvmfs/cms-griddata.cern.ch/cat/metadata/JME/JER-Smearing/latest/jer_smear.json.gz",
+        "JEC_MC_tags": [
+          "Summer23Prompt23_V4_MC"
+        ],
+        "JEC_DATA_tag_templates": [
+          "Summer23Prompt23_Run{}_V4_DATA",
+          "Summer23Prompt23_V4_DATA"
+        ],
+        "JER_tag": "Summer23Prompt23_RunCv1234_JRV3_MC",
+        "uncertainty_sources": [
+          "JER",
+          "Total"
+        ]
+      },
+      "pileup": {
+        "json": "/cvmfs/cms-griddata.cern.ch/cat/metadata/LUM/Run3-23CSep23-Summer23-NanoAODv12/latest/puWeights.json.gz",
+        "key": "Collisions2023_366403_369802_eraBC_GoldenJson"
+      },
+      "muons": {
+        "SF_json": "/cvmfs/cms-griddata.cern.ch/cat/metadata/MUO/Run3-23CSep23-Summer23-NanoAODv12/latest/muon_Z.json.gz",
+        "SF_keys": [
+          "NUM_LooseID_DEN_TrackerMuons",
+          "NUM_MediumID_DEN_TrackerMuons",
+          "NUM_TightID_DEN_TrackerMuons",
+          "NUM_LoosePFIso_DEN_LooseID",
+          "NUM_LoosePFIso_DEN_MediumID",
+          "NUM_LoosePFIso_DEN_TightID",
+          "NUM_TightPFIso_DEN_TightID",
+          "NUM_LooseMiniIso_DEN_LooseID",
+          "NUM_LooseMiniIso_DEN_MediumID",
+          "NUM_IsoMu24_DEN_CutBasedIdMedium_and_PFIsoMedium",
+          "NUM_IsoMu24_DEN_CutBasedIdTight_and_PFIsoTight"
+        ],
+        "ScaRe_json": "corrections/data/MUO/MuonScaRe/Run3-23CSep23-Summer23-NanoAODv12/muon_scalesmearing.json",
+        "ScaRe_VXBS_json": "corrections/data/MUO/MuonScaRe/Run3-23CSep23-Summer23-NanoAODv12/muon_scalesmearing_VXBS.json",
+        "FSR": "algorithmic correction in corrections/muon_fsr.py (no payload)"
+      },
+      "jet_veto_map": {
+        "json": "/cvmfs/cms-griddata.cern.ch/cat/metadata/JME/Run3-23CSep23-Summer23-NanoAODv12/latest/jetvetomaps.json.gz",
+        "key": "Summer23Prompt23_RunC_V1"
+      },
+      "btag_working_points": {
+        "tagger": "PNet",
+        "json": "/cvmfs/cms-griddata.cern.ch/cat/metadata/BTV/Run3-23CSep23-Summer23-NanoAODv12/latest/btagging.json.gz",
+        "fallback_json": "/cvmfs/cms-griddata.cern.ch/cat/metadata/BTV/Run3-23CSep23-Summer23-NanoAODv12/add_2025_b_and_c_WPs/btagging.json.gz",
+        "key": "PNet_wp_values",
+        "working_points": [
+          "L",
+          "M",
+          "T"
+        ]
+      }
+    },
+    "Run3_2023BPix": {
+      "period": "2023_Summer23BPix",
+      "nanoAOD": "v12",
+      "variations": true,
+      "golden_json": "corrections/data/golden_json/Cert_Collisions2023_366442_370790_Golden.json",
+      "trigger_paths": [
+        "HLT_IsoMu24"
+      ],
+      "trigger_sf_keys": [
+        "NUM_IsoMu24_DEN_CutBasedIdMedium_and_PFIsoMedium"
+      ],
+      "jets": {
+        "algorithm": "AK4PFPuppi",
+        "apply_JEC": true,
+        "apply_JER_mc": true,
+        "json": "/cvmfs/cms-griddata.cern.ch/cat/metadata/JME/Run3-23DSep23-Summer23BPix-NanoAODv12/latest/jet_jerc.json.gz",
+        "smearing_json": "/cvmfs/cms-griddata.cern.ch/cat/metadata/JME/JER-Smearing/latest/jer_smear.json.gz",
+        "JEC_MC_tags": [
+          "Summer23BPixPrompt23_V4_MC"
+        ],
+        "JEC_DATA_tag_templates": [
+          "Summer23BPixPrompt23_Run{}_V4_DATA",
+          "Summer23BPixPrompt23_V4_DATA"
+        ],
+        "JER_tag": "Summer23BPixPrompt23_RunD_JRV3_MC",
+        "uncertainty_sources": [
+          "JER",
+          "Total"
+        ]
+      },
+      "pileup": {
+        "json": "/cvmfs/cms-griddata.cern.ch/cat/metadata/LUM/Run3-23DSep23-Summer23BPix-NanoAODv12/latest/puWeights.json.gz",
+        "key": "Collisions2023_369803_370790_eraD_GoldenJson"
+      },
+      "muons": {
+        "SF_json": "/cvmfs/cms-griddata.cern.ch/cat/metadata/MUO/Run3-23DSep23-Summer23BPix-NanoAODv12/latest/muon_Z.json.gz",
+        "SF_keys": [
+          "NUM_LooseID_DEN_TrackerMuons",
+          "NUM_MediumID_DEN_TrackerMuons",
+          "NUM_TightID_DEN_TrackerMuons",
+          "NUM_LoosePFIso_DEN_LooseID",
+          "NUM_LoosePFIso_DEN_MediumID",
+          "NUM_LoosePFIso_DEN_TightID",
+          "NUM_TightPFIso_DEN_TightID",
+          "NUM_LooseMiniIso_DEN_LooseID",
+          "NUM_LooseMiniIso_DEN_MediumID",
+          "NUM_IsoMu24_DEN_CutBasedIdMedium_and_PFIsoMedium",
+          "NUM_IsoMu24_DEN_CutBasedIdTight_and_PFIsoTight"
+        ],
+        "ScaRe_json": "corrections/data/MUO/MuonScaRe/Run3-23DSep23-Summer23BPix-NanoAODv12/muon_scalesmearing.json",
+        "ScaRe_VXBS_json": "corrections/data/MUO/MuonScaRe/Run3-23DSep23-Summer23BPix-NanoAODv12/muon_scalesmearing_VXBS.json",
+        "FSR": "algorithmic correction in corrections/muon_fsr.py (no payload)"
+      },
+      "jet_veto_map": {
+        "json": "/cvmfs/cms-griddata.cern.ch/cat/metadata/JME/Run3-23DSep23-Summer23BPix-NanoAODv12/latest/jetvetomaps.json.gz",
+        "key": "Summer23BPixPrompt23_RunD_V1"
+      },
+      "btag_working_points": {
+        "tagger": "PNet",
+        "json": "/cvmfs/cms-griddata.cern.ch/cat/metadata/BTV/Run3-23DSep23-Summer23BPix-NanoAODv12/latest/btagging.json.gz",
+        "fallback_json": "/cvmfs/cms-griddata.cern.ch/cat/metadata/BTV/Run3-23DSep23-Summer23BPix-NanoAODv12/add_2025_b_and_c_WPs/btagging.json.gz",
+        "key": "PNet_wp_values",
+        "working_points": [
+          "L",
+          "M",
+          "T"
+        ]
+      }
+    },
+    "Run3_2024": {
+      "period": "2024_Summer24",
+      "nanoAOD": "v15",
+      "variations": true,
+      "golden_json": "corrections/data/golden_json/Cert_Collisions2024_378981_386951_Golden.json",
+      "trigger_paths": [
+        "HLT_IsoMu24"
+      ],
+      "trigger_sf_keys": [
+        "NUM_IsoMu24_DEN_CutBasedIdMedium_and_PFIsoMedium"
+      ],
+      "jets": {
+        "algorithm": "AK4PFPuppi",
+        "apply_JEC": true,
+        "apply_JER_mc": true,
+        "json": "/cvmfs/cms-griddata.cern.ch/cat/metadata/JME/Run3-24CDEReprocessingFGHIPrompt-Summer24-NanoAODv15/latest/jet_jerc.json.gz",
+        "smearing_json": "/cvmfs/cms-griddata.cern.ch/cat/metadata/JME/JER-Smearing/latest/jer_smear.json.gz",
+        "JEC_MC_tags": [
+          "Summer24Prompt24_V5_MC"
+        ],
+        "JEC_DATA_tag_templates": [
+          "Summer24Prompt24_V5_DATA"
+        ],
+        "JER_tag": "Summer24Prompt24_JRV2_MC",
+        "uncertainty_sources": [
+          "JER",
+          "Total"
+        ]
+      },
+      "pileup": {
+        "json": "/cvmfs/cms-griddata.cern.ch/cat/metadata/LUM/Run3-24CDEReprocessingFGHIPrompt-Summer24-NanoAODv15/latest/puWeights_BCDEFGHI.json.gz",
+        "key": "Collisions24_BCDEFGHI_goldenJSON"
+      },
+      "muons": {
+        "SF_json": "/cvmfs/cms-griddata.cern.ch/cat/metadata/MUO/Run3-24CDEReprocessingFGHIPrompt-Summer24-NanoAODv15/latest/muon_Z.json.gz",
+        "SF_keys": [
+          "NUM_LooseID_DEN_TrackerMuons",
+          "NUM_MediumID_DEN_TrackerMuons",
+          "NUM_TightID_DEN_TrackerMuons",
+          "NUM_LoosePFIso_DEN_LooseID",
+          "NUM_LoosePFIso_DEN_MediumID",
+          "NUM_LoosePFIso_DEN_TightID",
+          "NUM_TightPFIso_DEN_TightID",
+          "NUM_IsoMu24_DEN_CutBasedIdMedium_and_PFIsoMedium",
+          "NUM_IsoMu24_DEN_CutBasedIdTight_and_PFIsoTight"
+        ],
+        "ScaRe_json": "corrections/data/MUO/MuonScaRe/Run3-24CDEReprocessingFGHIPrompt-Summer24-NanoAODv15/muon_scalesmearing.json",
+        "ScaRe_VXBS_json": "corrections/data/MUO/MuonScaRe/Run3-24CDEReprocessingFGHIPrompt-Summer24-NanoAODv15/muon_scalesmearing_VXBS.json",
+        "FSR": "algorithmic correction in corrections/muon_fsr.py (no payload)"
+      },
+      "jet_veto_map": {
+        "json": "/cvmfs/cms-griddata.cern.ch/cat/metadata/JME/Run3-24CDEReprocessingFGHIPrompt-Summer24-NanoAODv15/latest/jetvetomaps.json.gz",
+        "key": "Summer24Prompt24_RunBCDEFGHI_V1"
+      },
+      "btag_working_points": {
+        "tagger": "UParTAK4",
+        "json": "/cvmfs/cms-griddata.cern.ch/cat/metadata/BTV/Run3-24CDEReprocessingFGHIPrompt-Summer24-NanoAODv15/latest/btagging.json.gz",
+        "fallback_json": "/cvmfs/cms-griddata.cern.ch/cat/metadata/BTV/Run3-24CDEReprocessingFGHIPrompt-Summer24-NanoAODv15/add_2025_b_and_c_WPs/btagging.json.gz",
+        "key": "UParTAK4_wp_values",
+        "working_points": [
+          "L",
+          "M",
+          "T"
+        ]
+      }
+    },
+    "Run3_2025": {
+      "period": "2025_Summer24",
+      "nanoAOD": "v15",
+      "variations": true,
+      "golden_json": "corrections/data/golden_json/Cert_Collisions2025_391658_398903_Golden.json",
+      "trigger_paths": [
+        "HLT_IsoMu24"
+      ],
+      "trigger_sf_keys": [
+        "NUM_IsoMu24_DEN_CutBasedIdMedium_and_PFIsoMedium"
+      ],
+      "jets": {
+        "algorithm": "AK4PFPuppi",
+        "apply_JEC": true,
+        "apply_JER_mc": true,
+        "json": "/cvmfs/cms-griddata.cern.ch/cat/metadata/JME/Run3-25Prompt-Summer24-NanoAODv15/latest/jet_jerc.json.gz",
+        "smearing_json": "/cvmfs/cms-griddata.cern.ch/cat/metadata/JME/JER-Smearing/latest/jer_smear.json.gz",
+        "JEC_MC_tags": [
+          "Summer24Prompt25_V3_MC"
+        ],
+        "JEC_DATA_tag_templates": [
+          "Summer24Prompt25_V3_DATA"
+        ],
+        "JER_tag": "Summer24Prompt25_JRV2_MC",
+        "uncertainty_sources": [
+          "JER",
+          "Total"
+        ]
+      },
+      "pileup": {
+        "json": "/cvmfs/cms-griddata.cern.ch/cat/metadata/LUM/Run3-25Prompt-Summer24-NanoAODv15/latest/puWeights_2025pp_Golden_Summer24_25ns_69200ub.json.gz",
+        "key": "Collisions25_goldenJSON"
+      },
+      "muons": {
+        "SF_json": "/afs/cern.ch/work/v/vdamante/Hmm_newSkim/corrections/data/MUO/SF/Run3-25Prompt-Summer24-NanoAODv15/muon_Z.json.gz",
+        "SF_keys": [
+          "NUM_LooseID_DEN_TrackerMuons",
+          "NUM_MediumID_DEN_TrackerMuons",
+          "NUM_TightID_DEN_TrackerMuons",
+          "NUM_LoosePFIso_DEN_LooseID",
+          "NUM_LoosePFIso_DEN_MediumID",
+          "NUM_LoosePFIso_DEN_TightID",
+          "NUM_TightPFIso_DEN_TightID",
+          "NUM_LooseMiniIso_DEN_LooseID",
+          "NUM_LooseMiniIso_DEN_MediumID",
+          "NUM_IsoMu24_DEN_CutBasedIdMedium_and_PFIsoMedium",
+          "NUM_IsoMu24_DEN_CutBasedIdTight_and_PFIsoTight"
+        ],
+        "ScaRe_json": "corrections/data/MUO/MuonScaRe/Run3-25Prompt-Summer24-NanoAODv15/muon_scalesmearing.json",
+        "ScaRe_VXBS_json": "corrections/data/MUO/MuonScaRe/Run3-25Prompt-Summer24-NanoAODv15/muon_scalesmearing_VXBS.json",
+        "FSR": "algorithmic correction in corrections/muon_fsr.py (no payload)"
+      },
+      "jet_veto_map": {
+        "json": "/cvmfs/cms-griddata.cern.ch/cat/metadata/JME/Run3-25Prompt-Summer24-NanoAODv15/latest/jetvetomaps.json.gz",
+        "key": "Summer24Prompt25_RunCDEFG_V1"
+      },
+      "btag_working_points": {
+        "tagger": "UParTAK4",
+        "json": "/cvmfs/cms-griddata.cern.ch/cat/metadata/BTV/Run3-25Prompt-Summer24-NanoAODv15/latest/btagging.json.gz",
+        "fallback_json": "/cvmfs/cms-griddata.cern.ch/cat/metadata/BTV/Run3-25Prompt-Summer24-NanoAODv15/add_2025_b_and_c_WPs/btagging.json.gz",
+        "key": "UParTAK4_wp_values",
+        "working_points": [
+          "L",
+          "M",
+          "T"
+        ]
+      }
+    },
+    "Run3_2026": {
+      "period": "2026_Summer24",
+      "nanoAOD": "v15",
+      "variations": true,
+      "golden_json": "corrections/data/golden_json/Cert_Collisions2026_401624_403937_golden.json",
+      "trigger_paths": [
+        "HLT_IsoMu24"
+      ],
+      "trigger_sf_keys": [
+        "NUM_IsoMu24_DEN_CutBasedIdMedium_and_PFIsoMedium"
+      ],
+      "jets": {
+        "algorithm": "AK4PFPuppi",
+        "apply_JEC": true,
+        "apply_JER_mc": true,
+        "json": "/cvmfs/cms-griddata.cern.ch/cat/metadata/JME/Run3-26Prompt-Summer24-NanoAODv15/latest/jet_jerc.json.gz",
+        "smearing_json": "/cvmfs/cms-griddata.cern.ch/cat/metadata/JME/JER-Smearing/latest/jer_smear.json.gz",
+        "JEC_MC_tags": [
+          "Summer24Prompt26_V2_MC"
+        ],
+        "JEC_DATA_tag_templates": [
+          "Summer24Prompt26_Run{}_V1_DATA",
+          "Summer24Prompt26_V1_DATA"
+        ],
+        "JER_tag": "Summer24Prompt25_JRV2_MC",
+        "uncertainty_sources": [
+          "JER",
+          "Total"
+        ]
+      },
+      "pileup": {
+        "json": "/cvmfs/cms-griddata.cern.ch/cat/metadata/LUM/Run3-25Prompt-Summer24-NanoAODv15/latest/puWeights_2025pp_Golden_Summer24_25ns_69200ub.json.gz",
+        "key": "Collisions25_goldenJSON"
+      },
+      "muons": {
+        "SF_json": "/cvmfs/cms-griddata.cern.ch/cat/metadata/MUO/Run3-26Prompt-Summer24-NanoAODv15/latest/muon_Z.json.gz",
+        "SF_keys": [],
+        "ScaRe_json": "corrections/data/MUO/MuonScaRe/Run3-26Prompt-Summer24-NanoAODv15/muon_scalesmearing.json",
+        "ScaRe_VXBS_json": "corrections/data/MUO/MuonScaRe/Run3-26Prompt-Summer24-NanoAODv15/muon_scalesmearing_VXBS.json",
+        "FSR": "algorithmic correction in corrections/muon_fsr.py (no payload)"
+      },
+      "jet_veto_map": {
+        "json": "/cvmfs/cms-griddata.cern.ch/cat/metadata/JME/Run3-26Prompt-Summer24-NanoAODv15/latest/jetvetomaps.json.gz",
+        "key": "Summer24Prompt26_RunBCD_V1"
+      },
+      "btag_working_points": {
+        "tagger": "UParTAK4",
+        "json": "/cvmfs/cms-griddata.cern.ch/cat/metadata/BTV/Run3-26Prompt-Summer24-NanoAODv15/latest/btagging.json.gz",
+        "fallback_json": "/cvmfs/cms-griddata.cern.ch/cat/metadata/BTV/Run3-26Prompt-Summer24-NanoAODv15/add_2025_b_and_c_WPs/btagging.json.gz",
+        "key": "UParTAK4_wp_values",
+        "working_points": [
+          "L",
+          "M",
+          "T"
+        ]
+      }
+    }
+  }
+}

@@ -20,6 +20,8 @@ nav:
   - Architecture:
       - Script layout: SCRIPT_LAYOUT.md
       - Workflow internals: WORKFLOW.md
+  - Sync:
+      - Corrections and payloads: sync/index.md
 
 markdown_extensions:
   - admonition
