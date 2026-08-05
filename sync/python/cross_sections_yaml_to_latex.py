@@ -426,7 +426,7 @@ def make_document(
             r"\usepackage{microtype}",
             r"\usepackage{booktabs}",
             r"\usepackage{array}",
-            r"\usepackage{xurl}",
+            r"\usepackage{url}",
             r"\usepackage{longtable}",
             r"\usepackage{caption}",
             r"\urlstyle{tt}",
