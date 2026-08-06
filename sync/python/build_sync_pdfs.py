@@ -62,8 +62,16 @@ def main() -> int:
         cwd=repo,
         check=True,
     )
-    for generator in ("collect_skim_selections.py", "collect_histogram_workflow.py"):
-        subprocess.run([str(repo / "sync/python" / generator)], cwd=repo, check=True)
+    for generator in (
+        "collect_skim_selections.py",
+        "collect_histogram_workflow.py",
+        "collect_analysis_selections.py",
+    ):
+        subprocess.run(
+            [sys.executable, str(repo / "sync/python" / generator)],
+            cwd=repo,
+            check=True,
+        )
     subprocess.run(
         [
             sys.executable,
@@ -78,7 +86,8 @@ def main() -> int:
     compile_tex(repo, repo / "sync/latex/corrections_main.tex", output_dir / "corrections.pdf")
     compile_tex(repo, repo / "sync/latex/skim_selections_main.tex", output_dir / "skim_selections.pdf")
     compile_tex(repo, repo / "sync/latex/histogram_workflow_main.tex", output_dir / "histogram_workflow.pdf")
-    # Keep the combined selection document for backward-compatible links.
+    # Analyst-facing compact selection flow; detailed skim/histogram PDFs are
+    # retained separately as technical references.
     compile_tex(repo, repo / "sync/latex/selections_main.tex", output_dir / "selections.pdf")
     compile_tex(repo, repo / "sync/latex/cross_sections_main.tex", output_dir / "cross_sections.pdf")
 

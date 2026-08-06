@@ -125,7 +125,7 @@ def build_inventory(repo: Path, requested_eras: list[str]) -> dict[str, Any]:
 
         mu_sf_path = mu_template.format(muo_folder)
         if era == "Run3_2025":
-            mu_sf_path = "/afs/cern.ch/work/v/vdamante/Hmm_newSkim/corrections/data/MUO/SF/Run3-25Prompt-Summer24-NanoAODv15/muon_Z.json.gz"
+            mu_sf_path = "corrections/data/MUO/SF/Run3-25Prompt-Summer24-NanoAODv15/muon_Z.json.gz"
 
         result["eras"][era] = {
             "period": period,
@@ -221,7 +221,7 @@ def latex(data: dict[str, Any]) -> str:
                  ", ".join(item["muons"]["SF_keys"])),
                 (era, "Muon ScaRe", item["muons"]["ScaRe_json"],
                  "standard; VXBS payload: " + item["muons"]["ScaRe_VXBS_json"]),
-                (era, "Muon FSR", "corrections/muon_fsr.py", "algorithmic; no payload"),
+                (era, "Muon FSR", "---", "algorithmic correction; no external payload"),
                 (era, "Jet veto map", item["jet_veto_map"]["json"], item["jet_veto_map"]["key"]),
                 (era, "b-tag WP", item["btag_working_points"]["json"],
                  item["btag_working_points"]["key"] + " (L, M, T)"),

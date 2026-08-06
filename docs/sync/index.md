@@ -19,23 +19,18 @@ Correction payloads, paths, tags, and keys used by the analysis.
 
 [Open corrections](corrections.pdf){ .md-button }
 
-## NanoAOD skim selections
+## Analysis selection flow
 
-Selections applied during NanoAOD skimming, including their execution order and the correction state at each step.
+A concise analyst-facing table of the event selection, cut order, object requirements, mass regions, and categories. Symbols identify whether each requirement is applied during skimming or histogram production.
 
-[Open skim selections](skim_selections.pdf){ .md-button }
+[Open analysis selections](selections.pdf){ .md-button .md-button--primary }
 
-## Histogram production
+## Technical workflow references
 
-Histogram-level mass regions, categories, weights, systematic routing, and booking workflow.
+The detailed implementation-oriented tables are retained as technical references. They document the individual skim and histogram-production steps and are not intended as the primary analyst summary.
 
-[Open histogram workflow](histogram_workflow.pdf){ .md-button }
-
-## Combined selection workflow
-
-The skim-selection and histogram-production documents are also available as a single combined file for backward compatibility.
-
-[Open the combined document](selections.pdf){ .md-button }
+- [Detailed skim workflow](skim_selections.pdf)
+- [Detailed histogram workflow](histogram_workflow.pdf)
 
 ## Cross sections
 

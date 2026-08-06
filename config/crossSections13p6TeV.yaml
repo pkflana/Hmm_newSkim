@@ -1,61 +1,9 @@
-############## For signals ##############
-one_pb:
-  crossSec: 1
-  reference:
-  unc: {}
-
-1pb:
-  crossSec: 1
-  reference:
-  unc: {}
-
-BR_H_bb:
-  BR: 5.760E-01
-  reference: https://gitlab.cern.ch/hh/recommendations/-/blob/d7ad328c2ca55c75466b0a480af19823b7fa305b/CrossSections.md
-  unc: {}
-
-BR_H_WW:
-  BR: 2.203E-01
-  reference: https://gitlab.cern.ch/hh/recommendations/-/blob/d7ad328c2ca55c75466b0a480af19823b7fa305b/CrossSections.md
-  unc: {}
-
-BR_H_ZZ:
-  BR: 2.716E-02
-  reference: https://gitlab.cern.ch/hh/recommendations/-/blob/d7ad328c2ca55c75466b0a480af19823b7fa305b/CrossSections.md
-  unc: {}
-
-BR_H_tautau:
-  BR: 6.208E-02
-  reference: https://gitlab.cern.ch/hh/recommendations/-/blob/d7ad328c2ca55c75466b0a480af19823b7fa305b/CrossSections.md
-  unc: {}
-
-BR_W_lnu:
-  BR: 10.86e-02
-  reference: https://pdg.lbl.gov/2019/listings/rpp2019-list-w-boson.pdf
-  unc: {}
-
-BR_W_qq:
-  BR: 1 - BR_W_lnu
-  reference: https://pdg.lbl.gov/2019/listings/rpp2019-list-w-boson.pdf
-  unc: {}
-
-BR_Z_ll:
-  BR: 3.3658e-02
-  reference: https://pdg.lbl.gov/2018/listings/rpp2018-list-z-boson.pdf
-  unc: {}
-
-BR_Z_nunu:
-  BR: 20e-02
-  reference: https://pdg.lbl.gov/2018/listings/rpp2018-list-z-boson.pdf
-  unc: {}
-
-############## Backgrounds ##############
 DY_NNLO_QCD_NLO_EW:
   crossSec: 2094.2
   reference: https://twiki.cern.ch/twiki/bin/viewauth/CMS/MATRIXCrossSectionsat13p6TeV
   unc:
     total:
-      value: "+0.7% - 1.1%"
+      value: "+0.7 - 1.1"
       isPercentage: True
 DYto2E_MLL_10to50_powheg:
   crossSec: 6744.0
@@ -669,28 +617,28 @@ GluGluHto2Mu_M120:
   reference: https://arxiv.org/pdf/2402.09955 for XS and https://twiki.cern.ch/twiki/bin/view/LHCPhysics/CERNYellowReportPageBR for BR
   unc:
     theory:
-      value: "+4.6% -6.9%"
+      value: "+4.6 -6.9"
       isPercentage: True
     th_gaussian:
-      value: "+-4%"
+      value: "+-4"
       isPercentage: True
     pdf_alpha_s:
-      value: "+-3.2%"
+      value: "+-3.2"
       isPercentage: True
     pdf:
-      value: "+-1.9%"
+      value: "+-1.9"
       isPercentage: True
     alpha_s:
-      value: "+-2.6%"
+      value: "+-2.6"
       isPercentage: True
     theory_BR:
-      value: "+1.23% 1.23%"
+      value: "+1.23 1.23"
       isPercentage: True
     m_q_BR:
-      value: "+1.07% -1.09%"
+      value: "+1.07 -1.09"
       isPercentage: True
     alpha_s_BR:
-      value: "+0.69% -0.70%"
+      value: "+0.69 -0.70"
       isPercentage: True
 
 GluGluHto2Mu:
@@ -723,24 +671,28 @@ GluGluHto2Mu_M125:
   reference: https://twiki.cern.ch/twiki/bin/view/LHCPhysics/LHCHWG136TeVxsec_extrap and https://twiki.cern.ch/twiki/bin/view/LHCPhysics/CERNYellowReportPageBR for BR
   unc:
     theory:
-      value: "+4.6% -6.7%"
+      value: "+4.6 -6.7"
       isPercentage: True
     th_gaussian:
       value: "+-3.9"
+      isPercentage: True # to be checked
     pdf_alpha_s:
       value: "+-3.2"
+      isPercentage: True # to be checked
     pdf:
       value: "+-1.9"
+      isPercentage: True # to be checked
     alpha_s:
       value: "+-2.6"
+      isPercentage: True # to be checked
     theory_BR:
-      value: "+1.23% -1.2%"
+      value: "+1.23 -1.2"
       isPercentage: True
     m_q_BR:
-      value: "+0.97% -0.99%"
+      value: "+0.97 -0.99"
       isPercentage: True
     alpha_s_BR:
-      value: "+0.59% -0.64%"
+      value: "+0.59 -0.64"
       isPercentage: True
 
 GluGluHto2Mu_M130:
@@ -978,8 +930,10 @@ WplusH_Hbb_Wqq:
       isPercentage: True
     pdf:
       value: "±1.6"
+      isPercentage: True
     alpha_s:
       value: "±0.9"
+      isPercentage: True
 WplusHto2Tau_Filtered:
   crossSec: 0.3504
   reference: XSDB WplusHTo2TauUncorrelatedDecay_Filtered_M-125_TuneCP5_13p6TeV_powheg-minnlo-pythia8 modifiedOn 2025-09-04 12:43:29
@@ -992,286 +946,6 @@ WplusHto2Tau:
   unc:
     total:
       value: 0.0001175
-
-QCD_HT40to70_MLM:
-  crossSec: 311400000.0
-  reference: XSDB QCD-4Jets_HT-40to70_TuneCP5_13p6TeV_madgraphMLM-pythia8 modifiedOn 2024-04-03 19:46:52
-  unc:
-    total:
-      value: 843600.0
-QCD_HT70to100_MLM:
-  crossSec: 58500000.0
-  reference: XSDB QCD-4Jets_HT-70to100_TuneCP5_13p6TeV_madgraphMLM-pythia8 modifiedOn 2024-04-03 19:46:55
-  unc:
-    total:
-      value: 167400.0
-QCD_HT100to200_MLM:
-  crossSec: 25060000.0
-  reference: GenXSecAnalyzer "root://cms-xrd-global.cern.ch///store/mc/Run3Summer22EEMiniAODv4/QCD-4Jets_HT-100to200_TuneCP5_13p6TeV_madgraphMLM-pythia8/MINIAODSIM/130X_mcRun3_2022_realistic_postEE_v6-v2/2520000/00527881-de92-4352-a197-c253c31c6aa7.root"
-  unc:
-    total:
-      value: 79510.0
-QCD_HT200to400_MLM:
-  crossSec: 1961000.0
-  reference: XSDB QCD-4Jets_HT-200to400_TuneCP5_13p6TeV_madgraphMLM-pythia8 modifiedOn 2024-04-03 19:46:48
-  unc:
-    total:
-      value: 5862.0
-QCD_HT400to600_MLM:
-  crossSec: 95620.0
-  reference: XSDB QCD-4Jets_HT-400to600_TuneCP5_13p6TeV_madgraphMLM-pythia8 modifiedOn 2024-04-03 19:46:50
-  unc:
-    total:
-      value: 289.3
-QCD_HT600to800_MLM:
-  crossSec: 13540.0
-  reference: XSDB QCD-4Jets_HT-600to800_TuneCP5_13p6TeV_madgraphMLM-pythia8 modifiedOn 2024-04-03 19:46:54
-  unc:
-    total:
-      value: 41.11
-QCD_HT800to1000_MLM:
-  crossSec: 3033.0
-  reference: XSDB QCD-4Jets_HT-800to1000_TuneCP5_13p6TeV_madgraphMLM-pythia8 modifiedOn 2024-04-03 19:46:57
-  unc:
-    total:
-      value: 9.206
-QCD_HT1000to1200_MLM:
-  crossSec: 883.7
-  reference: XSDB QCD-4Jets_HT-1000to1200_TuneCP5_13p6TeV_madgraphMLM-pythia8 modifiedOn 2024-04-03 19:46:40
-  unc:
-    total:
-      value: 2.69
-QCD_HT1200to1500_MLM:
-  crossSec: 383.5
-  reference: XSDB QCD-4Jets_HT-1200to1500_TuneCP5_13p6TeV_madgraphMLM-pythia8 modifiedOn 2024-04-03 19:46:42
-  unc:
-    total:
-      value: 1.168
-QCD_HT1500to2000_MLM:
-  crossSec: 125.2
-  reference: XSDB QCD-4Jets_HT-1500to2000_TuneCP5_13p6TeV_madgraphMLM-pythia8 modifiedOn 2024-04-03 19:46:43
-  unc:
-    total:
-      value: 0.381
-QCD_HT2000toInf_MLM:
-  crossSec: 26.49
-  reference: XSDB QCD-4Jets_HT-2000_TuneCP5_13p6TeV_madgraphMLM-pythia8 modifiedOn 2024-04-03 19:46:45
-  unc:
-    total:
-      value: 0.0807
-
-QCD_PT_10to30_EMEnriched:
-  crossSec: 6854000.0
-  reference: XSDB QCD_PT-10to30_EMEnriched_TuneCP5_13p6TeV_pythia8 modifiedOn 2023-03-26 13:58:28
-  unc:
-    total:
-      value: 68270.0
-QCD_PT_30to50_EMEnriched:
-  crossSec: 6698000.0
-  reference: XSDB QCD_PT-30to50_EMEnriched_TuneCP5_13p6TeV_pythia8 modifiedOn 2023-05-26 21:19:12
-  unc:
-    total:
-      value: 62870.0
-QCD_PT_50to80_EMEnriched:
-  crossSec: 2113000.0
-  reference: XSDB QCD_PT-50to80_EMEnriched_TuneCP5_13p6TeV_pythia8 modifiedOn 2023-05-26 21:19:12
-  unc:
-    total:
-      value: 19470.0
-QCD_PT_80to120_EMEnriched:
-  crossSec: 394100.0
-  reference: XSDB QCD_PT-80to120_EMEnriched_TuneCP5_13p6TeV_pythia8 modifiedOn 2023-03-26 13:58:48
-  unc:
-    total:
-      value: 3654.0
-QCD_PT_120to170_EMEnriched:
-  crossSec: 71600.0
-  reference: GenXSecAnalyzer "root://cms-xrd-global.cern.ch///store/mc/Run3Summer22EEMiniAODv4/QCD_PT-120to170_EMEnriched_TuneCP5_13p6TeV_pythia8/MINIAODSIM/130X_mcRun3_2022_realistic_postEE_v6-v2/2520000/4ef4de22-1e29-41db-acf0-9699123caa6d.root"
-  unc:
-    total:
-      value: 330.6
-QCD_PT_170to300_EMEnriched:
-  crossSec: 17920.0
-  reference: XSDB QCD_PT-170to300_EMEnriched_TuneCP5_13p6TeV_pythia8 modifiedOn 2023-03-26 13:58:33
-  unc:
-    total:
-      value: 164.5
-QCD_PT_300_EMEnriched:
-  crossSec: 1231.0
-  reference: XSDB QCD_PT-300_EMEnriched_TuneCP5_13p6TeV_pythia8 modifiedOn 2023-03-26 13:58:37
-  unc:
-    total:
-      value: 11.28
-QCD_PT_300toInf_EMEnriched:
-  crossSec: 1224.0
-  reference: XSDB QCD_PT-300toInf_EMEnriched_TuneCP5_13p6TeV_pythia8 modifiedOn 2023-03-26 13:58:39
-  unc:
-    total:
-      value: 11.46
-
-QCD_PT_15to20_MuEnrichedPt5:
-  crossSec: 2960000.0
-  reference: XSDB QCD_PT-15to20_MuEnrichedPt5_TuneCP5_13p6TeV_pythia8 modifiedOn 2023-05-26 21:19:11
-  unc:
-    total:
-      value: 29320.0
-QCD_PT_20to30_MuEnrichedPt5:
-  crossSec: 2679000.0
-  reference: XSDB QCD_PT-20to30_MuEnrichedPt5_TuneCP5_13p6TeV_pythia8 modifiedOn 2023-03-26 13:58:54
-  unc:
-    total:
-      value: 26580.0
-QCD_PT_30to50_MuEnrichedPt5:
-  crossSec: 1465000.0
-  reference: XSDB QCD_PT-30to50_MuEnrichedPt5_TuneCP5_13p6TeV_pythia8 modifiedOn 2023-03-26 13:58:41
-  unc:
-    total:
-      value: 14360.0
-QCD_PT_50to80_MuEnrichedPt5:
-  crossSec: 409500.0
-  reference: XSDB QCD_PT-50to80_MuEnrichedPt5_TuneCP5_13p6TeV_pythia8 modifiedOn 2023-05-26 21:19:13
-  unc:
-    total:
-      value: 4049.0
-QCD_PT_80to120_MuEnrichedPt5:
-  crossSec: 96200.0
-  reference: XSDB QCD_PT-80to120_MuEnrichedPt5_TuneCP5_13p6TeV_pythia8 modifiedOn 2023-03-26 13:58:49
-  unc:
-    total:
-      value: 916.9
-QCD_PT_120to170_MuEnrichedPt5:
-  crossSec: 22980.0
-  reference: XSDB QCD_PT-120to170_MuEnrichedPt5_TuneCP5_13p6TeV_pythia8 modifiedOn 2023-03-26 13:58:51
-  unc:
-    total:
-      value: 215.1
-QCD_PT_170to300_MuEnrichedPt5:
-  crossSec: 7763.0
-  reference: XSDB QCD_PT-170to300_MuEnrichedPt5_TuneCP5_13p6TeV_pythia8 modifiedOn 2024-04-03 19:47:43
-  unc:
-    total:
-      value: 23.67
-QCD_PT_300to470_MuEnrichedPt5:
-  crossSec: 699.1
-  reference: XSDB QCD_PT-300to470_MuEnrichedPt5_TuneCP5_13p6TeV_pythia8 modifiedOn 2023-03-26 13:58:38
-  unc:
-    total:
-      value: 6.639
-QCD_PT_470to600_MuEnrichedPt5:
-  crossSec: 68.24
-  reference: XSDB QCD_PT-470to600_MuEnrichedPt5_TuneCP5_13p6TeV_pythia8 modifiedOn 2024-04-03 19:47:45
-  unc:
-    total:
-      value: 0.2049
-QCD_PT_600to800_MuEnrichedPt5:
-  crossSec: 21.37
-  reference: XSDB QCD_PT-600to800_MuEnrichedPt5_TuneCP5_13p6TeV_pythia8 modifiedOn 2023-05-26 21:19:13
-  unc:
-    total:
-      value: 0.199
-QCD_PT_800to1000_MuEnrichedPt5:
-  crossSec: 3.913
-  reference: XSDB QCD_PT-800to1000_MuEnrichedPt5_TuneCP5_13p6TeV_pythia8 modifiedOn 2023-03-26 13:58:47
-  unc:
-    total:
-      value: 0.03526
-QCD_PT_1000_MuEnrichedPt5:
-  crossSec: 1.323
-  reference: XSDB QCD_PT-1000_MuEnrichedPt5_TuneCP5_13p6TeV_pythia8 modifiedOn 2024-04-03 19:47:38
-  unc:
-    total:
-      value: 0.003921
-
-QCD_PT_15to30:
-  crossSec: 1301000000.0
-  reference: XSDB QCD_PT-15to30_TuneCP5_13p6TeV_pythia8 modifiedOn 2024-04-03 20:23:32
-  unc:
-    total:
-      value: 2135000.0
-QCD_PT_30to50:
-  crossSec: 113300000.0
-  reference: XSDB QCD_PT-30to50_TuneCP5_13p6TeV_pythia8 modifiedOn 2023-03-26 13:58:27
-  unc:
-    total:
-      value: 589300.0
-QCD_PT_50to80:
-  crossSec: 16760000.0
-  reference: XSDB QCD_PT-50to80_TuneCP5_13p6TeV_pythia8 modifiedOn 2024-04-03 19:47:46
-  unc:
-    total:
-      value: 27450.0
-QCD_PT_80to120:
-  crossSec: 2534000.0
-  reference: XSDB QCD_PT-80to120_TuneCP5_13p6TeV_pythia8 modifiedOn 2023-03-26 13:58:49
-  unc:
-    total:
-      value: 13280.0
-QCD_PT_120to170:
-  crossSec: 445800.0
-  reference: XSDB QCD_PT-120to170_TuneCP5_13p6TeV_pythia8 modifiedOn 2023-03-26 13:58:29
-  unc:
-    total:
-      value: 2174.0
-QCD_PT_170to300:
-  crossSec: 113700.0
-  reference: XSDB QCD_PT-170to300_TuneCP5_13p6TeV_pythia8 modifiedOn 2023-03-26 13:58:34
-  unc:
-    total:
-      value: 547.6
-QCD_PT_300to470:
-  crossSec: 7559.0
-  reference: XSDB QCD_PT-300to470_TuneCP5_13p6TeV_pythia8 modifiedOn 2023-05-26 21:19:12
-  unc:
-    total:
-      value: 36.67
-QCD_PT_470to600:
-  crossSec: 626.4
-  reference: XSDB QCD_PT-470to600_TuneCP5_13p6TeV_pythia8 modifiedOn 2023-03-26 13:58:44
-  unc:
-    total:
-      value: 2.863
-QCD_PT_600to800:
-  crossSec: 178.6
-  reference: XSDB QCD_PT-600to800_TuneCP5_13p6TeV_pythia8 modifiedOn 2023-03-26 13:58:45
-  unc:
-    total:
-      value: 0.8268
-QCD_PT_800to1000:
-  crossSec: 30.57
-  reference: XSDB QCD_PT-800to1000_TuneCP5_13p6TeV_pythia8 modifiedOn 2023-03-26 13:58:47
-  unc:
-    total:
-      value: 0.1405
-QCD_PT_1000to1400:
-  crossSec: 8.92
-  reference: XSDB QCD_PT-1000to1400_TuneCP5_13p6TeV_pythia8 modifiedOn 2023-03-26 13:58:26
-  unc:
-    total:
-      value: 0.04204
-QCD_PT_1400to1800:
-  crossSec: 0.8103
-  reference: XSDB QCD_PT-1400to1800_TuneCP5_13p6TeV_pythia8 modifiedOn 2023-03-26 13:58:30
-  unc:
-    total:
-      value: 0.003798
-QCD_PT_1800to2400:
-  crossSec: 0.1148
-  reference: XSDB QCD_PT-1800to2400_TuneCP5_13p6TeV_pythia8 modifiedOn 2023-03-26 13:58:35
-  unc:
-    total:
-      value: 0.0005556
-QCD_PT_2400to3200:
-  crossSec: 0.007542
-  reference: XSDB QCD_PT-2400to3200_TuneCP5_13p6TeV_pythia8 modifiedOn 2023-03-26 13:58:36
-  unc:
-    total:
-      value: 3.779e-05
-QCD_PT_3200:
-  crossSec: 0.0002331
-  reference: XSDB QCD_PT-3200_TuneCP5_13p6TeV_pythia8 modifiedOn 2023-03-26 13:58:43
-  unc:
-    total:
-      value: 1.208e-06
 
 TbarBtoLminusNuB_s_channel_4FS:
   crossSec: 4.534 * (1-0.6741)

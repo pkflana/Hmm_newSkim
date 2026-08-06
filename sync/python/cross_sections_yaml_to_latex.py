@@ -300,7 +300,10 @@ def latex_escape(value: Any) -> str:
 def latex_path(value: Any) -> str:
     """Monospace, automatically breakable text for names, paths and references."""
     text = str(value).strip().replace("{", r"\{").replace("}", r"\}")
-    return rf"\path{{{text}}}"
+    # The url package discards ordinary spaces inside \path. Render each
+    # whitespace-delimited part separately so prose-style references and
+    # comments retain visible word boundaries while paths remain breakable.
+    return r"\allowbreak\ ".join(rf"\path{{{part}}}" for part in text.split())
 
 
 def format_number(value: float, significant_digits: int = 8) -> str:

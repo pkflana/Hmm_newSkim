@@ -1,0 +1,55 @@
+% Automatically generated analyst-facing summary.
+\begin{longtable}{>{\centering\arraybackslash}p{0.045\textwidth} >{\raggedright\arraybackslash}p{0.19\textwidth} >{\raggedright\arraybackslash}p{0.64\textwidth} >{\centering\arraybackslash}p{0.07\textwidth}}
+\caption{Run 3 analysis selection in application order.}\label{tab:analysis-selection} \\
+\toprule
+\textbf{Order} & \textbf{Requirement} & \textbf{Selection} & \textbf{Stage} \\
+\midrule
+\endfirsthead
+\multicolumn{4}{c}{\tablename\ \thetable\ -- continued} \\
+\toprule
+\textbf{Order} & \textbf{Requirement} & \textbf{Selection} & \textbf{Stage} \\
+\midrule
+\endhead
+\bottomrule
+\endlastfoot
+1 & Golden JSON & Data only: require the run and luminosity section to be included in the era-specific Golden JSON certification mask. & $\ast$ \\
+2 & Orthogonal MC era split & MC only in 2024--2026: assign each event deterministically to exactly one era using run, luminosity block, event and dataset identifiers (seed 12345). The fractions follow the target luminosities 110:111:26 for 2024:2025:2026, preventing event reuse across eras. & $\ast$ \\
+3 & Generator VBF phase space & MC only in 2024--2026, for DY $105<m_{\mu\mu}<160$ samples. Remove hard-process leptons within $\Delta R<0.3$ of GenJets and define GenVBFFilter from the two leading remaining GenJets: pass when $m_{jj}>300$ GeV. The inclusive samples DYto2Mu\_MLL105To160 and DYto2Mu\_MLL\_105to160\_amcatnloFXFX use GenVBFFilter$=0$; their FlashSim aliases follow the same rule. DYto2Mu\_MLL105To160\_VBFFiltered and DYto2Mu\_MLL\_105to160\_amcatnloFXFX\_Fil\_VBF use GenVBFFilter$=1$. The flag is stored at skim level and the complementary cuts are applied during histogram routing. & $\ast$ / $\dagger$ \\
+4 & Event quality & Logical AND of the recommended era-dependent NanoAOD MET filters. & $\ast$ \\
+5 & Muon momentum & For each muon use the beam-spot-constrained (BSC) $p_T$ when its BSC fit $\chi^2<30$; otherwise use the standard NanoAOD $p_T$. ScaRe scale corrections are applied to data and MC, resolution smearing to MC, and FSR recovery is included before selections and invariant-mass construction. & $\ast$ \\
+6 & Single-muon trigger & Require HLT\_IsoMu24 online and at least one selected offline muon with corrected $p_T>26$ GeV matched to a trigger object with ID 13, filter bit 8 and $\Delta R<0.4$. & $\ast$ / $\dagger$ \\
+7 & Muon skim selection & Exactly two ScaRe- and FSR-corrected muons with the Nano/BSC momentum choice above, $p_T>15.0$ GeV, $|\eta|<2.4$, medium ID and pfIsoId $\geq2$. & $\ast$ \\
+8 & Dimuon skim window & $50<m_{\mu\mu}<200$ GeV, evaluated with the selected corrected muon momenta. & $\ast$ \\
+9 & Electron veto & No electron with $p_T>20$ GeV, $|\eta|<2.5$ and MVA Iso WP90. & $\ast$ \\
+10 & Muon analysis selection & Opposite-sign muons; both with corrected $p_T>20$ GeV, medium ID and pfIsoId $\geq2$. The online HLT\_IsoMu24 decision and the requirement that at least one of the two offline muons is trigger-matched are retained. & $\dagger$ \\
+11 & Low-pT muon quality & A selected muon with corrected $p_T<30$ GeV must additionally satisfy tight ID and pfIsoId $\geq4$ when the corresponding category is used. & $\dagger$ \\
+12 & Jet selection & Jets with $p_T>20.0$ GeV after jet-energy scale and resolution corrections, $|\eta|<4.7$, tight jet ID, outside the era-dependent detector horn/veto region and $\Delta R(j,\mu)>0.4$ from both selected muons. & $\ast$ \\
+13 & b-jet veto & Within $|\eta|<2.5$, require zero medium-tagged jets and at most one loose-tagged jet. Working points are era dependent; the tagger is ParticleNet (PNet) for 2022--2023BPix and UParTAK4 for 2024--2026. & $\dagger$ \\
+14 & Mass regions & Inclusive: $60<m_{\mu\mu}<150$ GeV; Z sideband: $70$--$110$ GeV; signal fit: $115$--$135$ GeV; H sidebands: $110$--$115$ or $135$--$150$ GeV. & $\dagger$ \\
+15 & Baseline category & Full event selection (Golden JSON for data or MC-specific filters, MET quality and electron veto) plus the two-muon analysis selection, HLT\_IsoMu24, at least one offline muon matched to the fired online trigger, and the b-jet veto. & $\dagger$ \\
+16 & VBF topology and category & At skim level, among selected jets outside the horn, define the pair with the largest $m_{jj}$ satisfying $m_{jj}\geq400$ GeV and $|\Delta\eta_{jj}|\geq2.5$. At histogram level, the VBF category requires baseline and leading/subleading VBF-jet $p_T\geq35/25$ GeV. & $\ast_{\mathrm{def.}}$ / $\dagger$ \\
+17 & ggF categories & Baseline events failing the VBF definition, split into 0-jet, 1-jet and $\geq2$-jet categories when requested. & $\dagger$ \\
+\end{longtable}
+
+\noindent\textbf{Stage notation:} $\ast$ applied during NanoAOD skimming; $\dagger$ applied when producing analysis histograms. Requirements marked with both symbols are enforced at both stages; $\ast_{\mathrm{def.}}$ means that the object or flag is defined but not used to reject events at skim level. Object calibrations and systematic variations are propagated before the corresponding selections.
+
+\begin{longtable}{>{\raggedright\arraybackslash}p{0.15\textwidth} >{\raggedright\arraybackslash}p{0.23\textwidth} >{\raggedright\arraybackslash}p{0.55\textwidth}}
+\caption{Reco-jet/GenJet component split for DY, EWK, ggF and VBF MC samples. This classification is orthogonal to the analysis category.}\label{tab:jet-gen-components} \\
+\toprule
+\textbf{Reco-jet multiplicity} & \textbf{Component} & \textbf{Definition} \\
+\midrule
+\endfirsthead
+\toprule
+\textbf{Reco-jet multiplicity} & \textbf{Component} & \textbf{Definition} \\
+\midrule
+\endhead
+\bottomrule
+\endlastfoot
+Any & Matching rule & A selected reconstructed jet is hard-scatter matched when its NanoAOD GenJet index is non-negative. A negative index means that no GenJet is matched and the reconstructed jet is classified as a pileup (PU) jet. \\
+0 jets & 0J Hard & No selected reconstructed jet; the event forms the exclusive zero-jet component. \\
+1 jet & 1J Hard / 1J PU & Classify the leading selected reconstructed jet as hard or PU using its GenJet match. \\
+$\geq2$ jets & 2J Hard / 2J PU1 / 2J PU2 & Count unmatched jets among the first two selected reconstructed jets: respectively 0, 1 or 2 PU jets. \\
+VBF pair & VBF Hard / VBF PU1 / VBF PU2 & Apply the same 0/1/2 unmatched-jet count specifically to the two jets forming the selected VBF pair. \\
+\end{longtable}
+
+The generic 0/1/2 matching flags are process independent. Component outputs are produced for the configured DY/EWK/ggF/VBF process families when the jet--GenJet splitting workflow is enabled.
