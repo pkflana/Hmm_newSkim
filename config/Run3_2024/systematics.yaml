@@ -51,7 +51,7 @@ qcd_scale:
     VH_inclusive: "VH"
     TTHto2Mu: "ttH"
     TTH_inclusive: "ttH"
-    H_mainBckg: "VH"
+    SingleH: "VH"
   variations:
     - {name: "QCD_ren_scale_{process}", down: "muR0p5_muF1", up: "muR2_muF1"}
     - {name: "QCD_fac_scale_{process}", down: "muR1_muF0p5", up: "muR1_muF2"}
@@ -121,7 +121,7 @@ pdf:
     VH_inclusive: "Higgs_VH"
     TTHto2Mu: "Higgs_ttH"
     TTH_inclusive: "Higgs_ttH"
-    H_mainBckg: "Higgs_VH"
+    SingleH: "Higgs_VH"
 
 systematics:
   Central:

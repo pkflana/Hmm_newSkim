@@ -2,6 +2,7 @@
 
 import os
 import argparse
+import json
 import yaml
 from collections import OrderedDict
 
@@ -13,15 +14,6 @@ parser.add_argument("-e", "--era", required=True, help="e.g. Run3_2022EE")
 parser.add_argument("--max-files", type=int, default=None)
 parser.add_argument("--write-missing", action="store_true")
 parser.add_argument("--only-missing", action="store_true")
-parser.add_argument(
-    "--jerc-2025-mc-mode",
-    choices=["2025", "jec2024_jer2025", "2024"],
-    default=None,
-    help=(
-        "Check the output directory for this Run3_2025 MC JERC mode. "
-        "Default comes from maincfg.yaml."
-    ),
-)
 
 args = parser.parse_args()
 era = args.era
@@ -52,20 +44,7 @@ with open(processes_yaml) as f:
 with open(samples_yaml) as f:
     samples_cfg = yaml.safe_load(f)
 
-jerc_2025_mc_mode = args.jerc_2025_mc_mode
-if jerc_2025_mc_mode is None:
-    jerc_2025_mc_mode = main_config.get("jerc_2025_mc_mode", "2025")
-jerc_2025_mc_mode = str(jerc_2025_mc_mode)
-output_dirs = skim_config.get("output_dirs_by_jerc_2025_mc_mode", {})
-if output_dirs:
-    if jerc_2025_mc_mode not in output_dirs:
-        raise SystemExit(
-            "[ERROR] output_dirs_by_jerc_2025_mc_mode has no entry for "
-            f"{jerc_2025_mc_mode!r}"
-        )
-    output_dir = output_dirs[jerc_2025_mc_mode]
-else:
-    output_dir = skim_config["output_dir"]
+output_dir = skim_config["output_dir"]
 output_directory = os.path.abspath(output_dir)
 max_files_cfg = skim_config.get("max_files", -1)
 
@@ -137,32 +116,33 @@ summary = OrderedDict()
 
 for dataset in all_datasets:
 
-    if dataset not in samples_cfg or "filelist" not in samples_cfg[dataset]:
-        print(f"[WARNING] Missing filelist for dataset: {dataset}")
+    chunk_manifest_path = os.path.join(
+        get_dataset_log_dir(dataset), "skim_chunks.json"
+    )
+    if not os.path.exists(chunk_manifest_path):
+        print(
+            f"[WARNING] Missing chunk manifest for dataset {dataset}: "
+            f"{chunk_manifest_path}. Run condorsubmit.py --no-submit first."
+        )
         continue
 
-    filelist = samples_cfg[dataset]["filelist"]
-
-    max_files = args.max_files
-    if max_files is None:
-        max_files = max_files_cfg
-
-    if max_files is not None and max_files > 0:
-        filelist = filelist[:max_files]
+    with open(chunk_manifest_path) as manifest_handle:
+        chunk_manifest = json.load(manifest_handle)
+    chunks = chunk_manifest.get("chunks", [])
 
     missing_files = []
     completed = 0
 
-    for infile in filelist:
-        outfile_root, outfile_json = get_output_paths(infile, dataset)
-
+    for chunk in chunks:
+        outfile_root = chunk["root_file"]
+        outfile_json = chunk["report_file"]
         if valid_file(outfile_root) and valid_file(outfile_json):
             completed += 1
         else:
-            missing_files.append(infile)
+            missing_files.extend(chunk.get("input_files", []))
 
-    total = len(filelist)
-    missing = len(missing_files)
+    total = len(chunks)
+    missing = total - completed
 
     report = None
     if args.write_missing:
@@ -212,7 +192,7 @@ for dataset, s in summary.items():
         print(f"{'':45s} report  = {s['report']}")
 
 print("\n========== GLOBAL ==========")
-print(f"total files     : {global_total}")
-print(f"completed files : {global_completed}")
-print(f"missing files   : {global_missing}")
+print(f"total chunks     : {global_total}")
+print(f"completed chunks : {global_completed}")
+print(f"missing chunks   : {global_missing}")
 print("=========================================\n")

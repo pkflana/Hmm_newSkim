@@ -1,4 +1,16 @@
 
+"""Physics observables added to skim tuples.
+
+Histogram selections were moved to :mod:`common.add_var_to_skim`; the imports
+below preserve older callers without duplicating their implementation.
+"""
+
+from common.add_var_to_skim import (
+    DefineHistogramSelections,
+    GetSelectionSuffixForSystematic,
+)
+
+
 def SelectedJetObservablesDef(df, suffix=""):
     columns = {str(col) for col in df.GetColumnNames()}
     jet_names = {
@@ -36,7 +48,8 @@ def SelectedJetObservablesDef(df, suffix=""):
 
 def VBFJetObservablesDef(df, suffix=""):
     columns = {str(col) for col in df.GetColumnNames()}
-    sel_jet_cols = ["SelectedJet_area","SelectedJet_btagDeepFlavQG","SelectedJet_btagPNetB","SelectedJet_btagPNetQvG","SelectedJet_btagUParTAK4QvG","SelectedJet_eta","SelectedJet_idx","SelectedJet_mass","SelectedJet_phi","SelectedJet_pt"]
+    # sel_jet_cols = [c for c in columns if c.startswith("SelectedJet")]
+    sel_jet_cols = ["SelectedJet_area","SelectedJet_btagDeepFlavQG","SelectedJet_btagPNetB","SelectedJet_btagPNetQvG","SelectedJet_btagPNetCvNotB","SelectedJet_btagUParTAK4CvB","SelectedJet_btagUParTAK4QvG","SelectedJet_btagUParTAK4CvNotB","SelectedJet_btagUParTAK4B","SelectedJet_btagUParTAK4CvL","SelectedJet_btagUParTAK4UDG","SelectedJet_eta","SelectedJet_idx","SelectedJet_mass","SelectedJet_phi","SelectedJet_pt"]
     for vbfj_idx in [1,2]:
         df = df.Define(
             f"vbfjet{vbfj_idx}_p4{suffix}",
@@ -76,7 +89,7 @@ def VBFJetObservablesDef(df, suffix=""):
 
     df = df.Define(
         f"pt_vbfj1j2{suffix}",
-        f"(vbfjet1_p4{suffix}+vbfjet2_p4{suffix}).Pt()",
+        f"if (HasVBF{suffix}) return static_cast<float>((vbfjet1_p4{suffix}+vbfjet2_p4{suffix}).Pt()); return -1000.f",
     )
 
     return df
@@ -242,90 +255,104 @@ def _column_names(df):
     return {str(col) for col in df.GetColumnNames()}
 
 
-def _selection_suffixes(syst_cfg=None, want_variations=False):
-    suffixes = [("", "", "")]
+def DefineDimuonMassResolution(df):
+    """Define per-event dimuon mass resolution and ScaRe uncertainty terms.
 
-    if not want_variations or not syst_cfg:
-        return suffixes
+    ``muN_pt_err`` is selected upstream from the beam-spot-constrained pT
+    uncertainty when the BSC fit has chi2 < 30, and from the NanoAOD pT
+    uncertainty otherwise.  Scale and smearing up/down shifts are systematic
+    uncertainties, so they are propagated directly through the shifted
+    dimuon masses instead of being folded into the detector resolution.
+    """
+    columns = _column_names(df)
 
-    scales = syst_cfg.get("scales", ["up", "down"])
+    def define(name, expression):
+        nonlocal df
+        if name not in columns:
+            df = df.Define(name, expression)
+            columns.add(name)
 
-    for syst_name, syst_info in syst_cfg.get("systematics", {}).items():
-        if syst_name == "Central":
-            continue
-
-        for scale in scales:
-            suffixes.append(
+    error_inputs = {"mu1_pt_err", "mu2_pt_err"}
+    if error_inputs.issubset(columns):
+        denominator_suffix = (
+            "_noCorr"
+            if {"mu1_pt_noCorr", "mu2_pt_noCorr"}.issubset(columns)
+            else ""
+        )
+        denominator_columns = {
+            f"mu1_pt{denominator_suffix}",
+            f"mu2_pt{denominator_suffix}",
+        }
+        if denominator_columns.issubset(columns):
+            for muon in (1, 2):
+                pt = f"mu{muon}_pt{denominator_suffix}"
+                define(
+                    f"mu{muon}_pt_resolution_rel",
+                    (
+                        f"({pt} > 0.f && mu{muon}_pt_err >= 0.f) ? "
+                        f"static_cast<float>(mu{muon}_pt_err / {pt}) : -1.f"
+                    ),
+                )
+            define(
+                "m_mumu_resolution",
                 (
-                    f"_{syst_name}{scale.capitalize()}",
-                    syst_info.get("muon_suffix", "").format(scale=scale),
-                    syst_info.get("jet_suffix", "").format(scale=scale),
-                )
+                    "(mu1_pt_resolution_rel >= 0.f && "
+                    "mu2_pt_resolution_rel >= 0.f) ? "
+                    "static_cast<float>(std::sqrt(0.5 * "
+                    "(mu1_pt_resolution_rel * mu1_pt_resolution_rel + "
+                    "mu2_pt_resolution_rel * mu2_pt_resolution_rel))) : -1.f"
+                ),
             )
-
-    return suffixes
-
-
-def GetSelectionSuffixForSystematic(syst_name, syst_info=None):
-    if syst_name == "Central" or syst_info is None:
-        return ""
-
-    if not syst_info.get("muon_suffix", "") and not syst_info.get("jet_suffix", ""):
-        return ""
-
-    return f"_{syst_name}"
-
-
-def DefineHistogramSelections(df, sel_config, syst_cfg=None, want_variations=False):
-    """
-    Define mass-region and category columns used by histogram production.
-
-    The variation suffix policy mirrors analysis/other.py:
-      - final selection column: {selection}_{Systematic}{Up/Down}
-      - expression placeholders: {tot_suff}, {mu_suff}, {jet_suff}
-    """
-    defined_columns = _column_names(df)
-
-    section_suffix_key = {
-        "masses_regions": "tot",
-        "muons_selection": "mu",
-        "jets_selection": "jet",
-        "categories": "tot",
-    }
-
-    for section, suffix_key in section_suffix_key.items():
-        for sel_name, sel_content in sel_config.get(section, {}).items():
-            if isinstance(sel_content, dict):
-                base_expression = sel_content.get("expression", "")
-            else:
-                base_expression = sel_content
-
-            if not base_expression:
-                print(f"[WARNING] Empty selection expression for {sel_name}. Skipping.")
-                continue
-
-            for tot_suff, mu_suff, jet_suff in _selection_suffixes(
-                syst_cfg=syst_cfg,
-                want_variations=want_variations,
-            ):
-                output_suff = {
-                    "tot": tot_suff,
-                    "mu": mu_suff,
-                    "jet": jet_suff,
-                }[suffix_key]
-                column_name = f"{sel_name}{output_suff}"
-
-                expression = base_expression.format(
-                    tot_suff=tot_suff,
-                    mu_suff=mu_suff,
-                    jet_suff=jet_suff,
+            # Explicit alias: m_mumu_resolution is dimensionless.
+            define("m_mumu_resolution_detector", "m_mumu_resolution")
+            if "m_mumu" in columns:
+                define(
+                    "m_mumu_resolution_abs",
+                    (
+                        "(m_mumu_resolution >= 0.f && m_mumu >= 0.f) ? "
+                        "static_cast<float>(m_mumu_resolution * m_mumu) : -1.f"
+                    ),
                 )
-                if column_name in defined_columns:
-                    if section != "muons_selection":
-                        df = df.Redefine(column_name, expression)
-                else:
-                    df = df.Define(column_name, expression)
-                    defined_columns.add(column_name)
+
+    variation_pairs = {
+        "scale": ("m_mumu_FSR_scale_up", "m_mumu_FSR_scale_down"),
+        "res": ("m_mumu_FSR_res_up", "m_mumu_FSR_res_down"),
+    }
+    if "m_mumu" in columns:
+        for component, (up, down) in variation_pairs.items():
+            if {up, down}.issubset(columns):
+                define(
+                    f"m_mumu_resolution_{component}",
+                    (
+                        f"(m_mumu > 0.f) ? static_cast<float>"
+                        f"(0.5 * std::abs({up} - {down}) / m_mumu) : -1.f"
+                    ),
+                )
+
+    total_components = (
+        "m_mumu_resolution_detector",
+        "m_mumu_resolution_scale",
+        "m_mumu_resolution_res",
+    )
+    if set(total_components).issubset(columns):
+        valid = " && ".join(f"{name} >= 0.f" for name in total_components)
+        quadrature = " + ".join(f"{name} * {name}" for name in total_components)
+        define(
+            "m_mumu_resolution_total",
+            (
+                f"({valid}) ? "
+                f"static_cast<float>(std::sqrt({quadrature})) : -1.f"
+            ),
+        )
+        if "m_mumu" in columns:
+            define(
+                "m_mumu_resolution_total_abs",
+                (
+                    "(m_mumu_resolution_total >= 0.f && m_mumu >= 0.f) ? "
+                    "static_cast<float>(m_mumu_resolution_total * m_mumu) "
+                    ": -1.f"
+                ),
+            )
 
     return df
 
@@ -409,6 +436,8 @@ def GetAllMuonsObservablesNew(df):
                 "(mu1_p4_noCorr + mu2_p4_noCorr).M()",
             )
             columns.add("m_mumu_noCorr")
+
+    df = DefineDimuonMassResolution(df)
 
     # for mu_idx in [1, 2]:
     #     df = df.Define(

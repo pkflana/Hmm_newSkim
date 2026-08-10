@@ -48,6 +48,14 @@ DYto2Mu_MLL105To160:
   datasets:
     - DYto2Mu_MLL_105to160_amcatnloFXFX
 
+DYto2Mu_MLL105To160_combined:
+  name: "DY MLL 105-160"
+  color: "kAzure+7"
+  color_mplhep: dodgerblue
+  datasets:
+    - DYto2Mu_MLL_105to160_amcatnloFXFX
+    - DYto2Mu_MLL_105to160_amcatnloFXFX_Fil_VBF
+
 DYto2Mu_MLL105To160_FlashSim:
   name: "DY - MLL(105-160) - FlashSim"
   color: "kAzure+7"
@@ -151,7 +159,7 @@ EWK_2Mu2J_MLL_105to160_pythia_Flashsim:
   datasets:
     - EWK_2Mu2J_MLL_105to160_pythia_Flashsim
 ############## Other single H  ##############
-H_mainBckg:
+SingleH:
   name: "Single H"
   color_mplhep: peachpuff
   datasets:

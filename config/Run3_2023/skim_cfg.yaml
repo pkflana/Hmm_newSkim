@@ -3,10 +3,12 @@ submit: true
 job_flavour: microcentury
 
 chunk_size: 1        # files per job
+target_chunk_size_gb: 5.0
+max_files_per_chunk: 5
 max_files: -1        # -1 = all files
 use_ext: false     # if true, use all nanoAOD paths in each list; otherwise only the first
 
-output_dir: /eos/cms/store/group/phys_higgs/cmshmm/vdamante/skim_v2_noUnc/
+output_dir: /eos/cms/store/group/phys_higgs/cmshmm/vdamante/skim_v3/
 
 # ---------------------------------------------------------
 # condor configuration
@@ -31,12 +33,13 @@ process_to_select:
   - Data_Muon
   - DY
   - DYto2Mu_MLL105To160
+  - DYto2Mu_MLL105To160_combined
   - TT
   - W_NJets
   - EWK
   - EWK_2Mu2J_MLL_105to160_herwig
   - EWK_2Mu2J_MLL_105to160_pythia
-  - H_mainBckg
+  - SingleH
   - VV
   - VH_inclusive
   - VVV

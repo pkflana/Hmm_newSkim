@@ -8,25 +8,8 @@ jsonPath_btag = "/cvmfs/cms-griddata.cern.ch/cat/metadata/BTV/{}/btagging.json.g
 jet_jsonPath = "/cvmfs/cms-griddata.cern.ch/cat/metadata/JME/{}/latest/jet_jerc.json.gz"
 jetsmear_jsonFile = "/cvmfs/cms-griddata.cern.ch/cat/metadata/JME/JER-Smearing/latest/jer_smear.json.gz"
 jet_algorithm = "AK4PFPuppi"
-JERC_2025_MC_MODES = {
-    "2025": ("Run3_2025", "Run3_2025"),
-    "jec2024_jer2025": ("Run3_2024", "Run3_2025"),
-    "2024": ("Run3_2024", "Run3_2024"),
-}
 uncSources_minimal = ["Total"]
-unc_sources_regrouped = [
-    "RelativeBal",
-    "HF",
-    "BBEC1",
-    "EC2",
-    "Absolute",
-    "FlavorQCD",
-    "BBEC1_year",
-    "Absolute_year",
-    "EC2_year",
-    "HF_year",
-    "RelativeSample_year",
-]
+unc_sources_regrouped = [ "RelativeBal", "HF", "BBEC1", "EC2", "Absolute", "FlavorQCD", "BBEC1_year", "Absolute_year", "EC2_year", "HF_year", "RelativeSample_year"]
 
 unc_source_enum = {
     "Central": "Central",
@@ -63,7 +46,7 @@ jec_tag_map_mc = {
     "2022_Summer22EE": ["Summer22EE_22Sep2023_V4_MC"],
     "2023_Summer23BPix": ["Summer23BPixPrompt23_V4_MC"],
     "2023_Summer23": ["Summer23Prompt23_V4_MC"],
-    "2024_Summer24": ["Summer24Prompt24_V4_MC"],
+    "2024_Summer24": ["Summer24Prompt24_V5_MC"],
     "2025_Summer24": ["Summer24Prompt25_V3_MC"],
     # "2025_Winter25": ["Winter25Prompt25_V3_MC"],
     "2026_Summer24": ["Summer24Prompt26_V2_MC"], # tmp patch as there is no JEC tag for 2026 right now
@@ -75,7 +58,7 @@ jec_tag_map_data = {
     "2022_Summer22EE": ["Summer22EE_22Sep2023_Run{}_V4_DATA", "Summer22EE_22Sep2023_V4_DATA"],
     "2023_Summer23BPix": ["Summer23BPixPrompt23_Run{}_V4_DATA", "Summer23BPixPrompt23_V4_DATA"],
     "2023_Summer23": ["Summer23Prompt23_Run{}_V4_DATA", "Summer23Prompt23_V4_DATA"],
-    "2024_Summer24": ["Summer24Prompt24_V4_DATA"],
+    "2024_Summer24": ["Summer24Prompt24_V5_DATA"],
     "2025_Summer24": ["Summer24Prompt25_V3_DATA"],
     # "2025_Winter25": ["Winter25Prompt25_Run{}_V3_DATA", "Winter25Prompt25_V3_DATA"],
     "2026_Summer24": ["Summer24Prompt26_Run{}_V1_DATA", "Summer24Prompt26_V1_DATA"], # tmp patch as there is no JEC tag for 2026 right now
@@ -111,8 +94,6 @@ run_letters = {
 _jet_correction_state = {
     "initialized": False,
     "period": None,
-    "jec_period": None,
-    "jer_period": None,
     "is_data": False,
     "use_regrouped": False,
     "sample_name": None,
@@ -182,18 +163,11 @@ def initialize_jet_corrections(
     is_data,
     sample_name,
     use_regrouped=False,
-    jec_period=None,
-    jer_period=None,
 ):
-    jec_period = jec_period or period
-    jer_period = jer_period or period
 
-    print(f"jec_period = {jec_period}, jer_period = {jer_period}")
     if _jet_correction_state["initialized"]:
         same_state = (
             _jet_correction_state["period"] == period
-            and _jet_correction_state["jec_period"] == jec_period
-            and _jet_correction_state["jer_period"] == jer_period
             and _jet_correction_state["is_data"] == is_data
             and _jet_correction_state["sample_name"] == sample_name
             and _jet_correction_state["use_regrouped"] == use_regrouped
@@ -205,33 +179,29 @@ def initialize_jet_corrections(
         )
 
     _jet_correction_state["period"] = period
-    _jet_correction_state["jec_period"] = jec_period
-    _jet_correction_state["jer_period"] = jer_period
     _jet_correction_state["is_data"] = is_data
     _jet_correction_state["use_regrouped"] = use_regrouped
     _jet_correction_state["sample_name"] = sample_name
-    _jet_correction_state["uncSources_toUse"] = (
-        ["JER"] + unc_sources_regrouped if use_regrouped else ["JER"] + uncSources_minimal
-    )
+    _jet_correction_state["uncSources_toUse"] = (["JER"] + unc_sources_regrouped if use_regrouped else ["JER"] + uncSources_minimal)
 
-    jec_jsonFile = jet_jsonPath.format(pog_folder_names["JERC"][jec_period])
-    jer_jsonFile = jet_jsonPath.format(pog_folder_names["JERC"][jer_period])
+    jec_jsonFile = jet_jsonPath.format(pog_folder_names["JERC"][period])
+    jer_jsonFile = jet_jsonPath.format(pog_folder_names["JERC"][period])
     print(f"jec_jsonFile. = {jec_jsonFile}, jer_jsonFile={jer_jsonFile}")
     year = period.split("_")[0]
-    jec_year = jec_period.split("_")[0]
+    jec_year = period.split("_")[0]
 
     jec_tag_map = jec_tag_map_data if is_data else jec_tag_map_mc
-    jec_tag_array = _debug_map_get(jec_tag_map, jec_period, "jec_tag_map")
+    jec_tag_array = _debug_map_get(jec_tag_map, period, "jec_tag_map")
     if is_data:
-        jec_tag_array = _format_data_jec_tags(jec_period, sample_name, jec_tag_array)
+        jec_tag_array = _format_data_jec_tags(period, sample_name, jec_tag_array)
 
     jec_tag = jec_tag_array[0]
     other_jec_tag = jec_tag_array[1] if len(jec_tag_array) > 1 else jec_tag_array[0]
-    jer_tag = _debug_map_get(jer_tag_map, jer_period, "jer_tag_map")
+    jer_tag = _debug_map_get(jer_tag_map, period, "jer_tag_map")
 
     _jets_debug(
         f"period={period}, is_data={is_data}, sample={sample_name}, "
-        f"regrouped={use_regrouped}, jec_period={jec_period}, jer_period={jer_period}, "
+        f"regrouped={use_regrouped}, period={period}, "
         f"jec_jsonFile={jec_jsonFile}, jer_jsonFile={jer_jsonFile}, "
         f"jec_tag={jec_tag}, other_jec_tag={other_jec_tag}, jer_tag={jer_tag}, "
         f"algorithm={jet_algorithm}, nominal_year={year}, jec_year={jec_year}"
@@ -360,22 +330,6 @@ def define_jet_p4_variations(
 
     return df
 
-def get_2025_mc_jerc_mode(config, is_data):
-    era = config.get("era")
-    if is_data or era != "Run3_2025":
-        return "2025"
-
-    mode = config.get("jerc_2025_mc_mode")
-    if mode is None:
-        mode = "2025"
-
-    mode = str(mode)
-
-    if mode not in JERC_2025_MC_MODES:
-        choices = ", ".join(JERC_2025_MC_MODES)
-        raise ValueError(f"Unsupported jerc_2025_mc_mode={mode!r}. Choose one of: {choices}")
-
-    return mode
 
 
 def get_jet_correction_period(config, is_data):
@@ -389,22 +343,20 @@ def get_jet_correction_period(config, is_data):
     return period
 
 
-def get_jet_correction_periods(config, is_data):
-    era = config.get("era")
-    period = period_names[era]
-    mode = get_2025_mc_jerc_mode(config, is_data)
-    jec_era, jer_era = JERC_2025_MC_MODES[mode]
-    jec_period = period_names[jec_era] if era == "Run3_2025" and not is_data else period
-    jer_period = period_names[jer_era] if era == "Run3_2025" and not is_data else period
-    return period, jec_period, jer_period
+
 
 
 def apply_jet_corrections(df, config, dataset_cfg, dataset_name, want_variations):
     # Extract configuration parameters
     is_data = dataset_cfg.get("is_data", False)
-    period, jec_period, jer_period = get_jet_correction_periods(config, is_data)
+
+    era = config.get("era")
+    period = period_names[era]
+
     apply_JER = config.get("apply_JER", True)
     apply_JES = config.get("apply_JES", True)
+    print("apply_JER? ", apply_JER)
+    print("apply_JES? ", apply_JES)
     use_regrouped = config.get("use_regrouped", False)
 
     # Apply jet corrections
@@ -412,9 +364,7 @@ def apply_jet_corrections(df, config, dataset_cfg, dataset_name, want_variations
         period,
         is_data,
         dataset_name,
-        use_regrouped,
-        jec_period,
-        jer_period,
+        use_regrouped
     )
     df = define_jet_p4_variations(
         df,

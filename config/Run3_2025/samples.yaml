@@ -9,7 +9,7 @@ Muon0_Run2025C_v1:
   eraLetter: C
   eraVersion: v1
   nanoAOD:
-  - /Muon0/Run2025C-PromptReco-v1/NANOAOD
+  - /Muon0/Run2025C-PromptReco-v2/NANOAOD
 Muon0_Run2025C_v2:
   is_data: true
   eraLetter: C
@@ -33,7 +33,7 @@ Muon0_Run2025F_v1:
   eraLetter: F
   eraVersion: v1
   nanoAOD:
-  - /Muon0/Run2025F-PromptReco-v1/NANOAOD
+  - /Muon0/Run2025F-PromptReco-v2/NANOAOD
 Muon0_Run2025F_v2:
   is_data: true
   eraLetter: F
@@ -57,7 +57,7 @@ Muon1_Run2025C_v1:
   eraLetter: C
   eraVersion: v1
   nanoAOD:
-  - /Muon1/Run2025C-PromptReco-v1/NANOAOD
+  - /Muon1/Run2025C-PromptReco-v2/NANOAOD
 Muon1_Run2025C_v2:
   is_data: true
   eraLetter: C
@@ -81,7 +81,7 @@ Muon1_Run2025F_v1:
   eraLetter: F
   eraVersion: v1
   nanoAOD:
-  - /Muon1/Run2025F-PromptReco-v1/NANOAOD
+  - /Muon1/Run2025F-PromptReco-v2/NANOAOD
 Muon1_Run2025F_v2:
   is_data: true
   eraLetter: F
@@ -105,7 +105,7 @@ MuonEG_Run2025C_v1:
   eraLetter: C
   eraVersion: v1
   nanoAOD:
-  - /MuonEG/Run2025C-PromptReco-v1/NANOAOD
+  - /MuonEG/Run2025C-PromptReco-v2/NANOAOD
 MuonEG_Run2025C_v2:
   is_data: true
   eraLetter: C
@@ -129,7 +129,7 @@ MuonEG_Run2025F_v1:
   eraLetter: F
   eraVersion: v1
   nanoAOD:
-  - /MuonEG/Run2025F-PromptReco-v1/NANOAOD
+  - /MuonEG/Run2025F-PromptReco-v2/NANOAOD
 MuonEG_Run2025F_v2:
   is_data: true
   eraLetter: F
@@ -153,7 +153,7 @@ ParkingVBF0_Run2025C_v1:
   eraLetter: C
   eraVersion: v1
   nanoAOD:
-  - /ParkingVBF0/Run2025C-PromptReco-v1/NANOAOD
+  - /ParkingVBF0/Run2025C-PromptReco-v2/NANOAOD
 ParkingVBF0_Run2025C_v2:
   is_data: true
   eraLetter: C
@@ -177,7 +177,7 @@ ParkingVBF0_Run2025F_v1:
   eraLetter: F
   eraVersion: v1
   nanoAOD:
-  - /ParkingVBF0/Run2025F-PromptReco-v1/NANOAOD
+  - /ParkingVBF0/Run2025F-PromptReco-v2/NANOAOD
 ParkingVBF0_Run2025F_v2:
   is_data: true
   eraLetter: F
@@ -201,7 +201,7 @@ ParkingVBF1_Run2025C_v1:
   eraLetter: C
   eraVersion: v1
   nanoAOD:
-  - /ParkingVBF1/Run2025C-PromptReco-v1/NANOAOD
+  - /ParkingVBF1/Run2025C-PromptReco-v2/NANOAOD
 ParkingVBF1_Run2025C_v2:
   is_data: true
   eraLetter: C
@@ -225,7 +225,7 @@ ParkingVBF1_Run2025F_v1:
   eraLetter: F
   eraVersion: v1
   nanoAOD:
-  - /ParkingVBF1/Run2025F-PromptReco-v1/NANOAOD
+  - /ParkingVBF1/Run2025F-PromptReco-v2/NANOAOD
 ParkingVBF1_Run2025F_v2:
   is_data: true
   eraLetter: F
@@ -249,7 +249,7 @@ ParkingVBF2_Run2025C_v1:
   eraLetter: C
   eraVersion: v1
   nanoAOD:
-  - /ParkingVBF2/Run2025C-PromptReco-v1/NANOAOD
+  - /ParkingVBF2/Run2025C-PromptReco-v2/NANOAOD
 ParkingVBF2_Run2025C_v2:
   is_data: true
   eraLetter: C
@@ -273,7 +273,7 @@ ParkingVBF2_Run2025F_v1:
   eraLetter: F
   eraVersion: v1
   nanoAOD:
-  - /ParkingVBF2/Run2025F-PromptReco-v1/NANOAOD
+  - /ParkingVBF2/Run2025F-PromptReco-v2/NANOAOD
 ParkingVBF2_Run2025F_v2:
   is_data: true
   eraLetter: F
@@ -297,7 +297,7 @@ ParkingVBF3_Run2025C_v1:
   eraLetter: C
   eraVersion: v1
   nanoAOD:
-  - /ParkingVBF3/Run2025C-PromptReco-v1/NANOAOD
+  - /ParkingVBF3/Run2025C-PromptReco-v2/NANOAOD
 ParkingVBF3_Run2025C_v2:
   is_data: true
   eraLetter: C
@@ -321,7 +321,7 @@ ParkingVBF3_Run2025F_v1:
   eraLetter: F
   eraVersion: v1
   nanoAOD:
-  - /ParkingVBF3/Run2025F-PromptReco-v1/NANOAOD
+  - /ParkingVBF3/Run2025F-PromptReco-v2/NANOAOD
 ParkingVBF3_Run2025F_v2:
   is_data: true
   eraLetter: F
@@ -345,7 +345,7 @@ ParkingVBF4_Run2025C_v1:
   eraLetter: C
   eraVersion: v1
   nanoAOD:
-  - /ParkingVBF4/Run2025C-PromptReco-v1/NANOAOD
+  - /ParkingVBF4/Run2025C-PromptReco-v2/NANOAOD
 ParkingVBF4_Run2025C_v2:
   is_data: true
   eraLetter: C
@@ -369,7 +369,7 @@ ParkingVBF4_Run2025F_v1:
   eraLetter: F
   eraVersion: v1
   nanoAOD:
-  - /ParkingVBF4/Run2025F-PromptReco-v1/NANOAOD
+  - /ParkingVBF4/Run2025F-PromptReco-v2/NANOAOD
 ParkingVBF4_Run2025F_v2:
   is_data: true
   eraLetter: F
@@ -393,7 +393,7 @@ ParkingVBF5_Run2025C_v1:
   eraLetter: C
   eraVersion: v1
   nanoAOD:
-  - /ParkingVBF5/Run2025C-PromptReco-v1/NANOAOD
+  - /ParkingVBF5/Run2025C-PromptReco-v2/NANOAOD
 ParkingVBF5_Run2025C_v2:
   is_data: true
   eraLetter: C
@@ -417,7 +417,7 @@ ParkingVBF5_Run2025F_v1:
   eraLetter: F
   eraVersion: v1
   nanoAOD:
-  - /ParkingVBF5/Run2025F-PromptReco-v1/NANOAOD
+  - /ParkingVBF5/Run2025F-PromptReco-v2/NANOAOD
 ParkingVBF5_Run2025F_v2:
   is_data: true
   eraLetter: F
@@ -441,7 +441,7 @@ ParkingVBF6_Run2025C_v1:
   eraLetter: C
   eraVersion: v1
   nanoAOD:
-  - /ParkingVBF6/Run2025C-PromptReco-v1/NANOAOD
+  - /ParkingVBF6/Run2025C-PromptReco-v2/NANOAOD
 ParkingVBF6_Run2025C_v2:
   is_data: true
   eraLetter: C
@@ -465,7 +465,7 @@ ParkingVBF6_Run2025F_v1:
   eraLetter: F
   eraVersion: v1
   nanoAOD:
-  - /ParkingVBF6/Run2025F-PromptReco-v1/NANOAOD
+  - /ParkingVBF6/Run2025F-PromptReco-v2/NANOAOD
 ParkingVBF6_Run2025F_v2:
   is_data: true
   eraLetter: F
@@ -489,7 +489,7 @@ ParkingVBF7_Run2025C_v1:
   eraLetter: C
   eraVersion: v1
   nanoAOD:
-  - /ParkingVBF7/Run2025C-PromptReco-v1/NANOAOD
+  - /ParkingVBF7/Run2025C-PromptReco-v2/NANOAOD
 ParkingVBF7_Run2025C_v2:
   is_data: true
   eraLetter: C
@@ -513,7 +513,7 @@ ParkingVBF7_Run2025F_v1:
   eraLetter: F
   eraVersion: v1
   nanoAOD:
-  - /ParkingVBF7/Run2025F-PromptReco-v1/NANOAOD
+  - /ParkingVBF7/Run2025F-PromptReco-v2/NANOAOD
 ParkingVBF7_Run2025F_v2:
   is_data: true
   eraLetter: F
@@ -537,7 +537,7 @@ Tau_Run2025C_v1:
   eraLetter: C
   eraVersion: v1
   nanoAOD:
-  - /Tau/Run2025C-PromptReco-v1/NANOAOD
+  - /Tau/Run2025C-PromptReco-v2/NANOAOD
 Tau_Run2025C_v2:
   is_data: true
   eraLetter: C
@@ -561,7 +561,7 @@ Tau_Run2025F_v1:
   eraLetter: F
   eraVersion: v1
   nanoAOD:
-  - /Tau/Run2025F-PromptReco-v1/NANOAOD
+  - /Tau/Run2025F-PromptReco-v2/NANOAOD
 Tau_Run2025F_v2:
   is_data: true
   eraLetter: F

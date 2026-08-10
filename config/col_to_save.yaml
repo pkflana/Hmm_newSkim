@@ -236,6 +236,20 @@
             "FsrPhoton_relIso03",
         ]
     },
+    "GenJet": {
+        "base": [
+            "GenJet_eta",
+            "GenJet_hadronFlavour",
+            "GenJet_mass",
+            "GenJet_partonFlavour",
+            "GenJet_phi",
+            "GenJet_pt",
+        ],
+        "v15": [
+            "GenJet_nBHadrons",
+            "GenJet_nCHadrons",
+        ],
+    },
     "Gen": {
         "base": [
             "GenDressedLepton_eta",
@@ -331,9 +345,9 @@
             "Jet_eta",
             "Jet_btagDeepFlavQG",
             # "Jet_neEmEF",
-            # "Jet_btagDeepFlavCvB",
+            "Jet_btagDeepFlavCvB",
             # "Jet_chHEF",
-            # "Jet_btagDeepFlavCvL",
+            "Jet_btagDeepFlavCvL",
             "Jet_muonIdx1",
             # "Jet_neHEF",
             # "Jet_muonSubtrFactor",
@@ -350,9 +364,9 @@
             "Jet_btagPNetQvG",
             # "Jet_mass",
             # "Jet_nElectrons",
-            # "Jet_btagPNetCvB",
+            "Jet_btagPNetCvB",
             # "Jet_rawFactor",
-            # "Jet_btagPNetCvL",
+            "Jet_btagPNetCvL",
             # "Jet_muEF",
             # "Jet_muonIdx2",
             # "Jet_PNetRegPtRawCorrNeutrino",
@@ -366,10 +380,10 @@
             # "Jet_hfadjacentEtaStripsSize",
         ],
         "v12": [
-            # "Jet_btagRobustParTAK4B",
-            # "Jet_btagRobustParTAK4CvB",
-            # "Jet_btagRobustParTAK4CvL",
-            # "Jet_btagRobustParTAK4QG",
+            "Jet_btagRobustParTAK4B",
+            "Jet_btagRobustParTAK4CvB",
+            "Jet_btagRobustParTAK4CvL",
+            "Jet_btagRobustParTAK4QG",
             # "Jet_jetId",
         ],
         "v15": [
@@ -387,8 +401,8 @@
             # "Jet_btagUParTAK4Ele",
             # "Jet_btagUParTAK4Mu",
             "Jet_btagUParTAK4QvG",
-            # "Jet_btagUParTAK4SvCB",
-            # "Jet_btagUParTAK4SvUDG",
+            "Jet_btagUParTAK4SvCB",
+            "Jet_btagUParTAK4SvUDG",
             # "Jet_btagUParTAK4TauVJet",
             "Jet_btagUParTAK4UDG",
             # "Jet_btagUParTAK4probb",
@@ -483,7 +497,7 @@
     "Muon": {
         "base": [
             "Muon_bsConstrainedChi2",
-            "Muon_bsConstrainedPt",
+            # "Muon_bsConstrainedPt",
             # "Muon_bsConstrainedPtErr",
             "Muon_charge",
             "Muon_dxy",
@@ -512,7 +526,7 @@
             # "Muon_mediumPromptId",
             "Muon_miniIsoId",
             "Muon_miniPFRelIso_all",
-            "Muon_miniPFRelIso_chg",
+            # "Muon_miniPFRelIso_chg",
             # "Muon_multiIsoId",
             # "Muon_mvaLowPt",
             # "Muon_mvaMuID",
@@ -538,7 +552,7 @@
             # "Muon_tkIsoId",
             "Muon_tkRelIso",
             # "Muon_triggerIdLoose",
-            "Muon_tunepRelPt",
+            # "Muon_tunepRelPt",
         ],
         "v15": [
             "Muon_dxybs",

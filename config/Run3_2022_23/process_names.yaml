@@ -19,19 +19,19 @@ DY:
 
 
 
-DYto2Mu_MLL105To160_VBFFiltered_nonStitched:
-  name: "DY - MLL(105-160) - VBF Fil"
+DYto2Mu_MLL105To160:
+  name: "DY MLL 105-160"
   color: "kAzure+7"
-  color_mplhep: lightskyblue
+  color_mplhep: dodgerblue
   datasets:
-    - DYto2Mu_MLL_105to160_amcatnloFXFX_Fil_VBF
+    - DYto2Mu_MLL_105to160_amcatnloFXFX
 
-DYto2Mu_MLL105To160_VBFFiltered:
-  name: "DY - MLL(105-160) - VBF Fil"
+DYto2Mu_MLL105To160_combined:
+  name: "DY MLL 105-160"
   color: "kAzure+7"
-  color_mplhep: lightskyblue
+  color_mplhep: dodgerblue
   datasets:
-    - DYto2Mu_MLL_105to160_amcatnloFXFX_Fil_VBF
+    - DYto2Mu_MLL_105to160_amcatnloFXFX
 
 DYto2Mu_MLL105To160_FlashSim:
   name: "DY - MLL(105-160) - FlashSim"
@@ -136,7 +136,7 @@ EWK_2Mu2J_MLL_105to160_pythia_Flashsim:
   datasets:
     - EWK_2Mu2J_MLL_105to160_pythia_Flashsim
 ############## Other single H  ##############
-H_mainBckg:
+SingleH:
   name: "Single H"
   color_mplhep: peachpuff
   datasets:
@@ -189,9 +189,9 @@ VH_inclusive:
     # - WplusH_Hto2B_Wto2Q
     - WplusH_Hto2B_WtoLNu
     # - WminusHto2Tau_UncorrelatedDecay_Filtered
-    - WminusHto2Tau_UncorrelatedDecay_UnFiltered
+    # - WminusHto2Tau_UncorrelatedDecay_UnFiltered
     # - WplusHto2Tau_UncorrelatedDecay_Filtered
-    - WplusHto2Tau_UncorrelatedDecay_UnFiltered
+    # - WplusHto2Tau_UncorrelatedDecay_UnFiltered
 
 ############## VVV inclusive ##############
 VVV:
@@ -384,7 +384,7 @@ Data_Muon:
 
 Data_MuonEG:
   is_data: True
-  name: "Data MuonEG" 
+  name: "Data MuonEG"
 
 Other:
   name: "Other"

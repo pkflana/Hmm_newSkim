@@ -4,7 +4,7 @@ import math
 import yaml
 
 
-def build_uncertainties(yaml_path):
+def build_uncertainties(yaml_path, processes):
     #Build the uncertainties list from the configuration file.
     with open(yaml_path, "r") as f:
         cfg = yaml.safe_load(f)
@@ -21,9 +21,36 @@ def build_uncertainties(yaml_path):
         if name=="":
           continue
         name = name.replace("_{scale}","").replace("_{}","")
-        if not block.get("era_correlation"):
-          name = name+"_"+year
-        uncertainties.append([name, "shape", "1"])
+        # if not block.get("era_correlation"):
+        #   name = name+"_"+year
+        if name.find("{era}")!=-1:
+          name = name.replace("{era}",year)
+        if name.find("{process}")!=-1:
+          if name.find("QCDscale")!=-1:
+            for variation in cfg["qcd_scale"]["variations"]:
+              for proc in processes:
+                procname = variation["name"].replace("{process}", cfg["qcd_scale"]["process_labels"][proc])
+                key = [uncertainty[0]==procname for uncertainty in uncertainties]
+                if any(key):
+                  uncertainties[key.index(True)][3].append(proc)
+                else:
+                  uncertainties.append([procname, "shape", "1", [proc]])
+          # expand into one uncertainty per process
+          else:
+            for proc in processes:
+              procname = name.replace("{process}", proc)
+              # 4th element = the process this uncertainty applies to
+              uncertainties.append([procname, "shape", "1", [proc]])
+        elif name.find("{pdf_process}")!=-1:
+          for proc in processes:
+            procname = name.replace("{pdf_process}", cfg["pdf"]["process_labels"][proc])
+            key = [uncertainty[0]==procname for uncertainty in uncertainties]
+            if any(key):
+              uncertainties[key.index(True)][3].append(proc)
+            else:
+              uncertainties.append([procname, "shape", "1", [proc]])
+        else:
+          uncertainties.append([name, "shape", "1", None])
 
 
     return uncertainties
@@ -46,19 +73,19 @@ CONFIG_PATH = os.path.join(ANALYSIS_PATH, "config")
 
 
 #define the input names
-signalprocesses = ["VBF"]
-backgroundprocesses = ["DY"]
+signalprocesses = ["VBFHto2Mu_M125_amcatnlo","GluGluHto2Mu_amcatnlo"]
+backgroundprocesses = ["DYto2Mu_MLL105To160","EWK_2Mu2J_MLL_105to160_herwig","ST","VV","TT","VVV","W_NJets","TTH_inclusive","TW","VH_inclusive","H"]
 year = sys.argv[1]
 
-outputpath = "/eos/user/p/pflanaga/test/"
-histogramfilepath = "/eos/user/p/pflanaga/test/"
+outputpath = "/eos/user/p/pflanaga/combinetest2/"
+histogramfilepath = "/eos/user/p/pflanaga/combinetest2/Run3_"+year+"/"
 
 if os.path.isdir(outputpath):
   print("already exists")
 else:
   os.system("mkdir "+outputpath) #make directory, if it doesn't exist
 
-bands = ["Z_sideband"]
+bands = ["Signal_Fit_VBF"]
 
 lumidict = {"lumi_1": {"2022": "1.0138", "2023": "1.0017", "2024": "1.0020", "2025": "-"},
             "lumi_2": {"2022": "-", "2023": "1.0127", "2024": "1.0068", "2025": "-"},
@@ -66,20 +93,19 @@ lumidict = {"lumi_1": {"2022": "1.0138", "2023": "1.0017", "2024": "1.0020", "20
             "lumi_2025": {"2022": "-", "2023": "-", "2024": "-", "2025": "1.05"}
 }
 
-xsecdict = {"DY": ".7/1.1"
+xsecdict = {#"DYto2Mu_MLL105To160": ".7/1.1"
 }#TODO: Fill this out, fix naming scheme
 
 for band in bands:
   filename = band + "_" + year
-  bandname = "Hmm_" + band + "_" + year
+  bandname = band# + "_" + year
   print(bandname," ",filename)
 
-  B2Gn = "XXXXX"
-  uncertainties = build_uncertainties(CONFIG_PATH+"/Run3_"+year+"/systematics.yaml")
+  uncertainties = build_uncertainties(CONFIG_PATH+"/Run3_"+year+"/systematics.yaml",signalprocesses+backgroundprocesses)
   for key in lumidict.keys():
-    uncertainties.append([key, "lnN", lumidict[key][year]])
+    uncertainties.append([key, "lnN", lumidict[key][year], None])
   for key in xsecdict.keys():
-    uncertainties.append([key, "lnN", xsecdict[key]])
+    uncertainties.append([key, "lnN", xsecdict[key], None])
 
 
   #write the actual combine cards
@@ -88,13 +114,36 @@ for band in bands:
   f.write("imax " + str(1) + "\n") #number of channels
   f.write("jmax " + str(len(backgroundprocesses)) + "\n") #number of backgrounds
   f.write("kmax " + str(len(uncertainties)) + "\n") #number of nuisance parameters
+  # f.write("----------\n")
+  # f.write("shapes * * $PROCESS.root $CHANNEL/DNN_NNOutput $CHANNEL/DNN_NNOutput_$SYSTEMATIC\n")
+  # f.write("----------\n")
+  # f.write("bin         " + band + "\n")
   f.write("----------\n")
-  f.write("shapes * * " + histogramfilepath + "$PROCESS_withSyst.root $CHANNEL/m_mumu $CHANNEL/m_mumu_$SYSTEMATIC\n")#HERE
-  f.write("----------\n")
-  f.write("bin         " + band + "_" + year + "\n")#HERE
 
-  #TODO: load ROOT file, find observation number
-  f.write("observation " + "0" + "\n")
+  # Per-process shapes lines (no $PROCESS in filename).
+  f.write(
+      "shapes data_obs {ch}_{era} Run3_{era}/{file} {ch}/DNN_NNOutput\n".format(
+          ch=band,
+          file= "data_obs.root",
+          era=year,
+      )
+  )
+  for proc in signalprocesses + backgroundprocesses:
+      f.write(
+          "shapes {proc} {ch}_{era} Run3_{era}/{file} {ch}/DNN_NNOutput {ch}/DNN_NNOutput_$SYSTEMATIC\n".format(
+              proc=proc,
+              ch=band,
+              file= proc + ".root",
+              era=year,
+          )
+      )
+  f.write("----------\n")
+  f.write("bin         " + band + "_" + year + "\n")
+
+  data = ROOT.TFile.Open(histogramfilepath+"data_obs.root")
+  datahistogram = data.Get("Signal_Fit_VBF/DNN_NNOutput")
+  print(histogramfilepath+"data_obs.root")
+  f.write("observation " + "0" + "\n")#TODO:Fix this, data currently has value str(datahistogram.Integral()) + "\n")
   f.write("----------\n")
 
   ##assemble strings for lines
@@ -107,7 +156,7 @@ for band in bands:
     maxLength = max(maxLength, len(systLines[i]))
 
   maxLength2 = 0
-  for i in range(0, len(systLines)): #align uncertainty names, then assemble uncertainty types HERE
+  for i in range(0, len(systLines)): #align uncertainty names, then assemble uncertainty types
     while len(systLines[i]) < (maxLength + 3):
       systLines[i] += " "
     systLines[i] += uncertainties[i][1]
@@ -145,11 +194,17 @@ for band in bands:
     binLine += band + "_" + year
     processLine1 += allNames[i]
     processLine2 += str(allNumbers[i])
-    rateLine += "-1" #TODO: If there are any samples that don't appear in all bands, this needs to be set to 0 in the cards for the bands where they are absent.
-
+    rateLine += "-1"
     currentLength = max(len(binLine), len(processLine1), len(processLine2), len(rateLine))
     for j in range(0, len(systLines)): #assemble systematic values
-      if (uncertainties[j][0] not in xsecdict.keys()) or (uncertainties[j][0]==allNames[i]):
+      proc_tag = uncertainties[j][3]  # process this syst is tied to (or None)
+      if proc_tag is not None:
+        # {process}-expanded systematic: value only for matching process
+        if allNames[i] in proc_tag:#proc_tag == allNames[i]:
+          systLines[j] += uncertainties[j][2]
+        else:
+          systLines[j] += "-"+" "*(len(uncertainties[j][2])-1)
+      elif (uncertainties[j][0] not in xsecdict.keys()) or (uncertainties[j][0]==allNames[i]):
         systLines[j] += uncertainties[j][2]
       else:
         systLines[j] += "-"+" "*(len(uncertainties[j][2])-1)

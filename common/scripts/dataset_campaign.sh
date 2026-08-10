@@ -16,14 +16,15 @@ Usage:
     --datasets GROUP[,GROUP...] --era ERA [options] [-- STAGE_OPTS...]
 
 Dataset groups:
+  skim_cfg (canonical selection from config/ERA/skim_cfg.yaml)
   data
   DiTriBoson
   DY_amcatnlo
   DY_amcatnlo_105_160
-  DY_amcatnlo_105_160_stitched
-  DY_amcatnlo_105_160_VBFFil
+  DY_012J
   DY_minnlo
   EWK
+  EWK_105_160
   signals
   SingleH
   SingleTop
@@ -33,10 +34,11 @@ Dataset groups:
   other_signals
 
 Options:
-  --datasets GROUPS       Comma-separated list of groups, or "all".
+  --datasets GROUPS       Comma-separated groups, "all", or "skim_cfg".
   --dataset-name NAME     Run one explicit dataset instead of a group.
-  --chunk-size N          Override chunk size for selected jobs. Default: group-specific;
-                          for --dataset-name default is 20.
+  --chunk-size N          Override chunk size for selected jobs. Histogram and
+                          systematic jobs default to 1; validation defaults to
+                          the requested CPU count.
   --era ERA              Era to run, e.g. Run3_2022.
   --input-folder NAME    Backward-compatible stage input base. Validation: skim JSON base;
                          histograms/systematics: validation-manifest base.
@@ -77,6 +79,7 @@ Options:
   -h, --help             Show this help.
 
 Examples:
+  histograms/scripts/hists.sh --datasets skim_cfg --era Run3_2025
   histograms/scripts/hists.sh --datasets DiTriBoson,data --era Run3_2022
   histograms/scripts/hists.sh --datasets DY_amcatnlo --era Run3_2024 --output-suffix _DNN -- --variables DNN_NNOutput
   histograms/scripts/hists.sh --datasets all --era Run3_2025 --extra-opts "--n-cores 8"
@@ -171,7 +174,7 @@ hist_output_exists() {
 }
 
 stage_output_exists() {
-  python3 "${ANALYSIS_PATH}/common/check_stage_output.py" "$1" "$2"
+  python3 "${ANALYSIS_PATH}/tools/check_stage_output.py" "$1" "$2"
 }
 
 histogram_output_path() {
@@ -227,7 +230,7 @@ is_output_already_queued() {
     fi
   done < <(
     condor_q "${owner}" \
-      -constraint 'regexp("^Hists_", JobBatchName) && (JobStatus == 1 || JobStatus == 2 || JobStatus == 6)' \
+      -constraint 'regexp("^(Hists_|hists/)", JobBatchName) && (JobStatus == 1 || JobStatus == 2 || JobStatus == 6)' \
       -af ProcId Arguments 2>/dev/null || true
   )
 
@@ -300,6 +303,7 @@ configured_dataset_alias() {
     TBbarQto2Q_t_channel_4FS|TBbarQtoLNu_t_channel_4FS) candidates=(TBbarQ_t_channel_4FS) ;;
     TbarBQto2Q_t_channel_4FS|TbarBQtoLNu_t_channel_4FS) candidates=(TbarBQ_t_channel_4FS) ;;
     TTZH_ZHto4B) candidates=(TTZH) ;;
+    DYto2Mu_MLL_105to160_amcatnloFXFX_VBFFiltered) candidates=(DYto2Mu_MLL_105to160_amcatnloFXFX_Fil_VBF) ;;
   esac
 
   for candidate in "${candidates[@]}"; do
@@ -373,12 +377,14 @@ drop_unconfigured_jobs() {
     fi
   done
 
-  if [[ ${skipped} -gt 0 ]]; then
-    job_datasets=("${filtered_datasets[@]}")
-    job_chunk_sizes=("${filtered_chunk_sizes[@]}")
-    job_file_suffixes=("${filtered_file_suffixes[@]}")
-    job_specific_opts=("${filtered_specific_opts[@]}")
-  fi
+  # Always keep the resolved arrays.  Previously they were assigned only when
+  # at least one dataset was skipped, so valid aliases (notably
+  # DY ... _VBFFiltered -> ... _Fil_VBF) were silently discarded whenever all
+  # selected datasets existed in the era configuration.
+  job_datasets=("${filtered_datasets[@]}")
+  job_chunk_sizes=("${filtered_chunk_sizes[@]}")
+  job_file_suffixes=("${filtered_file_suffixes[@]}")
+  job_specific_opts=("${filtered_specific_opts[@]}")
 }
 
 deduplicate_validation_jobs() {
@@ -514,41 +520,36 @@ add_dy_105_160_jobs() {
 
   case "${era}" in
     Run3_2024|Run3_2025|Run3_2026)
-      # Full-simulation samples form the stitched pair; FlashSim is kept
-      # independently and must never receive the generator VBF split.
-      add_job DYto2Mu_MLL_105to160_amcatnloFXFX 20 \
-        "_stitched" --additional-cuts "GenVBFFilter==0"
-      add_job DYto2Mu_MLL_105to160_amcatnloFXFX_Fil_VBF 20 \
-        "_stitched" --additional-cuts "GenVBFFilter==1"
-      add_job DYto2Mu_MLL_105to160_amcatnloFXFX_Flashsim 20 \
-        "_nonStitched"
+      # For 2024-2026 the nominal DY 105-160 selection is composed of the
+      # inclusive sample outside the generator-level VBF phase space and the
+      # dedicated VBF-filtered sample inside that phase space.
+      add_job DYto2Mu_MLL_105to160_amcatnloFXFX 20 "" \
+        --additional-cuts "GenVBFFilter==0"
+      add_job DYto2Mu_MLL_105to160_amcatnloFXFX_VBFFiltered 20 "" \
+        --additional-cuts "GenVBFFilter==1"
       ;;
     Run3_2022|Run3_2022EE|Run3_2023|Run3_2023BPix)
-      add_job DYto2Mu_MLL_105to160_amcatnloFXFX 20 "_nonStitched"
+      # No VBF-filtered companion sample exists for these eras.
+      add_job DYto2Mu_MLL_105to160_amcatnloFXFX 20
       ;;
   esac
 }
-add_dy_105_160_VBFFil_stitched_jobs() {
+
+add_dy_012j_jobs() {
   local era="$1"
-
+  local prefix
   case "${era}" in
-    Run3_2024|Run3_2025|Run3_2026) ;;
-    *) die "DY_amcatnlo_105_160_VBF_FIl_stitched is only configured for Run3_2024, Run3_2025, Run3_2026" ;;
+    Run3_2024|Run3_2025|Run3_2026) prefix="DYto2Mu" ;;
+    Run3_2022|Run3_2022EE|Run3_2023|Run3_2023BPix) prefix="DYto2L" ;;
   esac
-
-  add_job DYto2Mu_MLL_105to160_amcatnloFXFX_Fil_VBF 20 "_stitched" --additional-cuts "GenVBFFilter==1"
+  add_job "${prefix}_M_50_0J_amcatnloFXFX" 20
+  add_job "${prefix}_M_50_1J_amcatnloFXFX" 20
+  add_job "${prefix}_M_50_2J_amcatnloFXFX" 20
 }
 
-
-add_dy_105_160_stitched_jobs() {
-  local era="$1"
-
-  case "${era}" in
-    Run3_2024|Run3_2025|Run3_2026) ;;
-    *) die "DY_amcatnlo_105_160_stitched is only configured for Run3_2024, Run3_2025, Run3_2026" ;;
-  esac
-
-  add_job DYto2Mu_MLL_105to160_amcatnloFXFX 20 "_stitched" --additional-cuts "GenVBFFilter==0"
+add_ewk_105_160_jobs() {
+  add_job EWK_2Mu2J_MLL_105to160_herwig 15
+  add_job EWK_2Mu2J_MLL_105to160_pythia 15
 }
 
 add_static_group_jobs() {
@@ -570,7 +571,7 @@ add_static_group_jobs() {
       datasets=(  DYto2Mu_MLL_130to200_powheg_minnlo DYto2Mu_MLL_1000to1500_powheg_minnlo  DYto2Mu_MLL_1500to2000_powheg_minnlo DYto2Mu_MLL_2000to4000_powheg_minnlo DYto2Mu_MLL_200to400_powheg_minnlo DYto2Mu_MLL_4000to6000_powheg_minnlo DYto2Mu_MLL_400to600_powheg_minnlo DYto2Mu_MLL_50to130_powheg_minnlo DYto2Mu_MLL_6000to13600_powheg_minnlo DYto2Mu_MLL_600to800_powheg_minnlo )
       ;;
     EWK)
-      datasets=(EWK_2L2J_madgraph_herwig EWK_2Mu2J_MLL_105to160_herwig EWK_2Mu2J_MLL_105to160_pythia EWK_2Mu2J_MLL_105to160_pythia_Flashsim)
+      datasets=(EWK_2L2J_madgraph_herwig)
       ;;
     signals)
       datasets=(
@@ -587,12 +588,12 @@ add_static_group_jobs() {
       ;;
     SingleH)
       datasets=(
-        GluGluHto2B_M125 GluGluHto2Tau_UncorrelatedDecay_UnFiltered GluGluHto2Wto2L2Nu_M125
-        VBFHto2B_M125 VBFHto2Tau_UncorrelatedDecay_UnFiltered VBFHto2Wto2L2Nu_M125
+        GluGluHto2B_M125 #GluGluHto2Wto2L2Nu_M125
+        VBFHto2B_M125 #VBFHto2Wto2L2Nu_M125
         ggZH_Hto2B_Zto2L ggZH_Hto2B_Zto2Q
         ZH_Hto2B_Zto2L ZH_Hto2B_Zto2Q
-        WminusH_Hto2B_WtoLNu WminusHto2Tau_UncorrelatedDecay_UnFiltered
-        WplusH_Hto2B_WtoLNu WplusHto2Tau_UncorrelatedDecay_UnFiltered
+        WminusH_Hto2B_WtoLNu #WminusHto2Tau_UncorrelatedDecay_UnFiltered GluGluHto2Tau_UncorrelatedDecay_UnFiltered
+        WplusH_Hto2B_WtoLNu #WplusHto2Tau_UncorrelatedDecay_UnFiltered VBFHto2Tau_UncorrelatedDecay_UnFiltered
       )
       ;;
     SingleTop)
@@ -642,14 +643,15 @@ add_w_jobs() {
 
 normalize_group() {
   case "$1" in
+    skim_cfg|skim-config|configured) echo "skim_cfg" ;;
     data|Data) echo "data" ;;
     ditriboson|DiTriBoson) echo "DiTriBoson" ;;
     dy_amcatnlo|DY_amcatnlo) echo "DY_amcatnlo" ;;
     dy_amcatnlo_105_160|DY_amcatnlo_105_160) echo "DY_amcatnlo_105_160" ;;
-    dy_amcatnlo_105_160_stitched|DY_amcatnlo_105_160_stitched) echo "DY_amcatnlo_105_160_stitched" ;;
-    DY_amcatnlo_105_160_VBFFil|dy_amcatnlo_105_160_VBFFil) echo "DY_amcatnlo_105_160_VBFFil";;
+    dy_012j|DY_012J) echo "DY_012J" ;;
     dy_minnlo|DY_minnlo) echo "DY_minnlo" ;;
     ewk|EWK) echo "EWK" ;;
+    ewk_105_160|EWK_105_160) echo "EWK_105_160" ;;
     signals|Signals) echo "signals" ;;
     other_signals) echo "other_signals" ;;
     singleh|SingleH) echo "SingleH" ;;
@@ -662,15 +664,30 @@ normalize_group() {
   esac
 }
 
+add_skim_cfg_jobs() {
+  local era="$1"
+  local default_chunk_size="${chunk_size_override:-20}"
+  local dataset_name
+
+  echo "[INFO] Resolving datasets from config/${era}/skim_cfg.yaml"
+  while IFS= read -r dataset_name; do
+    [[ -n "${dataset_name}" ]] || continue
+    add_job "${dataset_name}" "${default_chunk_size}"
+  done < <(
+    python3 "${ANALYSIS_PATH}/tools/resolve_datasets.py" \
+      --era "${era}" --format lines
+  )
+}
+
 groups_for_era() {
   local era="$1"
 
   case "${era}" in
     Run3_2024|Run3_2025|Run3_2026)
-      echo "data DiTriBoson DY_amcatnlo DY_amcatnlo_105_160 DY_amcatnlo_105_160_stitched DY_amcatnlo_105_160_VBFFil DY_minnlo EWK signals other_signals SingleH SingleTop TTX TT W"
+      echo "data DiTriBoson DY_amcatnlo DY_amcatnlo_105_160 DY_012J DY_minnlo EWK EWK_105_160 signals other_signals SingleH SingleTop TTX TT W"
       ;;
     Run3_2022|Run3_2022EE|Run3_2023|Run3_2023BPix)
-      echo "data DiTriBoson DY_amcatnlo DY_amcatnlo_105_160 EWK signals other_signals SingleH SingleTop TTX TT W"
+      echo "data DiTriBoson DY_amcatnlo DY_amcatnlo_105_160 DY_012J EWK EWK_105_160 signals other_signals SingleH SingleTop TTX TT W"
       ;;
     *)
       die "Unknown era '${era}'"
@@ -683,7 +700,7 @@ single_dataset_name=""
 single_dataset_chunk_size=20
 chunk_size_override=""
 era=""
-input_folder="skim_v2_noUnc"
+input_folder="skim_v3"
 root_input_folder=""
 json_input_folder=""
 manifest_input_folder=""
@@ -935,17 +952,29 @@ job_datasets=()
 job_chunk_sizes=()
 job_file_suffixes=()
 job_specific_opts=()
+expanded_single_dataset=0
 
 if [[ -n "${single_dataset_name}" ]]; then
-  add_job "${single_dataset_name}" "${single_dataset_chunk_size}"
+  if [[ "${single_dataset_name}" == "DYto2Mu_MLL_105to160_amcatnloFXFX" ]]; then
+    expanded_single_dataset=1
+    add_dy_105_160_jobs "${era}"
+    if [[ -n "${chunk_size_override}" ]]; then
+      for i in "${!job_chunk_sizes[@]}"; do
+        job_chunk_sizes[$i]="${single_dataset_chunk_size}"
+      done
+    fi
+  else
+    add_job "${single_dataset_name}" "${single_dataset_chunk_size}"
+  fi
 else
   for group in "${normalized_groups[@]}"; do
     case "${group}" in
+      skim_cfg) add_skim_cfg_jobs "${era}" ;;
       data) add_data_jobs "${era}" ;;
       DY_amcatnlo) add_dy_amcatnlo_jobs "${era}" ;;
       DY_amcatnlo_105_160) add_dy_105_160_jobs "${era}" ;;
-      DY_amcatnlo_105_160_stitched) add_dy_105_160_stitched_jobs "${era}" ;;
-      DY_amcatnlo_105_160_VBFFil) add_dy_105_160_VBFFil_stitched_jobs "${era}" ;;
+      DY_012J) add_dy_012j_jobs "${era}" ;;
+      EWK_105_160) add_ewk_105_160_jobs ;;
       W) add_w_jobs "${era}" ;;
       DiTriBoson|DY_minnlo|EWK|signals|SingleH|SingleTop|TTX|other_signals|TT) add_static_group_jobs "${group}" ;;
       *) die "Internal error: unhandled group '${group}'" ;;
@@ -953,7 +982,7 @@ else
   done
 fi
 
-if [[ -z "${single_dataset_name}" ]]; then
+if [[ -z "${single_dataset_name}" || ${expanded_single_dataset} -eq 1 ]]; then
   drop_unconfigured_jobs "${era}"
 fi
 if [[ "${campaign_mode}" == "validation" ]]; then
@@ -999,6 +1028,11 @@ if [[ -n "${chunk_size_override}" ]]; then
     job_chunk_sizes[$i]="${chunk_size_override}"
   done
 fi
+if [[ "${campaign_mode}" != "validation" && -z "${chunk_size_override}" ]]; then
+  for i in "${!job_chunk_sizes[@]}"; do
+    job_chunk_sizes[$i]=1
+  done
+fi
 if [[ "${campaign_mode}" == "validation" && -z "${chunk_size_override}" ]]; then
   for i in "${!job_chunk_sizes[@]}"; do
     job_chunk_sizes[$i]="${request_cpus}"
@@ -1023,12 +1057,18 @@ if [[ ${condor} -eq 1 ]]; then
   extra_opts_file="${submit_dir}/extra_opts.txt"
   monitoring_file="${submit_dir}/monitoring.txt"
   submit_file="${submit_dir}/submit.sub"
+  batch_names_file="${submit_dir}/batch_names.txt"
   wrapper="${analysis_path}/htcondor/run_stage_condor.sh"
 
   if [[ "${jobs_file}" = /* ]]; then
     jobs_file_arg="${jobs_file}"
   else
     jobs_file_arg="${analysis_path}/${jobs_file}"
+  fi
+  if [[ "${batch_names_file}" = /* ]]; then
+    batch_names_file_arg="${batch_names_file}"
+  else
+    batch_names_file_arg="${analysis_path}/${batch_names_file}"
   fi
   if [[ "${extra_opts_file}" = /* ]]; then
     extra_opts_file_arg="${extra_opts_file}"
@@ -1048,6 +1088,7 @@ if [[ ${condor} -eq 1 ]]; then
   mkdir -p "${condor_output_dir}" "${condor_error_dir}" "${condor_log_dir}"
 
   : > "${jobs_file}"
+  : > "${batch_names_file}"
   : > "${monitoring_file}"
 
   total_selected=0
@@ -1099,12 +1140,30 @@ if [[ ${condor} -eq 1 ]]; then
       continue
     fi
 
+    # Keep every TSV field non-empty. Bash `read` treats tabs as whitespace
+    # and collapses adjacent delimiters; an empty suffix would otherwise shift
+    # job-specific options (for example --additional-cuts) into the filename.
+    serialized_file_suffix="${file_suffix:--}"
+    serialized_specific_opts="${job_specific_opts[$i]:--}"
     printf '%s\t%s\t%s\t%s\n' \
       "${dataset_name}" \
       "${job_chunk_sizes[$i]}" \
-      "${file_suffix}" \
-      "${job_specific_opts[$i]}" \
+      "${serialized_file_suffix}" \
+      "${serialized_specific_opts}" \
       >> "${jobs_file}"
+    if [[ "${campaign_mode}" == "validation" ]]; then
+      printf 'validation/%s_%s\n' \
+        "${era}" \
+        "$(short_label "${dataset_name}" 72)" \
+        >> "${batch_names_file}"
+    else
+      systematic_label="$(IFS=_; echo "${requested_systematics[*]}")"
+      printf 'hists/%s_%s_%s\n' \
+        "$(short_label "${systematic_label}" 32)" \
+        "${era}" \
+        "$(short_label "${dataset_name}${file_suffix}" 72)" \
+        >> "${batch_names_file}"
+    fi
     jobs_to_submit=$((jobs_to_submit + 1))
   done
 
@@ -1193,7 +1252,7 @@ request_disk = ${request_disk}
 +JobFlavour = "${job_flavour}"
 +Era = "${era}"
 +HistGroup = "${group_label}"
-batch_name = Hists_${campaign_mode}_${era}_${group_label}
+batch_name = \$(hist_batch_name)
 
 max_retries = ${chunk_retries}
 getenv = True
@@ -1206,7 +1265,7 @@ EOF
     } >> "${submit_file}"
   fi
 
-  echo "queue ${jobs_to_submit}" >> "${submit_file}"
+  echo "queue hist_batch_name from ${batch_names_file_arg}" >> "${submit_file}"
 
   echo
   echo "============================================================"
@@ -1239,6 +1298,7 @@ EOF
     mkdir -p "$(dirname "${queued_registry_file}")"
     while IFS=$'\t' read -r submitted_dataset _submitted_chunk submitted_suffix _submitted_opts; do
       [[ -n "${submitted_dataset}" ]] || continue
+      [[ "${submitted_suffix}" == "-" ]] && submitted_suffix=""
       printf '%s\n' "$(histogram_output_path "${output_dir}" "${era}" "${submitted_dataset}" "${submitted_suffix}")" >> "${queued_registry_file}"
     done < "${jobs_file}"
     sort -u -o "${queued_registry_file}" "${queued_registry_file}"
@@ -1292,22 +1352,6 @@ for i in "${!job_datasets[@]}"; do
       --workers "${chunk_size}"
       --retries "${file_open_retries}"
       --retry-delay "${file_open_retry_delay}"
-    )
-  elif [[ "${campaign_mode}" == "systematics" ]]; then
-    validation_manifest="$(manifest_path "${manifest_input_folder}" "${era}" "${dataset_name}")"
-    command=(
-      python3 histograms/hist_maker.py
-      --era "${era}"
-      --root-input "${input_path}"
-      --json-input "${metadata_input_path}"
-      "${additional_metadata_args[@]}"
-      --dataset-name "${dataset_name}"
-      --input-manifest "${validation_manifest}"
-      --output-file "${output_file}"
-      --systematics "${requested_systematics[@]}"
-      --chunk-size "${chunk_size}"
-      --file-open-retries "${file_open_retries}"
-      --file-open-retry-delay "${file_open_retry_delay}"
     )
   else
     validation_manifest="$(manifest_path "${manifest_input_folder}" "${era}" "${dataset_name}")"

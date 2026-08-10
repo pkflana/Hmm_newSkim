@@ -101,12 +101,12 @@ MuonEG_Run2024F:
   is_data: true
   eraLetter: F
   nanoAOD:
-  - /MuonEG/Run2024F-MINIv6NANOv15-v1/NANOAOD
+  - /MuonEG/Run2024F-MINIv6NANOv15-v2/NANOAOD
 MuonEG_Run2024G:
   is_data: true
   eraLetter: G
   nanoAOD:
-  - /MuonEG/Run2024G-MINIv6NANOv15-v2/NANOAOD
+  - /MuonEG/Run2024G-MINIv6NANOv15-v3/NANOAOD
 MuonEG_Run2024H:
   is_data: true
   eraLetter: H
@@ -117,13 +117,13 @@ MuonEG_Run2024I_v1:
   eraLetter: I
   eraVersion: v1
   nanoAOD:
-  - /MuonEG/Run2024I-MINIv6NANOv15-v1/NANOAOD
+  - /MuonEG/Run2024I-MINIv6NANOv15-v2/NANOAOD
 MuonEG_Run2024I_v2:
   is_data: true
   eraLetter: I
   eraVersion: v2
   nanoAOD:
-  - /MuonEG/Run2024I-MINIv6NANOv15_v2-v1/NANOAOD
+  - /MuonEG/Run2024I-MINIv6NANOv15_v2-v2/NANOAOD
 ParkingVBF0_Run2024C:
   is_data: true
   eraLetter: C
@@ -254,12 +254,12 @@ ParkingVBF3_Run2024C:
   is_data: true
   eraLetter: C
   nanoAOD:
-  - /ParkingVBF3/Run2024C-MINIv6NANOv15-v1/NANOAOD
+  - /ParkingVBF3/Run2024C-MINIv6NANOv15-v2/NANOAOD
 ParkingVBF3_Run2024D:
   is_data: true
   eraLetter: D
   nanoAOD:
-  - /ParkingVBF3/Run2024D-MINIv6NANOv15-v2/NANOAOD
+  - /ParkingVBF3/Run2024D-MINIv6NANOv15-v1/NANOAOD
 ParkingVBF3_Run2024E:
   is_data: true
   eraLetter: E
@@ -301,7 +301,7 @@ ParkingVBF4_Run2024D:
   is_data: true
   eraLetter: D
   nanoAOD:
-  - /ParkingVBF4/Run2024D-MINIv6NANOv15-v2/NANOAOD
+  - /ParkingVBF4/Run2024D-MINIv6NANOv15-v1/NANOAOD
 ParkingVBF4_Run2024E:
   is_data: true
   eraLetter: E
@@ -316,7 +316,7 @@ ParkingVBF4_Run2024G:
   is_data: true
   eraLetter: G
   nanoAOD:
-  - /ParkingVBF4/Run2024G-MINIv6NANOv15-v3/NANOAOD
+  - /ParkingVBF4/Run2024G-MINIv6NANOv15-v4/NANOAOD
 ParkingVBF4_Run2024H:
   is_data: true
   eraLetter: H
@@ -343,7 +343,7 @@ ParkingVBF5_Run2024D:
   is_data: true
   eraLetter: D
   nanoAOD:
-  - /ParkingVBF5/Run2024D-MINIv6NANOv15-v2/NANOAOD
+  - /ParkingVBF5/Run2024D-MINIv6NANOv15-v1/NANOAOD
 ParkingVBF5_Run2024E:
   is_data: true
   eraLetter: E
@@ -369,7 +369,7 @@ ParkingVBF5_Run2024I_v1:
   eraLetter: I
   eraVersion: v1
   nanoAOD:
-  - /ParkingVBF5/Run2024I-MINIv6NANOv15-v3/NANOAOD
+  - /ParkingVBF5/Run2024I-MINIv6NANOv15-v2/NANOAOD
 ParkingVBF5_Run2024I_v2:
   is_data: true
   eraLetter: I
@@ -385,7 +385,7 @@ ParkingVBF6_Run2024D:
   is_data: true
   eraLetter: D
   nanoAOD:
-  - /ParkingVBF6/Run2024D-MINIv6NANOv15-v2/NANOAOD
+  - /ParkingVBF6/Run2024D-MINIv6NANOv15-v1/NANOAOD
 ParkingVBF6_Run2024E:
   is_data: true
   eraLetter: E
@@ -395,7 +395,7 @@ ParkingVBF6_Run2024F:
   is_data: true
   eraLetter: F
   nanoAOD:
-  - /ParkingVBF6/Run2024F-MINIv6NANOv15-v3/NANOAOD
+  - /ParkingVBF6/Run2024F-MINIv6NANOv15-v4/NANOAOD
 ParkingVBF6_Run2024G:
   is_data: true
   eraLetter: G
@@ -411,7 +411,7 @@ ParkingVBF6_Run2024I_v1:
   eraLetter: I
   eraVersion: v1
   nanoAOD:
-  - /ParkingVBF6/Run2024I-MINIv6NANOv15-v3/NANOAOD
+  - /ParkingVBF6/Run2024I-MINIv6NANOv15-v2/NANOAOD
 ParkingVBF6_Run2024I_v2:
   is_data: true
   eraLetter: I
@@ -427,7 +427,7 @@ ParkingVBF7_Run2024D:
   is_data: true
   eraLetter: D
   nanoAOD:
-  - /ParkingVBF7/Run2024D-MINIv6NANOv15-v2/NANOAOD
+  - /ParkingVBF7/Run2024D-MINIv6NANOv15-v1/NANOAOD
 ParkingVBF7_Run2024E:
   is_data: true
   eraLetter: E
@@ -447,7 +447,7 @@ ParkingVBF7_Run2024H:
   is_data: true
   eraLetter: H
   nanoAOD:
-  - /ParkingVBF7/Run2024H-MINIv6NANOv15-v3/NANOAOD
+  - /ParkingVBF7/Run2024H-MINIv6NANOv15-v4/NANOAOD
 ParkingVBF7_Run2024I_v1:
   is_data: true
   eraLetter: I
@@ -484,12 +484,12 @@ Tau_Run2024G:
   is_data: true
   eraLetter: G
   nanoAOD:
-  - /Tau/Run2024G-MINIv6NANOv15-v2/NANOAOD
+  - /Tau/Run2024G-MINIv6NANOv15-v1/NANOAOD
 Tau_Run2024H:
   is_data: true
   eraLetter: H
   nanoAOD:
-  - /Tau/Run2024H-MINIv6NANOv15-v2/NANOAOD
+  - /Tau/Run2024H-MINIv6NANOv15-v1/NANOAOD
 Tau_Run2024I_v1:
   is_data: true
   eraLetter: I

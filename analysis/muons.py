@@ -42,20 +42,21 @@ def _declare_muon_helpers():
         """
     )
 
-def GetPtConfigurations(only_default, want_variations):
+def GetPtConfigurations(want_variations):
     configs = {
-        "Muon_pt_noCorr": ["Muon_pt", "Muon_bsConstrainedPt"],
-        "Muon_pt_corr": ["Muon_pt_nano_corr", "Muon_pt_bsc_corr"],
-        "Muon_pt_corr_FSR": ["Muon_pt_nano_corr_FSR", "Muon_pt_bsc_corr_FSR"],
-        "Muon_pt_FSR_scale": ["Muon_pt_nano_scale_FSR", "Muon_pt_bsc_scale_FSR"],
-        "Muon_pt_scale": ["Muon_pt_nano_scale", "Muon_pt_bsc_scale"],
+        "Muon_pt_raw_noCorr": ["Muon_pt", "Muon_bsConstrainedPt"],
+        "Muon_pt_raw_corr": ["Muon_pt_nano_corr", "Muon_pt_bsc_corr"],
+        "Muon_pt_raw_scale": ["Muon_pt_nano_scale", "Muon_pt_bsc_scale"],
+        "Muon_pt_FSR_noCorr": ["Muon_pt_nano_FSR", "Muon_bsConstrainedPt"],
+        "Muon_pt_FSR_corr": ["Muon_pt_nano_corr_FSR", "Muon_pt_bsc_corr_FSR"],
+        "Muon_pt_FSR_scale": ["Muon_pt_nano_scale_FSR", "Muon_pt_bsc_scale_FSR"]
     }
-    if not only_default:
-        configs.update({
-            "Muon_pt_noCorr_FSR": ["Muon_pt_nano_FSR", "Muon_bsConstrainedPt"],
-        })
     if want_variations:
         configs.update({
+            "Muon_pt_raw_scale_up": ["Muon_pt_nano_scale_up", "Muon_pt_bsc_scale_up"],
+            "Muon_pt_raw_scale_down": ["Muon_pt_nano_scale_down", "Muon_pt_bsc_scale_down"],
+            "Muon_pt_raw_res_up": ["Muon_pt_nano_res_up", "Muon_pt_bsc_res_up"],
+            "Muon_pt_raw_res_down": ["Muon_pt_nano_res_down", "Muon_pt_bsc_res_down"],
             "Muon_pt_FSR_scale_up": ["Muon_pt_nano_FSR_scale_up", "Muon_pt_bsc_FSR_scale_up"],
             "Muon_pt_FSR_scale_down": ["Muon_pt_nano_FSR_scale_down", "Muon_pt_bsc_FSR_scale_down"],
             "Muon_pt_FSR_res_up": ["Muon_pt_nano_FSR_res_up", "Muon_pt_bsc_FSR_res_up"],
@@ -66,9 +67,9 @@ def GetPtConfigurations(only_default, want_variations):
     }
     return configs,err_configs
 
-def DefineMuonPtAndP4(df, only_default, want_variations):
+def DefineMuonPtAndP4(df, want_variations):
     _declare_muon_helpers()
-    configs,err_configs = GetPtConfigurations(only_default, want_variations)
+    configs,err_configs = GetPtConfigurations(want_variations)
     cols = _column_names(df)
     for name_pt, (nano, bsc) in configs.items():
         df = _define_if_missing(df,name_pt,f"Muon_pt_sel({nano}, {bsc}, Muon_bsConstrainedChi2)")
@@ -77,29 +78,57 @@ def DefineMuonPtAndP4(df, only_default, want_variations):
          df = _define_if_missing(df,name_err,f"Muon_pt_err_sel({nano_err}, {bsc_err}, Muon_bsConstrainedChi2)")
     return df
 
-def ApplyMuonTriggerMatching(df, trigger_config, apply_filter):
+def ApplyMuonTriggerMatching(df, trigger_config, apply_filter, want_variations, syst_cfg):
     cols = _column_names(df)
     if "TrigObj_pt" in cols:
         df = _define_if_missing(df, "TrigObj_idx", "CreateIndexes(TrigObj_pt.size())")
         df = _define_if_missing(df, "TrigObj_mass", "RVecF(TrigObj_pt.size(), 0.f)")
         df = _define_if_missing(df, "TrigObj_p4","GetP4(TrigObj_pt, TrigObj_eta, TrigObj_phi, TrigObj_mass, TrigObj_idx)")
+
+    syst_suffixes = [""]
+    if want_variations:
+        scales = syst_cfg.get("scales", ["up", "down"])
+        syst_suffixes.extend(
+            syst_cfg["systematics"][syst]["muon_suffix"].format(scale=scale)
+            for syst in ("MuonScale", "MuonRes")
+            for scale in scales
+        )
+
     filters = []
+    cols_to_save = []
     for path, config in trigger_config.items():
         path_name = config["path"][0]
+        cols_to_save.append(path_name)
         leg = config["legs"][0]
-        offline = leg["offline_obj"]["cut"].format(obj="Muon", pt="pt_corr_FSR")
         online = leg["online_obj"]["cut"]
-        df = _define_if_missing(df, f"Muon_passOfflineCut_{path}", offline)
         df = _define_if_missing(df, f"TrigObj_passOnlineCut_{path}", online)
-        df = _define_if_missing(df,f"Muon_TriggerMatchingIdx_{path}",f"FindMatching(Muon_passOfflineCut_{path}, TrigObj_passOnlineCut_{path}, Muon_p4_corr_FSR, TrigObj_p4, 0.4)")
-        evt = f"Event_HasTriggerMatching_{path}"
-        df = df.Define(evt, f"{path_name} && Any(Muon_TriggerMatchingIdx_{path} > -1)")
-        filters.append(evt)
+        cols_to_save.append(f"TrigObj_passOnlineCut_{path}")
+
+        for suff in syst_suffixes:
+            pt = "pt_FSR_corr" if not suff else f"pt{suff}"
+            muon_p4 = "Muon_p4_FSR_corr" if not suff else f"Muon_p4{suff}"
+            offline_col = f"Muon_passOfflineCut_{path}{suff}"
+            matching_col = f"Muon_TriggerMatchingIdx_{path}{suff}"
+            evt = f"Event_HasTriggerMatching_{path}{suff}"
+
+            offline = leg["offline_obj"]["cut"].format(obj="Muon", pt=pt)
+            df = _define_if_missing(df, offline_col, offline)
+            df = _define_if_missing(
+                df,
+                matching_col,
+                f"FindMatching({offline_col}, TrigObj_passOnlineCut_{path}, "
+                f"{muon_p4}, TrigObj_p4, 0.4)",
+            )
+            df = _define_if_missing(df, evt, f"{path_name} && Any({matching_col} > -1)")
+
+            filters.append(evt)
+            cols_to_save.extend([offline_col, matching_col, evt])
     if apply_filter:
         df = df.Filter(" || ".join(filters), "Trigger matching for " + "__".join(trigger_config.keys()))
-    return df, filters
+    print(filters, cols_to_save)
+    return df, cols_to_save
 
-def ProcessMuonVariables(df,muon_columns,default_suffix,trigger_config,only_default,want_variations,pt_min,lower_mass_cut,upper_mass_cut,syst_cfg):
+def ProcessMuonVariables(df,muon_columns,default_suffix,trigger_config,want_variations,pt_min,lower_mass_cut,upper_mass_cut,syst_cfg):
     cols = _column_names(df)
     selection_pt = [f"Muon_pt_{default_suffix}"]
     syst_suffixes = [""]
@@ -117,7 +146,7 @@ def ProcessMuonVariables(df,muon_columns,default_suffix,trigger_config,only_defa
 
     event_filters = []
     mass_filters = []
-
+    pt_branches,err_pt_branches = GetPtConfigurations(want_variations)
     for suff in syst_suffixes:
         is_nominal = (suff == "")
         pt=f"Muon_pt{suff}"
@@ -132,11 +161,11 @@ def ProcessMuonVariables(df,muon_columns,default_suffix,trigger_config,only_defa
             idx = f"mu{i}_idx{suff}"
             df = track(df, f"mu{i}_pt{suff}", f"{idx}>=0 ? {pt}[{idx}] : -999.f")
             df = track(df,f"mu{i}_p4{suff}",f"{idx}>=0 ? ROOT::Math::LorentzVector<ROOT::Math::PtEtaPhiM4D<double>>({pt}[{idx}], Muon_eta[{idx}], Muon_phi[{idx}], Muon_mass[{idx}]) : ROOT::Math::LorentzVector<ROOT::Math::PtEtaPhiM4D<double>>(0,0,0,0)")
-            for muon_col in muon_columns+['Muon_pt_corr','Muon_pt_err', 'Muon_pt_scale', 'Muon_pt_FSR_scale']:
+            for muon_col in muon_columns:
                 suffix_clean = "_".join(c for c in muon_col.split("_")[1:])
                 df = track(df, f"mu{i}_{suffix_clean}{suff}", f"{idx}>=0 ? {muon_col}[{idx}] : -999.f")
             for path in trigger_config.keys():
-                df = track(df, f"mu{i}_HasTriggerMatching_{path}{suff}", f"{idx} >= 0 ? (Muon_TriggerMatchingIdx_{path}[{idx}] >= 0) : false")
+                df = track(df, f"mu{i}_HasTriggerMatching_{path}{suff}", f"{idx} >= 0 ? (Muon_TriggerMatchingIdx_{path}{suff}[{idx}] >= 0) : false")
 
         p4 = f"(mu1_p4{suff} + mu2_p4{suff})"
         df = track(df, f"m_mumu{suff}", f"{p4}.M()")
@@ -145,18 +174,21 @@ def ProcessMuonVariables(df,muon_columns,default_suffix,trigger_config,only_defa
     df = df.Filter(" && ".join(event_filters), "Exactly 2 muons")
     df = df.Filter(" && ".join(mass_filters), "dimuon mass cut")
 
-    onlyCentral_branches = ["Muon_pt_noCorr"]
+    # These observables are evaluated for the nominally selected muons. The
+    # FSR scale/res branches used to build shifted categories are already
+    # stored above with their own shifted muon indices.
+
     idx1 = "mu1_idx"
     idx2 = "mu2_idx"
-    for centr_br in onlyCentral_branches:
+    for centr_br in list(pt_branches.keys()) + list(err_pt_branches.keys()):
         suffix_br = "_".join(c for c in centr_br.split("_")[1:])
         df = track(df, f"mu1_{suffix_br}", f"{idx1}>=0 ? {centr_br}[{idx1}] : -999.f")
         df = track(df, f"mu2_{suffix_br}", f"{idx2}>=0 ? {centr_br}[{idx2}] : -999.f")
     return df, new_cols
 
 
-def ProcessExtraMuonVariables(df,muon_columns,default_suffix,trigger_config,only_default,want_variations,pt_min):
-
+def ProcessExtraMuonVariables(df,muon_columns,default_suffix,trigger_config,want_variations,pt_min):
+    pt_branches,err_pt_branches = GetPtConfigurations(want_variations)
     cols = _column_names(df)
     new_cols = []
     pt_list = [f"Muon_pt_{default_suffix}"]
@@ -178,7 +210,7 @@ def ProcessExtraMuonVariables(df,muon_columns,default_suffix,trigger_config,only
         df = track(df, "extraMuon_eta", "Take(Muon_eta, extraMuon_idx)")
         df = track(df, "extraMuon_phi", "Take(Muon_phi, extraMuon_idx)")
         df = track(df, "extraMuon_charge", "Take(Muon_charge, extraMuon_idx)")
-        for col in muon_columns + ['Muon_pt_corr','Muon_pt_err']:
+        for col in muon_columns+list(pt_branches.keys()) + list(err_pt_branches.keys()):
             suffix_clean = "_".join(c for c in col.split("_")[1:])
             if f"extraMuon_{suffix_clean}" not in _column_names(df):
                 df = track(df, f"extraMuon_{suffix_clean}", f"Take({col}, extraMuon_idx)")
@@ -189,10 +221,11 @@ def ApplyElectronVeto(df):
     df = _define_if_missing(df, "veto_electrons","Electron_pt > 20 && abs(Electron_eta) < 2.5 && Electron_mvaIso_WP90")
     return df.Filter("ROOT::VecOps::Nonzero(veto_electrons).size() == 0", "No extra electrons")
 
-def DefineMuonSelection(df,sel_config,only_default,want_variations,syst_cfg):
+def DefineMuonSelection(df,sel_config,want_variations,syst_cfg):
     sel_dict = sel_config.get("muons_selection", {})
     vars_to_store = []
     syst_suffixes = [""]
+    print(sel_dict)
     if want_variations:
         scales = syst_cfg.get('scales',['up','down'])
         syst_suffixes.extend([syst_cfg['systematics']['MuonScale']['muon_suffix'].format(scale=scale) for scale in scales])
@@ -205,4 +238,3 @@ def DefineMuonSelection(df,sel_config,only_default,want_variations,syst_cfg):
             if sel_subdict.get("store", False):
                 vars_to_store.append(full_name)
     return df, vars_to_store
-

@@ -104,8 +104,51 @@ def _load_toml(path):
     return config
 
 
+def validate_predictions(predictions, payload_name, model_set="updated"):
+    """Reject fully saturated output instead of silently writing bad shapes."""
+    if predictions.size == 0:
+        return
+    if not np.isfinite(predictions).all():
+        raise RuntimeError(
+            f"DNN payload {payload_name!r} produced non-finite predictions"
+        )
+    epsilon = 1.0e-12
+    all_zero = np.all(predictions <= epsilon)
+    all_one = np.all(predictions >= 1.0 - epsilon)
+    if all_zero or all_one:
+        edge = "zero" if all_zero else "one"
+        detail = (
+            " The updated model is known to contain an effectively zero "
+            "variance pt_vbfj1j2 feature."
+            if model_set == "updated"
+            else ""
+        )
+        raise RuntimeError(
+            f"DNN payload {payload_name!r} using model set {model_set!r} "
+            f"produced predictions saturated at {edge} for every event. "
+            "Check the selected model generation, input features, and "
+            f"preprocessing constants.{detail}"
+        )
+
+
 class DNNApplication:
-    def __init__(self, payload_name="DNN", base_dir=None, btag_algo="PNet", era=None):
+    ERA_CODES = {
+        "Run3_2022": 0,
+        "Run3_2022EE": 1,
+        "Run3_2023": 2,
+        "Run3_2023BPix": 3,
+        "Run3_2024": 4,
+        "Run3_2025": 5,
+    }
+
+    def __init__(
+        self,
+        payload_name="DNN",
+        base_dir=None,
+        btag_algo="PNet",
+        era=None,
+        model_set="updated",
+    ):
         try:
             import onnxruntime as ort
         except ImportError as exc:
@@ -115,6 +158,7 @@ class DNNApplication:
         self.payload_name = payload_name
         self.btag_algo = btag_algo
         self.era = era
+        self.model_set = model_set
         self.base_dir = base_dir or os.environ["ANALYSIS_PATH"]
         self.config_dir, self.models_dir = self._resolve_payload_directories()
         self.parity, self.input_features = self._load_config()
@@ -126,12 +170,18 @@ class DNNApplication:
         if self.payload_name == "VBFNet":
             config_name = "vbfnet_configs"
             models_name = "vbfnet_models"
-        elif self.era == "Run3_2024":
-            config_name = "dnn_configs_2024"
-            models_name = "dnn_models_2024"
+        elif self.model_set == "legacy":
+            if self.era in {"Run3_2024", "Run3_2025"}:
+                config_name = "dnn_configs_2024"
+                models_name = "dnn_models_2024"
+            else:
+                config_name = "dnn_configs"
+                models_name = "dnn_models"
         else:
-            config_name = "dnn_configs"
-            models_name = "dnn_models"
+            # Use one trained DNN consistently across every Run 3 era,
+            # including the sideband payload aliases.
+            config_name = "updated_DNN_configs"
+            models_name = "updated_DNN_models"
 
         config_dir = os.path.join(common_dir, config_name)
         models_dir = os.path.join(common_dir, models_name)
@@ -203,6 +253,16 @@ class DNNApplication:
     def define_feature_aliases(self, df):
         columns = {str(col) for col in df.GetColumnNames()}
 
+        if "era_code" not in columns:
+            if self.era not in self.ERA_CODES:
+                supported = ", ".join(self.ERA_CODES)
+                raise ValueError(
+                    f"Cannot define era_code for era {self.era!r}. "
+                    f"Supported eras: {supported}"
+                )
+            df = df.Define("era_code", str(self.ERA_CODES[self.era]))
+            columns.add("era_code")
+
         aliases = {
             "pt_jj": "pt_vbfj1j2",
             "Zepperfield_Var": "Zeppenfeld_Var",
@@ -245,6 +305,9 @@ class DNNApplication:
             raise RuntimeError(f"Missing DNN input feature columns: {missing}")
 
         cols = ["DNNEntryKey", "FullEventId"] + self.input_features
+        validation_column = "HasVBF" if "HasVBF" in columns else None
+        if validation_column and validation_column not in cols:
+            cols.append(validation_column)
 
         available = set(str(c) for c in df.GetColumnNames())
         missing = [c for c in cols if c not in available]
@@ -300,6 +363,16 @@ class DNNApplication:
 
             predictions = predictions.astype(np.float32)
 
+        validation_predictions = predictions
+        if validation_column:
+            validation_predictions = predictions[
+                np.asarray(arrays[validation_column], dtype=bool)
+            ]
+        validate_predictions(
+            validation_predictions,
+            self.payload_name,
+            self.model_set,
+        )
         _declare_prediction_registry()
         keys = ROOT.std.vector("ULong64_t")()
         values = ROOT.std.vector("float")()
@@ -310,12 +383,15 @@ class DNNApplication:
         return df.Define(output_name, f"dnn_application::getPrediction({payload_id}, DNNEntryKey)")
 
 
-def ApplyDNN(df, payload_names=None, btag_algo="PNet", era=None):
+def ApplyDNN(
+    df, payload_names=None, btag_algo="PNet", era=None, model_set="updated"
+):
     payload_names = payload_names or ["DNN"]
     for payload_name in payload_names:
         df = DNNApplication(
             payload_name=payload_name,
             btag_algo=btag_algo,
             era=era,
+            model_set=model_set,
         ).apply(df)
     return df
