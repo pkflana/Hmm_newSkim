@@ -19,7 +19,7 @@ def SelectedJetObservablesDef(df, suffix=""):
         2: "third",
         3: "fourth",
     }
-    sel_jet_cols = ["SelectedJet_area","SelectedJet_btagDeepFlavQG","SelectedJet_btagPNetB","SelectedJet_btagPNetQvG","SelectedJet_btagUParTAK4QvG","SelectedJet_eta","SelectedJet_idx","SelectedJet_mass","SelectedJet_phi","SelectedJet_pt"]
+    sel_jet_cols = ["SelectedJet_area","SelectedJet_btagDeepFlavQG","SelectedJet_btagPNetB","SelectedJet_btagPNetQvG","SelectedJet_btagPNetCvL","SelectedJet_btagUParTAK4QvG","SelectedJet_eta","SelectedJet_idx","SelectedJet_mass","SelectedJet_phi","SelectedJet_pt"]
     for jet_idx, jet_type in jet_names.items():
         for jet_obs in sel_jet_cols:
             source = f"{jet_obs}{suffix}"

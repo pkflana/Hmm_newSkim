@@ -26,6 +26,12 @@ def finalize_histogram_dataframe(
         syst_cfg=systematics_cfg,
         want_variations=want_variations,
     )
+    columns = {str(column) for column in rdf.GetColumnNames()}
+    for source in ("leadingjet_eta", "subleadingjet_eta"):
+        target = f"abs_{source}"
+        if source in columns and target not in columns:
+            rdf = rdf.Define(target, f"std::abs({source})")
+            columns.add(target)
     target_weights = weight_columns if multiply_corrections else []
     rdf = ApplyDYAmcatnloNormalization(rdf, dataset_name, target_weights)
     if dy_ptll_reweight_json:

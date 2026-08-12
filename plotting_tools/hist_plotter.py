@@ -173,6 +173,22 @@ def get_process_scale_factors(plot_groups_cfg):
 
 
 def classify_plot_sample(sample_name, process_cfg, plot_groups_cfg):
+    component_styles = (
+        ("_VBF_Hard", "DY 2J Hard", "cornflowerblue"),
+        ("_VBF_PU1", "DY 1J Hard", "#0868df"),
+        ("_VBF_PU2", "DY 0J Hard", "#6b3b00"),
+    )
+    if sample_name.startswith("DY"):
+        for suffix, label, color in component_styles:
+            if sample_name.endswith(suffix):
+                return {
+                    "type": "background",
+                    "is_data": False,
+                    "is_signal": False,
+                    "color": color,
+                    "name": label,
+                }
+
     sample_info = classify_sample(sample_name, process_cfg)
 
     if sample_info is not None and (
@@ -341,6 +357,14 @@ def apply_background_groups(input_processes, plot_groups_cfg, active_group_names
             process_name
             for process_name, process_info in input_processes.items()
             if process_name not in grouped_processes
+            # DY jet components must remain separate so that both the main
+            # stack and the composition panel retain their three identities.
+            and not (
+                process_name.startswith("DY")
+                and process_name.endswith(
+                    ("_VBF_Hard", "_VBF_PU1", "_VBF_PU2")
+                )
+            )
             and not process_info.get("is_data", False)
             and not process_info.get("is_signal", False)
         ]
@@ -587,6 +611,14 @@ if __name__ == "__main__":
             "DYto2Mu_MLL105To160_ptll,DYto2Mu_MLL105To160_VBFFiltered_ptll."
         ),
     )
+    parser.add_argument(
+        "--dy-composition",
+        action="store_true",
+        help=(
+            "Add a DY composition panel for the VBF_Hard, VBF_PU1 and "
+            "VBF_PU2 samples (shown as DY 2J, 1J and 0J Hard)."
+        ),
+    )
 
     parser.add_argument(
         "--vars",
@@ -754,6 +786,12 @@ if __name__ == "__main__":
                 and sample not in get_group_member_info(plot_groups_cfg)
                 and sample not in plot_groups_cfg.get("signal_styles", {})
             ):
+                component_info = classify_plot_sample(
+                    sample, process_cfg, plot_groups_cfg
+                )
+                if component_info is not None:
+                    print(f"  {sample}: {component_info['type']}")
+                    continue
                 if args.allow_custom_samples:
                     print(f"  {sample}: custom sample")
                     continue
@@ -999,6 +1037,7 @@ if __name__ == "__main__":
                 normalize_dy_to_data=args.normalize_dy_to_data,
                 normalize_mc_to_data=args.normalize_mc_to_data,
                 dy_normalization_sample=args.dy_normalization_sample,
+                dy_composition=args.dy_composition,
             )
 
     print(

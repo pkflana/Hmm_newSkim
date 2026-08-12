@@ -1,6 +1,6 @@
 
 submit: true
-job_flavour: longlunch # microcentury
+job_flavour: workday # microcentury
 
 chunk_size: 1        # files per job
 target_chunk_size_gb: 5.0

@@ -65,4 +65,4 @@ process_to_select:
   - TTHto2Mu
   - TTH_inclusive
 
-proxy_location: /afs/cern.ch/work/v/vdamante/Hmm_newSkim/data/voms.proxy
+proxy_location: data/voms.proxy

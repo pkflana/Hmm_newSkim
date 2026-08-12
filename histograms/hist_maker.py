@@ -43,6 +43,7 @@ from common.jet_component_splitting import (
     add_vbf_eta_region_categories,
     define_jet_gen_matching,
     expanded_jet_component_categories,
+    jet_components_enabled_for_dataset,
     variable_for_component,
 )
 from common.manifest_utilities import read_manifest
@@ -125,8 +126,11 @@ def copy_root_directory(source_file, source_path, target_file, target_path):
     return True
 
 
-def split_dy_jet_component_outputs(output_file, mass_regions, process_label="DY"):
+def split_dy_jet_component_outputs(
+    output_file, mass_regions, process_label="DY", include_vbf_eta_regions=False
+):
     """Create inclusive and per-component files with fit-ready layout."""
+    eta_regions = VBF_ETA_REGIONS if include_vbf_eta_regions else ("incl",)
     output_path = Path(output_file)
     source = ROOT.TFile.Open(str(output_path), "READ")
     if not source or source.IsZombie():
@@ -154,7 +158,7 @@ def split_dy_jet_component_outputs(output_file, mass_regions, process_label="DY"
                 inclusive,
                 f"{mass_region}_ggF/incl",
             )
-            for eta_region in VBF_ETA_REGIONS:
+            for eta_region in eta_regions:
                 copy_root_directory(
                     source,
                     f"{mass_region}_DY_inclusive_VBF_{eta_region}",
@@ -172,7 +176,7 @@ def split_dy_jet_component_outputs(output_file, mass_regions, process_label="DY"
                 )
             for component in VBF_COMPONENTS:
                 _, target = component_files[component]
-                for eta_region in VBF_ETA_REGIONS:
+                for eta_region in eta_regions:
                     copy_root_directory(
                         source,
                         f"{mass_region}_{component}_{eta_region}",
@@ -939,7 +943,9 @@ def process_single_chunk(args_tuple):
             columns = tuple(configured_columns or (variable,))
             hist_specs[variable] = {
                 "columns": columns,
-                "model": GetModel(hist_cfg, variable, dims=len(columns)),
+                "model": GetModel(
+                    hist_cfg, variable, dims=len(columns), era=args.era
+                ),
             }
 
         base_columns = (
@@ -1324,8 +1330,8 @@ if __name__ == "__main__":
         action="store_true",
         help=(
             "Split the VBF category into nested incl/CC/CF/FF directories "
-            "using |eta(VBF jet)| = 2.5. This is independent of DY "
-            "Hard/PU component splitting."
+            "using |eta(VBF jet)| = 2.5. With --dy-jet-components, also "
+            "apply this split to every VBF jet component (default: only incl)."
         ),
     )
     parser.add_argument("--force-multiprocessing-with-dnn", action="store_true")
@@ -1536,36 +1542,52 @@ if __name__ == "__main__":
         utilities.process_from_dataset(process_cfg, args.dataset_name)
         or args.dataset_name
     )
+    process_entry = process_cfg.get(args.process_name, {})
     sel_cfg = utilities.get_config(os.path.join(cfg_dir, "selections.yaml"))
     syst_cfg = utilities.get_config(os.path.join(cfg_dir, "systematics.yaml"))
     hist_cfg = utilities.get_config(
         os.path.join(analysis_path, "config", "plot", "histograms.yaml")
     )
-    if args.dy_jet_components and args.vbf_eta_regions:
-        raise ValueError(
-            "--dy-jet-components already includes VBF eta regions; do not "
-            "combine it with --vbf-eta-regions"
-        )
-    if args.vbf_eta_regions:
+    if args.vbf_eta_regions and not args.dy_jet_components:
         sel_cfg = add_vbf_eta_region_categories(sel_cfg)
         args.categories = [f"VBF_eta_{region}" for region in VBF_ETA_REGIONS]
     if args.dy_jet_components:
         if is_data:
-            raise ValueError("--jet-gen-components cannot be used on data")
-        if args.process_name not in args.jet_gen_component_processes:
-            raise ValueError(
-                f"Process {args.process_name!r} is not enabled for reco/gen "
-                "splitting. Add it to --jet-gen-component-processes."
+            print(
+                f"[INFO] Dataset {args.dataset_name} is data: producing normal "
+                "histograms without jet/gen component splitting."
             )
-        sel_cfg = add_jet_component_categories(sel_cfg)
-        args.categories = list(expanded_jet_component_categories())
-        args.vbf_component_variables = list(args.variables or ["m_mumu"])
+            args.dy_jet_components = False
+        elif not jet_components_enabled_for_dataset(
+            args.jet_gen_component_processes,
+            args.dataset_name,
+            args.process_name,
+            is_signal=bool(process_entry.get("is_signal", False)),
+        ):
+            print(
+                f"[INFO] Dataset {args.dataset_name} (process {args.process_name}) "
+                "is outside --jet-gen-component-processes: producing normal "
+                "histograms."
+            )
+            args.dy_jet_components = False
+    if args.dy_jet_components:
+        sel_cfg = add_jet_component_categories(
+            sel_cfg, include_vbf_eta_regions=args.vbf_eta_regions
+        )
+        args.categories = list(
+            expanded_jet_component_categories(
+                include_vbf_eta_regions=args.vbf_eta_regions
+            )
+        )
+        requested_variables = list(
+            args.variables if args.variables is not None else main_cfg["variables"]
+        )
+        args.vbf_component_variables = requested_variables.copy()
         vars_to_add = [
-            "m_mumu",
             "eta_vs_pt_leadingjet",
             "eta_vs_pt_subleadingjet",
         ]
-        args.variables = list(dict.fromkeys([*(args.variables or []), *vars_to_add]))
+        args.variables = list(dict.fromkeys([*requested_variables, *vars_to_add]))
     else:
         args.vbf_component_variables = []
     masses_regions = sel_cfg["masses_regions"]
@@ -1881,6 +1903,7 @@ if __name__ == "__main__":
             args.output_file,
             masses_regions_list,
             process_label=args.process_name,
+            include_vbf_eta_regions=args.vbf_eta_regions,
         )
     if args.keep_tmp:
         print("[INFO] Keeping temporary files because --keep-tmp was used.")

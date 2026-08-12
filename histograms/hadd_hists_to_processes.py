@@ -40,7 +40,19 @@ def dataset_file_candidates(input_dir, process, dataset, component_label=None):
         "DYto2Mu_MLL105To160_FlashSim": ["_nonStitched", ""],
     }
     suffixes = suffix_by_process.get(process, [""])
-    component_suffix = f"_{component_label}" if component_label else ""
+    # hist_maker prefixes split files with the concrete process name, except
+    # for the canonical DY process where the historical DY_* labels are kept.
+    # Examples:
+    #   DY                         -> <dataset>_DY_VBF_Hard.root
+    #   DYto2Mu_MLL105To160        -> <dataset>_DYto2Mu_MLL105To160_VBF_Hard.root
+    input_component_label = component_label
+    if component_label and process != "DY":
+        input_component_label = (
+            f"{process}_{component_label.removeprefix('DY_')}"
+        )
+    component_suffix = (
+        f"_{input_component_label}" if input_component_label else ""
+    )
     return [
         os.path.join(input_dir, f"{dataset}{suffix}{component_suffix}.root")
         for suffix in suffixes
@@ -169,7 +181,13 @@ def hadd_datasets_to_processes(era,input_dir, output_dir,add_derived_systs=True,
         if not valid_dataset_files:
             continue
 
-        output_suffix = f"_{component_label}" if component_label else ""
+        # Do not duplicate the historical DY prefix in process-level files:
+        # DY_DY_0J.root becomes DY_0J.root, while process-specific outputs use
+        # e.g. DYto2Mu_MLL105To160_0J.root.
+        output_component = (
+            component_label.removeprefix("DY_") if component_label else None
+        )
+        output_suffix = f"_{output_component}" if output_component else ""
         output_name = f"{process}{output_suffix}.root"
         output_file_path = os.path.join(output_dir, output_name)
 

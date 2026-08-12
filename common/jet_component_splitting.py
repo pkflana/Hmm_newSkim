@@ -30,6 +30,35 @@ DY_COMPONENT_FILE_LABELS = {
 VBF_ETA_REGIONS = ("incl", "CC", "CF", "FF")
 
 
+def jet_components_enabled_for_dataset(
+    allowed_groups, dataset_name, process_name, *, is_signal=False
+):
+    """Match either process names or dataset-campaign group aliases."""
+    allowed = set(allowed_groups)
+    if process_name in allowed:
+        return True
+    if "DY_amcatnlo" in allowed and dataset_name in {
+        "DYto2L_M_50_amcatnloFXFX",
+        "DYto2Mu_M_50_amcatnloFXFX",
+        "DYto2Tau_M_50_amcatnloFXFX",
+        "DYto2E_M_50_amcatnloFXFX",
+    }:
+        return True
+    if (
+        "DY_amcatnlo_105_160" in allowed
+        and dataset_name.startswith("DYto2Mu_MLL_105to160_amcatnloFXFX")
+    ):
+        return True
+    if "EWK" in allowed and dataset_name == "EWK_2L2J_madgraph_herwig":
+        return True
+    if (
+        "EWK_105_160" in allowed
+        and dataset_name.startswith("EWK_2Mu2J_MLL_105to160_")
+    ):
+        return True
+    return "signals" in allowed and is_signal
+
+
 def vbf_eta_region_expressions(base_expression):
     """Split a VBF selection at |eta|=2.5 using the selected VBF pair."""
     eta1 = "abs(SelectedJet_eta{jet_suff}[VBFJetIdx_1{jet_suff}])"
@@ -47,14 +76,15 @@ def vbf_eta_region_expressions(base_expression):
     }
 
 
-def expanded_jet_component_categories():
+def expanded_jet_component_categories(include_vbf_eta_regions=False):
     """Internal staging categories needed for split component ROOT files."""
+    eta_regions = VBF_ETA_REGIONS if include_vbf_eta_regions else ("incl",)
     categories = ["DY_inclusive_ggF"]
-    categories.extend(f"DY_inclusive_VBF_{region}" for region in VBF_ETA_REGIONS)
+    categories.extend(f"DY_inclusive_VBF_{region}" for region in eta_regions)
     for component in GGF_COMPONENT_VARIABLES:
         categories.append(component)
     for component in VBF_COMPONENTS:
-        categories.extend(f"{component}_{region}" for region in VBF_ETA_REGIONS)
+        categories.extend(f"{component}_{region}" for region in eta_regions)
     return tuple(categories)
 
 
@@ -72,10 +102,11 @@ def add_vbf_eta_region_categories(selection_config):
     return config
 
 
-def add_jet_component_categories(selection_config):
+def add_jet_component_categories(selection_config, include_vbf_eta_regions=False):
     """Return a config with mutually exclusive reco/gen-matching categories."""
     config = deepcopy(selection_config)
     categories = config.setdefault("categories", {})
+    eta_regions = VBF_ETA_REGIONS if include_vbf_eta_regions else ("incl",)
     components = {
         "ggF_0J_Hard": "ggF{tot_suff} && N_SelectedJets{jet_suff} == 0",
         "ggF_1J_Hard": (
@@ -109,6 +140,7 @@ def add_jet_component_categories(selection_config):
             for region, expression in vbf_eta_region_expressions(
                 "VBF{tot_suff}"
             ).items()
+            if region in eta_regions
         },
     }
     for name, expression in components.items():
@@ -119,6 +151,7 @@ def add_jet_component_categories(selection_config):
                     for region, region_expression in vbf_eta_region_expressions(
                         expression
                     ).items()
+                    if region in eta_regions
                 }
             )
         else:
