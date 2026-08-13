@@ -17,6 +17,7 @@ Options:
   --max-parallel-jobs N  Limit concurrently active jobs (submit only).
   --proxy PATH            Use this user's VOMS proxy.
   --output-dir PATH       Override the configured skim_v3 output directory.
+  -d, --dataset NAME      Process one exact dataset (repeatable).
   -h, --help             Show this help.
 
 Default eras:
@@ -54,6 +55,7 @@ max_submit_jobs=""
 max_parallel_jobs=""
 proxy_path=""
 output_dir=""
+datasets=()
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
@@ -75,6 +77,10 @@ while [[ $# -gt 0 ]]; do
       ;;
     --output-dir)
       output_dir="$2"
+      shift 2
+      ;;
+    -d|--dataset)
+      datasets+=("$2")
       shift 2
       ;;
     -h|--help)
@@ -103,6 +109,9 @@ echo "[CAMPAIGN] output=skim_v3"
 echo "[CAMPAIGN] chunking=5 GiB, at most 5 NanoAOD files"
 
 common_opts=()
+for dataset in "${datasets[@]}"; do
+  common_opts+=(--dataset "$dataset")
+done
 if [[ -n "$proxy_path" ]]; then
   common_opts+=(--proxy "$proxy_path")
 fi

@@ -128,7 +128,6 @@ run_profile() {
         *) printf 'ERRORE: ACTION deve essere plan, check o run\n' >&2; return 2 ;;
     esac
 
-    command+=(-- --skip-failed-chunks)
     printf '\n========== %s / %s / %s ==========\n' \
         "${profile}" "${mode}" "${action}"
     "${command[@]}"

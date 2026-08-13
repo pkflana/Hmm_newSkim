@@ -13,6 +13,8 @@ CENTRAL_OUTPUT="${CENTRAL_OUTPUT:-/eos/user/v/vdamante/H_mumu/Hists_DNN_erabased
 EXECUTION="${EXECUTION:-condor}"
 MISSING_ONLY=1
 INTERVAL="${INTERVAL:-300}"
+DATASETS_OVERRIDE=""
+DATASET_NAME=""
 
 usage() {
     cat <<'EOF'
@@ -32,6 +34,8 @@ Options:
   --interval SECONDS           polling Condor interno (default: 300)
   --input-dir PATH             skim input base
   --manifests PATH             validation-manifest base
+  -d, --dataset NAME           one exact dataset name
+  --datasets GROUPS            dataset group(s), comma-separated
   -o, --output-base PATH       output base
   --central-output PATH        direct output directory for Central
   -h, --help                   show this help
@@ -86,6 +90,14 @@ while [[ $# -gt 0 ]]; do
             MANIFESTS="$2"
             shift 2
             ;;
+        -d|--dataset)
+            DATASET_NAME="$2"
+            shift 2
+            ;;
+        --datasets)
+            DATASETS_OVERRIDE="$2"
+            shift 2
+            ;;
         -o|--output-base)
             OUTPUT_BASE="$2"
             shift 2
@@ -127,6 +139,13 @@ elif [[ ",${SYSTEMATICS,,}," == *,central,* ]]; then
 else
     DATASETS="mc"
 fi
+if [[ -n "${DATASETS_OVERRIDE}" ]]; then
+    DATASETS="${DATASETS_OVERRIDE}"
+fi
+if [[ -n "${DATASET_NAME}" && -n "${DATASETS_OVERRIDE}" ]]; then
+    echo "Use either --dataset or --datasets, not both." >&2
+    exit 2
+fi
 
 case "${MODE}" in
     plan|run|check|monitor) ;;
@@ -160,7 +179,6 @@ if [[ "${EXECUTION}" == "condor" ]]; then
         python3 htcondor/condorsubmit.py histograms
         --eras "${condor_eras_csv}"
         --systematics "${SYSTEMATICS}"
-        --datasets "${DATASETS}"
         --root-input-folder "${INPUT_DIR}"
         --json-input-folder "${INPUT_DIR}"
         --manifest-input-folder "${MANIFESTS}"
@@ -169,6 +187,11 @@ if [[ "${EXECUTION}" == "condor" ]]; then
         --chunk-size 1
         --poll-interval "${INTERVAL}"
     )
+    if [[ -n "${DATASET_NAME}" ]]; then
+        command+=(--dataset-name "${DATASET_NAME}")
+    else
+        command+=(--datasets "${DATASETS}")
+    fi
     [[ ${MISSING_ONLY} -eq 1 ]] && command+=(--missing-only)
     [[ ${MISSING_ONLY} -eq 0 ]] && command+=(--force)
     case "${MODE}" in
@@ -193,13 +216,17 @@ else
         -s "${SYSTEMATICS}"
         --input-dir "${INPUT_DIR}"
         --manifests "${MANIFESTS}"
-        --datasets "${DATASETS}"
         -v DNN_NNOutput
         -r Signal_Fit
         -c VBF
         --chunk-size 1
         --local
     )
+    if [[ -n "${DATASET_NAME}" ]]; then
+        command+=(-d "${DATASET_NAME}")
+    else
+        command+=(--datasets "${DATASETS}")
+    fi
     if [[ "${SYSTEMATICS,,}" == "central" ]]; then
         command+=(--output-dir "${CENTRAL_OUTPUT}")
     else

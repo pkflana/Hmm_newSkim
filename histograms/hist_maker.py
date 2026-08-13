@@ -20,8 +20,6 @@ sys.path.append(os.environ["ANALYSIS_PATH"])
 import common.utilities as utilities
 from common.skim_utilities import (
     metadata_for_root_files,
-    resolve_skip_failed_chunks,
-    validate_skip_failed_chunks,
 )
 from common.add_var_to_skim import GetSelectionSuffixForSystematic
 from common.add_vars_to_skim_tuples import (
@@ -1361,15 +1359,6 @@ if __name__ == "__main__":
     parser.add_argument("--keep-tmp", action="store_true")
     parser.add_argument("--resume", action="store_true")
     parser.add_argument(
-        "--skip-failed-chunks",
-        action=argparse.BooleanOptionalAction,
-        default=None,
-        help=(
-            "Skip failed MC chunks and renormalize surviving chunks. Default: "
-            "enabled for serial MC, disabled for data and parallel processing."
-        ),
-    )
-    parser.add_argument(
         "--dy-jet-components",
         "--jet-gen-components",
         dest="dy_jet_components",
@@ -1465,10 +1454,11 @@ if __name__ == "__main__":
             if workflow_manifest.get("status", "passed") != "passed":
                 invalid_roots = len(workflow_manifest.get("invalid_root_files", []))
                 valid_roots = len(workflow_manifest.get("valid_root_files", []))
-                print(
-                    "[WARNING] Using partially failed validation manifest "
+                raise RuntimeError(
+                    "Refusing failed validation manifest "
                     f"{args.input_manifest}: {valid_roots} valid ROOT file(s), "
-                    f"{invalid_roots} invalid ROOT file(s)."
+                    f"{invalid_roots} invalid ROOT file(s). Rerun validation "
+                    "after completing the skim production."
                 )
 
             # The manifest is the source of truth. Folder arguments, when also
@@ -1540,31 +1530,10 @@ if __name__ == "__main__":
         dataset_cfg.get("is_data", False)
         or "data" in args.dataset_name.lower()
     )
-    skip_policy_was_explicit = args.skip_failed_chunks is not None
-    args.skip_failed_chunks = resolve_skip_failed_chunks(
-        args.skip_failed_chunks,
-        is_data,
-        args.n_cores,
-    )
-    if not skip_policy_was_explicit:
-        policy_reason = (
-            "serial MC default"
-            if args.skip_failed_chunks
-            else "data/parallel fail-fast default"
-        )
-        print(
-            f"[INFO] Failed-chunk policy: "
-            f"{'skip and renormalize' if args.skip_failed_chunks else 'fail fast'} "
-            f"({policy_reason})."
-        )
-    elif not args.skip_failed_chunks:
-        print("[INFO] Failed-chunk policy: fail fast (explicit override).")
-    validate_skip_failed_chunks(
-        args.skip_failed_chunks,
-        is_data,
-        args.n_cores,
-        args.resume,
-    )
+    # Validation is the authority for usable inputs. Every ROOT reaching this
+    # stage must succeed, while all valid JSON reports in the manifest define
+    # the full MC normalization denominator.
+    args.skip_failed_chunks = False
     requested_systematics = parse_requested_systematics(args.systematics)
     request_all = any(name.lower() == "all" for name in requested_systematics)
     request_central_only = {
@@ -1843,8 +1812,6 @@ if __name__ == "__main__":
 
     if args.n_cores == 1:
         active_items = list(pool_inputs)
-        normalization_pass = 0
-        excluded_root_files = set()
         while active_items:
             tmp_files = []
             pass_failures = []
@@ -1874,48 +1841,9 @@ if __name__ == "__main__":
 
             if not pass_failures:
                 break
-            if not args.skip_failed_chunks:
-                print("[ERROR] Stopping because --skip-failed-chunks was not used.")
-                write_failed_chunks_report(args.output_file, failed_chunks)
-                sys.exit(1)
-
-            failed_indices = {failure[0] for failure in pass_failures}
-            for chunk_index, chunk_files, _ in pass_failures:
-                excluded_root_files.update(chunk_files)
-                print(
-                    f"[WARNING] Excluding failed chunk {chunk_index} and all "
-                    f"of its {len(chunk_files)} file(s)."
-                )
-            active_items = [
-                item for item in active_items if item[0] not in failed_indices
-            ]
-            for tmp_file in tmp_files:
-                remove_file_if_exists(tmp_file)
-            tmp_files = []
-            if not active_items:
-                break
-
-            surviving_normalization_files = [
-                root_file
-                for root_file in normalization_root_files
-                if root_file not in excluded_root_files
-            ]
-            dataset_seg_dict, dataset_qcd_scale_seg_dicts = (
-                normalization_for_root_files(
-                    args.metadata_inputs,
-                    surviving_normalization_files,
-                    syst_cfg,
-                    systematics_mode,
-                )
-            )
-            normalization_pass += 1
-            print(
-                f"[RENORMALIZE] Pass {normalization_pass}: recalculated "
-                f"denominators from {len(surviving_normalization_files)} "
-                "dataset file(s), excluding "
-                f"{len(excluded_root_files)} file(s) from failed chunks. "
-                "Reprocessing every surviving chunk."
-            )
+            print("[ERROR] A validated histogram input failed during processing.")
+            write_failed_chunks_report(args.output_file, failed_chunks)
+            sys.exit(1)
     else:
         items_to_run = []
         for item in pool_inputs:
@@ -1942,14 +1870,6 @@ if __name__ == "__main__":
                     handle_success(tmp)
         except Exception as e:
             print(f"[ERROR] A multiprocessing chunk failed: {repr(e)}")
-            if args.skip_failed_chunks:
-                print(
-                    "[ERROR] Precise skip of failed chunks is only safe with --n-cores 1. "
-                    "Rerun with --n-cores 1 --resume --skip-failed-chunks."
-                )
-                write_failed_chunks_report(args.output_file, failed_chunks)
-                sys.exit(1)
-            print("[ERROR] Stopping because --skip-failed-chunks was not used.")
             write_failed_chunks_report(args.output_file, failed_chunks)
             sys.exit(1)
     write_failed_chunks_report(args.output_file, failed_chunks)

@@ -39,6 +39,13 @@ parser.add_argument(
     help="Era to process, e.g. Run3_2022EE",
 )
 parser.add_argument(
+    "-d",
+    "--dataset",
+    dest="datasets",
+    action="append",
+    help="Process one exact dataset; repeat for multiple datasets.",
+)
+parser.add_argument(
     "--max-parallel-jobs",
     type=int,
     default=None,
@@ -690,12 +697,15 @@ def wait_until_dataset_can_be_submitted(dataset, n_jobs, active_clusters, global
 
 all_datasets = []
 
-all_datasets.extend(datasets_whitelist)
+if args.datasets:
+    all_datasets.extend(args.datasets)
+else:
+    all_datasets.extend(datasets_whitelist)
 
-for process in process_to_select:
-    datasets = processes_cfg[process].get("datasets", [])
-    subprocesses = processes_cfg[process].get("sub_processes", [])
-    all_datasets.extend(datasets + subprocesses)
+    for process in process_to_select:
+        datasets = processes_cfg[process].get("datasets", [])
+        subprocesses = processes_cfg[process].get("sub_processes", [])
+        all_datasets.extend(datasets + subprocesses)
 
 all_datasets = list(dict.fromkeys(all_datasets))
 

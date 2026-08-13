@@ -93,6 +93,12 @@ def pair_mc_results(root_results, json_results):
         empty_pair_is_valid = (
             not good_roots and len(empty_roots) == 1 and len(good_jsons) == 1
         )
+        # MC normalization lives in the skim report. Keep the unique valid
+        # JSON even when its ROOT output has no processable events; histogram
+        # production receives only the readable ROOT files.
+        normalization_json_is_valid = (
+            len(root_items) == 1 and len(good_jsons) == 1
+        )
         if pair_is_valid:
             root_path = good_roots[0][0]
             json_path = good_jsons[0][0]
@@ -108,6 +114,8 @@ def pair_mc_results(root_results, json_results):
                     "reason": empty_roots[0][2],
                 }
             )
+        elif normalization_json_is_valid:
+            valid_jsons.append(good_jsons[0][0])
 
         for path, intrinsically_valid, intrinsic_reason in root_items:
             if (pair_is_valid and intrinsically_valid) or (
@@ -127,7 +135,7 @@ def pair_mc_results(root_results, json_results):
             invalid_roots.append({"path": path, "pairing_key": key, "reason": reason})
 
         for path, intrinsically_valid, intrinsic_reason in json_items:
-            if (pair_is_valid or empty_pair_is_valid) and intrinsically_valid:
+            if normalization_json_is_valid and intrinsically_valid:
                 continue
             if not intrinsically_valid:
                 reason = intrinsic_reason
