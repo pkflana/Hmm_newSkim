@@ -695,6 +695,35 @@ def filter_systs_to_run(systs_to_run, requested_systematics):
     return {name: systs_to_run[name] for name in requested}
 
 
+def validate_systematic_isolation(systs_to_run):
+    """Prevent one nuisance family from shifting unrelated inputs."""
+    for name, info in systs_to_run.items():
+        jet_suffix = info.get("jet_suffix", "")
+        muon_suffix = info.get("muon_suffix", "")
+        weight = info.get("weight", "weight__Central")
+        if name.startswith(("JER", "JES_")) and (
+            muon_suffix or weight != "weight__Central"
+        ):
+            raise ValueError(
+                f"{name} must vary only jet_suffix (found muon_suffix="
+                f"{muon_suffix!r}, weight={weight!r})"
+            )
+        if name.startswith(("MuonScale", "MuonRes")) and (
+            jet_suffix or weight != "weight__Central"
+        ):
+            raise ValueError(
+                f"{name} must vary only muon_suffix (found jet_suffix="
+                f"{jet_suffix!r}, weight={weight!r})"
+            )
+        if name.startswith(("MuonID_", "MuonIso_", "singleMuTrigger_")) and (
+            jet_suffix or muon_suffix
+        ):
+            raise ValueError(
+                f"{name} must vary only its weight (found jet_suffix="
+                f"{jet_suffix!r}, muon_suffix={muon_suffix!r})"
+            )
+
+
 def write_qcd_scale_variations(
     output_file,
     syst_cfg,
@@ -748,6 +777,38 @@ def write_qcd_scale_variations(
                     directory.Delete(
                         f"{variable}_{source_suffix};*"
                     )
+
+def normalize_systematic_direction_columns(rdf, systs_to_run):
+    """Alias systematic columns across the historical Up/up, Down/down split."""
+    available_columns = {str(c) for c in rdf.GetColumnNames()}
+    for syst_info in systs_to_run.values():
+        # Skims produced by different versions use both Up/Down and up/down
+        # for systematic suffixes (jet, muon and any other object variation).
+        # Expose the spelling requested by the configuration without
+        # duplicating data, so all expressions below use one consistent suffix.
+        requested_suffixes = {
+            syst_info.get(key, "") for key in ("jet_suffix", "muon_suffix")
+        }
+        for requested_suffix in requested_suffixes - {""}:
+            alternate_suffix = None
+            for ending, alternate in (
+                ("Up", "up"), ("up", "Up"),
+                ("Down", "down"), ("down", "Down"),
+            ):
+                if requested_suffix.endswith(ending):
+                    alternate_suffix = f"{requested_suffix[:-len(ending)]}{alternate}"
+                    break
+            if not alternate_suffix:
+                continue
+            for source in tuple(available_columns):
+                if not source.endswith(alternate_suffix):
+                    continue
+                target = f"{source[:-len(alternate_suffix)]}{requested_suffix}"
+                if target not in available_columns:
+                    rdf = rdf.Alias(target, source)
+                    available_columns.add(target)
+    return rdf
+
 
 def define_shifted_jet_observables(rdf, systs_to_run):
     defined_suffixes = set()
@@ -889,6 +950,9 @@ def process_single_chunk(args_tuple):
                 "events. Writing empty histograms."
             )
         else:
+            rdf_base = normalize_systematic_direction_columns(
+                rdf_base, systs_to_run
+            )
             rdf_base = define_shifted_jet_observables(rdf_base, systs_to_run)
             matching_columns = {
                 str(column) for column in rdf_base.GetColumnNames()
@@ -903,8 +967,8 @@ def process_single_chunk(args_tuple):
                 rdf_base = define_jet_gen_matching(
                     rdf_base,
                     {
-                        GetSelectionSuffixForSystematic(name, info)
-                        for name, info in systs_to_run.items()
+                        info.get("jet_suffix", "")
+                        for info in systs_to_run.values()
                     },
                 )
             weight_columns = sorted({
@@ -1617,6 +1681,28 @@ if __name__ == "__main__":
             for name in requested_systematics
         ]
         systs_to_run = filter_systs_to_run(systs_to_run, requested_systematics)
+    validate_systematic_isolation(systs_to_run)
+    # Selection construction used to receive every object systematic from the
+    # YAML even after the requested set had been filtered.  Asking for JERC
+    # could therefore compile MuonScale expressions such as
+    # m_mumu_FSR_scale_up.  Keep only the object-systematic families that are
+    # actually present in systs_to_run; weight-only variations remain central
+    # selections as intended.
+    active_object_systematics = {"Central"}
+    for base_name in syst_cfg.get("systematics", {}):
+        if base_name == "Central":
+            continue
+        if any(
+            run_name in systs_to_run
+            for run_name in (f"{base_name}Up", f"{base_name}Down")
+        ):
+            active_object_systematics.add(base_name)
+    syst_cfg = copy.deepcopy(syst_cfg)
+    syst_cfg["systematics"] = {
+        name: info
+        for name, info in syst_cfg.get("systematics", {}).items()
+        if name in active_object_systematics
+    }
     if args.list_systematics:
         for syst_name in systs_to_run:
             print(syst_name)
