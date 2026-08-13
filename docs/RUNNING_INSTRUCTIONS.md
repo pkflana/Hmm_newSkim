@@ -74,7 +74,6 @@ Common options:
 --dryrun
 --keep-tmp
 --resume
---skip-failed-chunks
 --force-multiprocessing-with-dnn
 --multiprocessing-method spawn|fork
 --shift-z-sideband-dnn-mass

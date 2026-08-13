@@ -18,9 +18,6 @@ ROOT.EnableThreadSafety()
 sys.path.append(os.environ["ANALYSIS_PATH"])
 
 import common.utilities as utilities
-from common.skim_utilities import (
-    metadata_for_root_files,
-)
 from common.add_var_to_skim import GetSelectionSuffixForSystematic
 from common.add_vars_to_skim_tuples import (
     SelectedJetObservablesDef,
@@ -349,30 +346,6 @@ def get_qcd_scale_segmentation_dict(input_paths, point_name, **kwargs):
         )
 
     return {}
-
-
-def normalization_for_root_files(
-    metadata_inputs,
-    root_files,
-    syst_cfg,
-    systematics_mode,
-):
-    """Rebuild central and QCD-scale denominators for surviving ROOT files."""
-    filtered_metadata = metadata_for_root_files(metadata_inputs, root_files)
-    central = get_combined_segmentation_dict(filtered_metadata)
-    qcd_scale = {}
-    if (
-        systematics_mode != "central"
-        and syst_cfg.get("qcd_scale", {}).get("enabled", False)
-    ):
-        for point in get_qcd_scale_points(syst_cfg["qcd_scale"]):
-            point_name = point["name"]
-            qcd_scale[point_name] = get_qcd_scale_segmentation_dict(
-                filtered_metadata,
-                point_name,
-                fallback_to_initial=False,
-            )
-    return central, qcd_scale
 
 
 def get_qcd_scale_variations(qcd_scale_config):
@@ -1533,7 +1506,6 @@ if __name__ == "__main__":
     # Validation is the authority for usable inputs. Every ROOT reaching this
     # stage must succeed, while all valid JSON reports in the manifest define
     # the full MC normalization denominator.
-    args.skip_failed_chunks = False
     requested_systematics = parse_requested_systematics(args.systematics)
     request_all = any(name.lower() == "all" for name in requested_systematics)
     request_central_only = {
