@@ -32,6 +32,7 @@ Dataset groups:
   TT
   W
   other_signals
+  mc (all configured MC groups for the selected era)
 
 Options:
   --datasets GROUPS       Comma-separated groups, "all", or "skim_cfg".
@@ -62,6 +63,7 @@ Options:
   --condor               Submit one HTCondor job per selected dataset for this stage.
   --condor-dir DIR       Directory for Condor submit/log files. Defaults by stage:
                           htcondor/validation, htcondor/hists, or htcondor/systematics.
+  --condor-label TEXT    Short campaign label used instead of the dataset-group list.
   --job-flavour TEXT     HTCondor JobFlavour. Default: workday.
   --request-cpus N       HTCondor request_cpus. Default: 4.
   --request-memory TEXT  HTCondor request_memory. Default: 8GB.
@@ -659,6 +661,7 @@ normalize_group() {
     ttx|TTX) echo "TTX" ;;
     tt|TT) echo "TT" ;;
     w|W) echo "W" ;;
+    mc|MC|all_mc|all-mc) echo "mc" ;;
     all|All) echo "all" ;;
     *) die "Unknown dataset group '$1'. Run with --help for the list." ;;
   esac
@@ -676,6 +679,21 @@ add_skim_cfg_jobs() {
   done < <(
     python3 "${ANALYSIS_PATH}/tools/resolve_datasets.py" \
       --era "${era}" --format lines
+  )
+}
+
+add_skim_cfg_mc_jobs() {
+  local era="$1"
+  local default_chunk_size="${chunk_size_override:-20}"
+  local dataset_name
+
+  echo "[INFO] Resolving all MC datasets from config/${era}/skim_cfg.yaml"
+  while IFS= read -r dataset_name; do
+    [[ -n "${dataset_name}" ]] || continue
+    add_job "${dataset_name}" "${default_chunk_size}"
+  done < <(
+    python3 "${ANALYSIS_PATH}/tools/resolve_datasets.py" \
+      --era "${era}" --format lines --exclude-data
   )
 }
 
@@ -715,6 +733,7 @@ extra_opts=()
 dry_run=0
 condor=0
 condor_dir=""
+condor_label=""
 job_flavour="workday"
 request_cpus=4
 request_memory="8GB"
@@ -835,6 +854,12 @@ while [[ $# -gt 0 ]]; do
     --condor-dir)
       [[ $# -ge 2 ]] || die "$1 requires a value"
       condor_dir="$2"
+      shift 2
+      ;;
+    --condor-label)
+      [[ $# -ge 2 ]] || die "$1 requires a value"
+      [[ -n "$2" ]] || die "$1 requires a non-empty value"
+      condor_label="$2"
       shift 2
       ;;
     --job-flavour)
@@ -976,6 +1001,7 @@ else
       DY_012J) add_dy_012j_jobs "${era}" ;;
       EWK_105_160) add_ewk_105_160_jobs ;;
       W) add_w_jobs "${era}" ;;
+      mc) add_skim_cfg_mc_jobs "${era}" ;;
       DiTriBoson|DY_minnlo|EWK|signals|SingleH|SingleTop|TTX|other_signals|TT) add_static_group_jobs "${group}" ;;
       *) die "Internal error: unhandled group '${group}'" ;;
     esac
@@ -1048,7 +1074,11 @@ if [[ ${condor} -eq 1 ]]; then
   analysis_path="${ANALYSIS_PATH:-$(pwd)}"
   timestamp="$(date +%Y%m%d_%H%M%S)"
   full_group_label="$(IFS=_; echo "${normalized_groups[*]}")"
-  group_label="$(condor_group_label)"
+  if [[ -n "${condor_label}" ]]; then
+    group_label="$(short_label "${condor_label}" 48)"
+  else
+    group_label="$(condor_group_label)"
+  fi
   submit_dir="${condor_dir}/${era}${output_suffix}_${group_label}_${timestamp}"
   condor_output_dir="${submit_dir}/output"
   condor_error_dir="${submit_dir}/error"

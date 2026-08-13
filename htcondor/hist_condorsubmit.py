@@ -218,6 +218,8 @@ def build_shell_command(args: argparse.Namespace) -> List[str]:
         command.extend(["--output-suffix", args.output_suffix])
     if args.output_dir:
         command.extend(["--output-dir", args.output_dir])
+    if args.condor_label:
+        command.extend(["--condor-label", args.condor_label])
     if args.chunk_size is not None:
         command.extend(["--chunk-size", str(args.chunk_size)])
     if args.file_open_retries is not None:
@@ -272,6 +274,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--manifest-input-folder", default=None, help="Manifest input folder.")
     parser.add_argument("--output-suffix", default="", help="Suffix appended to output names.")
     parser.add_argument("--output-dir", default=None, help="Target output directory.")
+    parser.add_argument("--condor-label", default=None, help="Short Condor campaign label.")
     parser.add_argument("--chunk-size", type=int, default=None)
     parser.add_argument("--file-open-retries", type=int, default=None)
     parser.add_argument("--file-open-retry-delay", type=int, default=None)
