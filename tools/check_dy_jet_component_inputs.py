@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Preflight DY skim columns required by the hard/PU component campaign."""
+"""Preflight skim columns required by the hard/PU component campaign."""
 
 import argparse
 import json
@@ -8,39 +8,12 @@ from pathlib import Path
 
 import ROOT
 
-
-DY_DATASETS = {
-    "Run3_2022": (
-        "DYto2L_M_50_amcatnloFXFX",
-        "DYto2Mu_MLL_105to160_amcatnloFXFX",
-    ),
-    "Run3_2022EE": (
-        "DYto2L_M_50_amcatnloFXFX",
-        "DYto2Mu_MLL_105to160_amcatnloFXFX",
-    ),
-    "Run3_2023": (
-        "DYto2L_M_50_amcatnloFXFX",
-        "DYto2Mu_MLL_105to160_amcatnloFXFX",
-    ),
-    "Run3_2023BPix": (
-        "DYto2L_M_50_amcatnloFXFX",
-        "DYto2Mu_MLL_105to160_amcatnloFXFX",
-    ),
-    "Run3_2024": (
-        "DYto2Mu_M_50_amcatnloFXFX",
-        "DYto2Tau_M_50_amcatnloFXFX",
-        "DYto2E_M_50_amcatnloFXFX",
-        "DYto2Mu_MLL_105to160_amcatnloFXFX",
-        "DYto2Mu_MLL_105to160_amcatnloFXFX_Fil_VBF",
-    ),
-    "Run3_2025": (
-        "DYto2Mu_M_50_amcatnloFXFX",
-        "DYto2Tau_M_50_amcatnloFXFX",
-        "DYto2E_M_50_amcatnloFXFX",
-        "DYto2Mu_MLL_105to160_amcatnloFXFX",
-        "DYto2Mu_MLL_105to160_amcatnloFXFX_Fil_VBF",
-    ),
-}
+sys.path.append(str(Path(__file__).resolve().parents[1]))
+from common.dataset_utilities import (
+    jet_gen_component_processes,
+    load_routing,
+    resolve_dataset_selection,
+)
 
 REQUIRED_ALTERNATIVES = {"SelectedJet_genJetIdx", "Jet_genJetIdx"}
 
@@ -76,31 +49,60 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--manifests", required=True, type=Path)
     parser.add_argument("--eras", nargs="+", required=True)
+    parser.add_argument(
+        "--processes",
+        nargs="+",
+        default=None,
+        help=(
+            "Processes to check. By default use every process enabled in "
+            "config/histogram_sample_routing.yaml."
+        ),
+    )
+    parser.add_argument(
+        "--analysis-path",
+        type=Path,
+        default=Path(__file__).resolve().parents[1],
+    )
     args = parser.parse_args()
 
+    routing = load_routing(
+        args.analysis_path / "config" / "histogram_sample_routing.yaml"
+    )
+    requested_processes = set(
+        args.processes or jet_gen_component_processes(routing)
+    )
     failures = []
     checked = 0
     for era in args.eras:
-        for dataset in DY_DATASETS[era]:
-            manifest = args.manifests / era / f"{dataset}.json"
-            error = check_dataset(manifest)
-            checked += 1
-            if error:
-                failures.append(f"{era}/{dataset}: {error}")
-            else:
-                print(f"[OK] {era}/{dataset}")
+        selection = resolve_dataset_selection(args.analysis_path, era)
+        process_datasets = selection["process_datasets"]
+        matched_processes = [
+            process for process in process_datasets if process in requested_processes
+        ]
+        missing_processes = sorted(requested_processes - set(process_datasets))
+        for process in missing_processes:
+            print(f"[SKIP] {era}/{process}: process is not selected for this era")
+        for process in matched_processes:
+            for dataset in process_datasets[process]:
+                manifest = args.manifests / era / f"{dataset}.json"
+                error = check_dataset(manifest)
+                checked += 1
+                if error:
+                    failures.append(f"{era}/{process}/{dataset}: {error}")
+                else:
+                    print(f"[OK] {era}/{process}/{dataset}")
 
     if failures:
-        print("\n[ERROR] DY jet-component preflight failed:", file=sys.stderr)
+        print("\n[ERROR] Jet-component preflight failed:", file=sys.stderr)
         for failure in failures:
             print(f"  - {failure}", file=sys.stderr)
         print(
-            "\nRegenerate the affected DY skims with the current "
+            "\nRegenerate the affected skims with the current "
             "analysis/jets.py before submitting this campaign.",
             file=sys.stderr,
         )
         return 1
-    print(f"\n[OK] Preflight passed for {checked} DY dataset/era combinations.")
+    print(f"\n[OK] Preflight passed for {checked} dataset/era combinations.")
     return 0
 
 

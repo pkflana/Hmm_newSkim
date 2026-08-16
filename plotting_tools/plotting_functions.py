@@ -522,6 +522,7 @@ def make_stacked_plot(
     normalize_mc_to_data=False,
     dy_normalization_sample="DY",
     era="",
+    dy_composition=False,
 ):
     """
     Genera uno stacked plot con:
@@ -885,7 +886,40 @@ def make_stacked_plot(
             f"per {variable}. Uso Data/MC se disponibile."
         )
 
-    if has_ratio:
+    component_suffixes = ("_VBF_Hard", "_VBF_PU1", "_VBF_PU2")
+    composition_indices = [
+        idx
+        for idx, key in enumerate(mc_keys)
+        if key.startswith("DY") and key.endswith(component_suffixes)
+    ]
+    has_composition = dy_composition and len(composition_indices) == 3
+    if dy_composition and not has_composition:
+        print(
+            f"  [WARNING] DY composition skipped for {variable}: expected "
+            "exactly VBF_Hard, VBF_PU1 and VBF_PU2 DY samples."
+        )
+
+    if has_ratio and has_composition:
+        fig, (ax, cax, rax) = plt.subplots(
+            3,
+            1,
+            figsize=(canvas_size[0] / 80, canvas_size[1] / 85),
+            sharex=True,
+            gridspec_kw={
+                "height_ratios": [3, 1, 1],
+                "hspace": 0.05,
+            },
+        )
+    elif has_composition:
+        fig, (ax, cax) = plt.subplots(
+            2,
+            1,
+            figsize=(canvas_size[0] / 80, canvas_size[1] / 90),
+            sharex=True,
+            gridspec_kw={"height_ratios": [3, 1], "hspace": 0.05},
+        )
+        rax = None
+    elif has_ratio:
         fig, (ax, rax) = plt.subplots(
             2,
             1,
@@ -896,6 +930,7 @@ def make_stacked_plot(
                 "hspace": 0.05,
             },
         )
+        cax = None
     else:
         fig, ax = plt.subplots(
             1,
@@ -903,6 +938,7 @@ def make_stacked_plot(
             figsize=(canvas_size[0] / 80, canvas_size[1] / 100),
         )
         rax = None
+        cax = None
 
     # =====================================================
     # Background stack
@@ -1005,6 +1041,36 @@ def make_stacked_plot(
             markersize=5,
             label=data_label_legend,
         )
+
+    # =====================================================
+    # DY jet composition
+    # =====================================================
+
+    if has_composition:
+        component_vals = [mc_vals[idx] for idx in composition_indices]
+        component_colors = [mc_colors[idx] for idx in composition_indices]
+        component_total = np.sum(component_vals, axis=0)
+        fractions = [
+            np.divide(
+                values,
+                component_total,
+                out=np.zeros_like(values, dtype=float),
+                where=component_total != 0,
+            )
+            for values in component_vals
+        ]
+        hep.histplot(
+            fractions,
+            bins=bin_edges,
+            stack=True,
+            histtype="fill",
+            color=component_colors,
+            edgecolor="none",
+            ax=cax,
+        )
+        cax.set_ylim(0.0, 1.0)
+        cax.set_ylabel("DY Comp.", fontsize=14)
+        cax.grid(axis="y", linestyle=":", linewidth=0.5, alpha=0.5)
 
     # =====================================================
     # Ratio
@@ -1267,6 +1333,11 @@ def make_stacked_plot(
     if has_ratio:
         rax.set_xlabel(x_label, fontsize=20)
         ax.get_xaxis().set_visible(False)
+        if cax is not None:
+            cax.get_xaxis().set_visible(False)
+    elif has_composition:
+        cax.set_xlabel(x_label, fontsize=20)
+        ax.get_xaxis().set_visible(False)
     else:
         ax.set_xlabel(x_label, fontsize=20)
 
@@ -1368,6 +1439,8 @@ def make_stacked_plot(
 
     lumi_val = config_page.get("lumi_text", {}).get("text", "1.0")
     cms_tag = f"Preliminary {category_names[category]}"
+    category_label = category_names.get(category, category.replace("/incl", ""))
+    cms_tag = f"Preliminary {category_label}" # config_page.get("cms_label", {}).get("tag",
     cms_com = config_page.get("cms_label", {}).get("com", "13.6")
 
     hep.cms.label(

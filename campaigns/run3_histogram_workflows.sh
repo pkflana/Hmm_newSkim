@@ -138,7 +138,6 @@ produce() {
         run) command+=(--run) ;;
         *) printf 'ERRORE: ACTION non valida: %s\n' "${action}" >&2; return 2 ;;
     esac
-    command+=(-- --skip-failed-chunks)
     "${command[@]}"
 }
 

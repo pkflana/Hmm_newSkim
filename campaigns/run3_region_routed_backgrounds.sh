@@ -108,7 +108,7 @@ for era in "${eras[@]}"; do
   if [[ "$mode" == "hadd-plan" || "$mode" == "hadd" ]]; then
     hadd_stage "$era" Signal_Fit
     hadd_stage "$era" Sidebands
-    hadd_stage "$era" DY012J
+    # hadd_stage "$era" DY012J
     continue
   fi
   signal_groups="$(
@@ -124,7 +124,7 @@ for era in "${eras[@]}"; do
       --era "$era" --region separate
   )"
 
-  run_stage "$era" Signal_Fit "$signal_groups" "Signal_Fit"
+  # run_stage "$era" Signal_Fit "$signal_groups" "Signal_Fit"
   run_stage "$era" Sidebands "$sideband_groups" "Z_sideband H_sideband"
-  run_stage "$era" DY012J "$separate_groups" "Signal_Fit Z_sideband H_sideband"
+  # run_stage "$era" DY012J "$separate_groups" "Signal_Fit Z_sideband H_sideband"
 done

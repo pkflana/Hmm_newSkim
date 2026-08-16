@@ -18,6 +18,11 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--era", required=True)
     parser.add_argument(
+        "--exclude-data",
+        action="store_true",
+        help="Exclude datasets belonging to Data_* processes.",
+    )
+    parser.add_argument(
         "--format",
         choices=("lines", "csv", "json", "processes", "process-json"),
         default="lines",
@@ -25,6 +30,18 @@ def main():
     args = parser.parse_args()
     analysis_path = os.environ.get("ANALYSIS_PATH", str(REPO))
     selection = resolve_dataset_selection(analysis_path, args.era)
+    if args.exclude_data:
+        data_datasets = {
+            dataset
+            for process, datasets in selection["process_datasets"].items()
+            if process.lower().startswith("data")
+            for dataset in datasets
+        }
+        selection["datasets"] = [
+            dataset
+            for dataset in selection["datasets"]
+            if dataset not in data_datasets
+        ]
 
     if args.format == "lines":
         print("\n".join(selection["datasets"]))

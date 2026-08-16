@@ -482,11 +482,14 @@ def findNewBins(hist_cfg_dict, var, **keys):
         return d.get('other') if isinstance(d, dict) else None
     return recursive_search(x_rebin, {k: v for k, v in keys.items() if v is not None}) or cfg.get('x_bins', [])
 
-def GetModel(hist_cfg, var, dims):
+def GetModel(hist_cfg, var, dims, era=None):
     THModel_Inputs = []
     var_entry = findBinEntry(hist_cfg, var)
     if dims == 1:
-        x_bins_vec = GetBinVec(hist_cfg[var_entry]["x_bins"])
+        variable_cfg = hist_cfg[var_entry]
+        binning = variable_cfg.get("binning", {})
+        x_bins = binning.get(era, variable_cfg["x_bins"])
+        x_bins_vec = GetBinVec(x_bins)
         THModel_Inputs.append(x_bins_vec.size() - 1)
         THModel_Inputs.append(x_bins_vec.data())
         model = ROOT.RDF.TH1DModel("", "", *THModel_Inputs)

@@ -27,16 +27,19 @@ from tools.variable_catalog import (
 
 DEFAULT_ERAS = ("2022", "2022EE", "2023", "2023BPix", "2024", "2025")
 DEFAULT_INPUT = "/eos/cms/store/group/phys_higgs/cmshmm/vdamante/skim_v3"
-DEFAULT_MANIFESTS = "/eos/user/v/vdamante/H_mumu/manifests"
+DEFAULT_MANIFESTS = "/eos/user/v/vdamante/H_mumu/manifests_skim_v3"
 DEFAULT_OUTPUT_BASE = "/eos/user/v/vdamante/H_mumu"
 DEFAULT_TEST_OUTPUT_BASE = "/tmp/vdamante/hmumu_tests"
 DEFAULT_SYSTEMATICS = ("Central", "JERC", "Muon", "PDF", "PU", "QCDScale", "ScaRe")
 DEFAULT_RUN2_3_ERAS = ("Run3_2022", "Run3_2022EE", "Run3_2023", "Run3_2023BPix")
-DEFAULT_GROUPS = (
-    "data,DiTriBoson,DY_amcatnlo,DY_amcatnlo_105_160,EWK,"
+# Keep the default histogram campaign aligned with the datasets actually
+# produced by each era's config/<era>/skim_cfg.yaml.  Explicit --datasets
+# values remain available for specialised campaigns.
+DEFAULT_GROUPS = "skim_cfg"
+DEFAULT_MC_GROUPS = (
+    "DiTriBoson,DY_amcatnlo,DY_amcatnlo_105_160,EWK,"
     "signals,SingleH,SingleTop,TTX,TT,W"
 )
-DEFAULT_MC_GROUPS = DEFAULT_GROUPS.removeprefix("data,")
 SOURCE_SUFFIXES = {".py", ".cc", ".cpp", ".h", ".hpp", ".yaml", ".yml", ".toml"}
 IGNORED_PARTS = {".git", "soft", "__pycache__", "results"}
 
@@ -669,7 +672,10 @@ def build_parser() -> argparse.ArgumentParser:
                       help="era, repeat or use commas (e.g. 2024,2025)")
     datasets = hist.add_mutually_exclusive_group()
     datasets.add_argument("-d", "--dataset", help="one exact dataset name")
-    datasets.add_argument("--datasets", help="dataset groups as a comma-separated list")
+    datasets.add_argument(
+        "--datasets",
+        help="dataset groups as a comma-separated list (default: skim_cfg)",
+    )
     hist.add_argument("-v", "--variable", action="append", default=[],
                       help="variable, repeat or use commas")
     hist.add_argument("-r", "--region", action="append", default=[],

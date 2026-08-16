@@ -11,6 +11,20 @@ import time
 import yaml
 from collections import defaultdict, OrderedDict
 
+
+# One public entry point for both producers.  The historical skim invocation
+# remains unchanged; ``condorsubmit.py histograms ...`` delegates to the
+# histogram implementation while sharing the same user-facing command.
+if len(sys.argv) > 1 and sys.argv[1] in {"histograms", "hists"}:
+    histogram_submitter = os.path.join(
+        os.path.dirname(os.path.abspath(__file__)), "hist_condorsubmit.py"
+    )
+    raise SystemExit(
+        subprocess.run([sys.executable, histogram_submitter, *sys.argv[2:]]).returncode
+    )
+if len(sys.argv) > 1 and sys.argv[1] == "skim":
+    del sys.argv[1]
+
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 from common.skim_utilities import chunk_files_by_size
 
@@ -23,6 +37,13 @@ parser.add_argument(
     "--era",
     required=True,
     help="Era to process, e.g. Run3_2022EE",
+)
+parser.add_argument(
+    "-d",
+    "--dataset",
+    dest="datasets",
+    action="append",
+    help="Process one exact dataset; repeat for multiple datasets.",
 )
 parser.add_argument(
     "--max-parallel-jobs",
@@ -528,8 +549,6 @@ def print_cluster_status(active_clusters):
     if not active_clusters:
         return
 
-    print("\n[CLUSTERS] Currently tracked clusters:")
-
     for cluster_id, info in active_clusters.items():
         dataset = info["dataset"]
         counts = get_condor_status_counts(cluster_id)
@@ -678,12 +697,15 @@ def wait_until_dataset_can_be_submitted(dataset, n_jobs, active_clusters, global
 
 all_datasets = []
 
-all_datasets.extend(datasets_whitelist)
+if args.datasets:
+    all_datasets.extend(args.datasets)
+else:
+    all_datasets.extend(datasets_whitelist)
 
-for process in process_to_select:
-    datasets = processes_cfg[process].get("datasets", [])
-    subprocesses = processes_cfg[process].get("sub_processes", [])
-    all_datasets.extend(datasets + subprocesses)
+    for process in process_to_select:
+        datasets = processes_cfg[process].get("datasets", [])
+        subprocesses = processes_cfg[process].get("sub_processes", [])
+        all_datasets.extend(datasets + subprocesses)
 
 all_datasets = list(dict.fromkeys(all_datasets))
 
@@ -885,13 +907,12 @@ for dataset in all_datasets:
         else 0.0
     )
 
-    log_dataset_message(dataset, "[SCAN SUMMARY]")
-    log_dataset_message(dataset, f"  NanoAOD inputs   : {total_files}")
-    log_dataset_message(dataset, f"  chunks total     : {total_chunks}")
-    log_dataset_message(dataset, f"  chunks completed : {completed_files_count}")
-    log_dataset_message(dataset, f"  chunks missing   : {missing_files_count}")
-    log_dataset_message(dataset, f"  completion       : {percent:.1f}%")
-    log_dataset_message(dataset, f"  jobs to submit   : {jobs_to_run}")
+    log_dataset_message(
+        dataset,
+        f"[SCAN] inputs={total_files} chunks={total_chunks} "
+        f"completed={completed_files_count} missing={missing_files_count} "
+        f"({percent:.1f}%) submit={jobs_to_run}",
+    )
     if missing_report:
         log_dataset_message(dataset, f"  missing report   : {missing_report}")
 
@@ -1056,8 +1077,9 @@ for dataset, condorinputs in dataset_condorinputs.items():
 
     global_submitted_jobs += num_proc
 
-    log_dataset_message(dataset, f"[SUBMIT] Cluster {cluster_id} -> {dataset}")
-    log_dataset_message(dataset, f"[SUBMIT] Jobs in cluster: {num_proc}")
+    log_dataset_message(
+        dataset, f"[SUBMIT] Cluster {cluster_id} -> {dataset} ({num_proc} jobs)"
+    )
 
     print(
         f"[GLOBAL STATUS] "
@@ -1093,9 +1115,6 @@ while active_clusters:
             flush=True,
         )
     else:
-        print(
-            f"\n[MONITOR] Waiting for {len(active_clusters)} active dataset clusters to finish..."
-        )
         print_cluster_status(active_clusters)
 
     if active_clusters:

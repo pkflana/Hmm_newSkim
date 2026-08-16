@@ -9,6 +9,7 @@ from common.jet_component_splitting import (
     add_vbf_eta_region_categories,
     define_jet_gen_matching,
     expanded_jet_component_categories,
+    jet_components_enabled_for_dataset,
     variable_for_component,
     vbf_eta_region_expressions,
 )
@@ -29,6 +30,18 @@ class JetComponentSplittingTest(unittest.TestCase):
             "N_PU_VBFJets{jet_suff} == 0",
             config["categories"]["VBF_Hard_incl"]["expression"],
         )
+        self.assertNotIn("VBF_Hard_CC", config["categories"])
+
+    def test_vbf_component_eta_subregions_can_be_requested(self):
+        config = add_jet_component_categories(
+            {"categories": {}}, include_vbf_eta_regions=True
+        )
+        self.assertEqual(
+            set(config["categories"]),
+            set(expanded_jet_component_categories(include_vbf_eta_regions=True)),
+        )
+        self.assertIn("VBF_Hard_CC", config["categories"])
+        self.assertIn("VBF_PU2_FF", config["categories"])
 
     def test_vbf_eta_regions_use_the_requested_boundary(self):
         regions = vbf_eta_region_expressions("VBF{tot_suff}")
@@ -88,6 +101,46 @@ class JetComponentSplittingTest(unittest.TestCase):
         dataframe = define_jet_gen_matching(FakeDataFrame(), {""})
         for count in (0, 1, 2):
             self.assertIn(f"RecoGenJetMatch_{count}J", dataframe.columns)
+
+    def test_campaign_group_aliases_select_the_expected_datasets(self):
+        allowed = [
+            "DY_amcatnlo",
+            "DY_amcatnlo_105_160",
+            "EWK",
+            "EWK_105_160",
+            "signals",
+        ]
+        cases = [
+            ("DYto2L_M_50_amcatnloFXFX", "DY", False),
+            (
+                "DYto2Mu_MLL_105to160_amcatnloFXFX",
+                "DYto2Mu_MLL105To160",
+                False,
+            ),
+            ("EWK_2L2J_madgraph_herwig", "EWK", False),
+            (
+                "EWK_2Mu2J_MLL_105to160_herwig",
+                "EWK_2Mu2J_MLL_105to160_herwig",
+                False,
+            ),
+            ("GluGluHto2Mu", "GluGluHto2Mu", True),
+        ]
+        for dataset, process, is_signal in cases:
+            self.assertTrue(
+                jet_components_enabled_for_dataset(
+                    allowed, dataset, process, is_signal=is_signal
+                )
+            )
+
+    def test_unlisted_background_is_not_split(self):
+        self.assertFalse(
+            jet_components_enabled_for_dataset(
+                ["DY_amcatnlo", "signals"],
+                "TTto2L2Nu",
+                "TT",
+                is_signal=False,
+            )
+        )
 
 
 if __name__ == "__main__":

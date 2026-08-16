@@ -18,11 +18,6 @@ ROOT.EnableThreadSafety()
 sys.path.append(os.environ["ANALYSIS_PATH"])
 
 import common.utilities as utilities
-from common.skim_utilities import (
-    metadata_for_root_files,
-    resolve_skip_failed_chunks,
-    validate_skip_failed_chunks,
-)
 from common.add_var_to_skim import GetSelectionSuffixForSystematic
 from common.add_vars_to_skim_tuples import (
     SelectedJetObservablesDef,
@@ -43,6 +38,7 @@ from common.jet_component_splitting import (
     add_vbf_eta_region_categories,
     define_jet_gen_matching,
     expanded_jet_component_categories,
+    jet_components_enabled_for_dataset,
     variable_for_component,
 )
 from common.manifest_utilities import read_manifest
@@ -125,8 +121,11 @@ def copy_root_directory(source_file, source_path, target_file, target_path):
     return True
 
 
-def split_dy_jet_component_outputs(output_file, mass_regions, process_label="DY"):
+def split_dy_jet_component_outputs(
+    output_file, mass_regions, process_label="DY", include_vbf_eta_regions=False
+):
     """Create inclusive and per-component files with fit-ready layout."""
+    eta_regions = VBF_ETA_REGIONS if include_vbf_eta_regions else ("incl",)
     output_path = Path(output_file)
     source = ROOT.TFile.Open(str(output_path), "READ")
     if not source or source.IsZombie():
@@ -154,7 +153,7 @@ def split_dy_jet_component_outputs(output_file, mass_regions, process_label="DY"
                 inclusive,
                 f"{mass_region}_ggF/incl",
             )
-            for eta_region in VBF_ETA_REGIONS:
+            for eta_region in eta_regions:
                 copy_root_directory(
                     source,
                     f"{mass_region}_DY_inclusive_VBF_{eta_region}",
@@ -172,7 +171,7 @@ def split_dy_jet_component_outputs(output_file, mass_regions, process_label="DY"
                 )
             for component in VBF_COMPONENTS:
                 _, target = component_files[component]
-                for eta_region in VBF_ETA_REGIONS:
+                for eta_region in eta_regions:
                     copy_root_directory(
                         source,
                         f"{mass_region}_{component}_{eta_region}",
@@ -347,30 +346,6 @@ def get_qcd_scale_segmentation_dict(input_paths, point_name, **kwargs):
         )
 
     return {}
-
-
-def normalization_for_root_files(
-    metadata_inputs,
-    root_files,
-    syst_cfg,
-    systematics_mode,
-):
-    """Rebuild central and QCD-scale denominators for surviving ROOT files."""
-    filtered_metadata = metadata_for_root_files(metadata_inputs, root_files)
-    central = get_combined_segmentation_dict(filtered_metadata)
-    qcd_scale = {}
-    if (
-        systematics_mode != "central"
-        and syst_cfg.get("qcd_scale", {}).get("enabled", False)
-    ):
-        for point in get_qcd_scale_points(syst_cfg["qcd_scale"]):
-            point_name = point["name"]
-            qcd_scale[point_name] = get_qcd_scale_segmentation_dict(
-                filtered_metadata,
-                point_name,
-                fallback_to_initial=False,
-            )
-    return central, qcd_scale
 
 
 def get_qcd_scale_variations(qcd_scale_config):
@@ -691,6 +666,35 @@ def filter_systs_to_run(systs_to_run, requested_systematics):
     return {name: systs_to_run[name] for name in requested}
 
 
+def validate_systematic_isolation(systs_to_run):
+    """Prevent one nuisance family from shifting unrelated inputs."""
+    for name, info in systs_to_run.items():
+        jet_suffix = info.get("jet_suffix", "")
+        muon_suffix = info.get("muon_suffix", "")
+        weight = info.get("weight", "weight__Central")
+        if name.startswith(("JER", "JES_")) and (
+            muon_suffix or weight != "weight__Central"
+        ):
+            raise ValueError(
+                f"{name} must vary only jet_suffix (found muon_suffix="
+                f"{muon_suffix!r}, weight={weight!r})"
+            )
+        if name.startswith(("MuonScale", "MuonRes")) and (
+            jet_suffix or weight != "weight__Central"
+        ):
+            raise ValueError(
+                f"{name} must vary only muon_suffix (found jet_suffix="
+                f"{jet_suffix!r}, weight={weight!r})"
+            )
+        if name.startswith(("MuonID_", "MuonIso_", "singleMuTrigger_")) and (
+            jet_suffix or muon_suffix
+        ):
+            raise ValueError(
+                f"{name} must vary only its weight (found jet_suffix="
+                f"{jet_suffix!r}, muon_suffix={muon_suffix!r})"
+            )
+
+
 def write_qcd_scale_variations(
     output_file,
     syst_cfg,
@@ -744,6 +748,38 @@ def write_qcd_scale_variations(
                     directory.Delete(
                         f"{variable}_{source_suffix};*"
                     )
+
+def normalize_systematic_direction_columns(rdf, systs_to_run):
+    """Alias systematic columns across the historical Up/up, Down/down split."""
+    available_columns = {str(c) for c in rdf.GetColumnNames()}
+    for syst_info in systs_to_run.values():
+        # Skims produced by different versions use both Up/Down and up/down
+        # for systematic suffixes (jet, muon and any other object variation).
+        # Expose the spelling requested by the configuration without
+        # duplicating data, so all expressions below use one consistent suffix.
+        requested_suffixes = {
+            syst_info.get(key, "") for key in ("jet_suffix", "muon_suffix")
+        }
+        for requested_suffix in requested_suffixes - {""}:
+            alternate_suffix = None
+            for ending, alternate in (
+                ("Up", "up"), ("up", "Up"),
+                ("Down", "down"), ("down", "Down"),
+            ):
+                if requested_suffix.endswith(ending):
+                    alternate_suffix = f"{requested_suffix[:-len(ending)]}{alternate}"
+                    break
+            if not alternate_suffix:
+                continue
+            for source in tuple(available_columns):
+                if not source.endswith(alternate_suffix):
+                    continue
+                target = f"{source[:-len(alternate_suffix)]}{requested_suffix}"
+                if target not in available_columns:
+                    rdf = rdf.Alias(target, source)
+                    available_columns.add(target)
+    return rdf
+
 
 def define_shifted_jet_observables(rdf, systs_to_run):
     defined_suffixes = set()
@@ -885,6 +921,9 @@ def process_single_chunk(args_tuple):
                 "events. Writing empty histograms."
             )
         else:
+            rdf_base = normalize_systematic_direction_columns(
+                rdf_base, systs_to_run
+            )
             rdf_base = define_shifted_jet_observables(rdf_base, systs_to_run)
             matching_columns = {
                 str(column) for column in rdf_base.GetColumnNames()
@@ -899,8 +938,8 @@ def process_single_chunk(args_tuple):
                 rdf_base = define_jet_gen_matching(
                     rdf_base,
                     {
-                        GetSelectionSuffixForSystematic(name, info)
-                        for name, info in systs_to_run.items()
+                        info.get("jet_suffix", "")
+                        for info in systs_to_run.values()
                     },
                 )
             weight_columns = sorted({
@@ -939,7 +978,9 @@ def process_single_chunk(args_tuple):
             columns = tuple(configured_columns or (variable,))
             hist_specs[variable] = {
                 "columns": columns,
-                "model": GetModel(hist_cfg, variable, dims=len(columns)),
+                "model": GetModel(
+                    hist_cfg, variable, dims=len(columns), era=args.era
+                ),
             }
 
         base_columns = (
@@ -1291,15 +1332,6 @@ if __name__ == "__main__":
     parser.add_argument("--keep-tmp", action="store_true")
     parser.add_argument("--resume", action="store_true")
     parser.add_argument(
-        "--skip-failed-chunks",
-        action=argparse.BooleanOptionalAction,
-        default=None,
-        help=(
-            "Skip failed MC chunks and renormalize surviving chunks. Default: "
-            "enabled for serial MC, disabled for data and parallel processing."
-        ),
-    )
-    parser.add_argument(
         "--dy-jet-components",
         "--jet-gen-components",
         dest="dy_jet_components",
@@ -1324,8 +1356,8 @@ if __name__ == "__main__":
         action="store_true",
         help=(
             "Split the VBF category into nested incl/CC/CF/FF directories "
-            "using |eta(VBF jet)| = 2.5. This is independent of DY "
-            "Hard/PU component splitting."
+            "using |eta(VBF jet)| = 2.5. With --dy-jet-components, also "
+            "apply this split to every VBF jet component (default: only incl)."
         ),
     )
     parser.add_argument("--force-multiprocessing-with-dnn", action="store_true")
@@ -1395,10 +1427,11 @@ if __name__ == "__main__":
             if workflow_manifest.get("status", "passed") != "passed":
                 invalid_roots = len(workflow_manifest.get("invalid_root_files", []))
                 valid_roots = len(workflow_manifest.get("valid_root_files", []))
-                print(
-                    "[WARNING] Using partially failed validation manifest "
+                raise RuntimeError(
+                    "Refusing failed validation manifest "
                     f"{args.input_manifest}: {valid_roots} valid ROOT file(s), "
-                    f"{invalid_roots} invalid ROOT file(s)."
+                    f"{invalid_roots} invalid ROOT file(s). Rerun validation "
+                    "after completing the skim production."
                 )
 
             # The manifest is the source of truth. Folder arguments, when also
@@ -1470,31 +1503,9 @@ if __name__ == "__main__":
         dataset_cfg.get("is_data", False)
         or "data" in args.dataset_name.lower()
     )
-    skip_policy_was_explicit = args.skip_failed_chunks is not None
-    args.skip_failed_chunks = resolve_skip_failed_chunks(
-        args.skip_failed_chunks,
-        is_data,
-        args.n_cores,
-    )
-    if not skip_policy_was_explicit:
-        policy_reason = (
-            "serial MC default"
-            if args.skip_failed_chunks
-            else "data/parallel fail-fast default"
-        )
-        print(
-            f"[INFO] Failed-chunk policy: "
-            f"{'skip and renormalize' if args.skip_failed_chunks else 'fail fast'} "
-            f"({policy_reason})."
-        )
-    elif not args.skip_failed_chunks:
-        print("[INFO] Failed-chunk policy: fail fast (explicit override).")
-    validate_skip_failed_chunks(
-        args.skip_failed_chunks,
-        is_data,
-        args.n_cores,
-        args.resume,
-    )
+    # Validation is the authority for usable inputs. Every ROOT reaching this
+    # stage must succeed, while all valid JSON reports in the manifest define
+    # the full MC normalization denominator.
     requested_systematics = parse_requested_systematics(args.systematics)
     request_all = any(name.lower() == "all" for name in requested_systematics)
     request_central_only = {
@@ -1536,36 +1547,52 @@ if __name__ == "__main__":
         utilities.process_from_dataset(process_cfg, args.dataset_name)
         or args.dataset_name
     )
+    process_entry = process_cfg.get(args.process_name, {})
     sel_cfg = utilities.get_config(os.path.join(cfg_dir, "selections.yaml"))
     syst_cfg = utilities.get_config(os.path.join(cfg_dir, "systematics.yaml"))
     hist_cfg = utilities.get_config(
         os.path.join(analysis_path, "config", "plot", "histograms.yaml")
     )
-    if args.dy_jet_components and args.vbf_eta_regions:
-        raise ValueError(
-            "--dy-jet-components already includes VBF eta regions; do not "
-            "combine it with --vbf-eta-regions"
-        )
-    if args.vbf_eta_regions:
+    if args.vbf_eta_regions and not args.dy_jet_components:
         sel_cfg = add_vbf_eta_region_categories(sel_cfg)
         args.categories = [f"VBF_eta_{region}" for region in VBF_ETA_REGIONS]
     if args.dy_jet_components:
         if is_data:
-            raise ValueError("--jet-gen-components cannot be used on data")
-        if args.process_name not in args.jet_gen_component_processes:
-            raise ValueError(
-                f"Process {args.process_name!r} is not enabled for reco/gen "
-                "splitting. Add it to --jet-gen-component-processes."
+            print(
+                f"[INFO] Dataset {args.dataset_name} is data: producing normal "
+                "histograms without jet/gen component splitting."
             )
-        sel_cfg = add_jet_component_categories(sel_cfg)
-        args.categories = list(expanded_jet_component_categories())
-        args.vbf_component_variables = list(args.variables or ["m_mumu"])
+            args.dy_jet_components = False
+        elif not jet_components_enabled_for_dataset(
+            args.jet_gen_component_processes,
+            args.dataset_name,
+            args.process_name,
+            is_signal=bool(process_entry.get("is_signal", False)),
+        ):
+            print(
+                f"[INFO] Dataset {args.dataset_name} (process {args.process_name}) "
+                "is outside --jet-gen-component-processes: producing normal "
+                "histograms."
+            )
+            args.dy_jet_components = False
+    if args.dy_jet_components:
+        sel_cfg = add_jet_component_categories(
+            sel_cfg, include_vbf_eta_regions=args.vbf_eta_regions
+        )
+        args.categories = list(
+            expanded_jet_component_categories(
+                include_vbf_eta_regions=args.vbf_eta_regions
+            )
+        )
+        requested_variables = list(
+            args.variables if args.variables is not None else main_cfg["variables"]
+        )
+        args.vbf_component_variables = requested_variables.copy()
         vars_to_add = [
-            "m_mumu",
             "eta_vs_pt_leadingjet",
             "eta_vs_pt_subleadingjet",
         ]
-        args.variables = list(dict.fromkeys([*(args.variables or []), *vars_to_add]))
+        args.variables = list(dict.fromkeys([*requested_variables, *vars_to_add]))
     else:
         args.vbf_component_variables = []
     masses_regions = sel_cfg["masses_regions"]
@@ -1595,6 +1622,28 @@ if __name__ == "__main__":
             for name in requested_systematics
         ]
         systs_to_run = filter_systs_to_run(systs_to_run, requested_systematics)
+    validate_systematic_isolation(systs_to_run)
+    # Selection construction used to receive every object systematic from the
+    # YAML even after the requested set had been filtered.  Asking for JERC
+    # could therefore compile MuonScale expressions such as
+    # m_mumu_FSR_scale_up.  Keep only the object-systematic families that are
+    # actually present in systs_to_run; weight-only variations remain central
+    # selections as intended.
+    active_object_systematics = {"Central"}
+    for base_name in syst_cfg.get("systematics", {}):
+        if base_name == "Central":
+            continue
+        if any(
+            run_name in systs_to_run
+            for run_name in (f"{base_name}Up", f"{base_name}Down")
+        ):
+            active_object_systematics.add(base_name)
+    syst_cfg = copy.deepcopy(syst_cfg)
+    syst_cfg["systematics"] = {
+        name: info
+        for name, info in syst_cfg.get("systematics", {}).items()
+        if name in active_object_systematics
+    }
     if args.list_systematics:
         for syst_name in systs_to_run:
             print(syst_name)
@@ -1735,8 +1784,6 @@ if __name__ == "__main__":
 
     if args.n_cores == 1:
         active_items = list(pool_inputs)
-        normalization_pass = 0
-        excluded_root_files = set()
         while active_items:
             tmp_files = []
             pass_failures = []
@@ -1766,48 +1813,9 @@ if __name__ == "__main__":
 
             if not pass_failures:
                 break
-            if not args.skip_failed_chunks:
-                print("[ERROR] Stopping because --skip-failed-chunks was not used.")
-                write_failed_chunks_report(args.output_file, failed_chunks)
-                sys.exit(1)
-
-            failed_indices = {failure[0] for failure in pass_failures}
-            for chunk_index, chunk_files, _ in pass_failures:
-                excluded_root_files.update(chunk_files)
-                print(
-                    f"[WARNING] Excluding failed chunk {chunk_index} and all "
-                    f"of its {len(chunk_files)} file(s)."
-                )
-            active_items = [
-                item for item in active_items if item[0] not in failed_indices
-            ]
-            for tmp_file in tmp_files:
-                remove_file_if_exists(tmp_file)
-            tmp_files = []
-            if not active_items:
-                break
-
-            surviving_normalization_files = [
-                root_file
-                for root_file in normalization_root_files
-                if root_file not in excluded_root_files
-            ]
-            dataset_seg_dict, dataset_qcd_scale_seg_dicts = (
-                normalization_for_root_files(
-                    args.metadata_inputs,
-                    surviving_normalization_files,
-                    syst_cfg,
-                    systematics_mode,
-                )
-            )
-            normalization_pass += 1
-            print(
-                f"[RENORMALIZE] Pass {normalization_pass}: recalculated "
-                f"denominators from {len(surviving_normalization_files)} "
-                "dataset file(s), excluding "
-                f"{len(excluded_root_files)} file(s) from failed chunks. "
-                "Reprocessing every surviving chunk."
-            )
+            print("[ERROR] A validated histogram input failed during processing.")
+            write_failed_chunks_report(args.output_file, failed_chunks)
+            sys.exit(1)
     else:
         items_to_run = []
         for item in pool_inputs:
@@ -1834,14 +1842,6 @@ if __name__ == "__main__":
                     handle_success(tmp)
         except Exception as e:
             print(f"[ERROR] A multiprocessing chunk failed: {repr(e)}")
-            if args.skip_failed_chunks:
-                print(
-                    "[ERROR] Precise skip of failed chunks is only safe with --n-cores 1. "
-                    "Rerun with --n-cores 1 --resume --skip-failed-chunks."
-                )
-                write_failed_chunks_report(args.output_file, failed_chunks)
-                sys.exit(1)
-            print("[ERROR] Stopping because --skip-failed-chunks was not used.")
             write_failed_chunks_report(args.output_file, failed_chunks)
             sys.exit(1)
     write_failed_chunks_report(args.output_file, failed_chunks)
@@ -1881,6 +1881,7 @@ if __name__ == "__main__":
             args.output_file,
             masses_regions_list,
             process_label=args.process_name,
+            include_vbf_eta_regions=args.vbf_eta_regions,
         )
     if args.keep_tmp:
         print("[INFO] Keeping temporary files because --keep-tmp was used.")

@@ -74,7 +74,6 @@ Common options:
 --dryrun
 --keep-tmp
 --resume
---skip-failed-chunks
 --force-multiprocessing-with-dnn
 --multiprocessing-method spawn|fork
 --shift-z-sideband-dnn-mass
@@ -651,7 +650,7 @@ bash campaigns/run3_variables_dnn_jetmultiplicity.sh variables condor plan
 The preferred histogram submitter is:
 
 ```bash
-python3 htcondor/histogram_condorsubmit.py
+python3 htcondor/condorsubmit.py histograms
 ```
 
 It writes a jobs table and Condor submit file under:
@@ -721,7 +720,7 @@ other_signals
 One era, one group:
 
 ```bash
-python3 htcondor/histogram_condorsubmit.py \
+python3 htcondor/condorsubmit.py histograms \
   --era Run3_2024 \
   --datasets DY_amcatnlo \
   --condor \
@@ -733,7 +732,7 @@ python3 htcondor/histogram_condorsubmit.py \
 One explicit dataset:
 
 ```bash
-python3 htcondor/histogram_condorsubmit.py \
+python3 htcondor/condorsubmit.py histograms \
   --era Run3_2024 \
   --dataset-name TTto2L2Nu \
   --chunk-size 10 \
@@ -746,7 +745,7 @@ python3 htcondor/histogram_condorsubmit.py \
 All Run 3 eras:
 
 ```bash
-python3 htcondor/histogram_condorsubmit.py \
+python3 htcondor/condorsubmit.py histograms \
   --era all \
   --condor \
   --missing-only \
@@ -757,7 +756,7 @@ python3 htcondor/histogram_condorsubmit.py \
 2024, 2025, 2026:
 
 ```bash
-python3 htcondor/histogram_condorsubmit.py \
+python3 htcondor/condorsubmit.py histograms \
   --era Run3_2024,Run3_2025,Run3_2026 \
   --condor \
   --missing-only \
@@ -768,7 +767,7 @@ python3 htcondor/histogram_condorsubmit.py \
 Dry-run:
 
 ```bash
-python3 htcondor/histogram_condorsubmit.py \
+python3 htcondor/condorsubmit.py histograms \
   --era Run3_2024 \
   --datasets EWK \
   --condor \
@@ -779,7 +778,7 @@ python3 htcondor/histogram_condorsubmit.py \
 Monitor only:
 
 ```bash
-python3 htcondor/histogram_condorsubmit.py \
+python3 htcondor/condorsubmit.py histograms \
   --era Run3_2024 \
   --datasets EWK \
   --monitor \
@@ -789,7 +788,7 @@ python3 htcondor/histogram_condorsubmit.py \
 Continuous monitor plus refill:
 
 ```bash
-python3 htcondor/histogram_condorsubmit.py \
+python3 htcondor/condorsubmit.py histograms \
   --era Run3_2024 \
   --watch \
   --missing-only \
@@ -801,7 +800,7 @@ python3 htcondor/histogram_condorsubmit.py \
 Submit at most one job for testing:
 
 ```bash
-python3 htcondor/histogram_condorsubmit.py \
+python3 htcondor/condorsubmit.py histograms \
   --era Run3_2024 \
   --datasets EWK \
   --condor \
@@ -816,7 +815,7 @@ python3 htcondor/histogram_condorsubmit.py \
 Put `hist_maker.py` options after a standalone `--`:
 
 ```bash
-python3 htcondor/histogram_condorsubmit.py \
+python3 htcondor/condorsubmit.py histograms \
   --era Run3_2024 \
   --datasets signals \
   --condor \
@@ -834,7 +833,7 @@ Do not use:
 --hist_opts "--categories ggF_0J ggF_1J"
 ```
 
-There is no `--hist_opts` parser option in `histogram_condorsubmit.py`.
+There is no `--hist_opts` parser option in the histogram submitter.
 
 Also make sure the line-continuation backslash has no trailing space:
 
@@ -938,7 +937,7 @@ files to subtract.
 Produce the input histograms:
 
 ```bash
-python3 htcondor/histogram_condorsubmit.py \
+python3 htcondor/condorsubmit.py histograms \
   --era Run3_2024 \
   --datasets data,DY_amcatnlo,EWK,SingleTop,TTX,W,DiTriBoson,SingleH,signals,other_signals \
   --condor \
@@ -1026,7 +1025,7 @@ and non-DY MC jobs are unchanged. The output of this step is used only to derive
 the second, `NJets`, correction.
 
 ```bash
-python3 htcondor/histogram_condorsubmit.py \
+python3 htcondor/condorsubmit.py histograms \
   --era Run3_2024 \
   --datasets data,DY_amcatnlo,EWK,SingleTop,TTX,W,DiTriBoson,SingleH,signals,other_signals \
   --condor \
@@ -1280,7 +1279,7 @@ DY_amcatnlo_105_160_VBFFil
 Produce all pieces:
 
 ```bash
-python3 htcondor/histogram_condorsubmit.py \
+python3 htcondor/condorsubmit.py histograms \
   --era Run3_2024 \
   --datasets DY_amcatnlo_105_160,DY_amcatnlo_105_160_stitched,DY_amcatnlo_105_160_VBFFil \
   --condor \
@@ -1446,7 +1445,7 @@ cp /eos/user/v/vdamante/www/H_mumu/index.php /eos/user/v/vdamante/www/H_mumu/plo
 One group:
 
 ```bash
-python3 htcondor/histogram_condorsubmit.py \
+python3 htcondor/condorsubmit.py histograms \
   --era Run3_2022EE \
   --datasets signals \
   --condor \
@@ -1463,7 +1462,7 @@ All usual 2022EE groups:
 
 ```bash
 for group in signals data DiTriBoson DY_amcatnlo EWK SingleH SingleTop TTX W DY_amcatnlo_105_160; do
-  python3 htcondor/histogram_condorsubmit.py \
+python3 htcondor/condorsubmit.py histograms \
     --era Run3_2022EE \
     --datasets ${group} \
     --condor \
@@ -1483,7 +1482,7 @@ done
 tt_vars="DNN_NNOutput m_mumu pt_mumu eta_mumu mu1_pt mu2_pt mu1_eta mu2_eta leadingjet_pt leadingjet_eta subleadingjet_pt subleadingjet_eta delta_eta_jj_ls m_jj_ls m_jj delta_eta_jj vbfjet1_pt vbfjet2_pt vbfjet1_eta vbfjet2_eta vbfjet1_phi vbfjet2_phi"
 
 for group in data DiTriBoson DY_amcatnlo DY_amcatnlo_105_160 DY_amcatnlo_105_160_stitched DY_amcatnlo_105_160_VBFFil DY_minnlo EWK signals SingleH SingleTop TTX W other_signals; do
-  python3 htcondor/histogram_condorsubmit.py \
+python3 htcondor/condorsubmit.py histograms \
     --era Run3_2024 \
     --datasets ${group} \
     --condor \
@@ -1502,7 +1501,7 @@ For 2025 change `--era Run3_2024` to `--era Run3_2025`.
 ### One group only
 
 ```bash
-python3 htcondor/histogram_condorsubmit.py \
+python3 htcondor/condorsubmit.py histograms \
   --era Run3_2025 \
   --datasets data \
   --condor \
@@ -1514,7 +1513,7 @@ python3 htcondor/histogram_condorsubmit.py \
 ### One dataset only
 
 ```bash
-python3 htcondor/histogram_condorsubmit.py \
+python3 htcondor/condorsubmit.py histograms \
   --era Run3_2025 \
   --dataset-name TTto2L2Nu \
   --chunk-size 10 \
