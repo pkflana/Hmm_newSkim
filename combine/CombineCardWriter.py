@@ -5,6 +5,15 @@ import yaml
 
 absolutepath = True
 
+def build_xsec_dictionary(yaml_path,processes):
+  with open(yaml_path, "r") as f:
+        cfg = yaml.safe_load(f)
+  xsecdict = {}
+
+
+  return xsecdict
+
+
 def check_process_histograms(filepath, channel, proc, uncertainties):
     fname = os.path.join(filepath, proc + ".root")
     if not os.path.isfile(fname):
@@ -139,7 +148,7 @@ backgroundprocesses = ["DYto2Mu_MLL105To160","EWK_2Mu2J_MLL_105to160_herwig","ST
 year = sys.argv[1]
 
 outputpath = "/eos/user/p/pflanaga/cmssw_clean/CMSSW_14_1_0_pre4/src/combine/"
-histogramfilepath = "/eos/user/v/vdamante/H_mumu/campaigns/NewDNN_Output/Hists_systMerged/Run3_"+year+"/"
+histogramfilepath = "/eos/user/v/vdamante/H_mumu/Hists_DNN_erabased_hadded/Run3_"+year+"/"
 
 if absolutepath:
   absolutepathname = '/'.join(histogramfilepath.split("/")[:-2])+"/"
@@ -159,8 +168,7 @@ lumidict = {"lumi_1": {"2022": "1.0138", "2023": "1.0017", "2024": "1.0020", "20
             "lumi_2025": {"2022": "-", "2023": "-", "2024": "-", "2025": "1.05"}
 }
 
-xsecdict = {#"DYto2Mu_MLL105To160": ".7/1.1"
-}#TODO: Fill this out, fix naming scheme
+xsecdict = {}#build_xsec_dictionary(CONFIG_PATH+"/crossSections13p6TeV.yaml",signalprocesses+backgroundprocesses)
 
 for band in bands:
   filename = band + "_" + year
@@ -322,7 +330,8 @@ for band in bands:
 
   #add MC statistics evaluation
   f.write("\n")
-  f.write("* autoMCStats 10")
+  f.write("* autoMCStats 10\n")
+  f.write("DY_norm rateParam * DYto2Mu_MLL105To160 1 [0,10]")
 
   f.close()
 #   DY_norm rateParam * DYto2Mu_MLL105To160 1 [0,10]
