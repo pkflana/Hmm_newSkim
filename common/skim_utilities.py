@@ -1,5 +1,8 @@
 """Chunking helpers shared by skim workflows."""
 
+from pathlib import Path
+import re
+
 
 def chunk_files_by_size(file_entries, target_bytes, max_files):
     """Create stable sequential chunks bounded by input bytes and file count."""
@@ -31,3 +34,29 @@ def chunk_files_by_size(file_entries, target_bytes, max_files):
     if current:
         chunks.append(current)
     return chunks
+
+
+def input_file_id(path):
+    stem = Path(path).stem
+    match = re.fullmatch(r"(?:skim|report)_(\d+)", stem)
+    return match.group(1) if match else stem.removesuffix("_report")
+
+
+def metadata_excluding_root_files(metadata_inputs, excluded_root_files):
+    """Return JSON inputs excluding reports paired to rejected MC ROOT files."""
+    excluded_ids = {input_file_id(path) for path in excluded_root_files}
+    selected = []
+    seen = set()
+    for raw_path in metadata_inputs:
+        path = Path(raw_path)
+        candidates = path.rglob("*.json") if path.is_dir() else (path,)
+        for candidate in candidates:
+            normalized = str(candidate.resolve())
+            if (
+                candidate.suffix == ".json"
+                and normalized not in seen
+                and input_file_id(candidate) not in excluded_ids
+            ):
+                selected.append(normalized)
+                seen.add(normalized)
+    return selected

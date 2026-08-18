@@ -7,3 +7,4 @@ export ANALYSIS_PATH
 
 exec "${ANALYSIS_PATH}/common/scripts/dataset_campaign.sh" \
   --campaign-mode histograms "$@"
+  

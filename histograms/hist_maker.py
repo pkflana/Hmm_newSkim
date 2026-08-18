@@ -18,6 +18,7 @@ ROOT.EnableThreadSafety()
 sys.path.append(os.environ["ANALYSIS_PATH"])
 
 import common.utilities as utilities
+from common.skim_utilities import metadata_excluding_root_files
 from common.add_var_to_skim import GetSelectionSuffixForSystematic
 from common.add_vars_to_skim_tuples import (
     SelectedJetObservablesDef,
@@ -36,6 +37,7 @@ from common.jet_component_splitting import (
     VBF_ETA_REGIONS,
     add_jet_component_categories,
     add_vbf_eta_region_categories,
+    component_output_directory,
     define_jet_gen_matching,
     expanded_jet_component_categories,
     jet_components_enabled_for_dataset,
@@ -122,9 +124,14 @@ def copy_root_directory(source_file, source_path, target_file, target_path):
 
 
 def split_dy_jet_component_outputs(
-    output_file, mass_regions, process_label="DY", include_vbf_eta_regions=False
+    output_file,
+    mass_regions,
+    process_label="DY",
+    include_vbf_eta_regions=False,
+    requested_categories=None,
 ):
-    """Create inclusive and per-component files with fit-ready layout."""
+    """Create inclusive and per-component PU/hard files with fit-ready layout."""
+    requested = set(requested_categories or ("ggF", "VBF"))
     eta_regions = VBF_ETA_REGIONS if include_vbf_eta_regions else ("incl",)
     output_path = Path(output_file)
     source = ROOT.TFile.Open(str(output_path), "READ")
@@ -134,60 +141,82 @@ def split_dy_jet_component_outputs(
     inclusive_tmp = output_path.with_name(f".{output_path.name}.inclusive.tmp.root")
     inclusive = ROOT.TFile.Open(str(inclusive_tmp), "RECREATE")
     component_files = {}
+    files_by_label = {}
     try:
-        for component, label in DY_COMPONENT_FILE_LABELS.items():
+        selected_components = [
+            component
+            for component in DY_COMPONENT_FILE_LABELS
+            if (component.startswith("ggF_") and "ggF" in requested)
+            or (component.startswith("VBF_") and "VBF" in requested)
+        ]
+        for component in selected_components:
+            label = DY_COMPONENT_FILE_LABELS[component]
             if process_label != "DY" and label.startswith("DY_"):
                 label = f"{process_label}_{label[len('DY_'):]}"
-            component_path = output_path.with_name(
-                f"{output_path.stem}_{label}{output_path.suffix}"
-            )
-            component_files[component] = (
-                component_path,
-                ROOT.TFile.Open(str(component_path), "RECREATE"),
-            )
+            if label not in files_by_label:
+                component_path = output_path.with_name(
+                    f"{output_path.stem}_{label}{output_path.suffix}"
+                )
+                files_by_label[label] = (
+                    component_path,
+                    ROOT.TFile.Open(str(component_path), "RECREATE"),
+                )
+            component_files[component] = files_by_label[label]
 
         for mass_region in mass_regions:
-            copy_root_directory(
-                source,
-                f"{mass_region}_DY_inclusive_ggF",
-                inclusive,
-                f"{mass_region}_ggF/incl",
-            )
-            for eta_region in eta_regions:
+            if "ggF" in requested:
                 copy_root_directory(
                     source,
-                    f"{mass_region}_DY_inclusive_VBF_{eta_region}",
+                    f"{mass_region}_DY_inclusive_ggF",
                     inclusive,
-                    f"{mass_region}_VBF/{eta_region}",
+                    component_output_directory(mass_region, "ggF"),
                 )
-
-            for component in GGF_COMPONENT_VARIABLES:
-                _, target = component_files[component]
-                copy_root_directory(
-                    source,
-                    f"{mass_region}_{component}",
-                    target,
-                    f"{mass_region}_ggF/incl",
-                )
-            for component in VBF_COMPONENTS:
-                _, target = component_files[component]
+            if "VBF" in requested:
                 for eta_region in eta_regions:
                     copy_root_directory(
                         source,
-                        f"{mass_region}_{component}_{eta_region}",
-                        target,
-                        f"{mass_region}_VBF/{eta_region}",
+                        f"{mass_region}_DY_inclusive_VBF_{eta_region}",
+                        inclusive,
+                        component_output_directory(
+                            mass_region,
+                            "VBF",
+                            eta_region if include_vbf_eta_regions else None,
+                        ),
                     )
+
+            if "ggF" in requested:
+                for component in GGF_COMPONENT_VARIABLES:
+                    _, target = component_files[component]
+                    copy_root_directory(
+                        source,
+                        f"{mass_region}_{component}",
+                        target,
+                        component_output_directory(mass_region, "ggF"),
+                    )
+            if "VBF" in requested:
+                for component in VBF_COMPONENTS:
+                    _, target = component_files[component]
+                    for eta_region in eta_regions:
+                        copy_root_directory(
+                            source,
+                            f"{mass_region}_{component}_{eta_region}",
+                            target,
+                            component_output_directory(
+                                mass_region,
+                                "VBF",
+                                eta_region if include_vbf_eta_regions else None,
+                            ),
+                        )
     finally:
         source.Close()
         inclusive.Close()
-        for _, target in component_files.values():
+        for _, target in files_by_label.values():
             target.Close()
 
     os.replace(inclusive_tmp, output_path)
     print("[INFO] DY inclusive/component outputs:")
     print(f"[INFO]   inclusive: {output_path}")
-    for component in DY_COMPONENT_FILE_LABELS:
+    for component in selected_components:
         print(f"[INFO]   {component}: {component_files[component][0]}")
 
 
@@ -364,6 +393,26 @@ def get_qcd_scale_variations(qcd_scale_config):
             },
         ],
     )
+
+
+def normalization_excluding_root_files(
+    metadata_inputs, excluded_root_files, syst_cfg, systematics_mode
+):
+    remaining_metadata = metadata_excluding_root_files(
+        metadata_inputs, excluded_root_files
+    )
+    central = get_combined_segmentation_dict(remaining_metadata)
+    qcd_scale = {}
+    if (
+        systematics_mode != "central"
+        and syst_cfg.get("qcd_scale", {}).get("enabled", False)
+    ):
+        for point in get_qcd_scale_points(syst_cfg["qcd_scale"]):
+            name = point["name"]
+            qcd_scale[name] = get_qcd_scale_segmentation_dict(
+                remaining_metadata, name, fallback_to_initial=False
+            )
+    return central, qcd_scale
 
 
 def get_qcd_scale_source_points(qcd_scale_config):
@@ -1223,6 +1272,22 @@ def write_failed_chunks_report(output_file, failed_chunks):
     print(f"[WARNING] Failed chunks report written to: {failed_report}")
 
 
+def write_excluded_mc_inputs_report(output_file, exclusions):
+    if not exclusions:
+        return
+    report = f"{output_file}.excluded_mc_inputs.txt"
+    with open(report, "w") as handle:
+        for chunk_index, root_files, error in exclusions:
+            for root_file in root_files:
+                handle.write(f"ROOT: {root_file}\n")
+                handle.write(
+                    f"JSON: paired report for file id "
+                    f"{Path(root_file).stem.removeprefix('skim_')}\n"
+                )
+            handle.write(f"ERROR: {error}\n\n")
+    print(f"[MC EXCLUDE] Exclusion report written to: {report}")
+
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(
         description="Produce histograms from validated skimmed ROOT ntuples."
@@ -1334,6 +1399,7 @@ if __name__ == "__main__":
     parser.add_argument(
         "--dy-jet-components",
         "--jet-gen-components",
+        "--pu-hard-jet-components",
         dest="dy_jet_components",
         action="store_true",
         help=(
@@ -1344,6 +1410,7 @@ if __name__ == "__main__":
     )
     parser.add_argument(
         "--jet-gen-component-processes",
+        "--pu-hard-processes",
         nargs="+",
         default=["DY", "EWK"],
         help=(
@@ -1353,6 +1420,7 @@ if __name__ == "__main__":
     )
     parser.add_argument(
         "--vbf-eta-regions",
+        "--eta-components",
         action="store_true",
         help=(
             "Split the VBF category into nested incl/CC/CF/FF directories "
@@ -1547,6 +1615,19 @@ if __name__ == "__main__":
         utilities.process_from_dataset(process_cfg, args.dataset_name)
         or args.dataset_name
     )
+    if args.dy_jet_components and args.process_name.endswith("_nonStitched"):
+        stitched_process = args.process_name.removesuffix("_nonStitched")
+        stitched_entry = process_cfg.get(stitched_process, {})
+        stitched_datasets = [
+            *(stitched_entry.get("datasets", []) or []),
+            *(stitched_entry.get("sub_processes", []) or []),
+        ]
+        if args.dataset_name in stitched_datasets:
+            print(
+                f"[INFO] Jet components: using stitched process "
+                f"{stitched_process} instead of {args.process_name}."
+            )
+            args.process_name = stitched_process
     process_entry = process_cfg.get(args.process_name, {})
     sel_cfg = utilities.get_config(os.path.join(cfg_dir, "selections.yaml"))
     syst_cfg = utilities.get_config(os.path.join(cfg_dir, "systematics.yaml"))
@@ -1576,12 +1657,16 @@ if __name__ == "__main__":
             )
             args.dy_jet_components = False
     if args.dy_jet_components:
+        args.pu_hard_requested_categories = tuple(args.categories)
         sel_cfg = add_jet_component_categories(
-            sel_cfg, include_vbf_eta_regions=args.vbf_eta_regions
+            sel_cfg,
+            include_vbf_eta_regions=args.vbf_eta_regions,
+            requested_categories=args.pu_hard_requested_categories,
         )
         args.categories = list(
             expanded_jet_component_categories(
-                include_vbf_eta_regions=args.vbf_eta_regions
+                include_vbf_eta_regions=args.vbf_eta_regions,
+                requested_categories=args.pu_hard_requested_categories,
             )
         )
         requested_variables = list(
@@ -1724,7 +1809,11 @@ if __name__ == "__main__":
             )
         chunks = [[]]
     else:
-        chunks = chunk_list(valid_root_files, args.chunk_size)
+        # MC recovery must identify exactly one failing ROOT and its paired
+        # report. Data retain the requested chunking and always fail fast.
+        chunks = chunk_list(
+            valid_root_files, 1 if not is_data else args.chunk_size
+        )
     if args.dryrun:
         print("[DRYRUN] Chunks:")
         print(f"[DRYRUN] Segmentation entries: {len(dataset_seg_dict)}")
@@ -1782,8 +1871,16 @@ if __name__ == "__main__":
         tmp_files.append(tmp)
         print(f"[INFO] Finished chunk -> {tmp}")
 
+    if not is_data and args.n_cores != 1:
+        print(
+            "[INFO] MC file-level exclusion requires serial processing inside "
+            "the dataset job; Condor still runs datasets in parallel."
+        )
+        args.n_cores = 1
+
     if args.n_cores == 1:
         active_items = list(pool_inputs)
+        excluded_root_files = set()
         while active_items:
             tmp_files = []
             pass_failures = []
@@ -1813,9 +1910,38 @@ if __name__ == "__main__":
 
             if not pass_failures:
                 break
-            print("[ERROR] A validated histogram input failed during processing.")
-            write_failed_chunks_report(args.output_file, failed_chunks)
-            sys.exit(1)
+            if is_data:
+                print("[ERROR] A data input failed; data files cannot be excluded.")
+                write_failed_chunks_report(args.output_file, failed_chunks)
+                sys.exit(1)
+
+            failed_indices = {failure[0] for failure in pass_failures}
+            for _, chunk_files, error in pass_failures:
+                excluded_root_files.update(chunk_files)
+                print(
+                    "[MC EXCLUDE] Excluding ROOT and paired JSON after "
+                    f"processing error: {chunk_files[0]} ({error})"
+                )
+            active_items = [
+                item for item in active_items if item[0] not in failed_indices
+            ]
+            for tmp_file in tmp_files:
+                remove_file_if_exists(tmp_file)
+            tmp_files = []
+            if not active_items:
+                break
+            dataset_seg_dict, dataset_qcd_scale_seg_dicts = (
+                normalization_excluding_root_files(
+                    args.metadata_inputs,
+                    excluded_root_files,
+                    syst_cfg,
+                    systematics_mode,
+                )
+            )
+            print(
+                f"[MC NORMALIZATION] Reprocessing {len(active_items)} ROOT "
+                f"file(s) after excluding {len(excluded_root_files)} ROOT/JSON pair(s)."
+            )
     else:
         items_to_run = []
         for item in pool_inputs:
@@ -1844,7 +1970,11 @@ if __name__ == "__main__":
             print(f"[ERROR] A multiprocessing chunk failed: {repr(e)}")
             write_failed_chunks_report(args.output_file, failed_chunks)
             sys.exit(1)
-    write_failed_chunks_report(args.output_file, failed_chunks)
+    if is_data:
+        write_failed_chunks_report(args.output_file, failed_chunks)
+    else:
+        write_excluded_mc_inputs_report(args.output_file, failed_chunks)
+        remove_file_if_exists(f"{args.output_file}.failed_chunks.txt")
     if len(tmp_files) == 0:
         print("[ERROR] No successful temporary files available. Exiting.")
         sys.exit(1)
@@ -1882,6 +2012,7 @@ if __name__ == "__main__":
             masses_regions_list,
             process_label=args.process_name,
             include_vbf_eta_regions=args.vbf_eta_regions,
+            requested_categories=args.pu_hard_requested_categories,
         )
     if args.keep_tmp:
         print("[INFO] Keeping temporary files because --keep-tmp was used.")

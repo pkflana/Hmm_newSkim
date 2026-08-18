@@ -580,7 +580,12 @@ def FixNegativeContributions(histogram):
 
 def RebinHisto(hist_initial, new_binning, sample, wantOverflow=True, verbose=False):
     adapted = AdaptBinningToHistogram(hist_initial, new_binning)
-    if len(adapted) < 2: raise RuntimeError("Adapted binning < 2 edges!")
+    if len(adapted) < 2:
+        print(f"Rebinning histogram {hist_initial.GetName()} with {len(new_binning)-1} bins")
+        print(hist_initial.GetName(), hist_initial.GetNbinsX(), hist_initial.GetXaxis().GetXmin(), hist_initial.GetXaxis().GetXmax())
+        print("Initial binning:", [hist_initial.GetXaxis().GetBinLowEdge(i) for i in range(1, hist_initial.GetNbinsX() + 2)])
+        print(adapted)
+        raise RuntimeError("Adapted binning < 2 edges!")
     new_hist = hist_initial.Rebin(len(adapted) - 1, sample, array.array('d', adapted))
     if sample == 'data': new_hist.SetBinErrorOption(ROOT.TH1.kPoisson)
     if wantOverflow:

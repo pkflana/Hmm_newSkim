@@ -33,30 +33,54 @@ def hist_sum_value(histogram):
 
 def dataset_file_candidates(input_dir, process, dataset, component_label=None):
     suffix_by_process = {
-        "DYto2Mu_MLL105To160": ["_stitched", "_nonStitched", ""],
+        "DYto2Mu_MLL105To160": ["_stitched", ""],
         "DYto2Mu_MLL105To160_nonStitched": ["_nonStitched", ""],
-        "DYto2Mu_MLL105To160_VBFFiltered": ["_stitched", "_nonStitched", ""],
+        "DYto2Mu_MLL105To160_VBFFiltered": ["_stitched", ""],
         "DYto2Mu_MLL105To160_VBFFiltered_nonStitched": ["_nonStitched", ""],
         "DYto2Mu_MLL105To160_FlashSim": ["_nonStitched", ""],
     }
-    suffixes = suffix_by_process.get(process, [""])
+    source_process = process
+    if process == "DYto2Mu_MLL105To160_combined" and component_label:
+        # The combined process is assembled component by component from the
+        # complementary inclusive and generator-VBF-filtered productions.
+        source_process = (
+            "DYto2Mu_MLL105To160_VBFFiltered"
+            if "Fil_VBF" in dataset or "VBFFiltered" in dataset
+            else "DYto2Mu_MLL105To160"
+        )
+    suffixes = suffix_by_process.get(source_process, [""])
     # hist_maker prefixes split files with the concrete process name, except
     # for the canonical DY process where the historical DY_* labels are kept.
     # Examples:
     #   DY                         -> <dataset>_DY_VBF_Hard.root
     #   DYto2Mu_MLL105To160        -> <dataset>_DYto2Mu_MLL105To160_VBF_Hard.root
-    input_component_label = component_label
-    if component_label and process != "DY":
-        input_component_label = (
-            f"{process}_{component_label.removeprefix('DY_')}"
-        )
-    component_suffix = (
-        f"_{input_component_label}" if input_component_label else ""
-    )
-    return [
-        os.path.join(input_dir, f"{dataset}{suffix}{component_suffix}.root")
-        for suffix in suffixes
-    ]
+    candidates = []
+    component_name = component_label.removeprefix("DY_") if component_label else None
+    for suffix in suffixes:
+        if component_name and source_process != "DY":
+            # Current split files encode the concrete process variant inside
+            # the component suffix, e.g.
+            #   <dataset>_DYto2Mu_MLL105To160_nonStitched_0J.root
+            candidates.append(
+                os.path.join(
+                    input_dir,
+                    f"{dataset}_{source_process}{suffix}_{component_name}.root",
+                )
+            )
+            # Retain compatibility with the older dataset-suffix layout.
+            candidates.append(
+                os.path.join(
+                    input_dir,
+                    f"{dataset}{suffix}_{source_process}_{component_name}.root",
+                )
+            )
+        elif component_name:
+            candidates.append(
+                os.path.join(input_dir, f"{dataset}{suffix}_{component_label}.root")
+            )
+        else:
+            candidates.append(os.path.join(input_dir, f"{dataset}{suffix}.root"))
+    return list(dict.fromkeys(candidates))
 
 
 def add_derived_systematics(era, output_dir):
@@ -162,7 +186,7 @@ def hadd_datasets_to_processes(era,input_dir, output_dir,add_derived_systs=True,
     if dryRun:
         print("\n=== [DRY-RUN] PIANO DI ACCOPPIAMENTO (Solo file esistenti) ===")
 
-    output_variants = (None, *DY_COMPONENT_FILE_LABELS.values())
+    output_variants = (None, *dict.fromkeys(DY_COMPONENT_FILE_LABELS.values()))
     for process, datasets in process_mapping.items():
       for component_label in output_variants:
         datasets = list(dict.fromkeys(datasets))  # Rimuove duplicati

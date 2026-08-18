@@ -20,6 +20,7 @@ import shlex
 import re
 import subprocess
 import sys
+import tempfile
 import time
 from pathlib import Path
 from typing import Iterable, List, Sequence
@@ -63,11 +64,15 @@ def apply_hist_config(args: argparse.Namespace, era: str) -> argparse.Namespace:
         "chunk_size": cfg.get("chunk_size", 1),
         "file_open_retries": 3,
         "file_open_retry_delay": 2,
-        "job_flavour": cfg.get("job_flavour", "workday"),
+        # Histogram jobs default to workday.  Skim-specific flavour choices
+        # must not silently shorten histogram jobs; users can still override
+        # this explicitly with --job-flavour.
+        "job_flavour": "workday",
         "request_cpus": cfg.get("request_cpus", 1),
         "request_memory": cfg.get("request_memory", "4GB"),
         "request_disk": cfg.get("request_disk", "2GB"),
-        "poll_interval": cfg.get("poll_interval", 120.0),
+        # Keep monitoring responsive and consistent with the skim submitter.
+        "poll_interval": 120.0,
     }
     for name, fallback in defaults.items():
         if getattr(configured, name, None) is None:
@@ -220,6 +225,8 @@ def build_shell_command(args: argparse.Namespace) -> List[str]:
         command.extend(["--output-dir", args.output_dir])
     if args.condor_label:
         command.extend(["--condor-label", args.condor_label])
+    if getattr(args, "summary_file", None):
+        command.extend(["--summary-file", args.summary_file])
     if args.chunk_size is not None:
         command.extend(["--chunk-size", str(args.chunk_size)])
     if args.file_open_retries is not None:
@@ -242,6 +249,10 @@ def build_shell_command(args: argparse.Namespace) -> List[str]:
         command.append("--force")
     if args.missing_only:
         command.append("--missing-only")
+    if args.require_component_outputs:
+        command.append("--require-component-outputs")
+    if args.require_component_regions:
+        command.extend(["--require-component-regions", args.require_component_regions])
     # This frontend owns submission and monitoring.  The shell workflow only
     # prepares jobs.tsv and submit.sub, avoiding accidental double submission.
     command.extend(["--condor", "--dry-run"])
@@ -287,6 +298,15 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--submit-missing", action="store_true", help="Alias for --force.")
     parser.add_argument("--force", action="store_true", help="Submit even if outputs already exist.")
     parser.add_argument("--missing-only", action="store_true", help="Only run missing outputs.")
+    parser.add_argument(
+        "--require-component-outputs",
+        action="store_true",
+        help="Treat a dataset as missing unless its VBF 2J component files exist.",
+    )
+    parser.add_argument(
+        "--require-component-regions",
+        help="Comma-separated VBF mass regions required inside component files.",
+    )
     parser.add_argument("--dry-run", action="store_true", help="Generate the jobs table without submitting.")
     parser.add_argument("--monitor", action=argparse.BooleanOptionalAction, default=True, help="Monitor until outputs are verified (default: true).")
     parser.add_argument("--poll-interval", type=float, default=None, help="Seconds between queue polls.")
@@ -318,14 +338,34 @@ def main() -> int:
             continue
         era_args = apply_hist_config(args, era)
         era_args.era = era
-        before = {path.resolve() for path in stage_dir.iterdir()} if stage_dir.exists() else set()
-        run_command(build_shell_command(era_args), check=True)
-        after = {path.resolve() for path in stage_dir.iterdir()} if stage_dir.exists() else set()
-        new_dirs = [path for path in after - before if path.is_dir()]
-        submit_dir = max(new_dirs, key=lambda path: path.stat().st_mtime) if new_dirs else find_latest_submission_dir(stage_dir)
+        with tempfile.NamedTemporaryFile(
+            prefix=f"hist_submit_{era}_", suffix=".tsv", delete=False
+        ) as summary_handle:
+            era_args.summary_file = summary_handle.name
+        try:
+            run_command(build_shell_command(era_args), check=True)
+            summary_lines = [
+                line for line in Path(era_args.summary_file).read_text().splitlines()
+                if line.strip()
+            ]
+        finally:
+            Path(era_args.summary_file).unlink(missing_ok=True)
+        if len(summary_lines) < 2:
+            raise RuntimeError(
+                f"Histogram preparation did not write a summary for {era}"
+            )
+        summary_fields = summary_lines[-1].split("\t")
+        if len(summary_fields) < 11:
+            raise RuntimeError(
+                f"Malformed histogram preparation summary for {era}: "
+                f"{summary_lines[-1]}"
+            )
+        submit_file = Path(summary_fields[10])
+        if not submit_file.is_absolute():
+            submit_file = REPO / submit_file
+        submit_dir = submit_file.parent
         jobs_file = submit_dir / "jobs.tsv"
-        submit_file = submit_dir / "submit.sub"
-        if not jobs_file.exists() or not submit_file.exists():
+        if not jobs_file.exists():
             raise FileNotFoundError(f"Incomplete submission metadata in {submit_dir}")
 
         rows = parse_jobs_table(jobs_file.read_text().splitlines())
@@ -333,7 +373,10 @@ def main() -> int:
         expected = expected_output_paths(rows, output_dir, era)
         print(f"[PREPARED] {era}: {len(rows)} jobs in {submit_dir}")
         if not rows:
+            print(f"[COMPLETE] {era}: no missing histogram outputs to submit")
             continue
+        if not submit_file.exists():
+            raise FileNotFoundError(f"Missing submit file in {submit_dir}")
         if era_args.dry_run or not era_args.submit:
             continue
 

@@ -23,11 +23,60 @@ DY_COMPONENT_FILE_LABELS = {
     "ggF_2J_Hard": "DY_2J_Hard",
     "ggF_2J_PU1": "DY_2J_PU1",
     "ggF_2J_PU2": "DY_2J_PU2",
-    "VBF_Hard": "DY_VBF_Hard",
-    "VBF_PU1": "DY_VBF_PU1",
-    "VBF_PU2": "DY_VBF_PU2",
+    "VBF_Hard": "DY_2J_Hard",
+    "VBF_PU1": "DY_2J_PU1",
+    "VBF_PU2": "DY_2J_PU2",
 }
 VBF_ETA_REGIONS = ("incl", "CC", "CF", "FF")
+PU_HARD_COMPONENT_STYLES = (
+    ("_0J", "0J"),
+    ("_1J_Hard", "1J Hard"),
+    ("_1J_PU", "1J PU"),
+    ("_2J_Hard", "2J Hard"),
+    ("_2J_PU1", "2J PU1"),
+    ("_2J_PU2", "2J PU2"),
+    ("_VBF_Hard", "VBF Hard"),
+    ("_VBF_PU1", "VBF PU1"),
+    ("_VBF_PU2", "VBF PU2"),
+)
+
+
+def component_output_directory(mass_region, category, eta_region=None):
+    """Return the public ROOT layout for PU/hard jet components.
+
+    PU/hard splitting and the optional VBF eta splitting are independent:
+    ggF is always flat, while VBF is nested only when an eta region was
+    explicitly requested.
+    """
+    path = f"{mass_region}_{category}"
+    return f"{path}/{eta_region}" if eta_region is not None else path
+
+
+def pu_hard_component_style(sample_name, styles=None):
+    """Return family, component label and configured color for components."""
+    for suffix, component_label in PU_HARD_COMPONENT_STYLES:
+        if sample_name.endswith(suffix):
+            process_prefix = sample_name.removesuffix(suffix).rstrip("_")
+            configured_families = [
+                family
+                for family in (styles or {})
+                if family != "default" and process_prefix.startswith(family)
+            ]
+            family = (
+                max(configured_families, key=len)
+                if configured_families
+                else (
+                    "DY" if process_prefix.startswith("DY")
+                    else "EWK" if process_prefix.startswith("EWK")
+                    else process_prefix
+                )
+            )
+            family_styles = (styles or {}).get(
+                family, (styles or {}).get("default", {})
+            )
+            color = family_styles.get(component_label)
+            return family, component_label, color
+    return None
 
 
 def jet_components_enabled_for_dataset(
@@ -76,15 +125,20 @@ def vbf_eta_region_expressions(base_expression):
     }
 
 
-def expanded_jet_component_categories(include_vbf_eta_regions=False):
+def expanded_jet_component_categories(
+    include_vbf_eta_regions=False, requested_categories=None
+):
     """Internal staging categories needed for split component ROOT files."""
+    requested = set(requested_categories or ("ggF", "VBF"))
     eta_regions = VBF_ETA_REGIONS if include_vbf_eta_regions else ("incl",)
-    categories = ["DY_inclusive_ggF"]
-    categories.extend(f"DY_inclusive_VBF_{region}" for region in eta_regions)
-    for component in GGF_COMPONENT_VARIABLES:
-        categories.append(component)
-    for component in VBF_COMPONENTS:
-        categories.extend(f"{component}_{region}" for region in eta_regions)
+    categories = []
+    if "ggF" in requested:
+        categories.append("DY_inclusive_ggF")
+        categories.extend(GGF_COMPONENT_VARIABLES)
+    if "VBF" in requested:
+        categories.extend(f"DY_inclusive_VBF_{region}" for region in eta_regions)
+        for component in VBF_COMPONENTS:
+            categories.extend(f"{component}_{region}" for region in eta_regions)
     return tuple(categories)
 
 
@@ -102,10 +156,13 @@ def add_vbf_eta_region_categories(selection_config):
     return config
 
 
-def add_jet_component_categories(selection_config, include_vbf_eta_regions=False):
+def add_jet_component_categories(
+    selection_config, include_vbf_eta_regions=False, requested_categories=None
+):
     """Return a config with mutually exclusive reco/gen-matching categories."""
     config = deepcopy(selection_config)
     categories = config.setdefault("categories", {})
+    requested = set(requested_categories or ("ggF", "VBF"))
     eta_regions = VBF_ETA_REGIONS if include_vbf_eta_regions else ("incl",)
     components = {
         "ggF_0J_Hard": "ggF{tot_suff} && N_SelectedJets{jet_suff} == 0",
@@ -133,18 +190,21 @@ def add_jet_component_categories(selection_config, include_vbf_eta_regions=False
         "VBF_PU1": "VBF{tot_suff} && N_PU_VBFJets{jet_suff} == 1",
         "VBF_PU2": "VBF{tot_suff} && N_PU_VBFJets{jet_suff} == 2",
     }
-    staging = {
-        "DY_inclusive_ggF": "ggF{tot_suff}",
-        **{
+    staging = {}
+    if "ggF" in requested:
+        staging["DY_inclusive_ggF"] = "ggF{tot_suff}"
+    if "VBF" in requested:
+        staging.update({
             f"DY_inclusive_VBF_{region}": expression
             for region, expression in vbf_eta_region_expressions(
                 "VBF{tot_suff}"
             ).items()
             if region in eta_regions
-        },
-    }
+        })
     for name, expression in components.items():
         if name in VBF_COMPONENTS:
+            if "VBF" not in requested:
+                continue
             staging.update(
                 {
                     f"{name}_{region}": region_expression
@@ -155,6 +215,8 @@ def add_jet_component_categories(selection_config, include_vbf_eta_regions=False
                 }
             )
         else:
+            if "ggF" not in requested:
+                continue
             staging[name] = expression
     for name, expression in staging.items():
         categories[name] = {"expression": expression, "store": True}
@@ -223,10 +285,15 @@ def define_jet_gen_matching(df, selection_suffixes):
 
 
 def variable_for_component(category, requested_variables):
-    """Choose the prescribed ggF fit observable; leave VBF configurable."""
+    """Keep requested observables and add the component-specific 2D one."""
+    variables = list(requested_variables)
+    component_variable = None
     if category in GGF_COMPONENT_VARIABLES:
-        return (GGF_COMPONENT_VARIABLES[category],)
+        component_variable = GGF_COMPONENT_VARIABLES[category]
     for component, variable in GGF_COMPONENT_VARIABLES.items():
         if category.startswith(f"{component}_"):
-            return (variable,)
-    return tuple(requested_variables)
+            component_variable = variable
+            break
+    if component_variable is not None and component_variable not in variables:
+        variables.append(component_variable)
+    return tuple(variables)

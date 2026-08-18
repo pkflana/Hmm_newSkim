@@ -24,6 +24,8 @@ if __name__ == "__main__":
     sys.path.append(os.environ["ANALYSIS_PATH"])
 
 import common.utilities as utilities
+from common.jet_component_splitting import pu_hard_component_style
+from test.rew_patch import dy_component_scale, root_file_has_patch
 from common.utilities import initialize_root_runtime
 from common.rdf_utilities import RebinHisto, findBinEntry, findNewBins, getNewBins,is_valid_histogram
 from plotting_tools.plotting_functions import make_stacked_plot
@@ -173,21 +175,24 @@ def get_process_scale_factors(plot_groups_cfg):
 
 
 def classify_plot_sample(sample_name, process_cfg, plot_groups_cfg):
-    component_styles = (
-        ("_VBF_Hard", "DY 2J Hard", "cornflowerblue"),
-        ("_VBF_PU1", "DY 1J Hard", "#0868df"),
-        ("_VBF_PU2", "DY 0J Hard", "#6b3b00"),
+    component_style = pu_hard_component_style(
+        sample_name,
+        plot_groups_cfg.get("pu_hard_component_styles", {}),
     )
-    if sample_name.startswith("DY"):
-        for suffix, label, color in component_styles:
-            if sample_name.endswith(suffix):
-                return {
-                    "type": "background",
-                    "is_data": False,
-                    "is_signal": False,
-                    "color": color,
-                    "name": label,
-                }
+    if component_style is not None:
+        family, component_label, color = component_style
+        if color is None:
+            raise KeyError(
+                f"Missing color for {family} {component_label} in "
+                "config/plot/process_groups.yaml:pu_hard_component_styles"
+            )
+        return {
+            "type": "background",
+            "is_data": False,
+            "is_signal": False,
+            "color": color,
+            "name": f"{family} {component_label}",
+        }
 
     sample_info = classify_sample(sample_name, process_cfg)
 
@@ -357,14 +362,8 @@ def apply_background_groups(input_processes, plot_groups_cfg, active_group_names
             process_name
             for process_name, process_info in input_processes.items()
             if process_name not in grouped_processes
-            # DY jet components must remain separate so that both the main
-            # stack and the composition panel retain their three identities.
-            and not (
-                process_name.startswith("DY")
-                and process_name.endswith(
-                    ("_VBF_Hard", "_VBF_PU1", "_VBF_PU2")
-                )
-            )
+            # PU/hard components must remain separate in the main stack.
+            and pu_hard_component_style(process_name) is None
             and not process_info.get("is_data", False)
             and not process_info.get("is_signal", False)
         ]
@@ -405,6 +404,7 @@ def get_available_histograms(
     region_path,
     scale_factor=1.0,
     recursive=True,
+    exclude_2d=True,
 ):
     """
     Returns:
@@ -440,7 +440,12 @@ def get_available_histograms(
                 )
                 continue
 
+            # TH2/TH3 inherit from TH1 in ROOT, so InheritsFrom("TH1") alone
+            # is not sufficient to select objects supported by this 1D plotter.
             if obj.InheritsFrom("TH1"):
+                if exclude_2d and obj.GetDimension() != 1:
+                    continue
+
                 hist_name = f"{prefix}{name}" if prefix else name
 
                 hist = obj.Clone(f"{hist_name}_clone")
@@ -612,11 +617,15 @@ if __name__ == "__main__":
         ),
     )
     parser.add_argument(
+        "--component-composition",
         "--dy-composition",
+        "--dy-ewk-composition",
+        dest="dy_composition",
         action="store_true",
         help=(
-            "Add a DY composition panel for the VBF_Hard, VBF_PU1 and "
-            "VBF_PU2 samples (shown as DY 2J, 1J and 0J Hard)."
+            "Automatically add one per-bin component-fraction panel for every "
+            "process family represented by at least two component samples. "
+            "The DY/EWK option names remain as backward-compatible aliases."
         ),
     )
 
@@ -629,6 +638,16 @@ if __name__ == "__main__":
             "Comma-separated list of variables to plot, "
             "for example: --vars m_mumu,DNN_NNOutput. "
             "If omitted, all variables found in the selected region are plotted."
+        ),
+    )
+
+    parser.add_argument(
+        "--exclude-2d",
+        action=argparse.BooleanOptionalAction,
+        default=True,
+        help=(
+            "Skip TH2/TH3 objects (default). Use --no-exclude-2d only for "
+            "specialized workflows that handle multidimensional histograms."
         ),
     )
 
@@ -877,6 +896,8 @@ if __name__ == "__main__":
             }
 
             scale_factor = process_scale_factors.get(process_name, 1.0)
+            if not root_file_has_patch(root_file):
+                scale_factor *= dy_component_scale(process_name, args.era)
             # print(process_name, scale_factor)
 
             available_hists = get_available_histograms(
@@ -884,6 +905,7 @@ if __name__ == "__main__":
                 region_path,
                 scale_factor=scale_factor,
                 recursive=True,
+                exclude_2d=args.exclude_2d,
             ) 
 
             for available_hist, hist_name in available_hists:

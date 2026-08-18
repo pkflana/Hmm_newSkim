@@ -37,6 +37,7 @@ class HmumuCliTest(unittest.TestCase):
             dry_run=True,
             execute=False,
             dy_jet_components=False,
+            jet_component_processes=[],
             vbf_eta_regions=False,
             max_files=None,
             extra=[],
@@ -112,13 +113,25 @@ class HmumuCliTest(unittest.TestCase):
         request = self.request(dy_jet_components=True)
         command = hmumu.histogram_command(request, "2025", "Central")
         separator = command.index("--")
-        self.assertGreater(command.index("--dy-jet-components"), separator)
+        self.assertGreater(command.index("--pu-hard-jet-components"), separator)
+
+    def test_selected_pu_hard_processes_are_forwarded(self):
+        request = self.request(
+            dy_jet_components=True,
+            jet_component_processes=["DY_amcatnlo_105_160", "EWK_105_160"],
+        )
+        command = hmumu.histogram_command(request, "2025", "Central")
+        option = command.index("--pu-hard-processes")
+        self.assertEqual(
+            command[option + 1 : option + 3],
+            ["DY_amcatnlo_105_160", "EWK_105_160"],
+        )
 
     def test_vbf_eta_regions_is_forwarded_to_hist_maker(self):
         request = self.request(vbf_eta_regions=True)
         command = hmumu.histogram_command(request, "2025", "Central")
         separator = command.index("--")
-        self.assertGreater(command.index("--vbf-eta-regions"), separator)
+        self.assertGreater(command.index("--eta-components"), separator)
 
     def test_one_file_limit_is_forwarded_after_separator(self):
         request = self.request(

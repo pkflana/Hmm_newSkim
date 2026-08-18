@@ -7,6 +7,40 @@ process_scales: {}
 # DY amc@nlo normalization is applied in histograms/hist_maker.py.
 # Keeping it here as well would double-count it.
 
+# Shared by every era. Component colors must live here, rather than in the
+# plotting Python, so DY/EWK panels cannot drift between era configurations.
+pu_hard_component_styles:
+  DY:
+    0J: aqua
+    1J Hard: skyblue
+    1J PU: deepskyblue
+    2J Hard: cornflowerblue
+    2J PU1: royalblue
+    2J PU2: navy
+    VBF Hard: lightsteelblue
+    VBF PU1: steelblue
+    VBF PU2: midnightblue
+  default:
+    0J: papayawhip
+    1J Hard: moccasin
+    1J PU: sandybrown
+    2J Hard: darkorange
+    2J PU1: orangered
+    2J PU2: firebrick
+    VBF Hard: wheat
+    VBF PU1: chocolate
+    VBF PU2: darkred
+  EWK:
+    0J: hotpink
+    1J Hard: plum
+    1J PU: orchid
+    2J Hard: mediumorchid
+    2J PU1: darkorchid
+    2J PU2: purple
+    VBF Hard: thistle
+    VBF PU1: mediumpurple
+    VBF PU2: indigo
+
 background_groups:
   DY_amcatnlo:
     name: "DY - amc@nlo"
@@ -178,7 +212,7 @@ signal_styles:
     color: fuchsia
   VBFHto2Mu_M125_powheg:
     name: 'VBF H $\rightarrow$ $\mu\mu$ powheg'
-    color: dodgerblue
+    color: fuchsia # dodgerblue
   VBFHto2Mu_M120:
     name: 'VBF H $\rightarrow$ $\mu\mu$ m120'
     color: orchid

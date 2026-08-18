@@ -12,6 +12,7 @@ import matplotlib.ticker as mticker
 import mplhep as hep
 import numpy as np
 
+from common.jet_component_splitting import pu_hard_component_style
 from common.rdf_utilities import findBinEntry
 
 plt.style.use(hep.style.CMS)
@@ -711,51 +712,86 @@ def make_stacked_plot(
             f"per {variable}. Uso Data/MC se disponibile."
         )
 
-    component_suffixes = ("_VBF_Hard", "_VBF_PU1", "_VBF_PU2")
-    composition_indices = [
-        idx
-        for idx, key in enumerate(mc_keys)
-        if key.startswith("DY") and key.endswith(component_suffixes)
-    ]
-    has_composition = dy_composition and len(composition_indices) == 3
+    composition_groups = {}
+    composition_payload = {}
+    if dy_composition:
+        component_info = {
+            idx: pu_hard_component_style(key)
+            for idx, key in enumerate(mc_keys)
+            if pu_hard_component_style(key) is not None
+        }
+        component_families = list(dict.fromkeys(
+            info[0] for info in component_info.values()
+        ))
+        for family in component_families:
+            indices = [
+                idx
+                for idx, info in component_info.items()
+                if info[0] == family
+            ]
+            if len(indices) >= 2:
+                composition_groups[family] = indices
+                composition_payload[family] = {
+                    "values": [mc_vals[idx] for idx in indices],
+                    "colors": [mc_colors[idx] for idx in indices],
+                    "labels": [
+                        component_info[idx][1]
+                        for idx in indices
+                    ],
+                }
+            elif indices:
+                print(
+                    f"  [WARNING] {family} composition skipped for {variable}: "
+                    "fewer than two jet-component samples were found."
+                )
+
+        # Jet components are diagnostic inputs for the percentage panels. The
+        # upper physics stack must contain the inclusive DY/EWK processes only.
+        component_index_set = {
+            idx for indices in composition_groups.values() for idx in indices
+        }
+        if component_index_set:
+            for key in [mc_keys[idx] for idx in sorted(component_index_set)]:
+                ratio_candidates.pop(key, None)
+            keep_indices = [
+                idx for idx in range(len(mc_keys)) if idx not in component_index_set
+            ]
+            mc_vals = [mc_vals[idx] for idx in keep_indices]
+            mc_colors = [mc_colors[idx] for idx in keep_indices]
+            mc_labels = [mc_labels[idx] for idx in keep_indices]
+            mc_integrals = [mc_integrals[idx] for idx in keep_indices]
+            mc_errs = [mc_errs[idx] for idx in keep_indices]
+            mc_keys = [mc_keys[idx] for idx in keep_indices]
+    has_composition = bool(composition_groups)
     if dy_composition and not has_composition:
         print(
-            f"  [WARNING] DY composition skipped for {variable}: expected "
-            "exactly VBF_Hard, VBF_PU1 and VBF_PU2 DY samples."
+            f"  [WARNING] DY/EWK composition skipped for {variable}: "
+            "fewer than two jet-component samples were found."
         )
 
-    if has_ratio and has_composition:
-        fig, (ax, cax, rax) = plt.subplots(
-            3,
+    composition_families = list(composition_groups)
+    n_composition_panels = len(composition_families)
+
+    if has_ratio or has_composition:
+        n_panels = 1 + n_composition_panels + int(has_ratio)
+        axes = plt.subplots(
+            n_panels,
             1,
             figsize=(canvas_size[0] / 80, canvas_size[1] / 85),
             sharex=True,
             gridspec_kw={
-                "height_ratios": [3, 1, 1],
+                "height_ratios": [3] + [1] * (n_panels - 1),
                 "hspace": 0.05,
             },
         )
-    elif has_composition:
-        fig, (ax, cax) = plt.subplots(
-            2,
-            1,
-            figsize=(canvas_size[0] / 80, canvas_size[1] / 90),
-            sharex=True,
-            gridspec_kw={"height_ratios": [3, 1], "hspace": 0.05},
-        )
-        rax = None
-    elif has_ratio:
-        fig, (ax, rax) = plt.subplots(
-            2,
-            1,
-            figsize=(canvas_size[0] / 80, canvas_size[1] / 100),
-            sharex=True,
-            gridspec_kw={
-                "height_ratios": [3, 1],
-                "hspace": 0.05,
-            },
-        )
-        cax = None
+        fig, panel_axes = axes
+        panel_axes = np.atleast_1d(panel_axes)
+        ax = panel_axes[0]
+        composition_axes = {
+            family: panel_axes[index + 1]
+            for index, family in enumerate(composition_families)
+        }
+        rax = panel_axes[-1] if has_ratio else None
     else:
         fig, ax = plt.subplots(
             1,
@@ -763,7 +799,7 @@ def make_stacked_plot(
             figsize=(canvas_size[0] / 80, canvas_size[1] / 100),
         )
         rax = None
-        cax = None
+        composition_axes = {}
 
     # =====================================================
     # Background stack
@@ -868,12 +904,13 @@ def make_stacked_plot(
         )
 
     # =====================================================
-    # DY jet composition
+    # DY/EWK jet composition
     # =====================================================
 
-    if has_composition:
-        component_vals = [mc_vals[idx] for idx in composition_indices]
-        component_colors = [mc_colors[idx] for idx in composition_indices]
+    for family, payload in composition_payload.items():
+        composition_ax = composition_axes[family]
+        component_vals = payload["values"]
+        component_colors = payload["colors"]
         component_total = np.sum(component_vals, axis=0)
         fractions = [
             np.divide(
@@ -890,12 +927,28 @@ def make_stacked_plot(
             stack=True,
             histtype="fill",
             color=component_colors,
+            label=payload["labels"],
             edgecolor="none",
-            ax=cax,
+            ax=composition_ax,
         )
-        cax.set_ylim(0.0, 1.0)
-        cax.set_ylabel("DY Comp.", fontsize=14)
-        cax.grid(axis="y", linestyle=":", linewidth=0.5, alpha=0.5)
+        composition_ax.set_ylim(0.0, 1.0)
+        # Avoid overlapping 100%/0% labels at the shared boundary between
+        # adjacent composition panels. The limits still represent 0--100%,
+        # while only internal percentage ticks receive labels.
+        composition_ax.yaxis.set_major_locator(
+            mticker.FixedLocator([0.25, 0.5, 0.75])
+        )
+        composition_ax.yaxis.set_major_formatter(
+            mticker.PercentFormatter(xmax=1.0, decimals=0)
+        )
+        composition_ax.set_ylabel(f"{family}\nComp.", fontsize=12)
+        composition_ax.grid(axis="y", linestyle=":", linewidth=0.5, alpha=0.5)
+        composition_ax.legend(
+            fontsize=7,
+            frameon=True,
+            ncol=min(3, len(payload["labels"])),
+            loc="upper center",
+        )
 
     # =====================================================
     # Ratio
@@ -981,7 +1034,7 @@ def make_stacked_plot(
             rax.set_ylabel(f"/ {denominator['name']}", fontsize=14)
 
             if len(ratio_arrays) > 1:
-                rax.legend(fontsize=9, frameon=False, ncol=2)
+                rax.legend(fontsize=9, frameon=True, ncol=2)
 
         else:
             valid_ratio = (
@@ -1081,10 +1134,13 @@ def make_stacked_plot(
     if has_ratio:
         rax.set_xlabel(x_label, fontsize=20)
         ax.get_xaxis().set_visible(False)
-        if cax is not None:
-            cax.get_xaxis().set_visible(False)
+        for composition_ax in composition_axes.values():
+            composition_ax.get_xaxis().set_visible(False)
     elif has_composition:
-        cax.set_xlabel(x_label, fontsize=20)
+        last_composition_ax = composition_axes[composition_families[-1]]
+        last_composition_ax.set_xlabel(x_label, fontsize=20)
+        for composition_ax in list(composition_axes.values())[:-1]:
+            composition_ax.get_xaxis().set_visible(False)
         ax.get_xaxis().set_visible(False)
     else:
         ax.set_xlabel(x_label, fontsize=20)

@@ -75,6 +75,8 @@ Options:
                           Treat outputs listed in FILE as already submitted.
   --missing-only         In local mode, run only incomplete/missing stage outputs.
                           Condor always skips complete outputs unless --force is used.
+  --print-existing       Print each complete output skipped by --missing-only.
+                          Existing outputs are silent by default in local mode.
   --erase-existing       Remove already produced histogram files before submitting.
   --force                Submit selected jobs even if output files already exist.
   --dry-run              Print commands without running them.
@@ -177,6 +179,12 @@ hist_output_exists() {
 
 stage_output_exists() {
   python3 "${ANALYSIS_PATH}/tools/check_stage_output.py" "$1" "$2"
+}
+
+component_outputs_exist() {
+  local output_file="$1"
+  python3 "${ANALYSIS_PATH}/tools/check_vbf_component_outputs.py" \
+    "${output_file}" "${required_component_regions}"
 }
 
 histogram_output_path() {
@@ -448,6 +456,37 @@ deduplicate_output_jobs() {
   fi
 }
 
+apply_default_dy_105_160_vbf_cuts() {
+  local era="$1"
+  local cut=""
+
+  [[ "${campaign_mode}" != "validation" ]] || return 0
+  case "${era}" in
+    Run3_2024|Run3_2025|Run3_2026) ;;
+    *) return 0 ;;
+  esac
+
+  for i in "${!job_datasets[@]}"; do
+    case "${job_datasets[$i]}" in
+      DYto2Mu_MLL_105to160_amcatnloFXFX)
+        cut="GenVBFFilter==0"
+        ;;
+      DYto2Mu_MLL_105to160_amcatnloFXFX_Fil_VBF)
+        cut="GenVBFFilter==1"
+        ;;
+      *)
+        continue
+        ;;
+    esac
+
+    # Respect an explicit caller override, but otherwise make the disjoint
+    # inclusive/VBF-filtered phase-space routing part of default production.
+    if [[ " ${job_specific_opts[$i]} " != *" --additional-cuts "* ]]; then
+      job_specific_opts[$i]="${job_specific_opts[$i]:+${job_specific_opts[$i]} }--additional-cuts ${cut}"
+    fi
+  done
+}
+
 add_data_jobs() {
   local era="$1"
   local datasets=()
@@ -633,7 +672,7 @@ add_w_jobs() {
       datasets=(WtoMuNu_amcatnloFXFX WtoTauNu_amcatnloFXFX) # WtoENu_amcatnloFXFX WtoLNu_1J_madgraphMLM WtoLNu_2J_madgraphMLM WtoLNu_3J_madgraphMLM WtoLNu_4J_madgraphMLM
       ;;
     Run3_2022|Run3_2022EE|Run3_2023|Run3_2023BPix)
-      datasets=(WtoLNu_0J_amcatnloFXFX WtoLNu_1J_amcatnloFXFX WtoLNu_2J_amcatnloFXFX WtoLNu_amcatnloFXFX)
+      datasets=(WtoLNu_0J_amcatnloFXFX WtoLNu_1J_amcatnloFXFX WtoLNu_2J_amcatnloFXFX ) #WtoLNu_amcatnloFXFX)
       ;;
   esac
 
@@ -747,6 +786,9 @@ job_count_file=""
 erase_existing=0
 force_submit=0
 missing_only=0
+require_component_outputs=0
+required_component_regions=""
+print_existing=0
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
@@ -915,6 +957,19 @@ while [[ $# -gt 0 ]]; do
       missing_only=1
       shift
       ;;
+    --require-component-outputs)
+      require_component_outputs=1
+      shift
+      ;;
+    --require-component-regions)
+      [[ $# -ge 2 ]] || die "$1 requires a value"
+      required_component_regions="$2"
+      shift 2
+      ;;
+    --print-existing)
+      print_existing=1
+      shift
+      ;;
     --job-count-file)
       [[ $# -ge 2 ]] || die "$1 requires a value"
       job_count_file="$2"
@@ -1011,6 +1066,7 @@ fi
 if [[ -z "${single_dataset_name}" || ${expanded_single_dataset} -eq 1 ]]; then
   drop_unconfigured_jobs "${era}"
 fi
+apply_default_dy_105_160_vbf_cuts "${era}"
 if [[ "${campaign_mode}" == "validation" ]]; then
   deduplicate_validation_jobs
 else
@@ -1357,9 +1413,13 @@ for i in "${!job_datasets[@]}"; do
   esac
 
   if [[ ${missing_only} -eq 1 && ${force_submit} -eq 0 && ${erase_existing} -eq 0 ]]; then
-    if stage_output_exists "${campaign_mode}" "${expected_output}"; then
-      echo "[DONE]  ${expected_output}"
-      echo "[INFO] --missing-only: output already exists, skipping ${dataset_name}."
+    if stage_output_exists "${campaign_mode}" "${expected_output}" \
+      && { [[ ${require_component_outputs} -eq 0 ]] \
+        || component_outputs_exist "${expected_output}"; }; then
+      if [[ ${print_existing} -eq 1 ]]; then
+        echo "[DONE]  ${expected_output}"
+        echo "[INFO] --missing-only: output already exists, skipping ${dataset_name}."
+      fi
       continue
     fi
   fi

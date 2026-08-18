@@ -20,8 +20,7 @@ def needs_sideband_mass_shift(mass_region, variable):
     return mass_region in SIDEBAND_PAYLOADS and variable == DNN_OUTPUT_VARIABLE
 
 
-def sideband_mass_expression(mass_region):
-    """Map a sideband dimuon mass into the DNN training mass window."""
+def sideband_mass_expression(mass_region): 
     if mass_region == "Z_sideband":
         return "static_cast<float>(115.0 + 0.5 * (m_mumu - 70.0))"
     if mass_region == "H_sideband":

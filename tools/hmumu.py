@@ -208,6 +208,7 @@ def run_plot(args: argparse.Namespace) -> int:
             (args.rebin, "--rebin"),
             (args.normalize_dy_to_data, "--normalize-dy-to-data"),
             (args.normalize_mc_to_data, "--normalize-mc-to-data"),
+            (args.component_composition, "--component-composition"),
         ):
             if enabled:
                 command.append(option)
@@ -250,10 +251,18 @@ def run_merge_systematics(args: argparse.Namespace) -> int:
         normalized_era(era)
         for era in csv_or_repeated(args.eras or [])
     }
-    source_dirs = {
-        systematic: systematic_directory(central_dir, systematic)
-        for systematic in systematics
-    }
+    if args.source_dirs:
+        source_dirs = {"Central": central_dir}
+        source_dirs.update(
+            {f"source_{index}": Path(path).expanduser()
+             for index, path in enumerate(args.source_dirs, start=1)}
+        )
+        systematics = list(source_dirs)
+    else:
+        source_dirs = {
+            systematic: systematic_directory(central_dir, systematic)
+            for systematic in systematics
+        }
     sources = {
         systematic: {
             relative: path
@@ -317,6 +326,7 @@ class HistRequest:
     dry_run: bool
     execute: bool
     dy_jet_components: bool
+    jet_component_processes: list[str]
     vbf_eta_regions: bool
     max_files: int | None
     extra: list[str]
@@ -419,9 +429,14 @@ def histogram_command(request: HistRequest, era: str, systematic: str) -> list[s
     if request.categories:
         command += ["--categories", *request.categories]
     if request.dy_jet_components:
-        command.append("--dy-jet-components")
+        command.append("--pu-hard-jet-components")
+        if request.jet_component_processes:
+            command += [
+                "--pu-hard-processes",
+                *request.jet_component_processes,
+            ]
     if request.vbf_eta_regions:
-        command.append("--vbf-eta-regions")
+        command.append("--eta-components")
     if request.max_files is not None:
         command += ["--max-files", str(request.max_files)]
     command += ["--dnn-model-set", request.dnn_model_set]
@@ -477,6 +492,9 @@ def run_hist(args: argparse.Namespace) -> int:
         dry_run=args.dry_run or check_only,
         execute=args.execute or check_only,
         dy_jet_components=args.dy_jet_components,
+        jet_component_processes=csv_or_repeated(
+            args.jet_component_processes or []
+        ),
         vbf_eta_regions=args.vbf_eta_regions,
         max_files=1 if args.one_file else args.max_files,
         dnn_model_set=args.dnn_model_set,
@@ -707,15 +725,30 @@ def build_parser() -> argparse.ArgumentParser:
     hist.add_argument("--dry-run", action="store_true",
                       help="also pass dry-run to the campaign engine")
     hist.add_argument(
+        "--pu-hard-jet-components",
         "--dy-jet-components",
+        "--jet-gen-components",
+        dest="dy_jet_components",
         action="store_true",
         help=(
-            "produce exclusive DY 0J/1J/2J and VBF hard/PU components, "
+            "produce exclusive 0J/1J/2J and VBF hard/PU components, "
             "including the prescribed 2D eta:pT fit templates"
         ),
     )
     hist.add_argument(
+        "--pu-hard-processes",
+        "--jet-gen-component-processes",
+        dest="jet_component_processes",
+        action="append",
+        help=(
+            "MC processes or campaign groups to split into PU/hard components; "
+            "repeat or use commas"
+        ),
+    )
+    hist.add_argument(
+        "--eta-components",
         "--vbf-eta-regions",
+        dest="vbf_eta_regions",
         action="store_true",
         help="split VBF events into nested incl/CC/CF/FF eta regions",
     )
@@ -864,6 +897,14 @@ def build_parser() -> argparse.ArgumentParser:
     plot.add_argument("--rebin", action="store_true")
     plot.add_argument("--normalize-dy-to-data", action="store_true")
     plot.add_argument("--normalize-mc-to-data", action="store_true")
+    plot.add_argument(
+        "--component-composition",
+        "--dy-ewk-composition",
+        "--dy-composition",
+        dest="component_composition",
+        action="store_true",
+        help="add one fraction panel for each supplied component family",
+    )
     plot.add_argument("--dy-normalization-sample")
     plot.add_argument("--run", dest="execute", action="store_true")
     plot.set_defaults(func=run_plot)
@@ -881,6 +922,15 @@ def build_parser() -> argparse.ArgumentParser:
         "--systematics",
         action="append",
         help="groups to merge (default: Central,JERC,Muon,PDF,PU,QCDScale,ScaRe)",
+    )
+    merge_systematics.add_argument(
+        "--source-dir",
+        dest="source_dirs",
+        action="append",
+        help=(
+            "additional already-hadded directory to merge with Central; "
+            "repeatable. This bypasses automatic per-systematic directory names"
+        ),
     )
     merge_systematics.add_argument(
         "-e",
