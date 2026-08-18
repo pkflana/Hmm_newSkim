@@ -910,20 +910,25 @@ if __name__ == "__main__":
 
             for available_hist, hist_name in available_hists:
 
-                if (
-                    requested_variables_set is not None
-                    and hist_name not in requested_variables_set
-                ):
-                    continue
+                if requested_variables_set is not None:
+                    base_name = hist_name.rsplit("_CMS_", 1)[0] if "_CMS_" in hist_name else hist_name
+                    if hist_name not in requested_variables_set and base_name not in requested_variables_set:
+                        continue
 
                 var_entry = findBinEntry(hist_cfg, hist_name)
 
                 if var_entry is None or var_entry not in hist_cfg:
-                    print(
-                        f"[WARNING] Nessuna configurazione trovata "
-                        f"per {hist_name}. Skip."
-                    )
-                    continue
+                    base_name = hist_name.rsplit("_CMS_", 1)[0] if "_CMS_" in hist_name else None
+                    base_entry = findBinEntry(hist_cfg, base_name) if base_name else None
+
+                    if base_entry is None or base_entry not in hist_cfg:
+                        print(
+                            f"[WARNING] Nessuna configurazione trovata "
+                            f"per {hist_name}. Skip."
+                        )
+                        continue
+                    var_entry = base_entry
+                
 
                 if "x_rebin" in hist_cfg[var_entry]:
                     bins_to_compute = findNewBins(
@@ -935,6 +940,7 @@ if __name__ == "__main__":
                 else:
                     new_bins = hist_cfg[var_entry].get("x_bins", [])
 
+                is_syst_variant = "_CMS_" in hist_name
                 rebinned_hist = available_hist
 
                 if args.rebin:
@@ -1058,6 +1064,8 @@ if __name__ == "__main__":
                 ratio_reference=args.ratio_reference,
                 normalize_dy_to_data=args.normalize_dy_to_data,
                 normalize_mc_to_data=args.normalize_mc_to_data,
+                dy_normalization_sample=args.dy_normalization_sample,     
+                era=args.era,             
                 dy_normalization_sample=args.dy_normalization_sample,
                 dy_composition=args.dy_composition,
             )

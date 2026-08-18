@@ -319,15 +319,190 @@ def resolve_ratio_reference(ratio_reference, ratio_candidates):
 
 
 def set_ratio_axis_range(rax, ratio_arrays, ratio_unc_low=None, ratio_unc_high=None):
-    ymin = 0.5
-    ymax = 1.5
+    ymin = 0
+    ymax = 2
 
     rax.set_ylim(ymin, ymax)
 
-    ticks = np.round(np.arange(ymin, ymax + 0.001, 0.2), 1)
+    ticks = np.round(np.arange(ymin, ymax + 0.001, 0.5), 1)
     rax.yaxis.set_major_locator(mticker.FixedLocator(ticks))
     rax.yaxis.set_major_formatter(mticker.FormatStrFormatter("%.1f"))
     rax.grid(axis="y", which="major", linestyle=":", linewidth=0.6, alpha=0.5)
+
+
+# =============================================================================
+# Systematic uncertainty bands for the Data/MC ratio panel
+#
+# Histogram naming convention (written by hist_maker.py):
+#   {variable}_CMS_{fragment}_{era}Up
+#   {variable}_CMS_{fragment}_{era}Down
+#
+# Example: m_mumu_CMS_res_j_2022Up
+#
+# SYST_GROUPS maps each display group to the list of CMS nuisance name
+# fragments that belong to it.  Fragments that share a group are combined
+# by taking the envelope (most extreme deviation from 1.0) across all
+# fragments in each bin before the group band is drawn.
+#
+# For each group the band is drawn as two step lines:
+#   MC_shifted_up   / MC_nominal  (upper line)
+#   MC_shifted_down / MC_nominal  (lower line)
+# where MC_shifted is the sum over ALL background samples of the shifted
+# histogram, and MC_nominal is the sum of the nominal histograms.
+# =============================================================================
+
+# {group_label: ([nuisance_fragments], color)}
+SYST_GROUPS = {
+    "Jet Res":      (["res_j"],                              "#008000"),  # purple
+    "Jet Scale Tot":(["scale_j"],                            "#808080"),  # gray
+    "Muon":         (["eff_m_iso", "eff_m_trigger", "eff_m_id"], "#ff7f00"),  # orange
+    "Mu Res":       (["res_m"],                              "#e41a1c"),  # red
+    "Mu Scale":     (["scale_m"],                            "#377eb8"),  # blue
+}
+
+
+def _hist_content(th1, bin_edges):
+    """
+    Extract bin contents from th1 for exactly the bins whose
+    low edges match the (possibly trimmed) bin_edges array.
+    Falls back to positional slicing if edges don't match.
+    """
+    n_bins = len(bin_edges) - 1
+    out = np.zeros(n_bins, dtype=float)
+    
+    for i, (lo, hi) in enumerate(zip(bin_edges[:-1], bin_edges[1:])):
+        # find the ROOT bin whose low edge matches
+        mid = 0.5 * (lo + hi)
+        root_bin = th1.FindBin(mid)
+        out[i] = th1.GetBinContent(root_bin)
+    
+    return out
+
+
+def build_syst_ratio_bands(samples_dict, category, variable, mc_keys, bin_edges, era):
+    n_bins=len(bin_edges) - 1
+    """
+    Compute per-group systematic ratio bands for the Data/MC ratio panel.
+
+    For each systematic group defined in SYST_GROUPS:
+      1. For every nuisance fragment in the group, look for histogram keys
+             {variable}_CMS_{fragment}_{era}Up
+             {variable}_CMS_{fragment}_{era}Down
+         inside each MC background sample's hists dict.
+      2. Sum the shifted bin contents across ALL MC background samples
+         to get total MC_up and MC_down per nuisance.
+      3. Compute ratio_up = MC_up / MC_nominal and ratio_dn = MC_dn / MC_nominal.
+      4. When a group has multiple fragments (e.g. Muon combines eff_m_iso,
+         eff_m_trigger, eff_m_id) take the envelope: the deviation furthest
+         from 1.0 wins in each bin.
+
+    Parameters
+    ----------
+    samples_dict : dict
+        Full samples dict as built by hist_plotter.py after apply_plot_groups().
+    category : str
+        Region key, e.g. "Z_sideband_VBF".
+    variable : str
+        Nominal histogram name, e.g. "m_mumu".
+    mc_keys : list of str
+        Background sample keys to sum over (already sorted by yield).
+    n_bins : int
+        Number of visible bins (after any trimming).
+    era : str
+        Era string, e.g. "Run3_2022". "Run3_" is stripped to give "2022".
+
+    Returns
+    -------
+    dict : {group_label: (ratio_up, ratio_dn, color)}
+        ratio_up and ratio_dn are np.ndarray of shape (n_bins,).
+        Values above/below 1.0 show upward/downward MC shifts.
+    """
+    era_short = era.removeprefix("Run3_")
+
+    # ------------------------------------------------------------------
+    # Nominal MC total — sum nominal histograms across all MC samples
+    # ------------------------------------------------------------------
+    nominal_total = np.zeros(len(bin_edges) - 1, dtype=float)
+    for key in mc_keys:
+        h = samples_dict[key]["hists"].get(category, {}).get(variable)
+        if h is not None:
+            nominal_total += _hist_content(h, bin_edges)
+
+    result = {}
+
+    for group_label, (fragments, color) in SYST_GROUPS.items():
+        # Envelope accumulators — start at nominal (ratio = 1.0)
+        group_ratio_up = np.ones(len(bin_edges) - 1, dtype=float)
+        group_ratio_dn = np.ones(len(bin_edges) - 1, dtype=float)
+        group_found = False
+
+        for fragment in fragments:
+            up_key = f"{variable}_CMS_{fragment}_{era_short}Up"
+            dn_key = f"{variable}_CMS_{fragment}_{era_short}Down"
+
+            mc_up = np.zeros(len(bin_edges) - 1, dtype=float)
+            mc_dn = np.zeros(len(bin_edges) - 1, dtype=float)
+            frag_found = False
+
+            for key in mc_keys:
+                hists = samples_dict[key]["hists"].get(category, {})
+                h_nom = hists.get(variable)
+                h_up  = hists.get(up_key)
+                h_dn  = hists.get(dn_key)
+
+                print(f"  [DEBUG] {key}: nom={h_nom is not None}, up={h_up is not None}, dn={h_dn is not None}")
+
+                if h_nom is None:
+                    continue
+
+                nom = _hist_content(h_nom, bin_edges)
+
+                if h_up is not None and h_dn is not None:
+                    mc_up += _hist_content(h_up, bin_edges)
+                    mc_dn += _hist_content(h_dn, bin_edges)
+                    frag_found = True
+                else:
+                    # Sample unaffected by this fragment — contributes
+                    # nominally so its bins cancel in the ratio
+                    mc_up += nom
+                    mc_dn += nom
+
+            if not frag_found:
+                continue
+
+            group_found = True
+
+            ratio_up = np.where(nominal_total > 0, mc_up / nominal_total, 1.0)
+            ratio_dn = np.where(nominal_total > 0, mc_dn / nominal_total, 1.0)
+
+            print(f"    [{fragment}] ratio_up min/max: {np.nanmin(ratio_up):.3f}/{np.nanmax(ratio_up):.3f}  "
+                f"at bins {np.nanargmin(ratio_up)}/{np.nanargmax(ratio_up)}")
+            print(f"    nominal_total at those bins: {nominal_total[np.nanargmin(ratio_up)]:.4g} / "
+                f"{nominal_total[np.nanargmax(ratio_up)]:.4g}")
+
+            # Envelope: keep whichever fragment deviates most from 1.0
+            group_ratio_up = np.where(
+                np.abs(ratio_up - 1.0) > np.abs(group_ratio_up - 1.0),
+                ratio_up,
+                group_ratio_up,
+            )
+            group_ratio_dn = np.where(
+                np.abs(ratio_dn - 1.0) > np.abs(group_ratio_dn - 1.0),
+                ratio_dn,
+                group_ratio_dn,
+            )
+
+        if group_found:
+            result[group_label] = (group_ratio_up, group_ratio_dn, color)
+            print(
+                f"  [SYST] {group_label}: "
+                f"mean |up-1|={np.nanmean(np.abs(group_ratio_up - 1.0)):.4f}  "
+                f"mean |dn-1|={np.nanmean(np.abs(group_ratio_dn - 1.0)):.4f}"
+            )
+        else:
+            print(f"  [SYST] {group_label}: no histograms found, skipping")
+
+    return result
 
 
 # =========================================================
@@ -347,6 +522,7 @@ def make_stacked_plot(
     normalize_dy_to_data=False,
     normalize_mc_to_data=False,
     dy_normalization_sample="DY",
+    era="",
     dy_composition=False,
 ):
     """
@@ -356,6 +532,7 @@ def make_stacked_plot(
       - data opzionale
       - ratio Data/MC opzionale
       - blinding sui dati
+      - per-systematic step-line bands in the ratio panel
     """
     mc_vals = []
     mc_colors = []
@@ -699,8 +876,6 @@ def make_stacked_plot(
         "draw_ratio",
         config_page.get("draw_ratio", True),
     )
-    # print(ratio_candidates)
-    # print(ratio_reference)
     ratio_reference_key = resolve_ratio_reference(ratio_reference, ratio_candidates)
     has_default_ratio = data_vals is not None and len(mc_vals) > 0
     has_sample_ratio = ratio_reference is not None and ratio_reference_key is not None
@@ -1037,6 +1212,9 @@ def make_stacked_plot(
                 rax.legend(fontsize=9, frameon=True, ncol=2)
 
         else:
+            # ----------------------------------------------------------
+            # Default Data/MC ratio branch
+            # ----------------------------------------------------------
             valid_ratio = (
                 (total_mc_vals != 0)
                 & np.isfinite(total_mc_vals)
@@ -1060,28 +1238,91 @@ def make_stacked_plot(
                 )
             )
 
+            # MC stat uncertainty — used for ratio_unc_low/high passed to
+            # set_ratio_axis_range; drawn as a light gray band behind syst lines
             mc_rel_unc = np.divide(
                 total_mc_errs,
                 total_mc_vals,
                 out=np.zeros_like(total_mc_errs, dtype=float),
                 where=total_mc_vals != 0,
             )
-
             ratio_unc_high = 1.0 + mc_rel_unc
-            ratio_unc_low = np.maximum(1.0 - mc_rel_unc, 0.0)
+            ratio_unc_low  = np.maximum(1.0 - mc_rel_unc, 0.0)
 
             rax.fill_between(
                 bin_edges,
                 np.r_[ratio_unc_low, ratio_unc_low[-1]],
                 np.r_[ratio_unc_high, ratio_unc_high[-1]],
                 step="post",
-                facecolor="ghostwhite",
-                edgecolor="black",
+                facecolor="white",
+                edgecolor="gray",
                 hatch="//",
-                alpha=0.5,
+                linewidth=2,
+                alpha=1.0,
                 zorder=1,
             )
 
+            # Per-systematic step-line bands
+            n_bins = len(bin_centers)
+            if era and mc_keys:
+                syst_bands = build_syst_ratio_bands(
+                    samples_dict=samples_dict,
+                    category=category,
+                    variable=variable,
+                    mc_keys=mc_keys,
+                    bin_edges=bin_edges,
+                    era=era,
+                )
+
+                for group_label, (ratio_up, ratio_dn, color) in syst_bands.items():
+                    # Up line — carries the legend label
+                    rax.step(
+                        bin_edges,
+                        np.r_[ratio_up, ratio_up[-1]],
+                        where="post",
+                        color=color,
+                        linewidth=2,
+                        zorder=2,
+                        label=group_label,
+                    )
+                    # Down line — same color, no duplicate legend entry
+                    rax.step(
+                        bin_edges,
+                        np.r_[ratio_dn, ratio_dn[-1]],
+                        where="post",
+                        color=color,
+                        linewidth=2,
+                        zorder=2,
+                    )
+                if syst_bands:
+                    sq_up = np.zeros(n_bins, dtype=float)
+                    sq_dn = np.zeros(n_bins, dtype=float)
+
+                    for ratio_up, ratio_dn, color in syst_bands.values():
+                        sq_up += (ratio_up - 1.0) ** 2
+                        sq_dn += (ratio_dn - 1.0) ** 2
+
+                    combined_up = 1.0 + np.sqrt(sq_up)
+                    combined_dn = 1.0 - np.sqrt(sq_dn)
+
+                    rax.step(
+                        bin_edges,
+                        np.r_[combined_up, combined_up[-1]],
+                        where="post",
+                        color="black",
+                        linewidth=3,
+                        zorder=2,
+                        label="Syst. total",
+                    )
+                    rax.step(
+                    bin_edges,
+                    np.r_[combined_dn, combined_dn[-1]],
+                    where="post",
+                    color="black",
+                    linewidth=3,
+                    zorder=2,
+                    )
+            # Data points on top of all bands
             rax.errorbar(
                 bin_centers,
                 ratio,
@@ -1089,19 +1330,30 @@ def make_stacked_plot(
                 fmt=".",
                 color="black",
                 markersize=10,
-                zorder=2,
+                zorder=3,
             )
 
             ratio_arrays.append(ratio)
             ratio_arrays.append(ratio - ratio_err)
             ratio_arrays.append(ratio + ratio_err)
+
+            rax.legend(
+                fontsize=7,
+                frameon=True,
+                framealpha=0.8,
+                loc="upper right",
+                ncol=3,
+                handlelength=1.5,
+                labelspacing=0.25,
+            )
+
             rax.set_ylabel("Data/MC", fontsize=14)
 
         rax.axhline(
             1.0,
             color="black",
             linestyle="--",
-            linewidth=1.0,
+            linewidth=2.0,
         )
 
         set_ratio_axis_range(
@@ -1210,9 +1462,6 @@ def make_stacked_plot(
         "Signal_Fit_VBF": "VBF H",
         "Signal_Fit_baseline": "baseline H",
 
-
-
-
         "mass_inclusive_baseline_lowPtTT": "baseline incl",
         "mass_inclusive_ggF_lowPtTT": "ggF incl",
         "mass_inclusive_VBF_lowPtTT": "VBF incl",
@@ -1227,8 +1476,25 @@ def make_stacked_plot(
         "Signal_Fit_ggF_lowPtTT": "ggF H",
         "Signal_Fit_VBF_lowPtTT": "VBF H",
         "Signal_Fit_baseline_lowPtTT": "baseline H",
+
+        "Signal_Fit_VBF/incl": "VBF H",
+        "Signal_Fit_VBF/CC": "VBF H CC",
+        "Signal_Fit_VBF/CF": "VBF H CF",
+        "Signal_Fit_VBF/FF": "VBF H FF",
+
+        "Z_sideband_VBF/incl": "VBF Z",
+        "Z_sideband_VBF/CC": "VBF Z CC",
+        "Z_sideband_VBF/CF": "VBF Z CF",
+        "Z_sideband_VBF/FF": "VBF Z FF",
+
+        "H_sideband_VBF/incl": "VBF H sideband",
+        "H_sideband_VBF/CC": "VBF H sideband CC",
+        "H_sideband_VBF/CF": "VBF H sideband CF",
+        "H_sideband_VBF/FF": "VBF H sideband FF",           
     }
+
     lumi_val = config_page.get("lumi_text", {}).get("text", "1.0")
+    cms_tag = f"Preliminary {category_names[category]}"
     category_label = category_names.get(category, category.replace("/incl", ""))
     cms_tag = f"Preliminary {category_label}" # config_page.get("cms_label", {}).get("tag",
     cms_com = config_page.get("cms_label", {}).get("com", "13.6")
@@ -1242,19 +1508,6 @@ def make_stacked_plot(
         loc=0,
         fontsize=20,
     )
-
-
-
-    # ax.text(
-    #     0.22,
-    #     0.96,
-    #     category_names[category],
-    #     # " ".join(c for c in category.split("_")),
-    #     transform=ax.transAxes,
-    #     fontsize=12,
-    #     verticalalignment="top",
-    #     horizontalalignment="right",
-    # )
 
     # =====================================================
     # Save
