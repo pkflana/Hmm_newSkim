@@ -3,6 +3,76 @@ import ROOT
 import math
 import yaml
 
+absolutepath = True
+
+def build_xsec_dictionary(yaml_path,processes):
+  with open(yaml_path, "r") as f:
+        cfg = yaml.safe_load(f)
+  xsecdict = {}
+
+
+  return xsecdict
+
+
+def check_process_histograms(filepath, channel, proc, uncertainties):
+    fname = os.path.join(filepath, proc + ".root")
+    if not os.path.isfile(fname):
+        print("  WARNING: file not found for process {}: {} -> turning off".format(proc, fname))
+        return False
+
+    tf = ROOT.TFile.Open(fname)
+    if not tf or tf.IsZombie():
+        print("  WARNING: could not open file for process {}: {} -> turning off".format(proc, fname))
+        return False
+
+    good = True
+
+    # nominal histogram
+    nominal_name = channel + "/DNN_NNOutput"
+    h = tf.Get(nominal_name)
+    if not h:
+        print("  WARNING: nominal histogram '{}' missing for process {} -> turning off".format(nominal_name, proc))
+        good = False
+    else:
+        integral = h.Integral()
+        if integral <= 0:
+            print("  {}: nominal integral negative ({:.6g}) -> turning off".format(proc, integral))
+            good = False
+
+    # systematic histograms: for each uncertainty that applies to this process,
+    # check both Up and Down variations
+    if good:
+        for unc in uncertainties:
+            uncname = unc[0]
+            unctype = unc[1]
+            proc_tag = unc[3]
+
+            # only shape uncertainties have histograms
+            if unctype != "shape":
+                continue
+            # skip uncertainties that don't apply to this process
+            if proc_tag is not None and proc not in proc_tag:
+                continue
+
+            for direction in ["Up", "Down"]:
+                hist_name = "{ch}/DNN_NNOutput_{unc}{dir}".format(
+                    ch=channel, unc=uncname, dir=direction
+                )
+                hs = tf.Get(hist_name)
+                if not hs:
+                    # histogram not present; skip (not necessarily an error)
+                    continue
+                integral = hs.Integral()
+                if integral <= 0:
+                    print("  {}: systematic '{}{}' integral negative ({:.6g}) -> turning off".format(
+                        proc, uncname, direction, integral))
+                    good = False
+                    break
+            if not good:
+                break
+
+    tf.Close()
+    return good
 
 def build_uncertainties(yaml_path, processes):
     #Build the uncertainties list from the configuration file.
@@ -73,12 +143,17 @@ CONFIG_PATH = os.path.join(ANALYSIS_PATH, "config")
 
 
 #define the input names
-signalprocesses = ["VBFHto2Mu_M125_amcatnlo","GluGluHto2Mu_amcatnlo"]
-backgroundprocesses = ["DYto2Mu_MLL105To160","EWK_2Mu2J_MLL_105to160_herwig","ST","VV","TT","VVV","W_NJets","TTH_inclusive","TW","VH_inclusive","H"]
+signalprocesses = ["VBFHto2Mu_M125_powheg","GluGluHto2Mu_powheg"]
+backgroundprocesses = ["DYto2Mu_MLL105To160","EWK_2Mu2J_MLL_105to160_herwig","ST","VV","TT","TTX","VVV","W","TTH_inclusive","TW","VH_inclusive","SingleH"]
 year = sys.argv[1]
 
-outputpath = "/eos/user/p/pflanaga/combinetest2/"
-histogramfilepath = "/eos/user/p/pflanaga/combinetest2/Run3_"+year+"/"
+outputpath = "/eos/user/p/pflanaga/cmssw_clean/CMSSW_14_1_0_pre4/src/combine/"
+histogramfilepath = "/eos/user/v/vdamante/H_mumu/Hists_DNN_erabased_hadded/Run3_"+year+"/"
+
+if absolutepath:
+  absolutepathname = '/'.join(histogramfilepath.split("/")[:-2])+"/"
+else:
+  absolutepathname = ''
 
 if os.path.isdir(outputpath):
   print("already exists")
@@ -93,8 +168,7 @@ lumidict = {"lumi_1": {"2022": "1.0138", "2023": "1.0017", "2024": "1.0020", "20
             "lumi_2025": {"2022": "-", "2023": "-", "2024": "-", "2025": "1.05"}
 }
 
-xsecdict = {#"DYto2Mu_MLL105To160": ".7/1.1"
-}#TODO: Fill this out, fix naming scheme
+xsecdict = {}#build_xsec_dictionary(CONFIG_PATH+"/crossSections13p6TeV.yaml",signalprocesses+backgroundprocesses)
 
 for band in bands:
   filename = band + "_" + year
@@ -103,38 +177,50 @@ for band in bands:
 
   uncertainties = build_uncertainties(CONFIG_PATH+"/Run3_"+year+"/systematics.yaml",signalprocesses+backgroundprocesses)
   for key in lumidict.keys():
-    uncertainties.append([key, "lnN", lumidict[key][year], None])
+    uncertainties.append([key, "lnN", lumidict[key][year.replace("EE","").replace("BPix","")], None])
   for key in xsecdict.keys():
     uncertainties.append([key, "lnN", xsecdict[key], None])
 
+  good_processes = {}
+  for proc in signalprocesses + backgroundprocesses:
+      is_good = check_process_histograms(histogramfilepath, band, proc, uncertainties)
+      good_processes[proc] = is_good
+      if not is_good:
+          print("  -> Process '{}' will be turned OFF".format(proc))
+
+  # # Build the filtered lists of processes to actually write in the datacard
+  # signalprocesses = [p for p in signalprocesses if good_processes[p]]
+  # backgroundprocesses = [p for p in backgroundprocesses if good_processes[p]]
 
   #write the actual combine cards
-  print("Creating Combine card file",outputpath + band+ ".txt")
-  f = open(outputpath + "/" + band + ".txt","w")
+  print("Creating Combine card file",outputpath + band+ year+".txt")
+  f = open(outputpath + "/" + band + year+ ".txt","w")
   f.write("imax " + str(1) + "\n") #number of channels
-  f.write("jmax " + str(len(backgroundprocesses)) + "\n") #number of backgrounds
-  f.write("kmax " + str(len(uncertainties)) + "\n") #number of nuisance parameters
+  f.write("jmax " + "*" + "\n") #number of backgroundsstr(len(backgroundprocesses))
+  f.write("kmax " + "*" + "\n") #number of nuisance parametersstr(len(uncertainties))
   # f.write("----------\n")
   # f.write("shapes * * $PROCESS.root $CHANNEL/DNN_NNOutput $CHANNEL/DNN_NNOutput_$SYSTEMATIC\n")
   # f.write("----------\n")
   # f.write("bin         " + band + "\n")
   f.write("----------\n")
 
-  # Per-process shapes lines (no $PROCESS in filename).
+  
   f.write(
-      "shapes data_obs {ch}_{era} Run3_{era}/{file} {ch}/DNN_NNOutput\n".format(
+      "shapes data_obs {ch}_{era} {absolutepathname}Run3_{era}/{file} {ch}/DNN_NNOutput\n".format(
           ch=band,
           file= "data_obs.root",
           era=year,
+          absolutepathname=absolutepathname,
       )
   )
   for proc in signalprocesses + backgroundprocesses:
       f.write(
-          "shapes {proc} {ch}_{era} Run3_{era}/{file} {ch}/DNN_NNOutput {ch}/DNN_NNOutput_$SYSTEMATIC\n".format(
+          "shapes {proc} {ch}_{era} {absolutepathname}Run3_{era}/{file} {ch}/DNN_NNOutput {ch}/DNN_NNOutput_$SYSTEMATIC\n".format(
               proc=proc,
               ch=band,
               file= proc + ".root",
               era=year,
+              absolutepathname=absolutepathname,
           )
       )
   f.write("----------\n")
@@ -143,7 +229,7 @@ for band in bands:
   data = ROOT.TFile.Open(histogramfilepath+"data_obs.root")
   datahistogram = data.Get("Signal_Fit_VBF/DNN_NNOutput")
   print(histogramfilepath+"data_obs.root")
-  f.write("observation " + "0" + "\n")#TODO:Fix this, data currently has value str(datahistogram.Integral()) + "\n")
+  f.write("observation " + "-1" + "\n")#TODO:Fix this, data currently has value str(datahistogram.Integral()) + "\n")
   f.write("----------\n")
 
   ##assemble strings for lines
@@ -194,7 +280,10 @@ for band in bands:
     binLine += band + "_" + year
     processLine1 += allNames[i]
     processLine2 += str(allNumbers[i])
-    rateLine += "-1"
+    if good_processes[allNames[i]]:
+      rateLine += "-1"
+    else:
+      rateLine += "0 "
     currentLength = max(len(binLine), len(processLine1), len(processLine2), len(rateLine))
     for j in range(0, len(systLines)): #assemble systematic values
       proc_tag = uncertainties[j][3]  # process this syst is tied to (or None)
@@ -241,6 +330,9 @@ for band in bands:
 
   #add MC statistics evaluation
   f.write("\n")
-  f.write("* autoMCStats 10")
+  f.write("* autoMCStats 10\n")
+  f.write("DY_norm rateParam * DYto2Mu_MLL105To160 1 [0,10]")
 
   f.close()
+#   DY_norm rateParam * DYto2Mu_MLL105To160 1 [0,10]
+# EWK_norm rateParam * EWK_2Mu2J_MLL_105to160_herwig 1 [0,10]
