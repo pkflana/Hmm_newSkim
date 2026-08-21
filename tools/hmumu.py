@@ -201,14 +201,19 @@ def run_plot(args: argparse.Namespace) -> int:
         ]
         if variables:
             command += ["--vars", ",".join(variables)]
+        for systematic_group in getattr(args, "systematic_groups", None) or []:
+            command += ["--systematicGroup", systematic_group]
         for enabled, option in (
             (args.systematics, "--systematics"),
+            (getattr(args, "overlay_systematic", False), "--overlaySystematic"),
+            (getattr(args, "total_systematics", False), "--totalSystematics"),
             (args.want_data, "--wantData"),
             (args.log_y, "--wantLogY"),
+            (getattr(args, "log_uncertainties", False), "--logUncertainties"),
             (args.rebin, "--rebin"),
             (args.normalize_dy_to_data, "--normalize-dy-to-data"),
             (args.normalize_mc_to_data, "--normalize-mc-to-data"),
-            (args.component_composition, "--component-composition"),
+            (getattr(args, "component_composition", False), "--component-composition"),
         ):
             if enabled:
                 command.append(option)
@@ -217,6 +222,8 @@ def run_plot(args: argparse.Namespace) -> int:
                 "--dy-normalization-sample",
                 args.dy_normalization_sample,
             ]
+        if not getattr(args, "mc_stat_uncertainty", True):
+            command.append("--noMCStatUncertainty")
         commands.append(command)
 
     for index, command in enumerate(commands, start=1):
@@ -892,8 +899,38 @@ def build_parser() -> argparse.ArgumentParser:
         help="variable, repeat or use commas; omit to plot all",
     )
     plot.add_argument("--systematics", action="store_true")
+    plot.add_argument(
+        "--systematic-group",
+        dest="systematic_groups",
+        action="append",
+        help=(
+            "show only this systematic group; repeat for multiple groups "
+            "(for example: 'EWKZ PS')"
+        ),
+    )
+    plot.add_argument(
+        "--overlay-systematic",
+        action="store_true",
+        help="overlay nominal, systematic Up and Down in the main panel",
+    )
+    plot.add_argument(
+        "--total-systematics",
+        action="store_true",
+        help="draw the quadrature sum of all displayed systematic groups",
+    )
+    plot.add_argument(
+        "--mc-stat-uncertainty",
+        action=argparse.BooleanOptionalAction,
+        default=True,
+        help="show the MC statistical uncertainty band in the ratio panel",
+    )
     plot.add_argument("--data", dest="want_data", action="store_true")
     plot.add_argument("--log-y", action="store_true")
+    plot.add_argument(
+        "--log-uncertainties",
+        action="store_true",
+        help="use a logarithmic y-axis in the ratio/uncertainty panel",
+    )
     plot.add_argument("--rebin", action="store_true")
     plot.add_argument("--normalize-dy-to-data", action="store_true")
     plot.add_argument("--normalize-mc-to-data", action="store_true")

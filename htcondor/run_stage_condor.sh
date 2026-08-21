@@ -70,7 +70,7 @@ fi
 specific_opts=()
 [[ -z "${specific_opts_string}" ]] || read -r -a specific_opts <<< "${specific_opts_string}"
 extra_opts=()
-if [[ "${mode}" != "validation" && -s "${extra_opts_file}" ]]; then
+if [[ -s "${extra_opts_file}" ]]; then
   read -r -a extra_opts <<< "$(<"${extra_opts_file}")"
 fi
 

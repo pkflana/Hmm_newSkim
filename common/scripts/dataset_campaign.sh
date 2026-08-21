@@ -594,7 +594,8 @@ add_ewk_105_160_jobs() {
 }
 
 add_static_group_jobs() {
-  local group="$1"
+  local era="$1"
+  local group="$2"
   local datasets=()
   local chunk_size=15
 
@@ -659,6 +660,14 @@ add_static_group_jobs() {
 
   local dataset_name
   for dataset_name in "${datasets[@]}"; do
+    if [[ "${era}" == "Run3_2023BPix" ]]; then
+      case "${dataset_name}" in
+        ggZH_Hto2B_Zto2L|ggZH_Hto2B_Zto2Q|ZH_Hto2B_Zto2L|ZH_Hto2B_Zto2Q|\
+        WminusH_Hto2B_WtoLNu|WplusH_Hto2B_WtoLNu|TTHto2B_M125|TTHtoNon2B_M125)
+          continue
+          ;;
+      esac
+    fi
     add_job "${dataset_name}" "${chunk_size}"
   done
 }
@@ -1057,7 +1066,7 @@ else
       EWK_105_160) add_ewk_105_160_jobs ;;
       W) add_w_jobs "${era}" ;;
       mc) add_skim_cfg_mc_jobs "${era}" ;;
-      DiTriBoson|DY_minnlo|EWK|signals|SingleH|SingleTop|TTX|other_signals|TT) add_static_group_jobs "${group}" ;;
+      DiTriBoson|DY_minnlo|EWK|signals|SingleH|SingleTop|TTX|other_signals|TT) add_static_group_jobs "${era}" "${group}" ;;
       *) die "Internal error: unhandled group '${group}'" ;;
     esac
   done
@@ -1461,9 +1470,7 @@ for i in "${!job_datasets[@]}"; do
     )
   fi
   command+=("${specific_opts[@]}")
-  if [[ "${campaign_mode}" != "validation" ]]; then
-    command+=("${extra_opts[@]}")
-  fi
+  command+=("${extra_opts[@]}")
 
   echo
   echo "============================================================"

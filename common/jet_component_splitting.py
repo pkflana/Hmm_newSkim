@@ -129,9 +129,16 @@ def expanded_jet_component_categories(
     include_vbf_eta_regions=False, requested_categories=None
 ):
     """Internal staging categories needed for split component ROOT files."""
-    requested = set(requested_categories or ("ggF", "VBF"))
+    requested_sequence = tuple(requested_categories or ("ggF", "VBF"))
+    requested = set(requested_sequence)
     eta_regions = VBF_ETA_REGIONS if include_vbf_eta_regions else ("incl",)
-    categories = []
+    # Categories unrelated to the ggF/VBF split (for example ``baseline``)
+    # remain ordinary inclusive outputs alongside the component staging dirs.
+    categories = [
+        category
+        for category in requested_sequence
+        if category not in {"ggF", "VBF"}
+    ]
     if "ggF" in requested:
         categories.append("DY_inclusive_ggF")
         categories.extend(GGF_COMPONENT_VARIABLES)

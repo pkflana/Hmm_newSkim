@@ -175,14 +175,24 @@ def expected_input_completeness(
             os.path.abspath(result[0]): result
             for result in root_results
         }
+        roots_by_name = {}
+        for result in root_results:
+            roots_by_name.setdefault(os.path.basename(result[0]), []).append(result)
         discovered_jsons = {
             os.path.abspath(result[0]): result
             for result in json_results
         }
+        jsons_by_name = {}
+        for result in json_results:
+            jsons_by_name.setdefault(os.path.basename(result[0]), []).append(result)
         missing = []
         for chunk in chunks:
             root_path = os.path.abspath(chunk["root_file"])
             root_result = discovered_roots.get(root_path)
+            if root_result is None:
+                relocated = roots_by_name.get(os.path.basename(root_path), [])
+                if len(relocated) == 1:
+                    root_result = relocated[0]
             root_present = root_result is not None
             if is_data:
                 covered = root_present and (
@@ -191,6 +201,10 @@ def expected_input_completeness(
             else:
                 report_path = os.path.abspath(chunk["report_file"])
                 report_result = discovered_jsons.get(report_path)
+                if report_result is None:
+                    relocated = jsons_by_name.get(os.path.basename(report_path), [])
+                    if len(relocated) == 1:
+                        report_result = relocated[0]
                 covered = root_present and report_result is not None
             if not covered:
                 missing.extend(chunk.get("input_files", [root_path]))
@@ -243,6 +257,15 @@ def main():
     parser.add_argument("--retries", type=int, default=3)
     parser.add_argument("--retry-delay", type=float, default=2.0)
     parser.add_argument("--progress-every", type=int, default=25)
+    parser.add_argument(
+        "--skip-input-completeness",
+        action="store_true",
+        help=(
+            "Validate discovered ROOT/JSON integrity and MC pairing without "
+            "comparing against the current skim chunk manifest or sample "
+            "file list. Intended for archived/legacy skim productions."
+        ),
+    )
     args = parser.parse_args()
     if args.workers < 1 or args.retries < 1 or args.progress_every < 1:
         parser.error("--workers, --retries and --progress-every must be >= 1")
@@ -381,16 +404,24 @@ def main():
             f"invalid ROOT={len(invalid_roots)}; invalid JSON={len(invalid_jsons)}",
             flush=True,
         )
-    expected_files, missing_input_files, completeness_error = (
-        expected_input_completeness(
-            samples_with_files,
-            args.dataset_name,
-            root_results,
-            json_results,
-            is_data,
-            chunk_manifest=chunk_manifest,
+    if args.skip_input_completeness:
+        expected_files, missing_input_files, completeness_error = [], [], ""
+        print(
+            "[COMPLETENESS] Skipped by explicit request; validating only "
+            "discovered-file integrity and ROOT/JSON pairing.",
+            flush=True,
         )
-    )
+    else:
+        expected_files, missing_input_files, completeness_error = (
+            expected_input_completeness(
+                samples_with_files,
+                args.dataset_name,
+                root_results,
+                json_results,
+                is_data,
+                chunk_manifest=chunk_manifest,
+            )
+        )
     print(
         f"[COMPLETENESS] {args.dataset_name}: expected={len(expected_files)}, "
         f"missing={len(missing_input_files)}",

@@ -79,9 +79,24 @@ def test_histogram_groups_are_era_dependent():
     )
 
     assert "DYto2L_M_50_amcatnloFXFX" in old
-    assert "WtoLNu_amcatnloFXFX" in old
+    assert "WtoLNu_amcatnloFXFX" not in old
+    assert "WtoLNu_0J_amcatnloFXFX" in old
     assert "DYto2Mu_M_50_amcatnloFXFX" in modern
     assert "WtoMuNu_amcatnloFXFX" in modern
+
+
+def test_2023bpix_default_groups_exclude_unwanted_higgs_samples():
+    repository = Path(__file__).resolve().parents[2]
+    selected = datasets_for_histogram_groups(
+        repository, "Run3_2023BPix", ["SingleH", "TTX"]
+    )
+    excluded = {
+        "ggZH_Hto2B_Zto2L", "ggZH_Hto2B_Zto2Q",
+        "ZH_Hto2B_Zto2L", "ZH_Hto2B_Zto2Q",
+        "WminusH_Hto2B_WtoLNu", "WplusH_Hto2B_WtoLNu",
+        "TTHto2B_M125", "TTHtoNon2B_M125",
+    }
+    assert excluded.isdisjoint(selected)
 
 
 def test_dataset_option_also_expands_a_configured_process():

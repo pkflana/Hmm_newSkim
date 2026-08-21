@@ -2,6 +2,7 @@
 
 import argparse
 import copy
+import gc
 import os
 import subprocess
 import sys
@@ -86,6 +87,11 @@ def chunk_list(items, chunk_size):
     return [items[i : i + chunk_size] for i in range(0, len(items), chunk_size)]
 
 
+def chunk_dict(items, chunk_size):
+    entries = list(items.items())
+    return [dict(entries[i : i + chunk_size]) for i in range(0, len(entries), chunk_size)]
+
+
 def chunk_output_path(args, chunk_index):
     return str(Path(args.tmp_output_dir) / f"chunk_{chunk_index + 1}.root")
 
@@ -132,6 +138,7 @@ def split_dy_jet_component_outputs(
 ):
     """Create inclusive and per-component PU/hard files with fit-ready layout."""
     requested = set(requested_categories or ("ggF", "VBF"))
+    passthrough_categories = requested - {"ggF", "VBF"}
     eta_regions = VBF_ETA_REGIONS if include_vbf_eta_regions else ("incl",)
     output_path = Path(output_file)
     source = ROOT.TFile.Open(str(output_path), "READ")
@@ -164,6 +171,13 @@ def split_dy_jet_component_outputs(
             component_files[component] = files_by_label[label]
 
         for mass_region in mass_regions:
+            for category in sorted(passthrough_categories):
+                copy_root_directory(
+                    source,
+                    histogram_directory_path(mass_region, category),
+                    inclusive,
+                    histogram_directory_path(mass_region, category),
+                )
             if "ggF" in requested:
                 copy_root_directory(
                     source,
@@ -1129,127 +1143,160 @@ def process_single_chunk(args_tuple):
             for category in stored_categories
         }
         profile_log(chunk_index, "temporary output open/directory creation", output_open_started)
-        histogram_booking_started = time.perf_counter()
-        booked_hists = []
-        for syst_name, syst_info in systs_to_run.items():
-            weight_name = syst_info["weight"]
-            selection_suffix = GetSelectionSuffixForSystematic(
-                syst_name, syst_info
-            )
-            if rdf_base is not None and weight_name not in base_columns:
-                raise RuntimeError(
-                    f"Weight column '{weight_name}' not found for systematic "
-                    f"'{syst_name}'"
+        systematic_batches = chunk_dict(
+            systs_to_run, args.systematic_batch_size
+        )
+        total_booked = 0
+        for batch_index, systematic_batch in enumerate(systematic_batches, start=1):
+            histogram_booking_started = time.perf_counter()
+            booked_hists = []
+            for syst_name, syst_info in systematic_batch.items():
+                weight_name = syst_info["weight"]
+                selection_suffix = GetSelectionSuffixForSystematic(
+                    syst_name, syst_info
                 )
-
-            for mass_region in stored_regions:
-                for category in stored_categories:
-                    rdf_filtered = None
-                    available_columns = base_columns
-                    filtered_entry = filtered_rdfs.get(
-                        (mass_region, category, selection_suffix)
+                if rdf_base is not None and weight_name not in base_columns:
+                    raise RuntimeError(
+                        f"Weight column '{weight_name}' not found for systematic "
+                        f"'{syst_name}'"
                     )
-                    if filtered_entry is not None:
-                        rdf_filtered, available_columns = filtered_entry
 
-                    directory = directories[(mass_region, category)]
-                    category_variables = set(
-                        variable_for_component(
-                            category, args.vbf_component_variables
+                for mass_region in stored_regions:
+                    for category in stored_categories:
+                        rdf_filtered = None
+                        available_columns = base_columns
+                        filtered_entry = filtered_rdfs.get(
+                            (mass_region, category, selection_suffix)
                         )
-                        if args.dy_jet_components
-                        else vars_to_make_hist
-                    )
-                    for variable, spec in hist_specs.items():
-                        if variable not in category_variables:
-                            continue
-                        model = spec["model"]
-                        hist_name = nuisance_histogram_name(
-                            variable,
-                            syst_name,
-                            syst_info,
-                            args.era,
-                            args.process_name,
-                        )
-                        hist_columns = tuple(
-                            get_histogram_variable(
-                                column, syst_info, available_columns
-                            )
-                            for column in spec["columns"]
-                        )
-                        if needs_sideband_mass_shift(mass_region, variable):
-                            hist_columns = (shifted_output_column(mass_region),)
+                        if filtered_entry is not None:
+                            rdf_filtered, available_columns = filtered_entry
 
-                        if (
-                            rdf_filtered is not None
-                            and all(
-                                column in available_columns
-                                for column in hist_columns
+                        directory = directories[(mass_region, category)]
+                        category_variables = set(
+                            variable_for_component(
+                                category, args.vbf_component_variables
                             )
-                        ):
-                            if len(hist_columns) == 1:
-                                hist_ptr = rdf_filtered.Histo1D(
-                                    model, hist_columns[0], weight_name
+                            if args.dy_jet_components
+                            else vars_to_make_hist
+                        )
+                        for variable, spec in hist_specs.items():
+                            if variable not in category_variables:
+                                continue
+                            model = spec["model"]
+                            hist_name = nuisance_histogram_name(
+                                variable,
+                                syst_name,
+                                syst_info,
+                                args.era,
+                                args.process_name,
+                            )
+                            hist_columns = tuple(
+                                get_histogram_variable(
+                                    column, syst_info, available_columns
                                 )
-                            elif len(hist_columns) == 2:
-                                hist_ptr = rdf_filtered.Histo2D(
-                                    model,
-                                    hist_columns[0],
-                                    hist_columns[1],
-                                    weight_name,
+                                for column in spec["columns"]
+                            )
+                            if needs_sideband_mass_shift(mass_region, variable):
+                                hist_columns = (shifted_output_column(mass_region),)
+
+                            if (
+                                rdf_filtered is not None
+                                and all(
+                                    column in available_columns
+                                    for column in hist_columns
                                 )
-                            else:
-                                raise RuntimeError(
-                                    f"Unsupported histogram dimension for "
-                                    f"{variable}: {len(hist_columns)}"
+                            ):
+                                if len(hist_columns) == 1:
+                                    hist_ptr = rdf_filtered.Histo1D(
+                                        model, hist_columns[0], weight_name
+                                    )
+                                elif len(hist_columns) == 2:
+                                    hist_ptr = rdf_filtered.Histo2D(
+                                        model,
+                                        hist_columns[0],
+                                        hist_columns[1],
+                                        weight_name,
+                                    )
+                                else:
+                                    raise RuntimeError(
+                                        f"Unsupported histogram dimension for "
+                                        f"{variable}: {len(hist_columns)}"
+                                    )
+                                booked_hists.append(
+                                    (directory, hist_name, hist_ptr, True)
                                 )
+                                continue
+
+                            if rdf_filtered is not None:
+                                print(
+                                    f"[CHUNK {chunk_index}] WARNING: variable "
+                                    f"'{variable}' not found for systematic "
+                                    f"'{syst_name}'. Booking empty histogram."
+                                )
+                            hist = model.GetHistogram().Clone(hist_name)
+                            hist.SetTitle(hist_name)
+                            hist.Reset("ICES")
+                            hist.SetDirectory(0)
                             booked_hists.append(
-                                (directory, hist_name, hist_ptr, True)
+                                (directory, hist_name, hist, False)
                             )
-                            continue
 
-                        if rdf_filtered is not None:
-                            print(
-                                f"[CHUNK {chunk_index}] WARNING: variable "
-                                f"'{variable}' not found for systematic "
-                                f"'{syst_name}'. Booking empty histogram."
-                            )
-                        hist = model.GetHistogram().Clone(hist_name)
-                        hist.SetTitle(hist_name)
-                        hist.Reset("ICES")
-                        hist.SetDirectory(0)
-                        booked_hists.append((directory, hist_name, hist, False))
+            total_booked += len(booked_hists)
+            batch_label = f"{batch_index}/{len(systematic_batches)}"
+            profile_log(
+                chunk_index,
+                f"histogram booking batch {batch_label} "
+                f"({len(booked_hists)} histograms)",
+                histogram_booking_started,
+            )
+            print(
+                f"[CHUNK {chunk_index} / {n_chunks}] Batch {batch_label}: "
+                f"booked {len(booked_hists)} histograms for "
+                f"{len(systematic_batch)} systematic variations."
+            )
+            if not booked_hists:
+                continue
 
-        profile_log(
-            chunk_index,
-            f"histogram booking ({len(booked_hists)} histograms)",
-            histogram_booking_started,
-        )
-        print(
-            f"[CHUNK {chunk_index} / {n_chunks}] Booked "
-            f"{len(booked_hists)} histograms. Running event loop..."
-        )
-        histogram_actions = [
-            hist_obj
-            for _, _, hist_obj, needs_getvalue in booked_hists
-            if needs_getvalue
-        ]
-        event_loop_started = time.perf_counter()
-        if histogram_actions:
-            ROOT.RDF.RunGraphs(histogram_actions)
-        profile_log(chunk_index, "ROOT event loop (RunGraphs)", event_loop_started)
+            histogram_actions = [
+                hist_obj
+                for _, _, hist_obj, needs_getvalue in booked_hists
+                if needs_getvalue
+            ]
+            event_loop_started = time.perf_counter()
+            if histogram_actions:
+                ROOT.RDF.RunGraphs(histogram_actions)
+            profile_log(
+                chunk_index,
+                f"ROOT event loop batch {batch_label} (RunGraphs)",
+                event_loop_started,
+            )
 
-        output_write_started = time.perf_counter()
-        for directory, hist_name, hist_obj, needs_getvalue in booked_hists:
-            hist = hist_obj.GetValue() if needs_getvalue else hist_obj
-            hist.SetName(hist_name)
-            hist.SetTitle(hist_name)
-            hist.SetDirectory(0)
-            directory.cd()
-            directory.WriteTObject(hist, hist_name, "Overwrite")
+            output_write_started = time.perf_counter()
+            for directory, hist_name, hist_obj, needs_getvalue in booked_hists:
+                hist = hist_obj.GetValue() if needs_getvalue else hist_obj
+                hist.SetName(hist_name)
+                hist.SetTitle(hist_name)
+                hist.SetDirectory(0)
+                directory.cd()
+                directory.WriteTObject(hist, hist_name, "Overwrite")
+            out_file.Flush()
+            profile_log(
+                chunk_index,
+                f"histogram materialization/write batch {batch_label}",
+                output_write_started,
+            )
+            del histogram_actions
+            del booked_hists
+            gc.collect()
+
+        if total_booked == 0:
+            raise RuntimeError(
+                "No histograms were booked. Check that --mass-regions and "
+                "--categories are passed as space-separated values and match "
+                "the selection configuration."
+            )
         out_file.Close()
         out_file = None
-        profile_log(chunk_index, "histogram materialization/write/close", output_write_started)
         print(f"[CHUNK {chunk_index} / {n_chunks}] Done -> {tmp_output}")
         return tmp_output
     except Exception as error:
@@ -1258,6 +1305,13 @@ def process_single_chunk(args_tuple):
         print_chunk_error(chunk_index, chunk_files, error)
         remove_file_if_exists(tmp_output)
         raise
+    finally:
+        # ApplyDNN stores predictions in a process-global C++ registry.  A
+        # dataset job handles MC files serially, so retaining completed-file
+        # payloads makes RSS grow monotonically until the cgroup kills it.
+        from common.dnn_application import clear_prediction_registry
+
+        clear_prediction_registry()
 
 def write_failed_chunks_report(output_file, failed_chunks):
     if not failed_chunks:
@@ -1383,6 +1437,15 @@ if __name__ == "__main__":
         default=1,
         help="ROOT RDataFrame worker threads per histogram process.",
     )
+    parser.add_argument(
+        "--systematic-batch-size",
+        type=int,
+        default=20,
+        help=(
+            "Maximum systematic variations evaluated in one RDF event pass. "
+            "Smaller batches reduce peak memory at the cost of more passes."
+        ),
+    )
     parser.add_argument("--variables", nargs="+")
     parser.add_argument(
         "--mass-regions",
@@ -1393,6 +1456,14 @@ if __name__ == "__main__":
         "--categories", nargs="+", default=["baseline", "ggF", "VBF"]
     )
     parser.add_argument("--additional-cuts", default=None)
+    parser.add_argument(
+        "--disable-jet-horn-veto",
+        action="store_true",
+        help=(
+            "Disable the era jet horn veto for this histogram job without "
+            "modifying config/<era>/selections.yaml."
+        ),
+    )
     parser.add_argument("--dryrun", action="store_true")
     parser.add_argument("--keep-tmp", action="store_true")
     parser.add_argument("--resume", action="store_true")
@@ -1543,6 +1614,8 @@ if __name__ == "__main__":
         raise ValueError("--n-cores must be >= 1")
     if args.rdf_threads < 1:
         raise ValueError("--rdf-threads must be >= 1")
+    if args.systematic_batch_size < 1:
+        raise ValueError("--systematic-batch-size must be >= 1")
     if args.file_open_retries < 1:
         raise ValueError("--file-open-retries must be >= 1")
     if args.file_open_retry_delay < 0:
@@ -1630,6 +1703,8 @@ if __name__ == "__main__":
             args.process_name = stitched_process
     process_entry = process_cfg.get(args.process_name, {})
     sel_cfg = utilities.get_config(os.path.join(cfg_dir, "selections.yaml"))
+    if args.disable_jet_horn_veto:
+        sel_cfg["jet_horn_veto_expr"] = "(abs(v_ops::eta(Jet_p4)) < 0)"
     syst_cfg = utilities.get_config(os.path.join(cfg_dir, "systematics.yaml"))
     hist_cfg = utilities.get_config(
         os.path.join(analysis_path, "config", "plot", "histograms.yaml")
@@ -1980,15 +2055,30 @@ if __name__ == "__main__":
         sys.exit(1)
     print(f"\n[INFO] Merging {len(tmp_files)} successful temporary files into:")
     print(f"[INFO]   {args.output_file}")
-    hadd_cmd = ["hadd", "-f", args.output_file] + sorted(tmp_files)
+    merging_output = f"{args.output_file}.merging"
+    remove_file_if_exists(merging_output)
+    hadd_cmd = ["hadd", "-f", merging_output] + sorted(tmp_files)
     print("[INFO] Running:")
     print(" ".join(hadd_cmd))
     hadd_started = time.perf_counter()
     result = subprocess.run(hadd_cmd)
     print(f"[PROFILE] hadd: {time.perf_counter() - hadd_started:.3f} s")
     if result.returncode != 0:
+        remove_file_if_exists(merging_output)
         print("[ERROR] hadd failed.")
         sys.exit(result.returncode)
+    merged_check = ROOT.TFile.Open(merging_output, "READ")
+    merge_is_valid = bool(
+        merged_check
+        and not merged_check.IsZombie()
+        and merged_check.GetNkeys() > 0
+    )
+    if merged_check:
+        merged_check.Close()
+    if not merge_is_valid:
+        remove_file_if_exists(merging_output)
+        raise RuntimeError("hadd produced an empty or invalid ROOT file")
+    os.replace(merging_output, args.output_file)
     print("[INFO] hadd completed successfully.")
     merged_output = ROOT.TFile.Open(args.output_file, "UPDATE")
     if not merged_output or merged_output.IsZombie():

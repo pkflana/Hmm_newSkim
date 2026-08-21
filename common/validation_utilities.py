@@ -87,7 +87,32 @@ def validation_complete(path):
     )
 
 
+def histogram_complete(path):
+    """Return true only for a readable ROOT file containing output objects."""
+    if not nonempty(path):
+        return False
+    root_file = None
+    try:
+        import ROOT
+
+        root_file = ROOT.TFile.Open(str(path), "READ")
+        return bool(
+            root_file
+            and not root_file.IsZombie()
+            and root_file.GetNkeys() > 0
+        )
+    except Exception:
+        return False
+    finally:
+        if root_file:
+            root_file.Close()
+
+
 def stage_output_complete(stage, path):
     if stage not in {"validation", "histograms", "systematics"}:
         raise ValueError(f"Unknown workflow stage: {stage}")
-    return validation_complete(path) if stage == "validation" else nonempty(path)
+    return (
+        validation_complete(path)
+        if stage == "validation"
+        else histogram_complete(path)
+    )

@@ -95,7 +95,9 @@ def add_derived_systematics(era, output_dir):
     for _, config in derived_cfg.items():
         nominal_process = config["nominal_process"]
         alternative_process = config["alternative_process"]
-        nuisance_name = config["name"]
+        nuisance_name = config["name"].format(
+            era=era.removeprefix("Run3_")
+        )
         coefficient = float(config.get("coefficient", 0.5))
         floor = float(config.get("floor", 0.0))
         nominal_path = os.path.join(output_dir, f"{nominal_process}.root")

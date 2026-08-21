@@ -249,6 +249,8 @@ class HmumuCliTest(unittest.TestCase):
             "samples": ["Data_Muon", "DY_amcatnlo"],
             "variables": ["DNN_NNOutput"],
             "systematics": True,
+            "systematic_groups": ["EWKZ PS"],
+            "overlay_systematic": True,
             "want_data": True,
             "log_y": True,
             "rebin": True,
@@ -263,6 +265,9 @@ class HmumuCliTest(unittest.TestCase):
         self.assertIn("Signal_Fit_VBF", output)
         self.assertIn("Z_sideband_VBF", output)
         self.assertIn("--systematics", output)
+        self.assertIn("--systematicGroup", output)
+        self.assertIn("EWKZ PS", output)
+        self.assertIn("--overlaySystematic", output)
         self.assertIn("DNN_NNOutput", output)
 
     def test_temporary_histogram_report_lists_missing_final(self):

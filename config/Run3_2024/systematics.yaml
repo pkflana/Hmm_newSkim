@@ -16,7 +16,7 @@ qcd_scale:
     DYto2Mu_MLL105To160_VBFFiltered: "V"
     DYto2Mu_MLL105To160_VBFFiltered_nonStitched: "V"
     DYto2Mu_MLL105To160_FlashSim: "V"
-    DYto2Mu_FlashSim: "V"
+    DYto2Mu_FlashSim: "V" 
     DYto2L_FlashSim: "V"
     DYto2Mu_minnlo: "V"
     W: "V"
@@ -66,7 +66,7 @@ qcd_scale:
 
 derived_systematics:
   EWKHerwigPythia:
-    name: "CMS_hmm_EWKZ_partonShower"
+    name: "CMS_hmm_EWKZ_partonShower_{era}"
     nominal_process: "EWK_2Mu2J_MLL_105to160_herwig"
     alternative_process: "EWK_2Mu2J_MLL_105to160_pythia"
     coefficient: 0.5

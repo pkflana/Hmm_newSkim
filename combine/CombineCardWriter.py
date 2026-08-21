@@ -122,6 +122,15 @@ def build_uncertainties(yaml_path, processes):
         else:
           uncertainties.append([name, "shape", "1", None])
 
+    for block in cfg.get("derived_systematics", {}).values():
+      name = block["name"].format(era=year)
+      uncertainties.append([
+          name,
+          "shape",
+          "1",
+          [block["nominal_process"]],
+      ])
+
 
     return uncertainties
 
@@ -143,12 +152,13 @@ CONFIG_PATH = os.path.join(ANALYSIS_PATH, "config")
 
 
 #define the input names
-signalprocesses = ["VBFHto2Mu_M125_powheg","GluGluHto2Mu_powheg"]
-backgroundprocesses = ["DYto2Mu_MLL105To160","EWK_2Mu2J_MLL_105to160_herwig","ST","VV","TT","TTX","VVV","W","TTH_inclusive","TW","VH_inclusive","SingleH"]
+signalprocesses = ["VBFHto2Mu_M125_powheg", "GluGluHto2Mu"]
+backgroundprocesses = ["DYto2Mu_MLL105To160", "EWK_2Mu2J_MLL_105to160_herwig", "ST", "VV", "TT", "TTX", "VVV", "W", "TW", "SingleH"]
+process_files = {}
 year = sys.argv[1]
 
-outputpath = "/eos/user/p/pflanaga/cmssw_clean/CMSSW_14_1_0_pre4/src/combine/"
-histogramfilepath = "/eos/user/v/vdamante/H_mumu/Hists_DNN_erabased_hadded/Run3_"+year+"/"
+outputpath = "combine/"
+histogramfilepath = "/eos/user/v/vdamante/H_mumu/Hists_DNN_erabased_allSysts_hadded/Run3_"+year+"/"
 
 if absolutepath:
   absolutepathname = '/'.join(histogramfilepath.split("/")[:-2])+"/"
@@ -162,9 +172,9 @@ else:
 
 bands = ["Signal_Fit_VBF"]
 
-lumidict = {"lumi_1": {"2022": "1.0138", "2023": "1.0017", "2024": "1.0020", "2025": "-"},
-            "lumi_2": {"2022": "-", "2023": "1.0127", "2024": "1.0068", "2025": "-"},
-            "lumi_3": {"2022": "-", "2023": "-", "2024": "1.0144", "2025": "-"},
+lumidict = {"lumi_2022_2023_2024": {"2022": "1.0138", "2023": "1.0017", "2024": "1.0020", "2025": "-"},
+            "lumi_2023_2024": {"2022": "-", "2023": "1.0127", "2024": "1.0068", "2025": "-"},
+            "lumi_2024": {"2022": "-", "2023": "-", "2024": "1.0144", "2025": "-"},
             "lumi_2025": {"2022": "-", "2023": "-", "2024": "-", "2025": "1.05"}
 }
 
@@ -204,7 +214,7 @@ for band in bands:
   # f.write("bin         " + band + "\n")
   f.write("----------\n")
 
-  
+
   f.write(
       "shapes data_obs {ch}_{era} {absolutepathname}Run3_{era}/{file} {ch}/DNN_NNOutput\n".format(
           ch=band,
@@ -218,7 +228,7 @@ for band in bands:
           "shapes {proc} {ch}_{era} {absolutepathname}Run3_{era}/{file} {ch}/DNN_NNOutput {ch}/DNN_NNOutput_$SYSTEMATIC\n".format(
               proc=proc,
               ch=band,
-              file= proc + ".root",
+              file=process_files.get(proc, proc + ".root"),
               era=year,
               absolutepathname=absolutepathname,
           )
@@ -237,7 +247,7 @@ for band in bands:
   systLines = []
   maxLength = 0
   print("uncertainties",uncertainties)
-  for i in range(0, len(uncertainties)): 
+  for i in range(0, len(uncertainties)):
     systLines.append(uncertainties[i][0])
     maxLength = max(maxLength, len(systLines[i]))
 
@@ -330,8 +340,11 @@ for band in bands:
 
   #add MC statistics evaluation
   f.write("\n")
-  f.write("* autoMCStats 10\n")
-  f.write("DY_norm rateParam * DYto2Mu_MLL105To160 1 [0,10]")
+  f.write("* autoMCStats 10 0 1\n")
+  f.write(
+      "DY_norm_{era} rateParam {ch}_{era} "
+      "DYto2Mu_MLL105To160 1 [0,5.]\n".format(ch=band, era=year)
+  )
 
   f.close()
 #   DY_norm rateParam * DYto2Mu_MLL105To160 1 [0,10]

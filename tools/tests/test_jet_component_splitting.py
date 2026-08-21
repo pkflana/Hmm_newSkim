@@ -133,6 +133,14 @@ class JetComponentSplittingTest(unittest.TestCase):
             {"DY_inclusive_VBF_incl", "VBF_Hard_incl", "VBF_PU1_incl", "VBF_PU2_incl"},
         )
 
+    def test_unrelated_requested_categories_are_kept_inclusive(self):
+        expanded = expanded_jet_component_categories(
+            requested_categories=["baseline", "ggF", "VBF"]
+        )
+        self.assertIn("baseline", expanded)
+        self.assertIn("DY_inclusive_ggF", expanded)
+        self.assertIn("DY_inclusive_VBF_incl", expanded)
+
     def test_vbf_eta_regions_use_the_requested_boundary(self):
         regions = vbf_eta_region_expressions("VBF{tot_suff}")
         self.assertEqual(set(regions), set(VBF_ETA_REGIONS))
@@ -159,11 +167,11 @@ class JetComponentSplittingTest(unittest.TestCase):
         self.assertEqual(DY_COMPONENT_FILE_LABELS["VBF_PU1"], "DY_2J_PU1")
         self.assertEqual(DY_COMPONENT_FILE_LABELS["VBF_PU2"], "DY_2J_PU2")
 
-    def test_ggf_components_select_the_prescribed_observable(self):
+    def test_ggf_components_keep_all_requested_observables(self):
         for category, variable in GGF_COMPONENT_VARIABLES.items():
             self.assertEqual(
-                variable_for_component(category, ["unused"]),
-                (variable,),
+                variable_for_component(category, ["feature_a", "feature_b"]),
+                ("feature_a", "feature_b", variable),
             )
 
     def test_vbf_components_keep_requested_observables(self):

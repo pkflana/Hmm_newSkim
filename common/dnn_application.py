@@ -19,12 +19,12 @@ def _declare_prediction_registry():
     ROOT.gInterpreter.Declare(
         """
         #include <stdexcept>
-        #include <unordered_map>
+        #include <limits>
         #include <vector>
 
         namespace dnn_application {
-            std::vector<std::unordered_map<ULong64_t, float>>& payloads() {
-                static std::vector<std::unordered_map<ULong64_t, float>> data;
+            std::vector<std::vector<float>>& payloads() {
+                static std::vector<std::vector<float>> data;
                 return data;
             }
 
@@ -32,8 +32,14 @@ def _declare_prediction_registry():
                 if (keys.size() != values.size()) {
                     throw std::runtime_error("DNN prediction keys and values have different sizes");
                 }
-                std::unordered_map<ULong64_t, float> payload;
-                payload.reserve(values.size());
+                ULong64_t max_key = 0;
+                for (const auto key : keys) {
+                    if (key > max_key) max_key = key;
+                }
+                std::vector<float> payload(
+                    keys.empty() ? 0 : static_cast<std::size_t>(max_key + 1),
+                    std::numeric_limits<float>::quiet_NaN()
+                );
                 for (std::size_t idx = 0; idx < values.size(); ++idx) {
                     payload[keys[idx]] = values[idx];
                 }
@@ -43,16 +49,26 @@ def _declare_prediction_registry():
 
             float getPrediction(std::size_t payload_id, ULong64_t event_key) {
                 const auto& values = payloads().at(payload_id);
-                const auto it = values.find(event_key);
-                if (it == values.end()) {
+                if (event_key >= values.size() || values[event_key] != values[event_key]) {
                     throw std::runtime_error("DNN prediction lookup failed for event key");
                 }
-                return it->second;
+                return values[event_key];
+            }
+
+            void clearPayloads() {
+                payloads().clear();
+                payloads().shrink_to_fit();
             }
         }
         """
     )
     _REGISTRY_DECLARED = True
+
+
+def clear_prediction_registry():
+    """Release predictions after the RDF graph using them has completed."""
+    if _REGISTRY_DECLARED:
+        ROOT.dnn_application.clearPayloads()
 
 
 def _parse_column_names(columns_config):

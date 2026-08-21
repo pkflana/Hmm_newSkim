@@ -519,6 +519,31 @@ if __name__ == "__main__":
     )
 
     parser.add_argument(
+        "--systematicGroup",
+        action="append",
+        default=None,
+        help="Only draw this systematic group; repeat for multiple groups",
+    )
+
+    parser.add_argument(
+        "--overlaySystematic",
+        action="store_true",
+        help="Overlay nominal and systematic Up/Down in the main panel",
+    )
+
+    parser.add_argument(
+        "--totalSystematics",
+        action="store_true",
+        help="Draw the quadrature sum of all displayed systematic groups",
+    )
+
+    parser.add_argument(
+        "--noMCStatUncertainty",
+        action="store_true",
+        help="Hide the MC statistical uncertainty band in the ratio panel",
+    )
+
+    parser.add_argument(
         "--wantData",
         action="store_true",
         help="Include data in plots and draw ratio",
@@ -528,6 +553,12 @@ if __name__ == "__main__":
         "--wantLogY",
         action="store_true",
         help="Set y-axis to log scale",
+    )
+
+    parser.add_argument(
+        "--logUncertainties",
+        action="store_true",
+        help="Use a logarithmic y-axis in the ratio/uncertainty panel",
     )
 
     parser.add_argument(
@@ -910,24 +941,27 @@ if __name__ == "__main__":
 
             for available_hist, hist_name in available_hists:
 
+                base_name = hist_name
+                for systematic_marker in ("_CMS_", "_QCD_", "_pdf_"):
+                    if systematic_marker in hist_name:
+                        base_name = hist_name.split(systematic_marker, 1)[0]
+                        break
+
                 if requested_variables_set is not None:
-                    base_name = hist_name.rsplit("_CMS_", 1)[0] if "_CMS_" in hist_name else hist_name
                     if hist_name not in requested_variables_set and base_name not in requested_variables_set:
                         continue
 
-                var_entry = findBinEntry(hist_cfg, hist_name)
-
-                if var_entry is None or var_entry not in hist_cfg:
-                    base_name = hist_name.rsplit("_CMS_", 1)[0] if "_CMS_" in hist_name else None
-                    base_entry = findBinEntry(hist_cfg, base_name) if base_name else None
-
-                    if base_entry is None or base_entry not in hist_cfg:
-                        print(
-                            f"[WARNING] Nessuna configurazione trovata "
-                            f"per {hist_name}. Skip."
-                        )
-                        continue
-                    var_entry = base_entry
+                # Shifted histograms inherit binning and display settings from
+                # their nominal variable.  They are not separate entries in
+                # the histogram configuration.
+                try:
+                    var_entry = findBinEntry(hist_cfg, base_name)
+                except KeyError:
+                    print(
+                        f"[WARNING] Nessuna configurazione trovata "
+                        f"per {hist_name}. Skip."
+                    )
+                    continue
                 
 
                 if "x_rebin" in hist_cfg[var_entry]:
@@ -940,7 +974,6 @@ if __name__ == "__main__":
                 else:
                     new_bins = hist_cfg[var_entry].get("x_bins", [])
 
-                is_syst_variant = "_CMS_" in hist_name
                 rebinned_hist = available_hist
 
                 if args.rebin:
@@ -1064,10 +1097,15 @@ if __name__ == "__main__":
                 ratio_reference=args.ratio_reference,
                 normalize_dy_to_data=args.normalize_dy_to_data,
                 normalize_mc_to_data=args.normalize_mc_to_data,
-                dy_normalization_sample=args.dy_normalization_sample,     
                 era=args.era,             
                 dy_normalization_sample=args.dy_normalization_sample,
                 dy_composition=args.dy_composition,
+                show_systematics=args.systematics,
+                systematic_groups=args.systematicGroup,
+                overlay_systematic=args.overlaySystematic,
+                log_uncertainties=args.logUncertainties,
+                include_total_systematics=args.totalSystematics,
+                show_mc_stat_uncertainty=not args.noMCStatUncertainty,
             )
 
     print(

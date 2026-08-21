@@ -203,7 +203,6 @@ def datasets_for_histogram_groups(
                 "WtoLNu_0J_amcatnloFXFX",
                 "WtoLNu_1J_amcatnloFXFX",
                 "WtoLNu_2J_amcatnloFXFX",
-                "WtoLNu_amcatnloFXFX",
             ]
         ),
     }
@@ -217,10 +216,18 @@ def datasets_for_histogram_groups(
                 f"unknown histogram MC group {group!r}; choose from "
                 + ", ".join(HISTOGRAM_MC_GROUPS)
             )
+        excluded = set()
+        if era == "Run3_2023BPix":
+            excluded.update({
+                "ggZH_Hto2B_Zto2L", "ggZH_Hto2B_Zto2Q",
+                "ZH_Hto2B_Zto2L", "ZH_Hto2B_Zto2Q",
+                "WminusH_Hto2B_WtoLNu", "WplusH_Hto2B_WtoLNu",
+                "TTHto2B_M125", "TTHtoNon2B_M125",
+            })
         datasets.extend(
             dataset
             for dataset in definitions[group]
-            if dataset in configured_samples
+            if dataset in configured_samples and dataset not in excluded
         )
     return list(dict.fromkeys(datasets))
 
