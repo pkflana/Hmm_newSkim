@@ -152,20 +152,12 @@ CONFIG_PATH = os.path.join(ANALYSIS_PATH, "config")
 
 
 #define the input names
-<<<<<<< HEAD
 signalprocesses = ["VBFHto2Mu_M125_powheg", "GluGluHto2Mu"]
 backgroundprocesses = ["DYto2Mu_MLL105To160", "EWK_2Mu2J_MLL_105to160_herwig", "ST", "VV", "TT", "TTX", "VVV", "W", "TW", "SingleH"]
 process_files = {}
 year = sys.argv[1]
 
 outputpath = "combine/"
-=======
-signalprocesses = ["VBFHto2Mu_M125_powheg","GluGluHto2Mu_amcatnlo"]#powheg"]
-backgroundprocesses = ["DYto2Mu_MLL105To160","EWK_2Mu2J_MLL_105to160_herwig","ST","VV","TT","TTX","VVV","W","TTH_inclusive","TW","VH_inclusive","SingleH"]
-year = sys.argv[1]
-
-outputpath = "/eos/user/p/pflanaga/cmssw_clean/CMSSW_14_1_0_pre4/src/combine/"
->>>>>>> 2d4feb5 (DY rateparam)
 histogramfilepath = "/eos/user/v/vdamante/H_mumu/Hists_DNN_erabased_allSysts_hadded/Run3_"+year+"/"
 
 if absolutepath:
@@ -255,13 +247,8 @@ for band in bands:
   print("Assembling lines for Combine card ",bandname)
   systLines = []
   maxLength = 0
-<<<<<<< HEAD
   print("uncertainties",uncertainties)
   for i in range(0, len(uncertainties)):
-=======
-  #print("uncertainties",uncertainties)
-  for i in range(0, len(uncertainties)): 
->>>>>>> 2d4feb5 (DY rateparam)
     systLines.append(uncertainties[i][0])
     maxLength = max(maxLength, len(systLines[i]))
 
@@ -354,16 +341,11 @@ for band in bands:
 
   #add MC statistics evaluation
   f.write("\n")
-<<<<<<< HEAD
   f.write("* autoMCStats 10 0 1\n")
   f.write(
       "DY_norm_{era} rateParam {ch}_{era} "
       "DYto2Mu_MLL105To160 1 [0,5.]\n".format(ch=band, era=year)
   )
-=======
-  f.write("* autoMCStats 10\n")
-  f.write("DY_norm_"+year+" rateParam * DYto2Mu_MLL105To160 1 [0,10]")
->>>>>>> 2d4feb5 (DY rateparam)
 
   f.close()
 #   DY_norm rateParam * DYto2Mu_MLL105To160 1 [0,10]
