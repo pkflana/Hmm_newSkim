@@ -1,0 +1,38 @@
+{
+  "schema_version": 2,
+  "description": "Data-driven DY hard-jet component fit for Run3_2025",
+  "corrections": [
+    {
+      "name": "dy_012j_reweight",
+      "description": "DY component normalization versus hard-jet multiplicity.",
+      "version": 1,
+      "inputs": [
+        {
+          "name": "n_hard_jets",
+          "type": "real",
+          "description": "Number of hard jets among the selected VBF pair."
+        }
+      ],
+      "output": {
+        "name": "weight",
+        "type": "real"
+      },
+      "data": {
+        "nodetype": "binning",
+        "input": "n_hard_jets",
+        "edges": [
+          -0.5,
+          0.5,
+          1.5,
+          2.5
+        ],
+        "content": [
+          0.2495600591147831,
+          0.3894499453734911,
+          0.9616042210411109
+        ],
+        "flow": "clamp"
+      }
+    }
+  ]
+}
