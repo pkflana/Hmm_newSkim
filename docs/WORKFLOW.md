@@ -63,5 +63,5 @@ Run with `--submit` when the generated submit files look right.
 - `htcondor/run_stage_condor.sh`: common Condor worker for validation, central histograms, and shifted histograms.
 - `common/manifest_utilities.py`: manifest schema, resolution, and atomic writes.
 - `common/rdf_utilities.py`: shared RDF construction and histogram helpers.
-- `histograms/histogram_pipeline.py`: shared selections and weight composition.
+- `common/histogram_rdf.py`: shared RDF transformations and weight composition.
 - `common/dnn_application.py`: shared DNN inference.

@@ -1,7 +1,9 @@
 #!/usr/bin/env python3
 
 import argparse
+import json
 import os
+from pathlib import Path
 import sys
 import time
 
@@ -25,7 +27,7 @@ if __name__ == "__main__":
 
 import common.utilities as utilities
 from common.jet_component_splitting import pu_hard_component_style
-from test.rew_patch import dy_component_scale, root_file_has_patch
+from test.rew_patch import root_file_has_patch
 from common.utilities import initialize_root_runtime
 from common.rdf_utilities import RebinHisto, findBinEntry, findNewBins, getNewBins,is_valid_histogram
 from plotting_tools.plotting_functions import make_stacked_plot
@@ -47,6 +49,81 @@ def normalize_sample_name(name):
       DY -> DY
     """
     return os.path.splitext(os.path.basename(name))[0]
+
+
+DY_012J_HARD_JETS = {
+    "0J": 0,
+    "1J PU": 0,
+    "2J PU2": 0,
+    "VBF PU2": 0,
+    "1J Hard": 1,
+    "2J PU1": 1,
+    "VBF PU1": 1,
+    "2J Hard": 2,
+    "VBF Hard": 2,
+}
+
+
+def load_dy_012j_weights(era, weight_set="new"):
+    era_name = str(era)
+    if not era_name.startswith("Run3_"):
+        era_name = f"Run3_{era_name}"
+    if era_name.count("_") > 1:
+        raise ValueError(
+            "--dy-012j-reweight requires one physical era; a merged era such "
+            f"as {era_name} has lost the per-era information"
+        )
+    repo = Path(os.environ["ANALYSIS_PATH"])
+    if weight_set == "old":
+        path = repo / "test" / "rew_patch_factors.json"
+        payload = json.loads(path.read_text())
+        era_text = era_name.removeprefix("Run3_")
+        year = next((key for key in payload if era_text.startswith(key)), None)
+        if year is None:
+            raise ValueError(f"No old DY 0/1/2J weights for {era_name} in {path}")
+        values = payload[year]
+        hard0, hard1, hard2 = map(float, (values["2J PU"], values["1J PU"], values["2J Hard"]))
+        weights = {
+            "0J": hard0, "1JHard": hard1, "1JPU": hard0,
+            "2JHard": hard2, "2JPU1": hard1, "2JPU2": hard0,
+        }
+        print(
+            f"[INFO] Old DY 0/1/2J plot weights from {path}: "
+            f"0J={hard0:.6g}, 1J={hard1:.6g}, 2J={hard2:.6g}"
+        )
+        return weights
+
+    path = (
+        repo / "reweights" / "dy_012j_reweight" / era_name
+        / "dy_012j_reweight.json"
+    )
+    if not path.is_file():
+        raise FileNotFoundError(f"DY 0/1/2J reweight JSON not found: {path}")
+    payload = json.loads(path.read_text())
+    corrections = payload.get("corrections", [])
+    correction = next(
+        (item for item in corrections if item.get("name") == "dy_012j_reweight"),
+        None,
+    )
+    if correction is None:
+        raise ValueError(f"Correction dy_012j_reweight not found in {path}")
+    content = correction.get("data", {}).get("content", [])
+    weights = {item["key"]: float(item["value"]) for item in content}
+    expected = {"0J", "1JHard", "1JPU", "2JHard", "2JPU1", "2JPU2"}
+    if set(weights) != expected:
+        raise ValueError(f"Expected six DY jet-component weights in {path}")
+    print(f"[INFO] DY jet-component plot weights from {path}: {weights}")
+    return weights
+
+
+def dy_012j_plot_scale(sample_name, weights):
+    if weights is None:
+        return 1.0
+    component = pu_hard_component_style(sample_name)
+    if component is None or component[0] != "DY":
+        return 1.0
+    key = component[1].replace(" ", "")
+    return weights.get(key, 1.0)
 
 
 def parse_comma_separated_list(value):
@@ -661,6 +738,24 @@ if __name__ == "__main__":
     )
 
     parser.add_argument(
+        "--dy-012j-weights",
+        choices=("none", "old", "new"),
+        default="none",
+        help=(
+            "DY component weights applied only while plotting: none (default), "
+            "old (test/rew_patch_factors.json), or new (era correction JSON)"
+        ),
+    )
+    parser.add_argument(
+        "--dy-012j-reweight",
+        dest="dy_012j_weights",
+        action="store_const",
+        const="new",
+        default=argparse.SUPPRESS,
+        help=argparse.SUPPRESS,
+    )
+
+    parser.add_argument(
         "--vars",
         "--variables",
         default=None,
@@ -688,6 +783,14 @@ if __name__ == "__main__":
         parser.error(
             "--normalize-dy-to-data and --normalize-mc-to-data are mutually exclusive"
         )
+
+    try:
+        dy_012j_weights = (
+            load_dy_012j_weights(args.era, args.dy_012j_weights)
+            if args.dy_012j_weights != "none" else None
+        )
+    except (FileNotFoundError, ValueError) as error:
+        parser.error(str(error))
 
     requested_variables = parse_comma_separated_list(args.vars)
     requested_variables_set = (
@@ -927,8 +1030,17 @@ if __name__ == "__main__":
             }
 
             scale_factor = process_scale_factors.get(process_name, 1.0)
-            if not root_file_has_patch(root_file):
-                scale_factor *= dy_component_scale(process_name, args.era)
+            if args.dy_012j_weights != "none":
+                if root_file_has_patch(root_file):
+                    print(
+                        f"[WARNING] {full_path} already contains a persistent "
+                        "DY component patch; the plot-time 0/1/2J weight is "
+                        "not applied again."
+                    )
+                else:
+                    scale_factor *= dy_012j_plot_scale(
+                        process_name, dy_012j_weights
+                    )
             # print(process_name, scale_factor)
 
             available_hists = get_available_histograms(
@@ -1100,6 +1212,7 @@ if __name__ == "__main__":
                 era=args.era,             
                 dy_normalization_sample=args.dy_normalization_sample,
                 dy_composition=args.dy_composition,
+                dy_component_reweighted=(args.dy_012j_weights != "none"),
                 show_systematics=args.systematics,
                 systematic_groups=args.systematicGroup,
                 overlay_systematic=args.overlaySystematic,

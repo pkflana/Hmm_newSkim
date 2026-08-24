@@ -426,6 +426,27 @@ SYST_GROUPS = {
         ],
         "#56B4E9",
     ),
+    "Pileup": (["CMS_pileup_{era}"], "#7F7F7F"),
+    "Muon Iso": (["CMS_eff_m_iso_{era}"], "#009E73"),
+    "Muon Trigger": (["CMS_eff_m_trigger_{era}"], "#009E73"),
+    "Muon ID": (["CMS_eff_m_id_{era}"], "#009E73"),
+    "QCD fac V": (["QCD_fac_scale_V"], "#E69F00"),
+    "QCD fac VH": (["QCD_fac_scale_VH"], "#E69F00"),
+    "QCD fac VV": (["QCD_fac_scale_VV"], "#E69F00"),
+    "QCD fac VVV": (["QCD_fac_scale_VVV"], "#E69F00"),
+    "QCD fac qqH": (["QCD_fac_scale_qqH"], "#E69F00"),
+    "QCD fac ttbar": (["QCD_fac_scale_ttbar"], "#E69F00"),
+    "QCD ren V": (["QCD_ren_scale_V"], "#D55E00"),
+    "QCD ren VH": (["QCD_ren_scale_VH"], "#D55E00"),
+    "QCD ren VV": (["QCD_ren_scale_VV"], "#D55E00"),
+    "QCD ren VVV": (["QCD_ren_scale_VVV"], "#D55E00"),
+    "QCD ren qqH": (["QCD_ren_scale_qqH"], "#D55E00"),
+    "QCD ren ttbar": (["QCD_ren_scale_ttbar"], "#D55E00"),
+    "PDF Higgs VH": (["pdf_Higgs_VH"], "#56B4E9"),
+    "PDF Higgs qqH": (["pdf_Higgs_qqH"], "#56B4E9"),
+    "PDF gg": (["pdf_gg"], "#56B4E9"),
+    "PDF gq": (["pdf_gq"], "#56B4E9"),
+    "PDF qqbar": (["pdf_qqbar"], "#56B4E9"),
 }
 
 
@@ -693,6 +714,7 @@ def make_stacked_plot(
     dy_normalization_sample="DY",
     era="",
     dy_composition=False,
+    dy_component_reweighted=False,
     show_systematics=False,
     systematic_groups=None,
     overlay_systematic=False,
@@ -1126,10 +1148,78 @@ def make_stacked_plot(
             idx for indices in composition_groups.values() for idx in indices
         }
         if component_index_set:
-            for key in [mc_keys[idx] for idx in sorted(component_index_set)]:
+            # Some routed campaigns intentionally do not write an inclusive
+            # DY/EWK histogram in every region, while the mutually exclusive
+            # PU/hard component histograms are present.  The components are
+            # diagnostic inputs for the percentage panels, but in that case
+            # their sum is also the only available inclusive prediction for
+            # the upper physics stack.  Reconstruct it before removing the
+            # individual components.
+            non_component_indices = [
+                idx for idx in range(len(mc_keys))
+                if idx not in component_index_set
+            ]
+            non_component_keys = [mc_keys[idx] for idx in non_component_indices]
+            replaced_inclusive_indices = set()
+            family_colors = {"DY": "dodgerblue", "EWK": "darkviolet"}
+            family_labels = {"DY": "DY - amc@nlo", "EWK": "EWK inclusive"}
+            for family, indices in composition_groups.items():
+                has_inclusive = any(
+                    key == family
+                    or (family == "DY" and (
+                        key == "DY_amcatnlo" or key.startswith("DYto")
+                    ))
+                    or (family == "EWK" and key.startswith("EWK"))
+                    for key in non_component_keys
+                )
+                if has_inclusive and not (
+                    family == "DY" and dy_component_reweighted
+                ):
+                    continue
+
+                if family == "DY" and dy_component_reweighted:
+                    replaced_inclusive_indices.update(
+                        idx for idx in non_component_indices
+                        if (
+                            mc_keys[idx] == "DY"
+                            or mc_keys[idx] == "DY_amcatnlo"
+                            or mc_keys[idx].startswith("DYto")
+                        )
+                    )
+
+                values = np.sum([mc_vals[idx] for idx in indices], axis=0)
+                errors = np.sqrt(np.sum(
+                    [np.square(mc_errs[idx]) for idx in indices], axis=0
+                ))
+                integral = float(np.sum([mc_integrals[idx] for idx in indices]))
+                key = f"{family}_from_components"
+                color = family_colors.get(family, "gray")
+                label = family_labels.get(family, family)
+                mc_vals.append(values)
+                mc_errs.append(errors)
+                mc_integrals.append(integral)
+                mc_colors.append(color)
+                mc_labels.append(f"{label} [{integral:.2f}]")
+                mc_keys.append(key)
+                ratio_candidates[key] = {
+                    "name": label,
+                    "values": values,
+                    "errors": errors,
+                    "color": color,
+                    "is_data": False,
+                    "is_signal": False,
+                    "aliases": [family],
+                }
+                print(
+                    f"  [INFO] {family} inclusive reconstructed from "
+                    f"{len(indices)} jet-component samples for {variable}."
+                )
+
+            removed_indices = component_index_set | replaced_inclusive_indices
+            for key in [mc_keys[idx] for idx in sorted(removed_indices)]:
                 ratio_candidates.pop(key, None)
             keep_indices = [
-                idx for idx in range(len(mc_keys)) if idx not in component_index_set
+                idx for idx in range(len(mc_keys)) if idx not in removed_indices
             ]
             mc_vals = [mc_vals[idx] for idx in keep_indices]
             mc_colors = [mc_colors[idx] for idx in keep_indices]

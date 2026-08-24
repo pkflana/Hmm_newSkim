@@ -201,7 +201,7 @@ def get_segmentation_dict(
 
 from histograms.defineTriggerWeights import AddTriggerWeightsAndErrors
 
-from .add_vars_to_skim_tuples import (
+from .add_vars import (
     GetAllMuonsObservablesNew,
     SelectedJetObservablesDef,
     SoftJetCollectionCleaningInVBF,

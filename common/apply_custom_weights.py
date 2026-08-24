@@ -1,13 +1,36 @@
 import json
 import math
 import os
+from pathlib import Path
 
 CORRECTION_NAMES = {
     "dy_ptll_njets_reweight": "dy_ptll_reweight",
     "dy_njets_reweight": "dy_njets_reweight",
+    "dy_jet_component_reweight": "dy_012j_reweight",
 }
 
 DY_AMCATNLO_NORMALIZATION = 0.9393839712918659
+REPOSITORY_ROOT = Path(__file__).resolve().parents[1]
+
+
+def reweight_json_paths(era):
+    """Return the three histogram reweight payloads for one physical era."""
+    era_name = str(era)
+    paths = {
+        "ptll_njets": REPOSITORY_ROOT / "reweights" / "dy_ptll_reweight"
+        / era_name / "dy_ptll_reweight_smart.json",
+        "njets": REPOSITORY_ROOT / "reweights" / "dy_njets_reweight"
+        / era_name / "dy_njets_reweight.json",
+        "jet_component": REPOSITORY_ROOT / "reweights" / "dy_012j_reweight"
+        / era_name / "dy_012j_reweight.json",
+    }
+    missing = [str(path) for path in paths.values() if not path.is_file()]
+    if missing:
+        raise FileNotFoundError(
+            f"Missing histogram reweight JSON for era {era_name}: "
+            + ", ".join(missing)
+        )
+    return paths
 
 
 def _column_names(df):
@@ -163,171 +186,6 @@ def _payload_from_correctionlib(correction_set, expected_type, json_path):
     return payload
 
 
-def evaluate_formula(x, params):
-    if len(params) != 10:
-        raise ValueError(f"Expected 10 fit parameters, got {len(params)}")
-
-    x = max(float(x), 0.0)
-    p = [float(value) for value in params]
-    sigma1 = max(p[3], 1e-6)
-    sigma2 = max(p[6], 1e-6)
-    x0 = max(p[8], 1e-6)
-    floor_x = max(x, p[8])
-
-    return (
-        p[0]
-        + p[1] * math.exp(-0.5 * ((x - p[2]) / sigma1) ** 2)
-        + p[4] * math.exp(-0.5 * ((x - p[5]) / sigma2) ** 2)
-        + p[7] * (floor_x / x0) ** (-p[9])
-    )
-
-
-class DYPtLLNJetsReweighter:
-    def __init__(self, payload):
-        self.payload = payload
-        self.min_weight = float(payload.get("min_weight", 0.0))
-        self.max_weight = float(payload.get("max_weight", 5.0))
-        self.categories = payload.get("categories", {})
-
-    @classmethod
-    def from_json(cls, json_path):
-        return cls(load_reweight_json(json_path, "dy_ptll_njets_reweight"))
-
-    @staticmethod
-    def category_from_event(nSelectedJets, category=None, is_vbf=None):
-        njets = int(nSelectedJets)
-
-        if category is not None:
-            category = str(category)
-            category_lower = category.lower()
-            if category_lower == "vbf":
-                return "VBF_ge2J" if njets >= 2 else None
-            if category_lower == "ggf":
-                if njets <= 0:
-                    return "ggF_0J"
-                if njets == 1:
-                    return "ggF_1J"
-                return "ggF_ge2J"
-            if category in {"ggF_0J", "ggF_1J", "ggF_ge2J", "VBF_ge2J"}:
-                return category
-
-            raise ValueError(
-                "DY pt(ll)/NJets category must be 'ggF', 'VBF', "
-                f"or an internal category, got {category!r}"
-            )
-
-        if is_vbf:
-            return "VBF_ge2J" if njets >= 2 else None
-        if njets <= 0:
-            return "ggF_0J"
-        if njets == 1:
-            return "ggF_1J"
-        return "ggF_ge2J"
-
-    def evaluate(
-        self,
-        ptll=None,
-        category=None,
-        nSelectedJets=None,
-        N_selectedJets=None,
-        njets=None,
-        is_vbf=None,
-        isVBF=None,
-        pt_mumu=None,
-    ):
-        if ptll is None:
-            ptll = pt_mumu
-        if ptll is None:
-            raise ValueError("Pass ptll to evaluate the DY pt(ll)/NJets weight")
-
-        if is_vbf is None:
-            is_vbf = isVBF
-        if nSelectedJets is None:
-            nSelectedJets = N_selectedJets
-        if nSelectedJets is None:
-            nSelectedJets = njets
-        if nSelectedJets is None:
-            raise ValueError("Pass nSelectedJets to evaluate the DY pt(ll)/NJets weight")
-
-        internal_category = self.category_from_event(
-            nSelectedJets,
-            category=category,
-            is_vbf=is_vbf,
-        )
-        if internal_category is None:
-            return 1.0
-
-        category_payload = self.categories.get(internal_category)
-        if category_payload is None:
-            return 1.0
-
-        params = category_payload.get("fit", {}).get("parameters", [])
-        weight = evaluate_formula(ptll, params)
-        if not math.isfinite(weight):
-            return 1.0
-
-        return min(max(weight, self.min_weight), self.max_weight)
-
-
-class DYNJetsReweighter:
-    def __init__(self, payload):
-        self.payload = payload
-        self.min_weight = float(payload.get("min_weight", 0.0))
-        self.max_weight = float(payload.get("max_weight", 5.0))
-        self.categories = payload.get("categories", {})
-
-    @classmethod
-    def from_json(cls, json_path):
-        return cls(load_reweight_json(json_path, "dy_njets_reweight"))
-
-    @staticmethod
-    def category_from_event(nSelectedJets, category=None, is_vbf=None, isVBF=None):
-        if is_vbf is None:
-            is_vbf = isVBF
-
-        if category is not None:
-            category_lower = str(category).lower()
-            if category_lower == "vbf":
-                return "VBF"
-            if category_lower == "ggf":
-                return "ggF"
-            raise ValueError(f"DY NJets category must be 'ggF' or 'VBF', got {category!r}")
-
-        return "VBF" if bool(is_vbf) else "ggF"
-
-    def evaluate(self, nSelectedJets=None, njets=None, category=None, is_vbf=None, isVBF=None):
-        if nSelectedJets is None:
-            nSelectedJets = njets
-        if nSelectedJets is None:
-            raise ValueError("Pass nSelectedJets to evaluate the DY NJets weight")
-
-        category_key = self.category_from_event(
-            nSelectedJets,
-            category=category,
-            is_vbf=is_vbf,
-            isVBF=isVBF,
-        )
-        category_payload = self.categories.get(category_key)
-        if category_payload is None:
-            return 1.0
-
-        njets_value = float(nSelectedJets)
-        for bin_payload in category_payload.get("bins", []):
-            low = float(bin_payload["low"])
-            high = bin_payload.get("high")
-            if njets_value < low:
-                continue
-            if high is not None and njets_value >= float(high):
-                continue
-
-            weight = float(bin_payload.get("weight", 1.0))
-            if not math.isfinite(weight):
-                return 1.0
-            return min(max(weight, self.min_weight), self.max_weight)
-
-        return 1.0
-
-
 def _format_float(value):
     value = float(value)
     if not math.isfinite(value):
@@ -467,6 +325,37 @@ def build_njets_reweight_expression(payload, available_columns):
     return "\n".join(pieces) + "\nreturn 1.f;"
 
 
+def build_jet_component_reweight_expression(payload, available_columns):
+    required = {"VBF", "N_SelectedJets", "N_PU_FirstTwoJets", "N_PU_VBFJets"}
+    missing = sorted(required - available_columns)
+    if missing:
+        raise RuntimeError(
+            "DY jet-component reweight columns not found in RDF: "
+            + ", ".join(missing)
+        )
+
+    correction = _find_correction(
+        payload, "dy_jet_component_reweight", "DY jet-component payload"
+    )
+    data = correction.get("data", {})
+    weights = {item["key"]: item["value"] for item in data.get("content", [])}
+    expected = {"0J", "1JHard", "1JPU", "2JHard", "2JPU1", "2JPU2"}
+    if set(weights) != expected:
+        raise ValueError(f"DY jet-component payload must contain {sorted(expected)}")
+    conditions = {
+        "0J": "!VBF && N_SelectedJets == 0",
+        "1JHard": "!VBF && N_SelectedJets == 1 && N_PU_FirstTwoJets == 0",
+        "1JPU": "!VBF && N_SelectedJets == 1 && N_PU_FirstTwoJets == 1",
+        "2JHard": "(VBF && N_PU_VBFJets == 0) || (!VBF && N_SelectedJets >= 2 && N_PU_FirstTwoJets == 0)",
+        "2JPU1": "(VBF && N_PU_VBFJets == 1) || (!VBF && N_SelectedJets >= 2 && N_PU_FirstTwoJets == 1)",
+        "2JPU2": "(VBF && N_PU_VBFJets == 2) || (!VBF && N_SelectedJets >= 2 && N_PU_FirstTwoJets == 2)",
+    }
+    return "\n".join(
+        f"if ({condition}) return static_cast<float>({_format_float(weights[name])});"
+        for name, condition in conditions.items()
+    ) + "\nreturn 1.f;"
+
+
 def _define_and_multiply_weight(df, expression, weight_columns, output_column, available_columns):
     if output_column in available_columns:
         df = df.Redefine(output_column, expression)
@@ -565,5 +454,32 @@ def ApplyDYNJetsReweight(
     )
 
 
-def ApplyDYPtLLNJetsReweight(*args, **kwargs):
-    return ApplyDYPtLLReweight(*args, **kwargs)
+def ApplyDYJetComponentReweight(
+    df,
+    dataset_name,
+    json_path,
+    weight_columns,
+    output_column="weight_dy_jet_component",
+):
+    if not is_dy_dataset(dataset_name):
+        return df
+
+    with open(json_path) as handle:
+        payload = json.load(handle)
+    available_columns = _column_names(df)
+    expression = build_jet_component_reweight_expression(payload, available_columns)
+    return _define_and_multiply_weight(
+        df, expression, weight_columns, output_column, available_columns
+    )
+
+
+def apply_custom_weights(df, dataset_name, era, weight_columns, apply_jet_component=True):
+    """Apply every custom histogram-production weight configured for the era."""
+    df = ApplyDYAmcatnloNormalization(df, dataset_name, weight_columns)
+    if not is_dy_dataset(dataset_name):
+        return df
+
+    paths = reweight_json_paths(era)
+    df = ApplyDYPtLLReweight(df, dataset_name, paths["ptll_njets"], weight_columns)
+    df = ApplyDYNJetsReweight(df, dataset_name, paths["njets"], weight_columns)
+    return ApplyDYJetComponentReweight(df, dataset_name, paths["jet_component"], weight_columns) if apply_jet_component else df

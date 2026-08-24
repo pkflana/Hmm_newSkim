@@ -26,3 +26,5 @@ results/
 htcondor/validation/
 htcondor/systematics/
 pyproject.toml
+combine/
+campaigns/

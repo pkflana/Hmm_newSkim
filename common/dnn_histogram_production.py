@@ -1,6 +1,6 @@
 """DNN-specific dataframe transformations used while producing histograms.
 
-Keep mass remapping and DNN reevaluation here: the generic histogram maker
+Keep mass remapping and DNN reevaluation in common: the histogram maker
 should only decide which dataframe and output column to book.
 """
 

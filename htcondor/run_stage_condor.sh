@@ -82,12 +82,12 @@ case "${mode}" in
   systematics)
     manifest="$(manifest_path)"
     output="$(histogram_output_path)"
-    command=(python3 histograms/hist_maker.py --era "${era}" --root-input "${root_input}" --json-input "${json_input}" "${additional_metadata_args[@]}" --dataset-name "${dataset}" --input-manifest "${manifest}" --output-file "${output}" --chunk-size "${chunk_size}" --file-open-retries "${file_open_retries}" --file-open-retry-delay "${file_open_retry_delay}")
+    command=(python3 histograms/hist_maker.py --era "${era}" --root-input "${root_input}" --json-input "${json_input}" "${additional_metadata_args[@]}" --dataset-name "${dataset}" --input-manifest "${manifest}" --output-file "${output}")
     ;;
   histograms)
     manifest="$(manifest_path)"
     output="$(histogram_output_path)"
-    command=(python3 histograms/hist_maker.py --era "${era}" --root-input "${root_input}" --json-input "${json_input}" "${additional_metadata_args[@]}" --dataset-name "${dataset}" --input-manifest "${manifest}" --output-file "${output}" --chunk-size "${chunk_size}" --file-open-retries "${file_open_retries}" --file-open-retry-delay "${file_open_retry_delay}")
+    command=(python3 histograms/hist_maker.py --era "${era}" --root-input "${root_input}" --json-input "${json_input}" "${additional_metadata_args[@]}" --dataset-name "${dataset}" --input-manifest "${manifest}" --output-file "${output}")
     ;;
   *) echo "Unknown mode: ${mode}" >&2; exit 2 ;;
 esac

@@ -282,6 +282,7 @@ struct VBFJets {
     static constexpr size_t n_legs = 2;
     static constexpr float m_inv_th = 400.;
     static constexpr float eta_th = 2.5;
+    static constexpr float leading_pt_th = 35;
     std::array<int, n_legs> leg_index;
     std::array<LorentzVectorM, n_legs> leg_p4;  // p4 of quark from H->bb
     float m_inv;
@@ -313,7 +314,7 @@ VBFJets FindVBFJets(const RVecLV& Jet_p4, const RVecB& pre_sel) {
             // comparison with Run2: same selection. Since there could be MORE than one jet pair, the one with highest invariant mass is selected, keeping the DeltaEta threshold fixed to 2.5
             float inv_mass = (Jet_p4.at(j1_idx) + Jet_p4.at(j2_idx)).M();
             float eta = Jet_p4.at(j1_idx).Eta() - Jet_p4.at(j2_idx).Eta();
-            if (inv_mass >= inv_mass_th && std::abs(eta) >= eta_th) {
+            if (inv_mass >= inv_mass_th && std::abs(eta) >= eta_th && Jet_p4.at(j1_idx).Pt()>leading_pt_th) {
                 inv_mass_th = inv_mass;
                 // eta_th = eta;
                 VBF_jets_collection.leg_index[0] = j1_idx;

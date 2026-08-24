@@ -222,6 +222,8 @@ def run_plot(args: argparse.Namespace) -> int:
                 "--dy-normalization-sample",
                 args.dy_normalization_sample,
             ]
+        if getattr(args, "dy_012j_weights", "none") != "none":
+            command += ["--dy-012j-weights", args.dy_012j_weights]
         if not getattr(args, "mc_stat_uncertainty", True):
             command.append("--noMCStatUncertainty")
         commands.append(command)
@@ -258,7 +260,7 @@ def run_merge_systematics(args: argparse.Namespace) -> int:
         normalized_era(era)
         for era in csv_or_repeated(args.eras or [])
     }
-    if args.source_dirs:
+    if getattr(args, "source_dirs", None):
         source_dirs = {"Central": central_dir}
         source_dirs.update(
             {f"source_{index}": Path(path).expanduser()
@@ -428,7 +430,6 @@ def histogram_command(request: HistRequest, era: str, systematic: str) -> list[s
 
     # The legacy separator is deliberately hidden from users of this CLI.
     command.append("--")
-    command += ["--n-cores", str(request.cores)]
     if request.variables:
         command += ["--variables", *request.variables]
     if request.regions:
@@ -448,14 +449,7 @@ def histogram_command(request: HistRequest, era: str, systematic: str) -> list[s
         command += ["--max-files", str(request.max_files)]
     command += ["--dnn-model-set", request.dnn_model_set]
 
-    era_name = normalized_era(era)
-    command += [
-        "--dy-ptll-njets-reweight-json",
-        str(REPO / f"reweights/dy_ptll_reweight/{era_name}/dy_ptll_reweight_smart.json"),
-        "--dy-njets-reweight-json",
-        str(REPO / f"reweights/dy_njets_reweight/{era_name}/dy_njets_reweight.json"),
-        *request.extra,
-    ]
+    command += request.extra
     return command
 
 
@@ -941,6 +935,20 @@ def build_parser() -> argparse.ArgumentParser:
         dest="component_composition",
         action="store_true",
         help="add one fraction panel for each supplied component family",
+    )
+    plot.add_argument(
+        "--dy-012j-weights",
+        choices=("none", "old", "new"),
+        default="none",
+        help="plot-time DY 0J/1J/2J weights (default: none)",
+    )
+    plot.add_argument(
+        "--dy-012j-reweight",
+        dest="dy_012j_weights",
+        action="store_const",
+        const="new",
+        default=argparse.SUPPRESS,
+        help=argparse.SUPPRESS,
     )
     plot.add_argument("--dy-normalization-sample")
     plot.add_argument("--run", dest="execute", action="store_true")

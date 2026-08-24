@@ -86,7 +86,7 @@ Examples:
   histograms/scripts/hists.sh --datasets skim_cfg --era Run3_2025
   histograms/scripts/hists.sh --datasets DiTriBoson,data --era Run3_2022
   histograms/scripts/hists.sh --datasets DY_amcatnlo --era Run3_2024 --output-suffix _DNN -- --variables DNN_NNOutput
-  histograms/scripts/hists.sh --datasets all --era Run3_2025 --extra-opts "--n-cores 8"
+  histograms/scripts/hists.sh --datasets all --era Run3_2025 --extra-opts "--rdf-threads 8"
   histograms/scripts/hists.sh --datasets signals,EWK --era Run3_2024 --condor -- --variables m_mumu
 EOF
 }

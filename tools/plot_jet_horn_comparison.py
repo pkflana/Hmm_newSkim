@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import argparse
+import os
 from pathlib import Path
 
 import matplotlib.pyplot as plt
@@ -11,13 +12,17 @@ import mplhep as hep
 import numpy as np
 import uproot
 
+import common.utilities as utilities
+from common.rdf_utilities import findBinEntry, findNewBins, getNewBins
+
 
 DEFAULT_BASE = Path("/eos/user/v/vdamante/H_mumu/campaigns/JetHornVetoComparison")
-CAMPAIGNS = (
-    ("2024", "2024/Central_hadded/Run3_2024", "#e41a1c"),
-    ("2025 with horn veto", "2025_WithHornVeto/Central_hadded/Run3_2025", "#1746ff"),
-    ("2025 without horn veto", "2025_NoHornVeto/Central_hadded/Run3_2025", "#006400"),
+REPOSITORY = Path(__file__).resolve().parents[1]
+CAMPAIGNS_2025 = (
+    ("2025 with horn veto", "2025_WithHornVeto/Central_hadded/Run3_2025", "#e41a1c"),
+    ("2025 without horn veto", "2025_NoHornVeto/Central_hadded/Run3_2025", "#1746ff"),
 )
+CAMPAIGN_2024 = ("2024", "2024/Central_hadded/Run3_2024", "#006400")
 
 
 def histogram_keys(path: Path) -> set[str]:
@@ -39,24 +44,108 @@ def read_histogram(path: Path, key: str) -> tuple[np.ndarray, np.ndarray, np.nda
     return values, edges, errors
 
 
+def rebin_histogram(
+    histogram: tuple[np.ndarray, np.ndarray, np.ndarray],
+    desired_binning: list[float] | None,
+) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+    values, edges, errors = histogram
+    if not desired_binning:
+        return histogram
+
+    # Match RebinHisto/AdaptBinningToHistogram: snap every configured edge to
+    # the nearest existing ROOT bin edge, discard duplicates, and do not fold
+    # underflow/overflow into the visible range.
+    adapted = sorted({
+        float(edges[np.argmin(np.abs(edges - requested_edge))])
+        for requested_edge in desired_binning
+    })
+    if len(adapted) < 2:
+        raise RuntimeError(
+            f"Configured rebinning has fewer than two usable edges: {adapted}"
+        )
+
+    indices = [int(np.flatnonzero(np.isclose(edges, edge))[0]) for edge in adapted]
+    rebinned_values = np.asarray([
+        np.sum(values[start:stop])
+        for start, stop in zip(indices[:-1], indices[1:])
+    ])
+    rebinned_errors = np.asarray([
+        np.sqrt(np.sum(np.square(errors[start:stop])))
+        for start, stop in zip(indices[:-1], indices[1:])
+    ])
+
+    # Match FixNegativeContributions used by the generic plotter.
+    negative = rebinned_values < 0
+    rebinned_errors[negative] = np.sqrt(
+        np.square(np.abs(rebinned_values[negative]))
+        + np.square(rebinned_errors[negative])
+    )
+    rebinned_values[negative] = 0.0
+    rebinned_edges = np.asarray(adapted)
+    return rebinned_values, rebinned_edges, rebinned_errors
+
+
 def safe_name(key: str) -> str:
     return key.replace("/", "__").replace(" ", "_")
 
 
-def plot_one(base: Path, output: Path, key: str) -> None:
+def configured_rebinning(
+    histogram_config: dict, variable: str, region: str
+) -> list[float]:
+    entry = findBinEntry(histogram_config, variable)
+    if "x_rebin" in histogram_config[entry]:
+        bins = findNewBins(histogram_config, entry, dir_name=region)
+    else:
+        bins = histogram_config[entry].get("x_bins", [])
+    return [float(edge) for edge in getNewBins(bins)]
+
+
+def plot_one(
+    base: Path, output: Path, key: str,
+    campaigns: tuple[tuple[str, str, str], ...],
+    histogram_config: dict | None = None,
+    normalize_to_reference_data: bool = False,
+    normalize_dy_to_data: bool = False,
+) -> None:
+    region, variable = key.rsplit("/", 1)
+    desired_binning = (
+        configured_rebinning(histogram_config, variable, region)
+        if histogram_config is not None else None
+    )
     payload = []
-    for label, relative, color in CAMPAIGNS:
+    for label, relative, color in campaigns:
         folder = base / relative
-        data = read_histogram(folder / "Data_Muon.root", key)
-        dy = read_histogram(folder / "DY.root", key)
+        data = rebin_histogram(
+            read_histogram(folder / "Data_Muon.root", key), desired_binning
+        )
+        dy = rebin_histogram(
+            read_histogram(folder / "DY.root", key), desired_binning
+        )
         if not np.array_equal(data[1], dy[1]):
             raise RuntimeError(f"Data/DY binning mismatch for {label}: {key}")
         payload.append((label, color, data, dy))
 
+    reference_label = payload[0][0]
     reference = float(np.sum(payload[0][2][0]))
-    if reference <= 0:
-        print(f"[SKIP] Empty 2024 Data histogram: {key}")
+    if normalize_to_reference_data and reference <= 0:
+        print(f"[SKIP] Empty {reference_label} Data histogram: {key}")
         return
+
+    if normalize_to_reference_data or normalize_dy_to_data:
+        invalid_integrals = []
+        for label, _, data, dy in payload:
+            data_integral = float(np.sum(data[0]))
+            dy_integral = float(np.sum(dy[0]))
+            if data_integral <= 0 or dy_integral <= 0:
+                invalid_integrals.append(
+                    f"{label}: Data={data_integral:.6g}, DY={dy_integral:.6g}"
+                )
+        if invalid_integrals:
+            print(
+                f"[SKIP] Cannot normalize {key}; non-positive integral(s): "
+                + "; ".join(invalid_integrals)
+            )
+            return
 
     hep.style.use("CMS")
     # Skims use sentinel-valued bins for unavailable jet observables. Trim only
@@ -80,8 +169,15 @@ def plot_one(base: Path, output: Path, key: str) -> None:
         edges = edges[first:last + 2]
         centers = 0.5 * (edges[:-1] + edges[1:])
 
-        data_scale = reference / np.sum(data_values) if np.sum(data_values) > 0 else 1.0
-        dy_scale = reference / np.sum(dy_values) if np.sum(dy_values) > 0 else 1.0
+        if normalize_to_reference_data:
+            data_scale = reference / np.sum(data_values)
+            dy_scale = reference / np.sum(dy_values)
+        elif normalize_dy_to_data:
+            data_scale = 1.0
+            dy_scale = np.sum(data_values) / np.sum(dy_values)
+        else:
+            data_scale = 1.0
+            dy_scale = 1.0
         shown_data = data_values * data_scale
         shown_dy = dy_values * dy_scale
 
@@ -93,7 +189,12 @@ def plot_one(base: Path, output: Path, key: str) -> None:
         )
 
         ratio = np.divide(shown_data, shown_dy, out=np.full_like(shown_data, np.nan), where=shown_dy != 0)
-        ratio_error = np.divide(data_errors * data_scale, shown_dy, out=np.zeros_like(data_errors), where=shown_dy != 0)
+        ratio_error = np.divide(
+            np.abs(data_errors * data_scale),
+            np.abs(shown_dy),
+            out=np.zeros_like(data_errors),
+            where=shown_dy != 0,
+        )
         ratio_axis.errorbar(
             centers, ratio, yerr=ratio_error, color=color, marker=".",
             linestyle="-", linewidth=1.2, markersize=4, label=label,
@@ -103,7 +204,11 @@ def plot_one(base: Path, output: Path, key: str) -> None:
     positive = [entry[2][0][first:last + 1][entry[2][0][first:last + 1] > 0] for entry in payload]
     positive = np.concatenate([entry for entry in positive if entry.size])
     axis.set_ylim(max(0.1, positive.min() * 0.3), None)
-    axis.set_ylabel("Events normalized to 2024 data", fontsize=18)
+    axis.set_ylabel(
+        f"Events normalized to {reference_label} data"
+        if normalize_to_reference_data else "Events",
+        fontsize=18,
+    )
     axis.legend(ncol=2, fontsize=11, loc="best")
     hep.cms.label("Preliminary", data=True, com=13.6, ax=axis)
 
@@ -131,9 +236,37 @@ def main() -> int:
     parser.add_argument("--output", type=Path, default=Path("plots/jet_horn_comparison"))
     parser.add_argument("--region", action="append", help="Only plot this region; repeatable")
     parser.add_argument("--variable", action="append", help="Only plot this variable; repeatable")
+    parser.add_argument(
+        "--include-2024", action="store_true",
+        help="Also add the 2024 campaign in green",
+    )
+    normalization = parser.add_mutually_exclusive_group()
+    normalization.add_argument(
+        "--normalize-to-reference-data", action="store_true",
+        help="Normalize every curve to 2025 with-horn-veto Data (off by default)",
+    )
+    normalization.add_argument(
+        "--normalize-dy-to-data", action="store_true",
+        help="Scale DY to Data independently in each campaign",
+    )
+    parser.add_argument(
+        "--rebin", action="store_true",
+        help="Use the same configured binning as the generic histogram plotter",
+    )
     args = parser.parse_args()
 
-    files = [args.base / relative / sample for _, relative, _ in CAMPAIGNS for sample in ("Data_Muon.root", "DY.root")]
+    histogram_config = None
+    if args.rebin:
+        histogram_config = utilities.get_config(
+            os.path.join(REPOSITORY, "config", "plot", "histograms.yaml")
+        )
+
+    campaigns = CAMPAIGNS_2025 + ((CAMPAIGN_2024,) if args.include_2024 else ())
+    files = [
+        args.base / relative / sample
+        for _, relative, _ in campaigns
+        for sample in ("Data_Muon.root", "DY.root")
+    ]
     missing = [path for path in files if not path.is_file()]
     if missing:
         raise FileNotFoundError("Missing required ROOT files:\n" + "\n".join(map(str, missing)))
@@ -148,7 +281,18 @@ def main() -> int:
 
     print(f"Common one-dimensional histograms: {len(keys)}")
     for key in sorted(keys):
-        plot_one(args.base, args.output, key)
+        try:
+            plot_one(
+                args.base,
+                args.output,
+                key,
+                campaigns=campaigns,
+                histogram_config=histogram_config,
+                normalize_to_reference_data=args.normalize_to_reference_data,
+                normalize_dy_to_data=args.normalize_dy_to_data,
+            )
+        except KeyError as error:
+            print(f"[SKIP] {key}: {error}")
     return 0
 
 

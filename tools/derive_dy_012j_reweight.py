@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Fit data-driven DY 0J/1J/2J normalizations from 2D jet templates."""
+"""Fit six data-driven DY reco/PU jet-component normalizations."""
 
 from __future__ import annotations
 
@@ -18,17 +18,21 @@ os.environ.setdefault("MPLCONFIGDIR", "/tmp/vdamante/matplotlib")
 import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
-import mplhep as hep
 import numpy as np
 import ROOT
 
+try:
+    import mplhep as hep
+except ImportError:
+    hep = None
+
 ROOT.gROOT.SetBatch(True)
-plt.style.use(hep.style.CMS)
+if hep:
+    plt.style.use(hep.style.CMS)
 
 COMPONENTS = {
-    "0J": ("2J_PU2", "DY 0J Hard"),
-    "1J": ("2J_PU1", "DY 1J Hard"),
-    "2J": ("2J_Hard", "DY 2J Hard"),
+    "0J": "0J", "1JHard": "1J_Hard", "1JPU": "1J_PU",
+    "2JHard": "2J_Hard", "2JPU1": "2J_PU1", "2JPU2": "2J_PU2",
 }
 DEFAULT_SUBTRACT = (
     # Canonical Run-3 process files for the Z sideband. Do not list aliases or
@@ -44,9 +48,9 @@ def open_hist(path: Path, root_path: str, clone_name: str):
     if not root_file or root_file.IsZombie():
         raise RuntimeError(f"Cannot open {path}")
     hist = root_file.Get(root_path)
-    if not hist or not hist.InheritsFrom("TH2"):
+    if not hist or not hist.InheritsFrom("TH1"):
         root_file.Close()
-        raise KeyError(f"Missing TH2 {root_path} in {path}")
+        raise KeyError(f"Missing histogram {root_path} in {path}")
     clone = hist.Clone(clone_name)
     clone.SetDirectory(0)
     root_file.Close()
@@ -78,7 +82,7 @@ def sum_hists(paths, root_path, reference):
 
 
 def solve_nonnegative_wls(target, templates, variance, template_variances):
-    """Small bounded WLS solver; enumerate active sets for three parameters."""
+    """Small bounded WLS solver; enumerate active component sets."""
     npar = templates.shape[1]
     theta = np.ones(npar)
     best = None
@@ -94,8 +98,8 @@ def solve_nonnegative_wls(target, templates, variance, template_variances):
         weight = 1.0 / effective_var[valid]
         if np.linalg.matrix_rank(matrix * np.sqrt(weight)[:, None]) < npar:
             raise RuntimeError(
-                "The three DY templates are linearly dependent in the valid "
-                "fit bins; the 0J/1J/2J normalizations cannot be identified."
+                "The DY component templates are linearly dependent in the valid "
+                "fit bins; six independent normalizations cannot be identified."
             )
         best = None
         for size in range(1, npar + 1):
@@ -132,23 +136,23 @@ def solve_nonnegative_wls(target, templates, variance, template_variances):
 
 
 def correction_payload(era, theta, covariance):
-    content = [float(theta[0]), float(theta[1]), float(theta[2])]
+    content = dict(zip(COMPONENTS, map(float, theta)))
     return {
         "schema_version": 2,
         "description": f"Data-driven DY hard-jet component fit for {era}",
         "corrections": [{
             "name": "dy_012j_reweight",
-            "description": "DY component normalization versus hard-jet multiplicity.",
+            "description": "DY normalization for six exclusive reco/PU jet components.",
             "version": 1,
             "inputs": [{
-                "name": "n_hard_jets", "type": "real",
-                "description": "Number of hard jets among the selected VBF pair.",
+                "name": "component", "type": "string",
+                "description": "Exclusive reco/PU jet component.",
             }],
             "output": {"name": "weight", "type": "real"},
             "data": {
-                "nodetype": "binning", "input": "n_hard_jets",
-                "edges": [-0.5, 0.5, 1.5, 2.5], "content": content,
-                "flow": "clamp",
+                "nodetype": "category", "input": "component",
+                "content": [{"key": name, "value": value} for name, value in content.items()],
+                "default": 1.0,
             },
         }],
     }
@@ -157,12 +161,12 @@ def correction_payload(era, theta, covariance):
 def make_plots(output_dir, data, non_dy, component_hists, theta, era):
     output_dir.mkdir(parents=True, exist_ok=True)
     labels = list(COMPONENTS)
-    colors = ["#6b3b00", "#0868df", "cornflowerblue"]
+    colors = ["#6b3b00", "#0868df", "cornflowerblue", "#008060", "#bd3d3a", "#8957a1"]
     data_v, _ = hist_arrays(data)
     non_v, _ = hist_arrays(non_dy)
     comp_v = [hist_arrays(hist)[0] for hist in component_hists]
     x = np.arange(len(data_v))
-    for tag, scales in (("prefit", np.ones(3)), ("postfit", theta)):
+    for tag, scales in (("prefit", np.ones(len(COMPONENTS))), ("postfit", theta)):
         fig, (ax, rax) = plt.subplots(
             2, 1, figsize=(11, 8), sharex=True,
             gridspec_kw={"height_ratios": [3, 1], "hspace": 0.05},
@@ -177,11 +181,12 @@ def make_plots(output_dir, data, non_dy, component_hists, theta, era):
         rax.axhline(1, color="black", linestyle="--")
         rax.set_ylim(0.5, 1.5)
         rax.set_ylabel("Data/MC")
-        rax.set_xlabel("flattened $|\\eta(j_1)| \\times p_T(j_1)$ bin")
+        rax.set_xlabel("flattened fit bin")
         ax.set_ylabel("Events")
         ax.set_yscale("log")
         ax.legend(ncol=3, fontsize=10)
-        hep.cms.label(ax=ax, data=True, label="Preliminary", com=13.6)
+        if hep:
+            hep.cms.label(ax=ax, data=True, label="Preliminary", com=13.6)
         fig.savefig(output_dir / f"dy_012j_{tag}.png", bbox_inches="tight")
         fig.savefig(output_dir / f"dy_012j_{tag}.pdf", bbox_inches="tight")
         plt.close(fig)
@@ -191,8 +196,8 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--era", required=True)
     parser.add_argument("--input-dir", required=True, type=Path)
-    parser.add_argument("--region", default="Z_sideband_VBF")
-    parser.add_argument("--variable", default="eta_vs_pt_leadingjet")
+    parser.add_argument("--region", default="Z_sideband_ggF")
+    parser.add_argument("--variables", nargs="+", default=["m_mumu", "eta_vs_pt_leadingjet", "eta_vs_pt_subleadingjet"])
     parser.add_argument("--data-sample", default="Data_Muon")
     parser.add_argument("--dy-process", default="DY")
     parser.add_argument("--subtract-samples", nargs="+", default=list(DEFAULT_SUBTRACT))
@@ -201,30 +206,38 @@ def main():
     parser.add_argument("--output-root", required=True, type=Path)
     args = parser.parse_args()
 
-    inclusive_root_path = f"{args.region}/{args.variable}"
-    component_root_path = f"{args.region}/{args.variable}"
     data_path = args.input_dir / f"{args.data_sample}.root"
-    data = open_hist(data_path, inclusive_root_path, "data")
-    component_hists = []
-    for component, (suffix, _) in COMPONENTS.items():
-        path = args.input_dir / f"{args.dy_process}_{suffix}.root"
-        component_hists.append(
-            open_hist(path, component_root_path, f"dy_{component}")
-        )
-
     subtract_paths = [
         args.input_dir / f"{sample}.root" for sample in args.subtract_samples
         if (args.input_dir / f"{sample}.root").is_file()
     ]
-    non_dy, used = sum_hists(subtract_paths, inclusive_root_path, data)
+    data_parts, data_var_parts, non_parts, non_var_parts = [], [], [], []
+    component_parts = [[] for _ in COMPONENTS]
+    component_var_parts = [[] for _ in COMPONENTS]
+    used, plot_inputs = set(), None
+    for variable in args.variables:
+        root_path = f"{args.region}/{variable}"
+        data = open_hist(data_path, root_path, f"data_{variable}")
+        non_dy, used_here = sum_hists(subtract_paths, root_path, data)
+        used.update(used_here)
+        data_values, data_variance = hist_arrays(data)
+        non_values, non_variance = hist_arrays(non_dy)
+        data_parts.append(data_values); data_var_parts.append(data_variance)
+        non_parts.append(non_values); non_var_parts.append(non_variance)
+        variable_components = []
+        for index, (component, suffix) in enumerate(COMPONENTS.items()):
+            hist = open_hist(args.input_dir / f"{args.dy_process}_{suffix}.root", root_path, f"dy_{component}_{variable}")
+            values, variance = hist_arrays(hist)
+            component_parts[index].append(values); component_var_parts[index].append(variance)
+            variable_components.append(hist)
+        if plot_inputs is None:
+            plot_inputs = (data, non_dy, variable_components)
     if not used:
-        raise RuntimeError("No non-DY samples with the requested TH2 were found")
-
-    data_v, data_var = hist_arrays(data)
-    non_v, non_var = hist_arrays(non_dy)
-    component_arrays = [hist_arrays(hist) for hist in component_hists]
-    templates = np.column_stack([entry[0] for entry in component_arrays])
-    template_var = np.column_stack([entry[1] for entry in component_arrays])
+        raise RuntimeError("No non-DY samples with the requested histograms were found")
+    data_v, data_var = np.concatenate(data_parts), np.concatenate(data_var_parts)
+    non_v, non_var = np.concatenate(non_parts), np.concatenate(non_var_parts)
+    templates = np.column_stack([np.concatenate(parts) for parts in component_parts])
+    template_var = np.column_stack([np.concatenate(parts) for parts in component_var_parts])
     theta, covariance, chi2, ndof, valid = solve_nonnegative_wls(
         data_v - non_v, templates, data_var + non_var, template_var
     )
@@ -234,12 +247,12 @@ def main():
     payload = correction_payload(args.era, theta, covariance)
     fit_summary = {
         "era": args.era,
-        "parameter_order": ["0J", "1J", "2J"],
+        "parameter_order": list(COMPONENTS),
         "values": theta.tolist(),
         "errors": np.sqrt(np.maximum(np.diag(covariance), 0.0)).tolist(),
         "covariance": covariance.tolist(),
-        "region": args.region, "variable": args.variable,
-        "subtracted_samples": used, "chi2": chi2, "ndof": ndof,
+        "region": args.region, "variables": args.variables,
+        "subtracted_samples": sorted(used), "chi2": chi2, "ndof": ndof,
         "n_fit_bins": int(np.count_nonzero(valid)),
     }
     args.output_json.write_text(json.dumps(payload, indent=2) + "\n")
@@ -249,13 +262,14 @@ def main():
     fit_summary_path.write_text(json.dumps(fit_summary, indent=2) + "\n")
 
     output = ROOT.TFile.Open(str(args.output_root), "RECREATE")
-    data.Write("data")
-    non_dy.Write("non_dy")
+    data, non_dy, component_hists = plot_inputs
+    data.Write("data"); non_dy.Write("non_dy")
     for component, hist in zip(COMPONENTS, component_hists):
         hist.Write(f"dy_{component}")
-    covariance_hist = ROOT.TH2D("covariance", "covariance", 3, 0, 3, 3, 0, 3)
-    for ix in range(3):
-        for iy in range(3):
+    n_components = len(COMPONENTS)
+    covariance_hist = ROOT.TH2D("covariance", "covariance", n_components, 0, n_components, n_components, 0, n_components)
+    for ix in range(n_components):
+        for iy in range(n_components):
             covariance_hist.SetBinContent(ix + 1, iy + 1, covariance[ix, iy])
     covariance_hist.Write()
     output.Close()

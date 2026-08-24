@@ -78,7 +78,7 @@ def _define_if_missing(df, name, expression):
 
 def ProcessAllJetVariables(df,jet_columns,config,bTagAlgo,bTagDict,want_variations,syst_cfg):
     cols = _column_names(df)
-    pt_min = config.get("jet_pt_min", 20.0)
+    pt_min = config.get("jet_pt_min", 25.0)
     eta_max = config.get("jet_eta_max", 4.7)
     horn_expr = config.get("jet_horn_veto_expr", "false")
     loose_wp = bTagDict["L"]

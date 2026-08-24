@@ -354,8 +354,8 @@ Specific families can be requested, for example:
 
 Data always produces Central histograms only.
 
-Histogram and systematic production use `--chunk-size 1` by default. Override
-it explicitly only when a dataset benefits from larger input chunks.
+Histogram and systematic production consume all validated skim files in one
+RDataFrame. `--chunk-size` controls validation workers only.
 
 Condor submissions create one batch per physical dataset. Batch names follow
 this pattern:
@@ -548,10 +548,10 @@ Hists_systMerged/<era>/<process>.root
 
 The expected process names are derived from the selected datasets through
 `config/<era>/process_names.yaml`. The report also lists selected
-`<dataset>_tmp` directories, their `chunk_*.root` count, and
-`<dataset>.root.failed_chunks.txt` markers with failed chunk numbers. These
-conditions make the command exit with status 1. `--datasets-file` and `--json`
-work in campaign mode as well.
+legacy `<dataset>_tmp` directories and `.failed_chunks.txt` markers. Current
+histogram jobs write one dataset ROOT directly. These conditions make the
+command exit with status 1. `--datasets-file` and `--json` work in campaign
+mode as well.
 
 ## 12. Dataset-to-process hadd
 

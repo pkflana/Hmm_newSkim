@@ -26,7 +26,7 @@ ROOT.gStyle.SetOptStat(0)
 plt.style.use(hep.style.CMS)
 
 import common.utilities as utilities
-from common.dy_ptll_reweight import DY_AMCATNLO_NORMALIZATION
+from common.apply_custom_weights import DY_AMCATNLO_NORMALIZATION
 from common.rdf_utilities import RebinHisto, findBinEntry, findNewBins, getNewBins
 
 
