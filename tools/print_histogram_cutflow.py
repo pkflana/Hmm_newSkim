@@ -137,10 +137,19 @@ def main():
     )
     actions = [(section, name, cut, node.Count(), node.Sum(weight)) for section, name, cut, node in rows]
     ROOT.RDF.RunGraphs([action for _, _, _, count, total in actions for action in (count, total)])
-    print(f"{'section':<18} {'selection':<42} {'NEntries':>14} {'Yield':>20}  cut")
-    print("-" * 140)
+    print(f"{'section':<18} {'selection':<42} {'NEntries':>14} {'Yield':>20} {'Efficiency':>14}")
+    print("-" * 114)
+    previous_count = None
     for section, name, cut, count, total in actions:
-        print(f"{section:<18} {name:<42} {int(count.GetValue()):>14d} {float(total.GetValue()):>20.8g}  {cut}")
+        entries = int(count.GetValue())
+        if previous_count is None:
+            efficiency = "100.0000%"
+        elif previous_count == 0:
+            efficiency = "n/a"
+        else:
+            efficiency = f"{100.0 * entries / previous_count:.4f}%"
+        print(f"{section:<18} {name:<42} {entries:>14d} {float(total.GetValue()):>20.8g} {efficiency:>14}")
+        previous_count = entries
 
 
 if __name__ == "__main__":

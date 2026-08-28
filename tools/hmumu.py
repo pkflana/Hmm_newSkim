@@ -74,7 +74,8 @@ def root_files_by_relative_path(directory: Path) -> dict[Path, Path]:
 
 
 def run_hadd_plan(
-    jobs: list[tuple[Path, list[Path]]], *, execute: bool, overwrite: bool
+    jobs: list[tuple[Path, list[Path]]], *, execute: bool, overwrite: bool,
+    skip_errors: bool = False,
 ) -> int:
     if not jobs:
         print("No non-empty ROOT inputs found.", file=sys.stderr)
@@ -83,6 +84,8 @@ def run_hadd_plan(
         command = ["hadd"]
         if overwrite:
             command.append("-f")
+        if skip_errors:
+            command.append("-k")
         command += [str(output), *(str(path) for path in inputs)]
         print(f"[{index}/{len(jobs)}] {shell_join(command)}", flush=True)
         if execute:
@@ -104,7 +107,20 @@ def run_merge_eras(args: argparse.Namespace) -> int:
         era: root_files_by_relative_path(base / era)
         for era in eras
     }
+    dy_mll_pattern = re.compile(
+        r"^DYto2Mu_MLL105To160(?:_combined)?"
+        r"(?P<suffix>_(?:0J|1J_Hard|1J_PU|2J_Hard|2J_PU1|2J_PU2))?\.root$"
+    )
     relative_paths = sorted({relative for files in sources.values() for relative in files})
+    combine_dy_mll_generations = getattr(
+        args, "combine_dy_mll_generations", False
+    )
+    if combine_dy_mll_generations:
+        relative_paths = [
+            relative
+            for relative in relative_paths
+            if dy_mll_pattern.fullmatch(relative.name) is None
+        ]
     jobs = [
         (
             base / output_era / relative,
@@ -112,8 +128,39 @@ def run_merge_eras(args: argparse.Namespace) -> int:
         )
         for relative in relative_paths
     ]
+    if combine_dy_mll_generations:
+        early_eras = {
+            "Run3_2022", "Run3_2022EE", "Run3_2023", "Run3_2023BPix"
+        }
+        suffixes = ("", "_0J", "_1J_Hard", "_1J_PU", "_2J_Hard", "_2J_PU1", "_2J_PU2")
+        for suffix in suffixes:
+            output_relative = Path(
+                f"DYto2Mu_MLL105To160_combined{suffix}.root"
+            )
+            inputs = []
+            for era in eras:
+                input_name = (
+                    f"DYto2Mu_MLL105To160{suffix}.root"
+                    if era in early_eras
+                    else f"DYto2Mu_MLL105To160_combined{suffix}.root"
+                )
+                input_path = sources[era].get(Path(input_name))
+                if input_path is not None:
+                    inputs.append(input_path)
+            if inputs:
+                jobs.append((base / output_era / output_relative, inputs))
+        jobs.sort(key=lambda job: str(job[0]))
+        print(
+            "DY MLL 105-160 routing: standard files for 2022-2023, "
+            "combined files for 2024-2025"
+        )
     print(f"Merging eras {', '.join(eras)} -> {base / output_era}")
-    return run_hadd_plan(jobs, execute=args.execute, overwrite=args.force)
+    return run_hadd_plan(
+        jobs,
+        execute=args.execute,
+        overwrite=args.force,
+        skip_errors=getattr(args, "skip_errors", False),
+    )
 
 
 def run_hadd_processes(args: argparse.Namespace) -> int:
@@ -799,7 +846,20 @@ def build_parser() -> argparse.ArgumentParser:
         help="eras to merge (default: 2022, 2022EE, 2023, 2023BPix)",
     )
     merge_eras.add_argument("--output-era", default="Run3_2022_23")
+    merge_eras.add_argument(
+        "--combine-dy-mll-generations",
+        action="store_true",
+        help=(
+            "merge DYto2Mu_MLL105To160 from 2022-2023 with the _combined "
+            "production from 2024-2025, writing canonical _combined outputs"
+        ),
+    )
     merge_eras.add_argument("--force", action=argparse.BooleanOptionalAction, default=True)
+    merge_eras.add_argument(
+        "--skip-errors",
+        action="store_true",
+        help="pass -k to hadd and continue past corrupt or unreadable inputs",
+    )
     merge_eras.add_argument("--run", dest="execute", action="store_true")
     merge_eras.set_defaults(func=run_merge_eras)
 

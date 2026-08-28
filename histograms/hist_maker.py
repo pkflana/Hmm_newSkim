@@ -18,6 +18,7 @@ from common.histogram_rdf import (
     finalize_histogram_dataframe,
     normalize_systematic_direction_columns,
 )
+from histograms.jer_split import define_split_jer_collections
 from common.dnn_histogram_production import (
     apply_sideband_mass_shifted_dnn,
     needs_sideband_mass_shift,
@@ -58,6 +59,11 @@ def batch_dict(items, batch_size):
     return [
         dict(entries[index : index + batch_size])
         for index in range(0, len(entries), batch_size)
+    ]
+def batch_list(items, batch_size):
+    return [
+        items[index : index + batch_size]
+        for index in range(0, len(items), batch_size)
     ]
 def safe_mkdir(path):
     if path:
@@ -420,11 +426,20 @@ def get_systs_to_run(syst_cfg, mode):
             continue
         if mode == "jec-jer" and syst_name not in ("JER", "JES_Total"):
             continue
-        for scale in scales:
-            output_name = f"{syst_name}{scale.capitalize()}"
-            formatted = format_systematic_info(syst_info, scale=scale)
-            formatted["direction"] = scale
-            systs_to_run[output_name] = formatted
+        components = syst_info.get("components", ())
+        for component in components or (None,):
+            for scale in scales:
+                output_base = component or syst_name
+                output_name = f"{output_base}{scale.capitalize()}"
+                formatted = format_systematic_info(syst_info, scale=scale)
+                formatted.pop("components", None)
+                if component:
+                    formatted["jer_component"] = component
+                    formatted["source_jet_suffix"] = formatted["jet_suffix"]
+                    formatted["jet_suffix"] = f"_{component}{scale.capitalize()}"
+                    formatted["name"] = f"{component}{{era}}"
+                formatted["direction"] = scale
+                systs_to_run[output_name] = formatted
     for weight_name, weight_info in syst_cfg.get("weights", {}).items():
         if weight_name == "Central":
             continue
@@ -472,10 +487,8 @@ def expand_systematic_group_alias(requested_name, available_systematics):
     normalized_name = requested_name.lower().replace("_", "").replace("-", "")
     aliases = {
         "jerc": (
-            "JERUp",
-            "JERDown",
-            "JES_TotalUp",
-            "JES_TotalDown",
+            *tuple(name for name in available_systematics if name.startswith("JER")),
+            "JES_TotalUp", "JES_TotalDown",
         ),
         "qcdscale": tuple(
             name
@@ -711,6 +724,7 @@ def produce_histograms(args_tuple):
             rdf_base = normalize_systematic_direction_columns(
                 rdf_base, systs_to_run
             )
+            rdf_base = define_split_jer_collections(rdf_base, systs_to_run)
             rdf_base = define_shifted_jet_observables(rdf_base, systs_to_run)
             matching_columns = {
                 str(column) for column in rdf_base.GetColumnNames()
@@ -724,7 +738,7 @@ def produce_histograms(args_tuple):
             ):
                 rdf_base = define_jet_gen_matching(
                     rdf_base,
-                    {
+                    {""} | {
                         info.get("jet_suffix", "")
                         for info in systs_to_run.values()
                     },
@@ -862,11 +876,19 @@ def produce_histograms(args_tuple):
             for category in stored_categories
         }
         profile_log(args.dataset_name, "output open/directory creation", output_open_started)
-        systematic_batches = batch_dict(
-            systs_to_run, args.systematic_batch_size
+        systematic_batches = batch_dict(systs_to_run, args.systematic_batch_size)
+        variable_batches = batch_list(
+            list(hist_specs), args.variable_batch_size
         )
+        work_batches = [
+            (systematic_batch, variable_batch)
+            for systematic_batch in systematic_batches
+            for variable_batch in variable_batches
+        ]
         total_booked = 0
-        for batch_index, systematic_batch in enumerate(systematic_batches, start=1):
+        for batch_index, (systematic_batch, variable_batch) in enumerate(
+            work_batches, start=1
+        ):
             histogram_booking_started = time.perf_counter()
             booked_hists = []
             for syst_name, syst_info in systematic_batch.items():
@@ -896,7 +918,8 @@ def produce_histograms(args_tuple):
                             if args.dy_jet_components
                             else vars_to_make_hist
                         )
-                        for variable, spec in hist_specs.items():
+                        for variable in variable_batch:
+                            spec = hist_specs[variable]
                             if variable not in category_variables:
                                 continue
                             model = spec["model"]
@@ -956,7 +979,7 @@ def produce_histograms(args_tuple):
                                 (directory, hist_name, hist, False)
                             )
             total_booked += len(booked_hists)
-            batch_label = f"{batch_index}/{len(systematic_batches)}"
+            batch_label = f"{batch_index}/{len(work_batches)}"
             profile_log(
                 args.dataset_name,
                 f"histogram booking batch {batch_label} "
@@ -966,7 +989,8 @@ def produce_histograms(args_tuple):
             print(
                 f"[JOB {args.dataset_name}] Batch {batch_label}: "
                 f"booked {len(booked_hists)} histograms for "
-                f"{len(systematic_batch)} systematic variations."
+                f"{len(systematic_batch)} systematic variations and "
+                f"{len(variable_batch)} variables."
             )
             if not booked_hists:
                 continue
@@ -1064,12 +1088,31 @@ if __name__ == "__main__":
         default=None,
         help="Process the first N valid ROOT files; normalization remains dataset-wide.",
     )
+    parser.add_argument(
+        "--input-file-batch-size",
+        type=int,
+        default=None,
+        help=(
+            "Maximum input ROOT files materialized together. Each batch is "
+            "merged into the final output. By default DNN jobs use one file "
+            "per batch and non-DNN jobs process all files together."
+        ),
+    )
     parser.add_argument("--rdf-threads", type=int, default=1, help="RDataFrame worker threads.")
     parser.add_argument(
         "--systematic-batch-size",
         type=int,
-        default=20,
+        default=2,
         help="Maximum systematic variations per RDF event pass.",
+    )
+    parser.add_argument(
+        "--variable-batch-size",
+        type=int,
+        default=5,
+        help=(
+            "Maximum variables booked in one RDF event pass. Smaller batches "
+            "reduce peak memory at the cost of additional event passes."
+        ),
     )
     parser.add_argument("--variables", nargs="+")
     parser.add_argument("--mass-regions", nargs="+", default=["mass_inclusive", "Z_sideband", "Signal_Fit"])
@@ -1135,7 +1178,21 @@ if __name__ == "__main__":
                 raise ValueError("Validation manifest is missing 'valid_root_files'")
             if "valid_json_files" not in workflow_manifest:
                 raise ValueError("Validation manifest is missing 'valid_json_files'")
-            if workflow_manifest.get("status", "passed") != "passed":
+            manifest_has_no_inputs = (
+                not workflow_manifest.get("valid_root_files", [])
+                and not workflow_manifest.get("valid_json_files", [])
+                and not workflow_manifest.get("invalid_root_files", [])
+                and not workflow_manifest.get("invalid_json_files", [])
+            )
+            empty_input_failure = (
+                manifest_has_no_inputs
+                and workflow_manifest.get("failures")
+                == ["no ROOT files or normalization JSON reports were discovered"]
+            )
+            if (
+                workflow_manifest.get("status", "passed") != "passed"
+                and not empty_input_failure
+            ):
                 invalid_roots = len(workflow_manifest.get("invalid_root_files", []))
                 valid_roots = len(workflow_manifest.get("valid_root_files", []))
                 raise RuntimeError(
@@ -1143,6 +1200,11 @@ if __name__ == "__main__":
                     f"{args.input_manifest}: {valid_roots} valid ROOT file(s), "
                     f"{invalid_roots} invalid ROOT file(s). Rerun validation "
                     "after completing the skim production."
+                )
+            if workflow_manifest.get("status", "passed") != "passed":
+                print(
+                    "[WARNING] Validation failed because no ROOT or JSON inputs "
+                    "were discovered: producing an empty histogram output."
                 )
             # The manifest is the source of truth. Folder arguments, when also
             # supplied, are intentionally ignored for the validated file lists.
@@ -1168,6 +1230,10 @@ if __name__ == "__main__":
         raise ValueError("--rdf-threads must be >= 1")
     if args.systematic_batch_size < 1:
         raise ValueError("--systematic-batch-size must be >= 1")
+    if args.variable_batch_size < 1:
+        raise ValueError("--variable-batch-size must be >= 1")
+    if args.input_file_batch_size is not None and args.input_file_batch_size < 1:
+        raise ValueError("--input-file-batch-size must be >= 1")
     if args.rdf_threads > 1:
         ROOT.EnableImplicitMT(args.rdf_threads)
         print(f"[INFO] Enabled ROOT implicit multithreading with {args.rdf_threads} threads")
@@ -1302,7 +1368,13 @@ if __name__ == "__main__":
     for base_name in syst_cfg.get("systematics", {}):
         if base_name == "Central":
             continue
-        if any(run_name in systs_to_run for run_name in (f"{base_name}Up", f"{base_name}Down")):
+        if any(
+            run_name in systs_to_run
+            for run_name in (f"{base_name}Up", f"{base_name}Down")
+        ) or (
+            base_name == "JER"
+            and any(info.get("jer_component") for info in systs_to_run.values())
+        ):
             active_object_systematics.add(base_name)
     syst_cfg = copy.deepcopy(syst_cfg)
     syst_cfg["systematics"] = {
@@ -1310,11 +1382,30 @@ if __name__ == "__main__":
         for name, info in syst_cfg.get("systematics", {}).items()
         if name in active_object_systematics
     }
+    active_jer_components = {
+        info["jer_component"]
+        for info in systs_to_run.values()
+        if info.get("jer_component")
+    }
+    if active_jer_components and "JER" in syst_cfg["systematics"]:
+        jer_info = copy.deepcopy(syst_cfg["systematics"]["JER"])
+        jer_info["components"] = [
+            component
+            for component in jer_info.get("components", ())
+            if component in active_jer_components
+        ]
+        syst_cfg["systematics"]["JER"] = jer_info
     if args.list_systematics:
         for syst_name in systs_to_run:
             print(syst_name)
         sys.exit(0)
-    if is_data:
+    if empty_validated_input:
+        dataset_seg_dict = {}
+        print(
+            "[INFO] No validated inputs: skipping normalization metadata "
+            "loading for empty histogram production."
+        )
+    elif is_data:
         dataset_seg_dict = {}
         print(f"[INFO] Dataset {args.dataset_name} is data: skipping segmentation metadata loading.")
     else:
@@ -1380,24 +1471,66 @@ if __name__ == "__main__":
     if os.path.exists(args.output_file):
         print(f"[INFO] Removing existing output file: {args.output_file}")
         os.remove(args.output_file)
-    produce_histograms((
-        valid_root_files,
-        dataset_seg_dict,
-        dataset_qcd_scale_seg_dicts,
-        args,
-        is_data,
-        sel_cfg,
-        syst_cfg,
-        vars_to_make_hist,
-        masses_regions,
-        masses_regions_list,
-        categories,
-        categories_list,
-        hist_cfg,
-        systs_to_run,
-        dnn_payloads,
-        btag_algo,
-    ))
+    input_file_batch_size = args.input_file_batch_size or (
+        1 if dnn_payloads else max(1, len(valid_root_files))
+    )
+    input_batches = (
+        batch_list(valid_root_files, input_file_batch_size)
+        if valid_root_files
+        else [[]]
+    )
+    final_output_file = args.output_file
+    batch_output_files = []
+    try:
+        for batch_index, input_batch in enumerate(input_batches, start=1):
+            if len(input_batches) == 1:
+                batch_output = final_output_file
+            else:
+                batch_output = (
+                    f"{final_output_file}.part{batch_index:04d}.root"
+                )
+            args.output_file = batch_output
+            batch_output_files.append(batch_output)
+            print(
+                f"[INPUT BATCH {batch_index}/{len(input_batches)}] "
+                f"Processing {len(input_batch)} ROOT file(s)"
+            )
+            produce_histograms((
+                input_batch,
+                dataset_seg_dict,
+                dataset_qcd_scale_seg_dicts,
+                args,
+                is_data,
+                sel_cfg,
+                syst_cfg,
+                vars_to_make_hist,
+                masses_regions,
+                masses_regions_list,
+                categories,
+                categories_list,
+                hist_cfg,
+                systs_to_run,
+                dnn_payloads,
+                btag_algo,
+            ))
+        args.output_file = final_output_file
+        if len(batch_output_files) > 1:
+            merger = ROOT.TFileMerger(False, False)
+            merger.OutputFile(final_output_file, "RECREATE")
+            for batch_output in batch_output_files:
+                if not merger.AddFile(batch_output):
+                    raise RuntimeError(
+                        f"Could not add input-batch output: {batch_output}"
+                    )
+            if not merger.Merge():
+                raise RuntimeError(
+                    f"Could not merge input batches into {final_output_file}"
+                )
+    finally:
+        args.output_file = final_output_file
+        if len(batch_output_files) > 1:
+            for batch_output in batch_output_files:
+                remove_file_if_exists(batch_output)
     output = ROOT.TFile.Open(args.output_file, "UPDATE")
     if not output or output.IsZombie():
         raise RuntimeError(f"Could not reopen output file: {args.output_file}")

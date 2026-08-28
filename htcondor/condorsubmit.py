@@ -702,6 +702,7 @@ if args.datasets:
 else:
     all_datasets.extend(datasets_whitelist)
 
+if process_to_select:
     for process in process_to_select:
         datasets = processes_cfg[process].get("datasets", [])
         subprocesses = processes_cfg[process].get("sub_processes", [])
@@ -859,7 +860,7 @@ for dataset in all_datasets:
             f"{dataset} "
             f"{outfile_root} "
             f"{outfile_json} "
-            f"{cmssw_version} " 
+            f"{cmssw_version} "
         )
 
         dataset_condorinputs[dataset].append({

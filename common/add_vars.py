@@ -10,12 +10,18 @@ def _selection_suffixes(syst_cfg=None, want_variations=False):
     for syst_name, syst_info in syst_cfg.get("systematics", {}).items():
         if syst_name == "Central":
             continue
-        for scale in scales:
-            suffixes.append((
-                f"_{syst_name}{scale.capitalize()}",
-                syst_info.get("muon_suffix", "").format(scale=scale),
-                syst_info.get("jet_suffix", "").format(scale=scale),
-            ))
+        components = syst_info.get("components", ())
+        for component in components or (None,):
+            for scale in scales:
+                output_name = component or syst_name
+                jet_suffix = syst_info.get("jet_suffix", "").format(scale=scale)
+                if component:
+                    jet_suffix = f"_{component}{scale.capitalize()}"
+                suffixes.append((
+                    f"_{output_name}{scale.capitalize()}",
+                    syst_info.get("muon_suffix", "").format(scale=scale),
+                    jet_suffix,
+                ))
     return suffixes
 
 

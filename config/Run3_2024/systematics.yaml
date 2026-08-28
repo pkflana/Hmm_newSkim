@@ -133,6 +133,7 @@ systematics:
     name: ""
 
   JER:
+    components: [JEReta0pt0, JEReta1pt0, JEReta2pt0, JEReta2pt1, JEReta3pt0, JEReta3pt1]
     muon_suffix: ""
     jet_suffix: "_JER{scale}"
     weight: "weight__Central"

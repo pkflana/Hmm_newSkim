@@ -31,6 +31,13 @@ def hist_sum_value(histogram):
     return float(getattr(total, "value", total))
 
 
+def set_hist_values(histogram, values):
+    """Set bin contents for both weighted and unweighted hist storages."""
+    view = histogram.view(flow=True)
+    target = getattr(view, "value", view)
+    target[...] = values
+
+
 def dataset_file_candidates(input_dir, process, dataset, component_label=None):
     suffix_by_process = {
         "DYto2Mu_MLL105To160": ["_stitched", ""],
@@ -148,12 +155,19 @@ def add_derived_systematics(era, output_dir):
                 )
                 up_hist = copy.deepcopy(nominal_hist)
                 down_hist = copy.deepcopy(nominal_hist)
-                up_hist.view(flow=True).value[...] = (
-                    nominal_values + half_difference
-                )
-                down_hist.view(flow=True).value[...] = np.maximum(
-                    floor, nominal_values - half_difference
-                )
+                if np.any(nominal_values):
+                    set_hist_values(
+                        up_hist, nominal_values + half_difference
+                    )
+                    set_hist_values(
+                        down_hist,
+                        np.maximum(floor, nominal_values - half_difference),
+                    )
+                else:
+                    # Keep empty nominal templates empty also for derived
+                    # systematics.  The deep copies retain axes and metadata.
+                    set_hist_values(up_hist, np.zeros_like(nominal_values))
+                    set_hist_values(down_hist, np.zeros_like(nominal_values))
 
                 directory = clean_key.rsplit("/", 1)[0] if "/" in clean_key else ""
                 prefix = f"{directory}/" if directory else ""
@@ -202,7 +216,6 @@ def hadd_datasets_to_processes(era,input_dir, output_dir,add_derived_systs=True,
                 if os.path.exists(dataset_file_path):
                     valid_dataset_files.append(dataset_file_path)
                     break
-
         # SE NON CE NE SONO, PASSA (Salta completamente il processo)
         if not valid_dataset_files:
             continue

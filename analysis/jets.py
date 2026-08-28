@@ -150,7 +150,7 @@ def ProcessAllJetVariables(df,jet_columns,config,bTagAlgo,bTagDict,want_variatio
 
 def SelectJetVars(df,jet_columns,config,bTagAlgo,bTagDict,want_variations,syst_cfg):
     cols = _column_names(df)
-    pt_min = config.get("jet_pt_min", 20.0)
+    pt_min = config.get("jet_pt_min", 25.0)
     eta_max = config.get("jet_eta_max", 4.7)
     horn_expr = config.get("jet_horn_veto_expr", "false")
     loose_wp = bTagDict["L"]
@@ -204,18 +204,47 @@ def SelectJetVars(df,jet_columns,config,bTagAlgo,bTagDict,want_variations,syst_c
         df = track(df, f"Jet_NoOverlapWithMuons{suff}", overlap_expr)
         df = track(df, f"goodJet{suff}", f"Jet_NoOverlapWithMuons{suff}")
 
-
-        df = track(df, f"SelectedJet_idx{suff}", f"Jet_idx{suff}[goodJet{suff}]")
+        # Sort the selected jets by decreasing pT.  The ordering is recomputed
+        # for every jet-energy variation and then applied consistently to all
+        # SelectedJet_* properties, so their elements remain aligned.
+        df = track(
+            df,
+            f"SelectedJet_sortIdx{suff}",
+            f"Reverse(Argsort(v_ops::pt({p4_branch}[goodJet{suff}])))",
+        )
+        df = track(
+            df,
+            f"SelectedJet_idx{suff}",
+            f"Take(Jet_idx{suff}[goodJet{suff}], SelectedJet_sortIdx{suff})",
+        )
         df = track(df, f"N_SelectedJets{suff}", f"(int)SelectedJet_idx{suff}.size()")
-        df = track(df, f"SelectedJet_IsInsideHorn{suff}", f"Jet_IsInsideHorn{suff}[goodJet{suff}]")
-        df = track(df, f"SelectedJet_IsOutsideHorn{suff}", f"Jet_IsOutsideHorn{suff}[goodJet{suff}]")
+        df = track(
+            df,
+            f"SelectedJet_IsInsideHorn{suff}",
+            f"Take(Jet_IsInsideHorn{suff}[goodJet{suff}], SelectedJet_sortIdx{suff})",
+        )
+        df = track(
+            df,
+            f"SelectedJet_IsOutsideHorn{suff}",
+            f"Take(Jet_IsOutsideHorn{suff}[goodJet{suff}], SelectedJet_sortIdx{suff})",
+        )
 
         if suff=="":
-            df = track(df, f"SelectedJet_pt_nocorr", f"Jet_pt_nocorr[goodJet{suff}]")
-            df = track(df, f"SelectedJet_mass_nocorr", f"Jet_mass_nocorr[goodJet{suff}]")
+            df = track(
+                df,
+                "SelectedJet_pt_nocorr",
+                f"Take(Jet_pt_nocorr[goodJet{suff}], SelectedJet_sortIdx{suff})",
+            )
+            df = track(
+                df,
+                "SelectedJet_mass_nocorr",
+                f"Take(Jet_mass_nocorr[goodJet{suff}], SelectedJet_sortIdx{suff})",
+            )
 
-
-        df = df.Define(f"Selected{p4_branch}",f"{p4_branch}[goodJet{suff}]")
+        df = df.Define(
+            f"Selected{p4_branch}",
+            f"Take({p4_branch}[goodJet{suff}], SelectedJet_sortIdx{suff})",
+        )
 
         df = _vec_pt(df, f"Selected{p4_branch}", f"SelectedJet_pt{suff}",new_cols)
         df = _vec_mass(df, f"Selected{p4_branch}", f"SelectedJet_mass{suff}",new_cols)
@@ -224,7 +253,11 @@ def SelectJetVars(df,jet_columns,config,bTagAlgo,bTagDict,want_variations,syst_c
 
         for b, col in jet_extra.items():
             if col in cols:
-                df = track(df, f"SelectedJet_{b}{suff}", f"{col}[goodJet{suff}]")
+                df = track(
+                    df,
+                    f"SelectedJet_{b}{suff}",
+                    f"Take({col}[goodJet{suff}], SelectedJet_sortIdx{suff})",
+                )
         df = track(
             df,
             f"SelectedJet_btag_loose{suff}",

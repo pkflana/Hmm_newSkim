@@ -41,6 +41,18 @@ pu_hard_component_styles:
     VBF PU1: mediumpurple
     VBF PU2: indigo
 
+
+  EWK:
+    0J: hotpink
+    1J Hard: plum
+    1J PU: orchid
+    2J Hard: mediumorchid
+    2J PU1: darkorchid
+    2J PU2: purple
+    VBF Hard: thistle
+    VBF PU1: mediumpurple
+    VBF PU2: indigo
+
 background_groups:
   DY_amcatnlo:
     name: "DY - amc@nlo"

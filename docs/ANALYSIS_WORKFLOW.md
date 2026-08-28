@@ -244,7 +244,8 @@ This is not a substitute for dataset validation. Validation:
 - opens every ROOT file and checks the `Events` tree;
 - parses required JSON reports;
 - pairs `skim_N.root` with `report_N.json`;
-- checks completeness against `skim_chunks.json`;
+- validates and pairs the produced `skim_N.root` and `report_N.json` files,
+  for both data and MC;
 - writes one manifest per era and dataset.
 
 Set the agreed paths:

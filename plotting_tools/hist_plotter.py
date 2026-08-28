@@ -6,6 +6,14 @@ import os
 from pathlib import Path
 import sys
 import time
+import warnings
+
+warnings.filterwarnings(
+    "ignore",
+    message="The value of the smallest subnormal.*type is zero.*",
+    category=UserWarning,
+    module=r"numpy\.core\.getlimits",
+)
 
 os.environ.setdefault(
     "MPLCONFIGDIR",
@@ -15,6 +23,7 @@ os.environ.setdefault(
 import matplotlib.pyplot as plt
 import mplhep as hep
 import ROOT
+from matplotlib.backends.backend_pdf import PdfPages
 
 # =========================================================
 # Global style
@@ -588,6 +597,26 @@ if __name__ == "__main__":
             "in config/plot/process_groups.yaml."
         ),
     )
+    parser.add_argument(
+        "--sample-color",
+        action="append",
+        default=[],
+        metavar="SAMPLE=COLOR",
+        help=(
+            "Override the plotting color of one loaded sample/group. Repeat "
+            "for multiple samples, for example --sample-color Flash=red."
+        ),
+    )
+    parser.add_argument(
+        "--sample-label",
+        action="append",
+        default=[],
+        metavar="SAMPLE=LABEL",
+        help=(
+            "Override the legend label of one loaded sample/group. Repeat "
+            "for multiple samples."
+        ),
+    )
 
     parser.add_argument(
         "--systematics",
@@ -776,9 +805,39 @@ if __name__ == "__main__":
             "specialized workflows that handle multidimensional histograms."
         ),
     )
+    parser.add_argument(
+        "--multipage-pdf",
+        nargs="?",
+        const="all_plots.pdf",
+        default=None,
+        metavar="FILE",
+        help=(
+            "Save every variable as one page of a single PDF instead of "
+            "writing separate PNG and PDF files. If FILE is omitted, use "
+            "all_plots.pdf inside the era/region output directory."
+        ),
+    )
 
 
     args = parser.parse_args()
+
+    def parse_sample_overrides(values, option_name):
+        result = {}
+        for value in values:
+            if "=" not in value:
+                parser.error(f"{option_name} expects SAMPLE=VALUE, got: {value}")
+            sample, override = value.split("=", 1)
+            if not sample or not override:
+                parser.error(f"{option_name} expects SAMPLE=VALUE, got: {value}")
+            result[sample] = override
+        return result
+
+    sample_color_overrides = parse_sample_overrides(
+        args.sample_color, "--sample-color"
+    )
+    sample_label_overrides = parse_sample_overrides(
+        args.sample_label, "--sample-label"
+    )
     if args.normalize_dy_to_data and args.normalize_mc_to_data:
         parser.error(
             "--normalize-dy-to-data and --normalize-mc-to-data are mutually exclusive"
@@ -1108,7 +1167,10 @@ if __name__ == "__main__":
                     input_processes[process_name]["hists"][region_path][hist_name] = (
                         rebinned_hist
                     )
-                    all_found_variables.add(hist_name)
+                    # Systematic Up/Down shapes are stored so that the
+                    # uncertainty machinery can retrieve them, but only the
+                    # nominal variable is a standalone plot candidate.
+                    all_found_variables.add(base_name)
 
             root_file.Close()
 
@@ -1117,6 +1179,12 @@ if __name__ == "__main__":
         plot_groups_cfg,
         active_group_names=requested_plot_groups,
     )
+
+    for process_name, process_info in input_processes.items():
+        if process_name in sample_color_overrides:
+            process_info["color"] = sample_color_overrides[process_name]
+        if process_name in sample_label_overrides:
+            process_info["name"] = sample_label_overrides[process_name]
 
     # =====================================================
     # Summary
@@ -1185,41 +1253,57 @@ if __name__ == "__main__":
             f"plot strutturati in corso..."
         )
 
-        for variable in variables_to_plot:
+        multipage_pdf = None
+        if args.multipage_pdf is not None:
+            multipage_path = args.multipage_pdf
+            if not os.path.isabs(multipage_path):
+                multipage_path = os.path.join(output_dir_path, multipage_path)
+            if not multipage_path.lower().endswith(".pdf"):
+                multipage_path += ".pdf"
+            os.makedirs(os.path.dirname(multipage_path), exist_ok=True)
+            multipage_pdf = PdfPages(multipage_path)
+            print(f"[PDF multipagina] {multipage_path}")
 
-            plot_base_path = os.path.join(
-                output_dir_path,
-                variable,
-            )
+        try:
+            for variable in variables_to_plot:
 
-            os.makedirs(
-                os.path.dirname(plot_base_path),
-                exist_ok=True,
-            )
+                plot_base_path = os.path.join(
+                    output_dir_path,
+                    variable,
+                )
 
-            make_stacked_plot(
-                samples_dict=input_processes,
-                config_page=config_setup,
-                category=region_path,
-                variable=variable,
-                out_name=plot_base_path,
-                want_data=args.wantData,
-                do_stack=args.do_stack,
-                fill_hists=args.fill_hists,
-                ratio_reference=args.ratio_reference,
-                normalize_dy_to_data=args.normalize_dy_to_data,
-                normalize_mc_to_data=args.normalize_mc_to_data,
-                era=args.era,             
-                dy_normalization_sample=args.dy_normalization_sample,
-                dy_composition=args.dy_composition,
-                dy_component_reweighted=(args.dy_012j_weights != "none"),
-                show_systematics=args.systematics,
-                systematic_groups=args.systematicGroup,
-                overlay_systematic=args.overlaySystematic,
-                log_uncertainties=args.logUncertainties,
-                include_total_systematics=args.totalSystematics,
-                show_mc_stat_uncertainty=not args.noMCStatUncertainty,
-            )
+                os.makedirs(
+                    os.path.dirname(plot_base_path),
+                    exist_ok=True,
+                )
+
+                make_stacked_plot(
+                    samples_dict=input_processes,
+                    config_page=config_setup,
+                    category=region_path,
+                    variable=variable,
+                    out_name=plot_base_path,
+                    want_data=args.wantData,
+                    do_stack=args.do_stack,
+                    fill_hists=args.fill_hists,
+                    ratio_reference=args.ratio_reference,
+                    normalize_dy_to_data=args.normalize_dy_to_data,
+                    normalize_mc_to_data=args.normalize_mc_to_data,
+                    era=args.era,
+                    dy_normalization_sample=args.dy_normalization_sample,
+                    dy_composition=args.dy_composition,
+                    dy_component_reweighted=(args.dy_012j_weights != "none"),
+                    show_systematics=args.systematics,
+                    systematic_groups=args.systematicGroup,
+                    overlay_systematic=args.overlaySystematic,
+                    log_uncertainties=args.logUncertainties,
+                    include_total_systematics=args.totalSystematics,
+                    show_mc_stat_uncertainty=not args.noMCStatUncertainty,
+                    multipage_pdf=multipage_pdf,
+                )
+        finally:
+            if multipage_pdf is not None:
+                multipage_pdf.close()
 
     print(
         f"\n[SUCCESS] Elaborazione completata "
