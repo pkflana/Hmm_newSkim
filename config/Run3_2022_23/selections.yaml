@@ -6,7 +6,7 @@ dimuon_mass_max: 200
 apply_trg_filter: True
 only_default: True
 
-jet_pt_min: 20.0
+jet_pt_min: 25.0
 jet_eta_max: 4.7
 # Espressione complessa specifica per l'anno 2024 (Tabella Run 3 Run Conditions)
 # Nota: 'Jet_p4' è il placeholder che il codice Python sostituirà con 'Jet_p4{suff}'

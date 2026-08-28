@@ -64,18 +64,12 @@ Common options:
 
 ```text
 --systematics central|all
---chunk-size N
---n-cores N
+--rdf-threads N
 --variables VAR [VAR ...]
 --mass-regions REGION [REGION ...]
 --categories CATEGORY [CATEGORY ...]
 --additional-cuts "CUT"
---skip-file-validation
 --dryrun
---keep-tmp
---resume
---force-multiprocessing-with-dnn
---multiprocessing-method spawn|fork
 --shift-z-sideband-dnn-mass
 ```
 
@@ -83,15 +77,14 @@ Defaults:
 
 ```text
 --systematics central
---chunk-size 6
---n-cores 4
+--rdf-threads 1
 --mass-regions mass_inclusive Z_sideband Signal_Fit
 --categories baseline ggF VBF
 ```
 
 If `--variables` is omitted, variables are read from `config/<ERA>/maincfg.yaml`.
 
-Histogram selections are defined in `common/add_var_to_skim.py`. Special
+Histogram selections are defined in `common/add_vars.py`. Special
 reco/gen jet matching is isolated in `common/jet_component_splitting.py`, while
 the sideband dimuon-mass remapping and shifted DNN evaluation are implemented
 in `histograms/dnn_histogram_production.py`. `hist_maker.py` only orchestrates
@@ -476,8 +469,6 @@ python3 histograms/hist_maker.py \
   --dataset-name DYto2L_M_50_amcatnloFXFX \
   --input /eos/cms/store/group/phys_higgs/cmshmm/vdamante/skim_v3/Run3_2022/DYto2L_M_50_amcatnloFXFX/FILE_skim.root \
   --output-file test_hists_Run3_2022.root \
-  --chunk-size 1 \
-  --n-cores 1 \
   --skip-file-validation
 ```
 
@@ -489,8 +480,6 @@ python3 histograms/hist_maker.py \
   --dataset-name DYto2L_M_50_amcatnloFXFX \
   --input /eos/cms/store/group/phys_higgs/cmshmm/vdamante/skim_v3/Run3_2022EE/DYto2L_M_50_amcatnloFXFX/FILE_skim.root \
   --output-file test_hists_Run3_2022EE.root \
-  --chunk-size 1 \
-  --n-cores 1 \
   --skip-file-validation
 ```
 
@@ -502,8 +491,6 @@ python3 histograms/hist_maker.py \
   --dataset-name DYto2L_M_50_amcatnloFXFX \
   --input /eos/cms/store/group/phys_higgs/cmshmm/vdamante/skim_v3/Run3_2023/DYto2L_M_50_amcatnloFXFX/FILE_skim.root \
   --output-file test_hists_Run3_2023.root \
-  --chunk-size 1 \
-  --n-cores 1 \
   --skip-file-validation
 ```
 
@@ -515,8 +502,6 @@ python3 histograms/hist_maker.py \
   --dataset-name DYto2L_M_50_amcatnloFXFX \
   --input /eos/cms/store/group/phys_higgs/cmshmm/vdamante/skim_v3/Run3_2023BPix/DYto2L_M_50_amcatnloFXFX/FILE_skim.root \
   --output-file test_hists_Run3_2023BPix.root \
-  --chunk-size 1 \
-  --n-cores 1 \
   --skip-file-validation
 ```
 
@@ -528,8 +513,6 @@ python3 histograms/hist_maker.py \
   --dataset-name DYto2Mu_M_50_amcatnloFXFX \
   --input /eos/cms/store/group/phys_higgs/cmshmm/vdamante/skim_v3/Run3_2024/DYto2Mu_M_50_amcatnloFXFX/FILE_skim.root \
   --output-file test_hists_Run3_2024.root \
-  --chunk-size 1 \
-  --n-cores 1 \
   --skip-file-validation
 ```
 
@@ -541,8 +524,6 @@ python3 histograms/hist_maker.py \
   --dataset-name DYto2Mu_M_50_amcatnloFXFX \
   --input /eos/cms/store/group/phys_higgs/cmshmm/vdamante/skim_v3/Run3_2025/DYto2Mu_M_50_amcatnloFXFX/FILE_skim.root \
   --output-file test_hists_Run3_2025.root \
-  --chunk-size 1 \
-  --n-cores 1 \
   --skip-file-validation
 ```
 
@@ -554,8 +535,6 @@ python3 histograms/hist_maker.py \
   --dataset-name DYto2Mu_M_50_amcatnloFXFX \
   --input /eos/cms/store/group/phys_higgs/cmshmm/vdamante/skim_v3/Run3_2026/DYto2Mu_M_50_amcatnloFXFX/FILE_skim.root \
   --output-file test_hists_Run3_2026.root \
-  --chunk-size 1 \
-  --n-cores 1 \
   --skip-file-validation
 ```
 
@@ -1019,10 +998,9 @@ Data_Muon.root:/Z_sideband_VBF/N_SelectedJets
 The same directories must exist in `DY.root` and in the other MC contribution
 files to subtract.
 
-Produce the input histograms on top of the `pt(ll)` reweighting. This means the
-DY jobs in this campaign must receive `--dy-ptll-reweight-json`, while the data
-and non-DY MC jobs are unchanged. The output of this step is used only to derive
-the second, `NJets`, correction.
+Histogram production selects all DY reweight payloads from the requested era;
+there are no JSON path options on `hist_maker.py`. Data and non-DY MC remain
+unchanged.
 
 ```bash
 python3 htcondor/condorsubmit.py histograms \
@@ -1035,7 +1013,6 @@ python3 htcondor/condorsubmit.py histograms \
   --variables N_SelectedJets \
   --mass-regions Z_sideband \
   --categories ggF VBF \
-  --dy-ptll-reweight-json reweights/dy_ptll_reweight/Run3_2024/dy_ptll_reweight.json \
   --skip-file-validation
 ```
 
@@ -1082,9 +1059,9 @@ lower pad.
 
 ### Apply
 
-The final nominal DY histogram production should apply both JSONs. These
-options are ignored for non-DY datasets by the current implementation, so the
-weights are applied to DY only.
+The final nominal DY histogram production automatically applies the pT(ll),
+N(jets), and jet-component JSONs selected from `--era`. Non-DY datasets are
+left unchanged.
 
 ```bash
 python3 histograms/hist_maker.py \
@@ -1092,8 +1069,6 @@ python3 histograms/hist_maker.py \
   --dataset-name DYto2Mu_M_50_amcatnloFXFX \
   --input /eos/cms/store/group/phys_higgs/cmshmm/vdamante/skim_v3/Run3_2024/DYto2Mu_M_50_amcatnloFXFX/ \
   --output-file test_dy_rw.root \
-  --dy-ptll-reweight-json reweights/dy_ptll_reweight/Run3_2024/dy_ptll_reweight.json \
-  --dy-njets-reweight-json reweights/dy_njets_reweight/Run3_2024/dy_njets_reweight.json \
   --skip-file-validation
 ```
 

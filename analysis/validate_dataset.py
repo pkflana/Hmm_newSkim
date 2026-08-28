@@ -70,7 +70,7 @@ def is_empty_root_result(result):
     return not result[1] and result[2].startswith("empty tree ")
 
 
-def pair_mc_results(root_results, json_results):
+def pair_results(root_results, json_results):
     roots_by_key = {}
     jsons_by_key = {}
     for result in root_results:
@@ -93,12 +93,6 @@ def pair_mc_results(root_results, json_results):
         empty_pair_is_valid = (
             not good_roots and len(empty_roots) == 1 and len(good_jsons) == 1
         )
-        # MC normalization lives in the skim report. Keep the unique valid
-        # JSON even when its ROOT output has no processable events; histogram
-        # production receives only the readable ROOT files.
-        normalization_json_is_valid = (
-            len(root_items) == 1 and len(good_jsons) == 1
-        )
         if pair_is_valid:
             root_path = good_roots[0][0]
             json_path = good_jsons[0][0]
@@ -114,9 +108,6 @@ def pair_mc_results(root_results, json_results):
                     "reason": empty_roots[0][2],
                 }
             )
-        elif normalization_json_is_valid:
-            valid_jsons.append(good_jsons[0][0])
-
         for path, intrinsically_valid, intrinsic_reason in root_items:
             if (pair_is_valid and intrinsically_valid) or (
                 empty_pair_is_valid and is_empty_root_result(
@@ -135,7 +126,7 @@ def pair_mc_results(root_results, json_results):
             invalid_roots.append({"path": path, "pairing_key": key, "reason": reason})
 
         for path, intrinsically_valid, intrinsic_reason in json_items:
-            if normalization_json_is_valid and intrinsically_valid:
+            if (pair_is_valid or empty_pair_is_valid) and intrinsically_valid:
                 continue
             if not intrinsically_valid:
                 reason = intrinsic_reason
@@ -156,95 +147,6 @@ def pair_mc_results(root_results, json_results):
     )
 
 
-def expected_input_completeness(
-    samples_with_files,
-    dataset_name,
-    root_results,
-    json_results,
-    is_data,
-    chunk_manifest=None,
-):
-    if chunk_manifest is not None:
-        chunks = chunk_manifest.get("chunks", [])
-        expected_files = [
-            chunk["root_file"]
-            for chunk in chunks
-            if "root_file" in chunk
-        ]
-        discovered_roots = {
-            os.path.abspath(result[0]): result
-            for result in root_results
-        }
-        roots_by_name = {}
-        for result in root_results:
-            roots_by_name.setdefault(os.path.basename(result[0]), []).append(result)
-        discovered_jsons = {
-            os.path.abspath(result[0]): result
-            for result in json_results
-        }
-        jsons_by_name = {}
-        for result in json_results:
-            jsons_by_name.setdefault(os.path.basename(result[0]), []).append(result)
-        missing = []
-        for chunk in chunks:
-            root_path = os.path.abspath(chunk["root_file"])
-            root_result = discovered_roots.get(root_path)
-            if root_result is None:
-                relocated = roots_by_name.get(os.path.basename(root_path), [])
-                if len(relocated) == 1:
-                    root_result = relocated[0]
-            root_present = root_result is not None
-            if is_data:
-                covered = root_present and (
-                    root_result[1] or is_empty_root_result(root_result)
-                )
-            else:
-                report_path = os.path.abspath(chunk["report_file"])
-                report_result = discovered_jsons.get(report_path)
-                if report_result is None:
-                    relocated = jsons_by_name.get(os.path.basename(report_path), [])
-                    if len(relocated) == 1:
-                        report_result = relocated[0]
-                covered = root_present and report_result is not None
-            if not covered:
-                missing.extend(chunk.get("input_files", [root_path]))
-        return expected_files, missing, ""
-
-    dataset_cfg = samples_with_files.get(dataset_name)
-    if not isinstance(dataset_cfg, dict) or not isinstance(
-        dataset_cfg.get("filelist"), list
-    ):
-        return [], [], f"missing filelist for {dataset_name}"
-
-    expected_files = dataset_cfg["filelist"]
-    root_results_by_key = {}
-    json_results_by_key = {}
-    for result in root_results:
-        root_results_by_key.setdefault(pairing_key(result[0]), []).append(result)
-    for result in json_results:
-        json_results_by_key.setdefault(
-            pairing_key(result[0], is_json=True), []
-        ).append(result)
-
-    missing = []
-    for source_path in expected_files:
-        key = pairing_key(source_path)
-        roots = root_results_by_key.get(key, [])
-        if is_data:
-            # Corrupt/zombie data do not satisfy completeness; a readable
-            # zero-entry skim does.
-            covered = any(result[1] or is_empty_root_result(result) for result in roots)
-        else:
-            # A zombie MC skim is accounted for as produced, but its JSON is
-            # required and will be excluded from normalization downstream.
-            jsons = json_results_by_key.get(key, [])
-            covered = bool(roots) and any(result[1] for result in jsons)
-        if not covered:
-            missing.append(source_path)
-
-    return expected_files, missing, ""
-
-
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--era", required=True)
@@ -257,15 +159,6 @@ def main():
     parser.add_argument("--retries", type=int, default=3)
     parser.add_argument("--retry-delay", type=float, default=2.0)
     parser.add_argument("--progress-every", type=int, default=25)
-    parser.add_argument(
-        "--skip-input-completeness",
-        action="store_true",
-        help=(
-            "Validate discovered ROOT/JSON integrity and MC pairing without "
-            "comparing against the current skim chunk manifest or sample "
-            "file list. Intended for archived/legacy skim productions."
-        ),
-    )
     args = parser.parse_args()
     if args.workers < 1 or args.retries < 1 or args.progress_every < 1:
         parser.error("--workers, --retries and --progress-every must be >= 1")
@@ -279,40 +172,13 @@ def main():
         analysis_path, "config", args.era, "samples.yaml"
     )
     samples = utilities.get_config(samples_path)
-    samples_with_files_path = os.path.join(
-        analysis_path, "config", args.era, "samples_withfiles.yaml"
-    )
-    samples_with_files = utilities.get_config(samples_with_files_path)
     dataset_cfg = samples.get(args.dataset_name, {})
     is_data = dataset_cfg.get("is_data", False) or "data" in args.dataset_name.lower()
-    chunk_manifest_path = os.path.join(
-        analysis_path,
-        "htcondor",
-        "log",
-        args.era,
-        args.dataset_name,
-        "skim_chunks.json",
-    )
-    chunk_manifest = None
-    if os.path.exists(chunk_manifest_path):
-        with open(chunk_manifest_path) as chunk_manifest_handle:
-            chunk_manifest = json.load(chunk_manifest_handle)
-        print(
-            f"[COMPLETENESS] Using chunk manifest: {chunk_manifest_path}",
-            flush=True,
-        )
 
     print(f"[DISCOVERY] Scanning ROOT input: {args.root_input}", flush=True)
     root_files = discover_root_files(args.root_input)
-    if is_data:
-        json_files = []
-        print(
-            "[DISCOVERY] Data dataset: JSON discovery and validation are disabled",
-            flush=True,
-        )
-    else:
-        print(f"[DISCOVERY] Scanning JSON input: {args.json_input}", flush=True)
-        json_files = discover_json_files(args.json_input)
+    print(f"[DISCOVERY] Scanning JSON input: {args.json_input}", flush=True)
+    json_files = discover_json_files(args.json_input)
     print(
         f"[VALIDATION] {args.dataset_name}: discovered "
         f"{len(root_files)} ROOT and {len(json_files)} JSON files",
@@ -371,79 +237,41 @@ def main():
                 f"valid={json_valid_count}, invalid={json_invalid_count}",
                 flush=True,
             )
-    if is_data:
-        valid_roots = sorted(path for path, valid, _ in root_results if valid)
-        valid_jsons = sorted(path for path, valid, _ in json_results if valid)
-        ignored_empty_roots = [
-            {"path": path, "reason": reason}
-            for path, valid, reason in root_results
-            if not valid and reason.startswith("empty tree ")
-        ]
-        invalid_roots = [
-            {"path": path, "reason": reason}
-            for path, valid, reason in root_results
-            if not valid and not reason.startswith("empty tree ")
-        ]
-        invalid_jsons = [
-            {"path": path, "reason": reason}
-            for path, valid, reason in json_results
-            if not valid
-        ]
-    else:
-        ignored_empty_roots = []
-        print("[PAIRING] Matching validated ROOT and JSON files", flush=True)
-        (
-            valid_roots,
-            valid_jsons,
-            invalid_roots,
-            invalid_jsons,
-            ignored_empty_roots,
-        ) = pair_mc_results(root_results, json_results)
-        print(
-            f"[PAIRING] accepted={len(valid_roots)} pairs; "
-            f"invalid ROOT={len(invalid_roots)}; invalid JSON={len(invalid_jsons)}",
-            flush=True,
-        )
-    if args.skip_input_completeness:
-        expected_files, missing_input_files, completeness_error = [], [], ""
-        print(
-            "[COMPLETENESS] Skipped by explicit request; validating only "
-            "discovered-file integrity and ROOT/JSON pairing.",
-            flush=True,
-        )
-    else:
-        expected_files, missing_input_files, completeness_error = (
-            expected_input_completeness(
-                samples_with_files,
-                args.dataset_name,
-                root_results,
-                json_results,
-                is_data,
-                chunk_manifest=chunk_manifest,
-            )
-        )
+    print("[PAIRING] Matching validated ROOT and JSON files", flush=True)
+    (
+        valid_roots,
+        valid_jsons,
+        invalid_roots,
+        invalid_jsons,
+        ignored_empty_roots,
+    ) = pair_results(root_results, json_results)
     print(
-        f"[COMPLETENESS] {args.dataset_name}: expected={len(expected_files)}, "
-        f"missing={len(missing_input_files)}",
+        f"[PAIRING] accepted={len(valid_roots)} pairs; "
+        f"invalid ROOT={len(invalid_roots)}; invalid JSON={len(invalid_jsons)}",
         flush=True,
     )
     failures = []
-    if completeness_error:
-        failures.append(completeness_error)
-    if missing_input_files:
-        failures.append(
-            f"{len(missing_input_files)} expected skim output(s) missing or unusable"
-        )
     if not valid_roots:
         print(
             "[WARNING] No processable ROOT files remain; downstream histogram "
             "production will write empty histograms.",
             flush=True,
         )
+    if not root_results and not json_results:
+        failures.append(
+            "no ROOT files or normalization JSON reports were discovered"
+        )
     if is_data and (invalid_roots or invalid_jsons):
         failures.append(
-            f"data requires zero invalid files: {len(invalid_roots)} ROOT, "
+            f"data validation requires zero invalid or unmatched files: "
+            f"{len(invalid_roots)} ROOT, "
             f"{len(invalid_jsons)} JSON"
+        )
+    elif invalid_roots or invalid_jsons:
+        print(
+            f"[WARNING] MC validation is skipping {len(invalid_roots)} ROOT "
+            f"and {len(invalid_jsons)} JSON invalid or unmatched files",
+            flush=True,
         )
     validation_passed = not failures
     write_manifest(
@@ -462,17 +290,13 @@ def main():
         invalid_root_files=invalid_roots,
         ignored_empty_root_files=ignored_empty_roots,
         invalid_json_files=invalid_jsons,
-        expected_input_files=expected_files,
-        missing_input_files=missing_input_files,
         summary={
-            "input_expected": len(expected_files),
-            "input_missing": len(missing_input_files),
             "root_valid": len(valid_roots),
             "root_invalid": len(invalid_roots),
             "root_empty_ignored": len(ignored_empty_roots),
             "json_valid": len(valid_jsons),
             "json_invalid": len(invalid_jsons),
-            "json_required": not is_data,
+            "json_required": True,
         },
     )
     print(f"[VALIDATION] wrote {args.output_manifest}", flush=True)

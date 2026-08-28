@@ -1,6 +1,6 @@
 import unittest
 
-from common.add_vars_to_skim_tuples import DefineDimuonMassResolution
+from common.add_vars import DefineDimuonMassResolution
 
 
 class FakeDataFrame:

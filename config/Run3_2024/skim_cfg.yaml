@@ -25,8 +25,9 @@ request_disk: 2GB
 # ---------------------------------------------------------
 
 # run only subset of datasets (optional override)
-datasets_whitelist: []
-  # - Muon_Run2022C
+datasets_whitelist: # []
+  # - Muon0_Run2024C
+  # - Muon1_Run2024C
 #   - Muon_Run2022D
 
 # debug mode

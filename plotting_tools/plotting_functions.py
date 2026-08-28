@@ -19,6 +19,38 @@ from common.rdf_utilities import findBinEntry
 plt.style.use(hep.style.CMS)
 
 
+SIGNAL_COMPONENT_STYLES = {
+    "ggH": {
+        "prefixes": ("GluGluHto2Mu",),
+        "colors": {
+            "0J": "#b8ffff", "1J Hard": "#6fe7e7",
+            "1J PU": "#35cccc", "2J Hard": "#00aeb5",
+            "2J PU1": "#00858f", "2J PU2": "#005f68",
+        },
+    },
+    "VBF": {
+        "prefixes": ("VBFHto2Mu",),
+        "colors": {
+            "0J": "#ffd0f1", "1J Hard": "#f69bde",
+            "1J PU": "#e95bc8", "2J Hard": "#d52bad",
+            "2J PU1": "#a90c86", "2J PU2": "#73005f",
+        },
+    },
+}
+
+
+def component_family_style(family, labels, fallback_colors):
+    """Return a short label and stable component colors for signal families."""
+    for display_name, style in SIGNAL_COMPONENT_STYLES.items():
+        if family.startswith(style["prefixes"]):
+            colors = [
+                style["colors"].get(label, fallback)
+                for label, fallback in zip(labels, fallback_colors)
+            ]
+            return display_name, colors
+    return family, fallback_colors
+
+
 def normalize_sample_name(name):
     return os.path.splitext(os.path.basename(name))[0]
 
@@ -426,6 +458,27 @@ SYST_GROUPS = {
         ],
         "#56B4E9",
     ),
+    "Pileup": (["CMS_pileup_{era}"], "#7F7F7F"),
+    "Muon Iso": (["CMS_eff_m_iso_{era}"], "#009E73"),
+    "Muon Trigger": (["CMS_eff_m_trigger_{era}"], "#009E73"),
+    "Muon ID": (["CMS_eff_m_id_{era}"], "#009E73"),
+    "QCD fac V": (["QCD_fac_scale_V"], "#E69F00"),
+    "QCD fac VH": (["QCD_fac_scale_VH"], "#E69F00"),
+    "QCD fac VV": (["QCD_fac_scale_VV"], "#E69F00"),
+    "QCD fac VVV": (["QCD_fac_scale_VVV"], "#E69F00"),
+    "QCD fac qqH": (["QCD_fac_scale_qqH"], "#E69F00"),
+    "QCD fac ttbar": (["QCD_fac_scale_ttbar"], "#E69F00"),
+    "QCD ren V": (["QCD_ren_scale_V"], "#D55E00"),
+    "QCD ren VH": (["QCD_ren_scale_VH"], "#D55E00"),
+    "QCD ren VV": (["QCD_ren_scale_VV"], "#D55E00"),
+    "QCD ren VVV": (["QCD_ren_scale_VVV"], "#D55E00"),
+    "QCD ren qqH": (["QCD_ren_scale_qqH"], "#D55E00"),
+    "QCD ren ttbar": (["QCD_ren_scale_ttbar"], "#D55E00"),
+    "PDF Higgs VH": (["pdf_Higgs_VH"], "#56B4E9"),
+    "PDF Higgs qqH": (["pdf_Higgs_qqH"], "#56B4E9"),
+    "PDF gg": (["pdf_gg"], "#56B4E9"),
+    "PDF gq": (["pdf_gq"], "#56B4E9"),
+    "PDF qqbar": (["pdf_qqbar"], "#56B4E9"),
 }
 
 
@@ -693,12 +746,14 @@ def make_stacked_plot(
     dy_normalization_sample="DY",
     era="",
     dy_composition=False,
+    dy_component_reweighted=False,
     show_systematics=False,
     systematic_groups=None,
     overlay_systematic=False,
     log_uncertainties=False,
     include_total_systematics=False,
     show_mc_stat_uncertainty=True,
+    multipage_pdf=None,
 ):
     """
     Genera uno stacked plot con:
@@ -876,6 +931,41 @@ def make_stacked_plot(
     # under/overflow bins), before any plot-only normalization is applied.
     mc_integrals_before_normalization = list(mc_integrals)
 
+    # Component ROOT files are diagnostic inputs when the corresponding
+    # inclusive process is also loaded. Do not count those mutually exclusive
+    # pieces a second time in Data - OtherMC normalization calculations.
+    component_indices_by_family = {}
+    for idx, sample_key in enumerate(mc_keys):
+        component = pu_hard_component_style(sample_key)
+        if component is not None:
+            component_indices_by_family.setdefault(component[0], set()).add(idx)
+
+    non_component_mc_keys = {
+        key
+        for key in mc_keys
+        if pu_hard_component_style(key) is None
+    }
+    inclusive_signal_keys = set(sgn_keys)
+    duplicate_component_indices = set()
+    for family, indices in component_indices_by_family.items():
+        has_inclusive = (
+            family in non_component_mc_keys
+            or family in inclusive_signal_keys
+            or (
+                family == "DY"
+                and any(
+                    key == "DY_amcatnlo" or key.startswith("DYto")
+                    for key in non_component_mc_keys
+                )
+            )
+            or (
+                family == "EWK"
+                and any(key.startswith("EWK") for key in non_component_mc_keys)
+            )
+        )
+        if has_inclusive:
+            duplicate_component_indices.update(indices)
+
     if normalize_mc_to_data:
         if data_vals is None:
             print(
@@ -948,7 +1038,10 @@ def make_stacked_plot(
                         [
                             mc_integrals[idx]
                             for idx in range(len(mc_integrals))
-                            if idx not in dy_index_set
+                            if (
+                                idx not in dy_index_set
+                                and idx not in duplicate_component_indices
+                            )
                         ]
                     )
                 )
@@ -1001,6 +1094,7 @@ def make_stacked_plot(
         mc_errs = [mc_errs[i] for i in idx_sort]
         mc_colors = [mc_colors[i] for i in idx_sort]
         mc_labels = [mc_labels[i] for i in idx_sort]
+        mc_integrals = [mc_integrals[i] for i in idx_sort]
         mc_keys = [mc_keys[i] for i in idx_sort]
 
     if auto_trim_empty_edges:
@@ -1126,10 +1220,80 @@ def make_stacked_plot(
             idx for indices in composition_groups.values() for idx in indices
         }
         if component_index_set:
-            for key in [mc_keys[idx] for idx in sorted(component_index_set)]:
+            # Some routed campaigns intentionally do not write an inclusive
+            # DY/EWK histogram in every region, while the mutually exclusive
+            # PU/hard component histograms are present.  The components are
+            # diagnostic inputs for the percentage panels, but in that case
+            # their sum is also the only available inclusive prediction for
+            # the upper physics stack.  Reconstruct it before removing the
+            # individual components.
+            non_component_indices = [
+                idx for idx in range(len(mc_keys))
+                if idx not in component_index_set
+            ]
+            non_component_keys = [mc_keys[idx] for idx in non_component_indices]
+            inclusive_signal_keys = set(sgn_keys)
+            replaced_inclusive_indices = set()
+            family_colors = {"DY": "dodgerblue", "EWK": "darkviolet"}
+            family_labels = {"DY": "DY - amc@nlo", "EWK": "EWK inclusive"}
+            for family, indices in composition_groups.items():
+                has_inclusive = any(
+                    key == family
+                    or (family == "DY" and (
+                        key == "DY_amcatnlo" or key.startswith("DYto")
+                    ))
+                    or (family == "EWK" and key.startswith("EWK"))
+                    for key in non_component_keys
+                )
+                has_inclusive = has_inclusive or family in inclusive_signal_keys
+                if has_inclusive and not (
+                    family == "DY" and dy_component_reweighted
+                ):
+                    continue
+
+                if family == "DY" and dy_component_reweighted:
+                    replaced_inclusive_indices.update(
+                        idx for idx in non_component_indices
+                        if (
+                            mc_keys[idx] == "DY"
+                            or mc_keys[idx] == "DY_amcatnlo"
+                            or mc_keys[idx].startswith("DYto")
+                        )
+                    )
+
+                values = np.sum([mc_vals[idx] for idx in indices], axis=0)
+                errors = np.sqrt(np.sum(
+                    [np.square(mc_errs[idx]) for idx in indices], axis=0
+                ))
+                integral = float(np.sum([mc_integrals[idx] for idx in indices]))
+                key = f"{family}_from_components"
+                color = family_colors.get(family, "gray")
+                label = family_labels.get(family, family)
+                mc_vals.append(values)
+                mc_errs.append(errors)
+                mc_integrals.append(integral)
+                mc_colors.append(color)
+                mc_labels.append(f"{label} [{integral:.2f}]")
+                mc_keys.append(key)
+                ratio_candidates[key] = {
+                    "name": label,
+                    "values": values,
+                    "errors": errors,
+                    "color": color,
+                    "is_data": False,
+                    "is_signal": False,
+                    "aliases": [family],
+                }
+                print(
+                    f"  [INFO] {family} inclusive reconstructed from "
+                    f"{len(indices)} jet-component samples for {variable}."
+                )
+
+            removed_indices = component_index_set | replaced_inclusive_indices
+            for key in [mc_keys[idx] for idx in sorted(removed_indices)]:
                 ratio_candidates.pop(key, None)
             keep_indices = [
-                idx for idx in range(len(mc_keys)) if idx not in component_index_set
+                idx for idx in range(len(mc_keys)) if idx not in removed_indices
             ]
             mc_vals = [mc_vals[idx] for idx in keep_indices]
             mc_colors = [mc_colors[idx] for idx in keep_indices]
@@ -1147,8 +1311,32 @@ def make_stacked_plot(
     composition_families = list(composition_groups)
     n_composition_panels = len(composition_families)
 
-    if has_ratio or has_composition:
+    if has_composition:
+        # Main plot first, then one composition panel per family, with the
+        # Data/MC ratio kept as the final panel at the bottom.
         n_panels = 1 + n_composition_panels + int(has_ratio)
+        fig, panel_axes = plt.subplots(
+            n_panels,
+            1,
+            figsize=(
+                canvas_size[0] / 70,
+                max(canvas_size[1] / 55, 2.3 * n_panels),
+            ),
+            sharex=True,
+            gridspec_kw={
+                "height_ratios": [6] + [1] * (n_panels - 1),
+                "hspace": 0.05,
+            },
+        )
+        panel_axes = np.atleast_1d(panel_axes)
+        ax = panel_axes[0]
+        composition_axes = {
+            family: panel_axes[index + 1]
+            for index, family in enumerate(composition_families)
+        }
+        rax = panel_axes[-1] if has_ratio else None
+    elif has_ratio:
+        n_panels = 2
         axes = plt.subplots(
             n_panels,
             1,
@@ -1337,7 +1525,9 @@ def make_stacked_plot(
     for family, payload in composition_payload.items():
         composition_ax = composition_axes[family]
         component_vals = payload["values"]
-        component_colors = payload["colors"]
+        family_label, component_colors = component_family_style(
+            family, payload["labels"], payload["colors"]
+        )
         component_total = np.sum(component_vals, axis=0)
         fractions = [
             np.divide(
@@ -1368,7 +1558,10 @@ def make_stacked_plot(
         composition_ax.yaxis.set_major_formatter(
             mticker.PercentFormatter(xmax=1.0, decimals=0)
         )
-        composition_ax.set_ylabel(f"{family}\nComp.", fontsize=12)
+        composition_ax.set_ylabel(
+            f"{family_label}\nComp.", fontsize=11, rotation=0, labelpad=34,
+            ha="center", va="center",
+        )
         composition_ax.grid(axis="y", linestyle=":", linewidth=0.5, alpha=0.5)
         composition_ax.legend(
             fontsize=7,
@@ -1699,10 +1892,7 @@ def make_stacked_plot(
         for composition_ax in composition_axes.values():
             composition_ax.get_xaxis().set_visible(False)
     elif has_composition:
-        last_composition_ax = composition_axes[composition_families[-1]]
-        last_composition_ax.set_xlabel(x_label, fontsize=20)
-        for composition_ax in list(composition_axes.values())[:-1]:
-            composition_ax.get_xaxis().set_visible(False)
+        fig.supxlabel(x_label, fontsize=20)
         ax.get_xaxis().set_visible(False)
     else:
         ax.set_xlabel(x_label, fontsize=20)
@@ -1747,7 +1937,7 @@ def make_stacked_plot(
         facecolor=legend_cfg.get("fill_color", "white"),
         frameon=True,
         fontsize=legend_cfg.get("text_size", 0.16) * 110,
-        framealpha=0.2,
+        framealpha=1.0,
         ncol=legend_cfg.get("ncols", 2),
         handleheight=1.4,
         labelspacing=0.2,
@@ -1823,10 +2013,13 @@ def make_stacked_plot(
     # Save
     # =====================================================
 
-    fig.savefig(f"{out_name}.png", bbox_inches="tight")
-    fig.savefig(f"{out_name}.pdf", bbox_inches="tight")
-
-    print(f"{out_name}.png")
+    if multipage_pdf is not None:
+        multipage_pdf.savefig(fig, bbox_inches="tight")
+        print(f"[PDF multipagina] aggiunta pagina: {variable}")
+    else:
+        fig.savefig(f"{out_name}.png", bbox_inches="tight")
+        fig.savefig(f"{out_name}.pdf", bbox_inches="tight")
+        print(f"{out_name}.png")
 
     plt.close(fig)
 

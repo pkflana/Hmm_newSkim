@@ -155,10 +155,10 @@ non-empty. The validation stage must also be run before histogram production.
 It:
 
 - opens every ROOT file and checks the `Events` tree;
-- parses every required JSON report;
+- parses every JSON report, for both data and MC;
 - pairs `skim_N.root` with `report_N.json`;
-- checks completeness against `skim_chunks.json`;
-- records valid, empty, corrupt, and missing inputs;
+- rejects invalid, duplicated, or unmatched produced ROOT/JSON files;
+- records valid, empty, corrupt, and unmatched produced files;
 - writes one validation manifest per era and dataset.
 
 
@@ -187,4 +187,3 @@ sh analysis/scripts/validate.sh \
   --output-dir /eos/user/v/vdamante/H_mumu/manifests_skim_v3
   --condor
 ```
-

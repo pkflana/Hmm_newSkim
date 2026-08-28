@@ -5,17 +5,17 @@ The histogram workflow is split by responsibility:
 - `analysis/validate_dataset.py` validates skim outputs and writes a versioned
   manifest through `common/manifest_utilities.py`, which also resolves or
   creates validation manifests for downstream jobs.
-- `common/add_var_to_skim.py` owns histogram regions, object selections, and
+- `common/add_vars.py` owns histogram regions, object selections, and
   categories.
-- `common/add_vars_to_skim_tuples.py` owns reusable physics observables added
+- `common/add_vars.py` also owns reusable physics observables added
   to skim dataframes.
 - `common/jet_component_splitting.py` owns reco/gen jet matching and the
   special DY jet-component categories.
 - `histograms/dnn_histogram_production.py` owns sideband dimuon-mass remapping and
   shifted DNN evaluation.
-- `histograms/histogram_pipeline.py` applies selections and final event weights
+- `common/histogram_rdf.py` applies selections and final event weights
   exactly once.
-- `histograms/hist_maker.py` orchestrates input chunks and books/writes the
+- `histograms/hist_maker.py` consumes validated inputs and books/writes the
   histograms.
 - `dnn_performance/` exposes model-input checks, performance comparisons, and
   DNN histogram binning tools.

@@ -25,6 +25,7 @@ Dataset groups:
   DY_minnlo
   EWK
   EWK_105_160
+  FlashSim
   signals
   SingleH
   SingleTop
@@ -74,6 +75,7 @@ Options:
   --queued-registry-file FILE
                           Treat outputs listed in FILE as already submitted.
   --missing-only         In local mode, run only incomplete/missing stage outputs.
+  --exclude-dataset CSV  Exclude exact dataset names after group expansion.
                           Condor always skips complete outputs unless --force is used.
   --print-existing       Print each complete output skipped by --missing-only.
                           Existing outputs are silent by default in local mode.
@@ -86,7 +88,7 @@ Examples:
   histograms/scripts/hists.sh --datasets skim_cfg --era Run3_2025
   histograms/scripts/hists.sh --datasets DiTriBoson,data --era Run3_2022
   histograms/scripts/hists.sh --datasets DY_amcatnlo --era Run3_2024 --output-suffix _DNN -- --variables DNN_NNOutput
-  histograms/scripts/hists.sh --datasets all --era Run3_2025 --extra-opts "--n-cores 8"
+  histograms/scripts/hists.sh --datasets all --era Run3_2025 --extra-opts "--rdf-threads 8"
   histograms/scripts/hists.sh --datasets signals,EWK --era Run3_2024 --condor -- --variables m_mumu
 EOF
 }
@@ -314,6 +316,7 @@ configured_dataset_alias() {
     TbarBQto2Q_t_channel_4FS|TbarBQtoLNu_t_channel_4FS) candidates=(TbarBQ_t_channel_4FS) ;;
     TTZH_ZHto4B) candidates=(TTZH) ;;
     DYto2Mu_MLL_105to160_amcatnloFXFX_VBFFiltered) candidates=(DYto2Mu_MLL_105to160_amcatnloFXFX_Fil_VBF) ;;
+    DYto2Mu_MLL105To160_FlashSim) candidates=(DYto2Mu_MLL_105to160_amcatnloFXFX_Flashsim) ;;
   esac
 
   for candidate in "${candidates[@]}"; do
@@ -391,6 +394,30 @@ drop_unconfigured_jobs() {
   # at least one dataset was skipped, so valid aliases (notably
   # DY ... _VBFFiltered -> ... _Fil_VBF) were silently discarded whenever all
   # selected datasets existed in the era configuration.
+  job_datasets=("${filtered_datasets[@]}")
+  job_chunk_sizes=("${filtered_chunk_sizes[@]}")
+  job_file_suffixes=("${filtered_file_suffixes[@]}")
+  job_specific_opts=("${filtered_specific_opts[@]}")
+}
+
+filter_out_dataset() {
+  local excluded_dataset="$1"
+  local filtered_datasets=()
+  local filtered_chunk_sizes=()
+  local filtered_file_suffixes=()
+  local filtered_specific_opts=()
+
+  for i in "${!job_datasets[@]}"; do
+    if [[ "${job_datasets[$i]}" == "${excluded_dataset}" ]]; then
+      echo "[INFO] Excluding ${excluded_dataset} from ${era}"
+      continue
+    fi
+    filtered_datasets+=("${job_datasets[$i]}")
+    filtered_chunk_sizes+=("${job_chunk_sizes[$i]}")
+    filtered_file_suffixes+=("${job_file_suffixes[$i]}")
+    filtered_specific_opts+=("${job_specific_opts[$i]}")
+  done
+
   job_datasets=("${filtered_datasets[@]}")
   job_chunk_sizes=("${filtered_chunk_sizes[@]}")
   job_file_suffixes=("${filtered_file_suffixes[@]}")
@@ -568,6 +595,7 @@ add_dy_105_160_jobs() {
         --additional-cuts "GenVBFFilter==0"
       add_job DYto2Mu_MLL_105to160_amcatnloFXFX_VBFFiltered 20 "" \
         --additional-cuts "GenVBFFilter==1"
+      add_job DYto2Mu_MLL105To160_FlashSim 20 "" \
       ;;
     Run3_2022|Run3_2022EE|Run3_2023|Run3_2023BPix)
       # No VBF-filtered companion sample exists for these eras.
@@ -591,6 +619,12 @@ add_dy_012j_jobs() {
 add_ewk_105_160_jobs() {
   add_job EWK_2Mu2J_MLL_105to160_herwig 15
   add_job EWK_2Mu2J_MLL_105to160_pythia 15
+}
+
+add_flashsim_jobs() {
+  add_job DYto2Mu_MLL105To160_FlashSim 20
+  add_job EWK_2Mu2J_MLL_105to160_pythia_Flashsim 15
+  add_job VBFHto2Mu_m125_Flashsim 15
 }
 
 add_static_group_jobs() {
@@ -620,7 +654,7 @@ add_static_group_jobs() {
         GluGluHto2Mu GluGluHto2Mu_M120 GluGluHto2Mu_M130 GluGluHto2Mu_MiNNLO
         GluGluHto2Mu_amcatnlo GluGluHto2Mu_tuneDown GluGluHto2Mu_tuneUp
         VBFHto2Mu_M120 VBFHto2Mu_M125_amcatnlo VBFHto2Mu_M125_powheg VBFHto2Mu_M130
-        VBFHto2Mu_m125_Flashsim VBFHto2Mu_m125_tuneCP5Down_amcatnlo VBFHto2Mu_m125_tuneCP5Up_amcatnlo
+        VBFHto2Mu_m125_tuneCP5Down_amcatnlo VBFHto2Mu_m125_tuneCP5Up_amcatnlo
       )
       ;;
     other_signals)
@@ -702,6 +736,7 @@ normalize_group() {
     dy_minnlo|DY_minnlo) echo "DY_minnlo" ;;
     ewk|EWK) echo "EWK" ;;
     ewk_105_160|EWK_105_160) echo "EWK_105_160" ;;
+    flashsim|FlashSim) echo "FlashSim" ;;
     signals|Signals) echo "signals" ;;
     other_signals) echo "other_signals" ;;
     singleh|SingleH) echo "SingleH" ;;
@@ -750,10 +785,10 @@ groups_for_era() {
 
   case "${era}" in
     Run3_2024|Run3_2025|Run3_2026)
-      echo "data DiTriBoson DY_amcatnlo DY_amcatnlo_105_160 DY_012J DY_minnlo EWK EWK_105_160 signals other_signals SingleH SingleTop TTX TT W"
+      echo "data DiTriBoson DY_amcatnlo DY_amcatnlo_105_160 DY_012J DY_minnlo EWK EWK_105_160 FlashSim signals other_signals SingleH SingleTop TTX TT W"
       ;;
     Run3_2022|Run3_2022EE|Run3_2023|Run3_2023BPix)
-      echo "data DiTriBoson DY_amcatnlo DY_amcatnlo_105_160 DY_012J EWK EWK_105_160 signals other_signals SingleH SingleTop TTX TT W"
+      echo "data DiTriBoson DY_amcatnlo DY_amcatnlo_105_160 DY_012J EWK EWK_105_160 FlashSim signals other_signals SingleH SingleTop TTX TT W"
       ;;
     *)
       die "Unknown era '${era}'"
@@ -795,6 +830,7 @@ job_count_file=""
 erase_existing=0
 force_submit=0
 missing_only=0
+excluded_datasets=()
 require_component_outputs=0
 required_component_regions=""
 print_existing=0
@@ -966,6 +1002,11 @@ while [[ $# -gt 0 ]]; do
       missing_only=1
       shift
       ;;
+    --exclude-dataset)
+      IFS=',' read -r -a excluded_values <<< "$2"
+      excluded_datasets+=("${excluded_values[@]}")
+      shift 2
+      ;;
     --require-component-outputs)
       require_component_outputs=1
       shift
@@ -1064,6 +1105,7 @@ else
       DY_amcatnlo_105_160) add_dy_105_160_jobs "${era}" ;;
       DY_012J) add_dy_012j_jobs "${era}" ;;
       EWK_105_160) add_ewk_105_160_jobs ;;
+      FlashSim) add_flashsim_jobs ;;
       W) add_w_jobs "${era}" ;;
       mc) add_skim_cfg_mc_jobs "${era}" ;;
       DiTriBoson|DY_minnlo|EWK|signals|SingleH|SingleTop|TTX|other_signals|TT) add_static_group_jobs "${era}" "${group}" ;;
@@ -1074,6 +1116,11 @@ fi
 
 if [[ -z "${single_dataset_name}" || ${expanded_single_dataset} -eq 1 ]]; then
   drop_unconfigured_jobs "${era}"
+fi
+if [[ ${#excluded_datasets[@]} -gt 0 ]]; then
+  for excluded_dataset in "${excluded_datasets[@]}"; do
+    filter_out_dataset "${excluded_dataset}"
+  done
 fi
 apply_default_dy_105_160_vbf_cuts "${era}"
 if [[ "${campaign_mode}" == "validation" ]]; then
@@ -1141,8 +1188,17 @@ if [[ ${condor} -eq 1 ]]; then
   full_group_label="$(IFS=_; echo "${normalized_groups[*]}")"
   if [[ -n "${condor_label}" ]]; then
     group_label="$(short_label "${condor_label}" 48)"
+    # Keep the user-facing Condor batch name readable. Campaign submitters use
+    # labels such as CAMPAIGN/WEIGHTS/Hists_SYSTEMATIC_ERA: the systematic and
+    # era are added separately below, so retain only CAMPAIGN/WEIGHTS here.
+    batch_campaign_label="${condor_label%/Hists_*}"
+    if [[ "${batch_campaign_label}" == "${condor_label}" ]]; then
+      batch_campaign_label="${condor_label%_${era#Run3_}}"
+    fi
+    batch_campaign_label="$(short_label "${batch_campaign_label}" 64)"
   else
     group_label="$(condor_group_label)"
+    batch_campaign_label="${group_label}"
   fi
   submit_dir="${condor_dir}/${era}${output_suffix}_${group_label}_${timestamp}"
   condor_output_dir="${submit_dir}/output"
@@ -1253,7 +1309,8 @@ if [[ ${condor} -eq 1 ]]; then
         >> "${batch_names_file}"
     else
       systematic_label="$(IFS=_; echo "${requested_systematics[*]}")"
-      printf 'hists/%s_%s_%s\n' \
+      printf 'hists/%s_%s_%s_%s\n' \
+        "${batch_campaign_label}" \
         "$(short_label "${systematic_label}" 32)" \
         "${era}" \
         "$(short_label "${dataset_name}${file_suffix}" 72)" \
@@ -1464,9 +1521,6 @@ for i in "${!job_datasets[@]}"; do
       --input-manifest "${validation_manifest}"
       --output-file "${output_file}"
       --systematics "${requested_systematics[@]}"
-      --chunk-size "${chunk_size}"
-      --file-open-retries "${file_open_retries}"
-      --file-open-retry-delay "${file_open_retry_delay}"
     )
   fi
   command+=("${specific_opts[@]}")
