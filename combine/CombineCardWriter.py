@@ -86,7 +86,7 @@ def build_xsec_dictionary(yaml_path, processes):
             chosen = unc["theory"]
 
         if chosen is None:
-          print(process,"is none")
+          print(process,"has no theory uncertainty")
           continue
         else:
             raw = chosen.get("value")
@@ -180,8 +180,10 @@ def check_process_histograms(filepath, channel, proc, uncertainties):
                 )
                 hs = tf.Get(hist_name)
                 if not hs:
-                    # histogram not present; skip (not necessarily an error)
-                    continue
+                    print("  {}: systematic '{}{}' missing -> turning off".format(
+                        proc, uncname, direction))
+                    good = False
+                    break
                 integral = hs.Integral()
                 if integral <= 0:
                     print("  {}: systematic '{}{}' integral negative ({:.6g}) -> turning off".format(
@@ -366,7 +368,7 @@ for band in bands:
   print("Assembling lines for Combine card ",bandname)
   systLines = []
   maxLength = 0
-  print("uncertainties",uncertainties)
+  # print("uncertainties",uncertainties)
   for i in range(0, len(uncertainties)):
     systLines.append(uncertainties[i][0])
     maxLength = max(maxLength, len(systLines[i]))
