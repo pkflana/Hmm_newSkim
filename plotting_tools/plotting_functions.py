@@ -418,7 +418,14 @@ def set_ratio_axis_range(
 # Entries are full nuisance names; era-dependent names use ``{era}``.
 # Each group gets a distinct, colorblind-friendly color.
 SYST_GROUPS = {
-    "Jet Res": (["CMS_res_j_{era}"], "#0072B2"),
+    "Jet Res": (
+        [
+            "JEReta0pt0{era}", "JEReta1pt0{era}",
+            "JEReta2pt0{era}", "JEReta2pt1{era}",
+            "JEReta3pt0{era}", "JEReta3pt1{era}",
+        ],
+        "#0072B2",
+    ),
     "Jet Scale": (["CMS_scale_j_{era}"], "#E69F00"),
     "Muon Eff.": (
         [
@@ -577,11 +584,17 @@ def build_syst_ratio_bands(
         group_found = False
 
         for fragment in fragments:
-            if era == "Run3_2022_25" and "{era}" in fragment:
+            combined_suberas = {
+                "Run3_2022_23": ("2022", "2022EE", "2023", "2023BPix"),
+                "Run3_2022_25": (
+                    "2022", "2022EE", "2023", "2023BPix", "2024", "2025"
+                ),
+            }
+            if era in combined_suberas and "{era}" in fragment:
                 delta_up2 = np.zeros(len(bin_edges) - 1, dtype=float)
                 delta_dn2 = np.zeros(len(bin_edges) - 1, dtype=float)
                 combined_found = False
-                for subera in ("2022", "2022EE", "2023", "2023BPix", "2024", "2025"):
+                for subera in combined_suberas[era]:
                     era_delta_up = np.zeros(len(bin_edges) - 1, dtype=float)
                     era_delta_dn = np.zeros(len(bin_edges) - 1, dtype=float)
                     nuisance_name = fragment.format(era=subera)
@@ -589,37 +602,51 @@ def build_syst_ratio_bands(
                     dn_key = f"{variable}_{nuisance_name}Down"
                     era_found = False
                     for key in mc_keys:
-                        for merged_path in samples_dict[key].get("input", "").split(","):
-                            merged_path = merged_path.strip()
-                            if not merged_path:
-                                continue
-                            source_path = os.path.join(
-                                os.path.dirname(os.path.dirname(merged_path)),
+                        nominal_path = samples_dict[key].get("input", "").strip()
+                        if not nominal_path:
+                            continue
+                        nominal_source_path = os.path.join(
+                                os.path.dirname(os.path.dirname(nominal_path)),
                                 f"Run3_{subera}",
-                                os.path.basename(merged_path),
+                                os.path.basename(nominal_path),
                             )
-                            if not os.path.isfile(source_path):
+                        if not os.path.isfile(nominal_source_path):
+                            continue
+                        for shifted_path in samples_dict[key].get("systematic_inputs", []):
+                            shifted_source_path = os.path.join(
+                                os.path.dirname(os.path.dirname(shifted_path)),
+                                f"Run3_{subera}",
+                                os.path.basename(shifted_path),
+                            )
+                            if not os.path.isfile(shifted_source_path):
                                 continue
                             try:
-                                source_file = ROOT.TFile.Open(source_path)
+                                nominal_file = ROOT.TFile.Open(nominal_source_path)
+                                shifted_file = ROOT.TFile.Open(shifted_source_path)
                             except OSError:
                                 print(
                                     f"  [WARNING] Cannot open optional "
-                                    f"era source: {source_path}"
+                                    f"era sources: {nominal_source_path}, "
+                                    f"{shifted_source_path}"
                                 )
                                 continue
-                            if not source_file or source_file.IsZombie():
+                            if (
+                                not nominal_file or nominal_file.IsZombie()
+                                or not shifted_file or shifted_file.IsZombie()
+                            ):
                                 continue
-                            source_dir = source_file.Get(category)
-                            h_nom = source_dir.Get(variable) if source_dir else None
-                            h_up = source_dir.Get(up_key) if source_dir else None
-                            h_dn = source_dir.Get(dn_key) if source_dir else None
+                            nominal_dir = nominal_file.Get(category)
+                            shifted_dir = shifted_file.Get(category)
+                            h_nom = nominal_dir.Get(variable) if nominal_dir else None
+                            h_up = shifted_dir.Get(up_key) if shifted_dir else None
+                            h_dn = shifted_dir.Get(dn_key) if shifted_dir else None
                             if h_nom and h_up and h_dn:
                                 nom = _hist_content(h_nom, bin_edges)
                                 era_delta_up += _hist_content(h_up, bin_edges) - nom
                                 era_delta_dn += _hist_content(h_dn, bin_edges) - nom
                                 era_found = True
-                            source_file.Close()
+                            nominal_file.Close()
+                            shifted_file.Close()
                     if era_found:
                         delta_up2 += era_delta_up ** 2
                         delta_dn2 += era_delta_dn ** 2
@@ -668,8 +695,6 @@ def build_syst_ratio_bands(
                 h_nom = hists.get(variable)
                 h_up  = hists.get(up_key)
                 h_dn  = hists.get(dn_key)
-
-                print(f"  [DEBUG] {key}: nom={h_nom is not None}, up={h_up is not None}, dn={h_dn is not None}")
 
                 if h_nom is None:
                     continue

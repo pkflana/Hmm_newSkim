@@ -112,14 +112,47 @@ for era in eras: # "Run3_2022","Run3_2022EE","Run3_2023","Run3_2023BPix", "Run3_
     with open(process_yaml, "r") as process_names:
         processes = yaml.safe_load(process_names)
 
+    selected_processes = skim_config.get(
+        "process_to_select",
+        skim_config.get("processes_to_select"),
+    )
+    if selected_processes is None:
+        selected_processes = list(processes)
+        print(
+            "[WARNING] skim_cfg.yaml has no process_to_select; "
+            "falling back to every process in process_names.yaml"
+        )
+
     datasetlist = []
-
-    for key in processes.keys():
-
-        if "datasets" in processes[key]:
-            datasetlist.extend(processes[key]["datasets"])
+    unknown = []
+    for selection in selected_processes:
+        if selection in processes:
+            process_datasets = processes[selection].get("datasets")
+            if process_datasets:
+                datasetlist.extend(process_datasets)
+            else:
+                print(f"[WARNING] {selection} has no datasets in process_names.yaml")
+        elif selection in data:
+            # Allow skim_cfg.yaml to select a samples.yaml dataset directly.
+            # This is useful while a new private production is being validated
+            # before it is assigned to a public plotting process.
+            datasetlist.append(selection)
         else:
-            print(f"{key} has no datasets in process_names.yaml")
+            unknown.append(selection)
+
+    if unknown:
+        raise KeyError(
+            "Unknown process/dataset entries in process_to_select: "
+            + ", ".join(unknown)
+        )
+
+    # Preserve configuration order while avoiding repeated DAS queries when
+    # multiple selected processes contain the same dataset.
+    datasetlist = list(dict.fromkeys(datasetlist))
+    print(
+        f"[INFO] Selected {len(selected_processes)} process/dataset entries "
+        f"resolving to {len(datasetlist)} datasets"
+    )
 
     nanoaod = "nanoAOD"
     istance = None

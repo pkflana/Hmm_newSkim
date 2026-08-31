@@ -129,30 +129,23 @@ def run_merge_eras(args: argparse.Namespace) -> int:
         for relative in relative_paths
     ]
     if combine_dy_mll_generations:
-        early_eras = {
-            "Run3_2022", "Run3_2022EE", "Run3_2023", "Run3_2023BPix"
-        }
         suffixes = ("", "_0J", "_1J_Hard", "_1J_PU", "_2J_Hard", "_2J_PU1", "_2J_PU2")
         for suffix in suffixes:
-            output_relative = Path(
-                f"DYto2Mu_MLL105To160_combined{suffix}.root"
-            )
+            output_relative = Path(f"DYto2Mu_MLL105To160{suffix}.root")
             inputs = []
             for era in eras:
-                input_name = (
-                    f"DYto2Mu_MLL105To160{suffix}.root"
-                    if era in early_eras
-                    else f"DYto2Mu_MLL105To160_combined{suffix}.root"
+                input_path = sources[era].get(
+                    Path(f"DYto2Mu_MLL105To160{suffix}.root")
+                ) or sources[era].get(
+                    Path(f"DYto2Mu_MLL105To160_combined{suffix}.root")
                 )
-                input_path = sources[era].get(Path(input_name))
                 if input_path is not None:
                     inputs.append(input_path)
             if inputs:
                 jobs.append((base / output_era / output_relative, inputs))
         jobs.sort(key=lambda job: str(job[0]))
         print(
-            "DY MLL 105-160 routing: standard files for 2022-2023, "
-            "combined files for 2024-2025"
+            "DY MLL 105-160 routing: canonical output name for every era"
         )
     print(f"Merging eras {', '.join(eras)} -> {base / output_era}")
     return run_hadd_plan(
@@ -185,6 +178,8 @@ def run_hadd_processes(args: argparse.Namespace) -> int:
         ]
         if args.add_derived_systs:
             command.append("--add-derived-systs")
+        if args.missing_only:
+            command.append("--missing-only")
         commands.append(command)
 
     for index, command in enumerate(commands, start=1):
@@ -250,6 +245,8 @@ def run_plot(args: argparse.Namespace) -> int:
             command += ["--vars", ",".join(variables)]
         for systematic_group in getattr(args, "systematic_groups", None) or []:
             command += ["--systematicGroup", systematic_group]
+        for systematic_input in getattr(args, "systematic_inputs", None) or []:
+            command += ["--systematic-input", systematic_input]
         for enabled, option in (
             (args.systematics, "--systematics"),
             (getattr(args, "overlay_systematic", False), "--overlaySystematic"),
@@ -850,8 +847,8 @@ def build_parser() -> argparse.ArgumentParser:
         "--combine-dy-mll-generations",
         action="store_true",
         help=(
-            "merge DYto2Mu_MLL105To160 from 2022-2023 with the _combined "
-            "production from 2024-2025, writing canonical _combined outputs"
+            "merge DYto2Mu_MLL105To160 across production generations; old "
+            "_combined inputs are accepted but outputs use the canonical name"
         ),
     )
     merge_eras.add_argument("--force", action=argparse.BooleanOptionalAction, default=True)
@@ -888,6 +885,11 @@ def build_parser() -> argparse.ArgumentParser:
         "--add-derived-systs",
         action="store_true",
         help="also construct configured derived systematics",
+    )
+    hadd_processes.add_argument(
+        "--missing-only",
+        action="store_true",
+        help="create only process files that do not already exist",
     )
     hadd_processes.add_argument("--run", dest="execute", action="store_true")
     hadd_processes.set_defaults(func=run_hadd_processes)
@@ -953,6 +955,12 @@ def build_parser() -> argparse.ArgumentParser:
         help="variable, repeat or use commas; omit to plot all",
     )
     plot.add_argument("--systematics", action="store_true")
+    plot.add_argument(
+        "--systematic-input",
+        dest="systematic_inputs",
+        action="append",
+        help="load shifted templates from NAME=DIR; repeat for each family",
+    )
     plot.add_argument(
         "--systematic-group",
         dest="systematic_groups",

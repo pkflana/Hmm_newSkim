@@ -6,6 +6,12 @@ set -euo pipefail
 year="2022_23"
 enable_component_composition=true
 multipage_pdf_name="all_plots.pdf"
+output_dir="prova_plots_26Aug"
+input_root="/eos/user/v/vdamante/H_mumu/Aug25/AllVars_AllRegions/WithDY012JWeights/Hists_Central_hadded"
+extra_plot_args=()
+regions_override=""
+categories_override=""
+variables_override=""
 
 while (($#)); do
     case "$1" in
@@ -27,6 +33,36 @@ while (($#)); do
             multipage_pdf_name="$2"
             shift 2
             ;;
+        --output)
+            (($# >= 2)) || { echo "Missing value after --output" >&2; exit 2; }
+            output_dir="$2"
+            shift 2
+            ;;
+        --input-root)
+            (($# >= 2)) || { echo "Missing value after --input-root" >&2; exit 2; }
+            input_root="$2"
+            shift 2
+            ;;
+        --regions)
+            (($# >= 2)) || { echo "Missing value after --regions" >&2; exit 2; }
+            regions_override="$2"
+            shift 2
+            ;;
+        --categories)
+            (($# >= 2)) || { echo "Missing value after --categories" >&2; exit 2; }
+            categories_override="$2"
+            shift 2
+            ;;
+        --variables)
+            (($# >= 2)) || { echo "Missing value after --variables" >&2; exit 2; }
+            variables_override="$2"
+            shift 2
+            ;;
+        --plot-option)
+            (($# >= 2)) || { echo "Missing value after --plot-option" >&2; exit 2; }
+            extra_plot_args+=("$2")
+            shift 2
+            ;;
         Run3_*|2022|2022EE|2023|2023BPix|2024|2025|2022_23|2022_25)
             year="$1"
             shift
@@ -40,8 +76,7 @@ done
 
 year="${year#Run3_}"
 era="Run3_${year}"
-input_dir="/eos/user/v/vdamante/H_mumu/Aug25/AllVars_AllRegions/WithDY012JWeights/Hists_Central_hadded/${era}"
-output_dir="prova_plots_26Aug"
+input_dir="${input_root}/${era}"
 generated_pdfs=()
 
 regions=(
@@ -56,6 +91,17 @@ categories=(
     ggF
     baseline
 )
+
+if [[ -n "$regions_override" ]]; then
+    IFS=',' read -r -a regions <<< "$regions_override"
+fi
+if [[ -n "$categories_override" ]]; then
+    IFS=',' read -r -a categories <<< "$categories_override"
+fi
+if [[ -n "$variables_override" ]]; then
+    IFS=',' read -r -a requested_variables <<< "$variables_override"
+    extra_plot_args+=(--variables "${requested_variables[@]}")
+fi
 
 other_samples=(
     Data_Muon
@@ -142,7 +188,8 @@ for region in "${regions[@]}"; do
             --multipage-pdf "$multipage_pdf_name" \
             --normalize-dy-to-data \
             "${composition_args[@]}" \
-            --dy-normalization-sample "$dy_sample"
+            --dy-normalization-sample "$dy_sample" \
+            "${extra_plot_args[@]}"
 
         region_pdf="$output_dir/$era/$region_category/$multipage_pdf_name"
         if [[ -s "$region_pdf" ]]; then

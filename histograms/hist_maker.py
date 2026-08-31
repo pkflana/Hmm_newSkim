@@ -760,6 +760,9 @@ def produce_histograms(args_tuple):
                     args.dy_jet_component_reweight
                     and not args.derive_jet_component_weights
                 ),
+                apply_dy_ptll_weight=args.dy_ptll_reweight,
+                apply_dy_njets_weight=args.dy_njets_reweight,
+                reweight_jsons=process_entry.get("reweight_jsons"),
             )
         profile_log(args.dataset_name, "dataframe definitions/finalization", dataframe_finalize_started)
         booking_setup_started = time.perf_counter()
@@ -1132,6 +1135,18 @@ if __name__ == "__main__":
         help="Apply the era-dependent DY 0J/1JHard/1JPU/2JHard/2JPU1/2JPU2 weight (default: enabled).",
     )
     parser.add_argument(
+        "--dy-ptll-reweight",
+        action=argparse.BooleanOptionalAction,
+        default=True,
+        help="Apply the era-dependent DY pT(ll) reweight (default: enabled).",
+    )
+    parser.add_argument(
+        "--dy-njets-reweight",
+        action=argparse.BooleanOptionalAction,
+        default=True,
+        help="Apply the era-dependent DY N(jets) reweight (default: enabled).",
+    )
+    parser.add_argument(
         "--dy-jet-components",
         "--jet-gen-components",
         "--pu-hard-jet-components",
@@ -1308,12 +1323,18 @@ if __name__ == "__main__":
                 "histograms without jet/gen component splitting."
             )
             args.dy_jet_components = False
+        elif "split_jet_components" in process_entry:
+            args.dy_jet_components = bool(process_entry["split_jet_components"])
+            print(
+                f"[INFO] Dataset {args.dataset_name} (process {args.process_name}): "
+                f"split_jet_components={args.dy_jet_components} from process_names.yaml."
+            )
         elif not jet_components_enabled_for_dataset(
-            args.jet_gen_component_processes,
-            args.dataset_name,
-            args.process_name,
-            is_signal=bool(process_entry.get("is_signal", False)),
-        ):
+                args.jet_gen_component_processes,
+                args.dataset_name,
+                args.process_name,
+                is_signal=bool(process_entry.get("is_signal", False)),
+            ):
             print(
                 f"[INFO] Dataset {args.dataset_name} (process {args.process_name}) "
                 "is outside --jet-gen-component-processes: producing normal "

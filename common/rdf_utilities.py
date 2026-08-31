@@ -1,5 +1,9 @@
 """RDataFrame construction, metadata, and ROOT histogram helpers."""
 
+# PyROOT's RDataFrame(TTree&) does not own the input TChain.  Keep chains alive
+# for the duration of histogram production (including lazy event loops).
+_RDF_INPUT_CHAINS = []
+
 import array
 import bisect
 import json
@@ -424,8 +428,37 @@ def GetRdfForDataset(
         print("[WARNING] No valid ROOT files found for this chunk.")
         return None
 
-    # 3. Inizializza l'RDataFrame solo sul chunk di file desiderato
-    rdf = ROOT.RDataFrame("Events", utilities.ListToVector(valid_files))
+    # 3. Inizializza l'RDataFrame solo sul chunk di file desiderato.
+    # SelectedJet_sortIdx* are derived columns and are recomputed by
+    # analysis/jets.py.  Some older campaigns persisted them in only a subset
+    # of the files, which makes a TChain created from the first-file schema
+    # fail as soon as it reaches a file where those branches are absent.
+    # Prefer a file without the optional persisted columns as the schema
+    # anchor.  Extra branches appearing in later files are harmless, while a
+    # branch advertised by the first file and absent later breaks TTreeReader.
+    schema_anchor = None
+    for candidate in reversed(valid_files):
+        candidate_file = ROOT.TFile.Open(candidate, "READ")
+        candidate_tree = candidate_file.Get(treeName) if candidate_file else None
+        has_stored_sort = bool(
+            candidate_tree and candidate_tree.GetBranch("SelectedJet_sortIdx")
+        )
+        if candidate_file:
+            candidate_file.Close()
+        if not has_stored_sort:
+            schema_anchor = candidate
+            break
+    ordered_files = list(valid_files)
+    if schema_anchor is not None and ordered_files[0] != schema_anchor:
+        ordered_files.remove(schema_anchor)
+        ordered_files.insert(0, schema_anchor)
+
+    input_chain = ROOT.TChain(treeName)
+    for valid_file in ordered_files:
+        input_chain.Add(valid_file)
+    input_chain.SetBranchStatus("SelectedJet_sortIdx*", 0)
+    _RDF_INPUT_CHAINS.append(input_chain)
+    rdf = ROOT.RDataFrame(input_chain)
     if additional_cuts:
         rdf = rdf.Filter(additional_cuts)
     # 4. Applica le definizioni e i pesi (usando il denominatore globale seg_dict)

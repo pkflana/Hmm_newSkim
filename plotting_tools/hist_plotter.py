@@ -4,6 +4,7 @@ import argparse
 import json
 import os
 from pathlib import Path
+import re
 import sys
 import time
 import warnings
@@ -118,9 +119,12 @@ def load_dy_012j_weights(era, weight_set="new"):
         raise ValueError(f"Correction dy_012j_reweight not found in {path}")
     content = correction.get("data", {}).get("content", [])
     weights = {item["key"]: float(item["value"]) for item in content}
-    expected = {"0J", "1JHard", "1JPU", "2JHard", "2JPU1", "2JPU2"}
+    expected = {
+        "0J", "1JHard", "1JPU", "2JHard", "2JPU1", "2JPU2",
+        "VBFHard", "VBFPU1", "VBFPU2",
+    }
     if set(weights) != expected:
-        raise ValueError(f"Expected six DY jet-component weights in {path}")
+        raise ValueError(f"Expected six ggF and three VBF DY weights in {path}")
     print(f"[INFO] DY jet-component plot weights from {path}: {weights}")
     return weights
 
@@ -261,16 +265,22 @@ def get_process_scale_factors(plot_groups_cfg):
 
 
 def classify_plot_sample(sample_name, process_cfg, plot_groups_cfg):
+    configured_component_styles = {
+        process_name: process_info["jet_component_styles"]
+        for process_name, process_info in process_cfg.items()
+        if isinstance(process_info, dict)
+        and process_info.get("jet_component_styles")
+    }
     component_style = pu_hard_component_style(
         sample_name,
-        plot_groups_cfg.get("pu_hard_component_styles", {}),
+        configured_component_styles,
     )
     if component_style is not None:
         family, component_label, color = component_style
         if color is None:
             raise KeyError(
                 f"Missing color for {family} {component_label} in "
-                "config/plot/process_groups.yaml:pu_hard_component_styles"
+                "process_names.yaml:jet_component_styles"
             )
         return {
             "type": "background",
@@ -344,23 +354,50 @@ def make_group_process(group_name, group_cfg, members, input_processes):
         "is_signal": False,
         "type": "background",
         "aliases": list(members),
+        "systematic_inputs": [
+            path
+            for name in members
+            for path in input_processes[name].get("systematic_inputs", [])
+        ],
         "hists": {},
     }
 
-    for member_name in members:
-        member_info = input_processes[member_name]
+    categories = {
+        category
+        for name in members
+        for category in input_processes[name]["hists"]
+    }
+    for category in categories:
+        member_hists = {
+            name: input_processes[name]["hists"].get(category, {})
+            for name in members
+        }
+        hist_names = {hist_name for hists in member_hists.values() for hist_name in hists}
+        output_process["hists"].setdefault(category, {})
 
-        for category, hists in member_info["hists"].items():
-            output_process["hists"].setdefault(category, {})
-
-            for hist_name, hist in hists.items():
-                group_hists = output_process["hists"][category]
-
-                if hist_name not in group_hists:
+        for hist_name in hist_names:
+            # For a shifted group template, members without that nuisance must
+            # contribute their nominal histogram.  Otherwise the variation is
+            # incorrectly normalized to only the affected subset of the group.
+            nominal_name = re.sub(
+                r"_(?:CMS_|QCD_|pdf_|JEReta).*(?:Up|Down)$", "", hist_name
+            )
+            is_shift = nominal_name != hist_name
+            group_hist = None
+            for member_name in members:
+                hists = member_hists[member_name]
+                hist = hists.get(hist_name)
+                if hist is None and is_shift:
+                    hist = hists.get(nominal_name)
+                if hist is None:
+                    continue
+                if group_hist is None:
                     clone_name = f"{group_name}_{category}_{hist_name}"
-                    group_hists[hist_name] = clone_hist_for_group(hist, clone_name)
+                    group_hist = clone_hist_for_group(hist, clone_name)
                 else:
-                    group_hists[hist_name].Add(hist)
+                    group_hist.Add(hist)
+            if group_hist is not None:
+                output_process["hists"][category][hist_name] = group_hist
 
     return output_process
 
@@ -622,6 +659,16 @@ if __name__ == "__main__":
         "--systematics",
         action="store_true",
         help="Include systematic uncertainties",
+    )
+    parser.add_argument(
+        "--systematic-input",
+        action="append",
+        default=[],
+        metavar="NAME=DIR",
+        help=(
+            "Load shifted templates from a separate hadded directory while "
+            "keeping nominal templates in --input; repeat for each family."
+        ),
     )
 
     parser.add_argument(
@@ -1078,6 +1125,7 @@ if __name__ == "__main__":
 
             input_processes[process_name] = {
                 "input": full_path,
+                "systematic_inputs": [],
                 "color": sample_info["color"],
                 "name": sample_info["name"],
                 "is_data": sample_info["is_data"],
@@ -1173,6 +1221,65 @@ if __name__ == "__main__":
                     all_found_variables.add(base_name)
 
             root_file.Close()
+
+    # Load shifted templates from independent systematic directories.  This
+    # avoids building one very large all-systematics ROOT file per process.
+    for source_spec in args.systematic_input:
+        if "=" not in source_spec:
+            raise ValueError(
+                f"--systematic-input expects NAME=DIR, got {source_spec!r}"
+            )
+        source_name, source_dir = source_spec.split("=", 1)
+        print(f"[SYST INPUT] {source_name}: {source_dir}")
+        for process_name, process_info in input_processes.items():
+            source_path = os.path.join(source_dir, f"{process_name}.root")
+            if not os.path.isfile(source_path):
+                continue
+            process_info["systematic_inputs"].append(source_path)
+            source_file = ROOT.TFile.Open(source_path, "READ")
+            if not source_file or source_file.IsZombie():
+                print(f"[WARNING] Invalid systematic ROOT file: {source_path}")
+                continue
+            available_hists = get_available_histograms(
+                source_file,
+                region_path,
+                scale_factor=process_scale_factors.get(process_name, 1.0),
+                recursive=True,
+                exclude_2d=args.exclude_2d,
+            )
+            for available_hist, hist_name in available_hists:
+                if not hist_name.endswith(("Up", "Down")):
+                    continue
+                base_name = re.sub(
+                    r"_(?:CMS_|QCD_|pdf_|JEReta).*(?:Up|Down)$", "", hist_name
+                )
+                if requested_variables_set is not None and base_name not in requested_variables_set:
+                    continue
+                try:
+                    var_entry = findBinEntry(hist_cfg, base_name)
+                except KeyError:
+                    continue
+                rebinned_hist = available_hist
+                if args.rebin:
+                    if "x_rebin" in hist_cfg[var_entry]:
+                        bins_to_compute = findNewBins(
+                            hist_cfg, var_entry, dir_name=region_path
+                        )
+                        new_bins = getNewBins(bins_to_compute)
+                    else:
+                        new_bins = hist_cfg[var_entry].get("x_bins", [])
+                    rebinned_hist = RebinHisto(
+                        available_hist,
+                        new_bins,
+                        process_name,
+                        wantOverflow=False,
+                    )
+                if rebinned_hist is None:
+                    continue
+                rebinned_hist.SetDirectory(0)
+                if is_valid_histogram(rebinned_hist):
+                    process_info["hists"][region_path][hist_name] = rebinned_hist
+            source_file.Close()
 
     input_processes = apply_plot_groups(
         input_processes,

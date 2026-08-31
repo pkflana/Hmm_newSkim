@@ -483,33 +483,35 @@ deduplicate_output_jobs() {
   fi
 }
 
-apply_default_dy_105_160_vbf_cuts() {
+configured_dataset_cut() {
   local era="$1"
-  local cut=""
+  local dataset_name="$2"
+  python3 - "config/${era}/samples.yaml" "${dataset_name}" <<'PY'
+import sys
+import yaml
+
+path, dataset = sys.argv[1:]
+with open(path) as stream:
+    samples = yaml.safe_load(stream) or {}
+cut = (samples.get(dataset) or {}).get("additional_cuts")
+if cut:
+    print(cut)
+PY
+}
+
+apply_configured_dataset_cuts() {
+  local era="$1"
+  local cut
 
   [[ "${campaign_mode}" != "validation" ]] || return 0
-  case "${era}" in
-    Run3_2024|Run3_2025|Run3_2026) ;;
-    *) return 0 ;;
-  esac
-
   for i in "${!job_datasets[@]}"; do
-    case "${job_datasets[$i]}" in
-      DYto2Mu_MLL_105to160_amcatnloFXFX)
-        cut="GenVBFFilter==0"
-        ;;
-      DYto2Mu_MLL_105to160_amcatnloFXFX_Fil_VBF)
-        cut="GenVBFFilter==1"
-        ;;
-      *)
-        continue
-        ;;
-    esac
-
-    # Respect an explicit caller override, but otherwise make the disjoint
-    # inclusive/VBF-filtered phase-space routing part of default production.
-    if [[ " ${job_specific_opts[$i]} " != *" --additional-cuts "* ]]; then
+    if [[ " ${job_specific_opts[$i]} " == *" --additional-cuts "* ]]; then
+      continue
+    fi
+    cut="$(configured_dataset_cut "${era}" "${job_datasets[$i]}")"
+    if [[ -n "${cut}" ]]; then
       job_specific_opts[$i]="${job_specific_opts[$i]:+${job_specific_opts[$i]} }--additional-cuts ${cut}"
+      echo "[INFO] ${job_datasets[$i]}: configured additional cut '${cut}'"
     fi
   done
 }
@@ -591,11 +593,8 @@ add_dy_105_160_jobs() {
       # For 2024-2026 the nominal DY 105-160 selection is composed of the
       # inclusive sample outside the generator-level VBF phase space and the
       # dedicated VBF-filtered sample inside that phase space.
-      add_job DYto2Mu_MLL_105to160_amcatnloFXFX 20 "" \
-        --additional-cuts "GenVBFFilter==0"
-      add_job DYto2Mu_MLL_105to160_amcatnloFXFX_VBFFiltered 20 "" \
-        --additional-cuts "GenVBFFilter==1"
-      add_job DYto2Mu_MLL105To160_FlashSim 20 "" \
+      add_job DYto2Mu_MLL_105to160_amcatnloFXFX 20
+      add_job DYto2Mu_MLL_105to160_amcatnloFXFX_VBFFiltered 20
       ;;
     Run3_2022|Run3_2022EE|Run3_2023|Run3_2023BPix)
       # No VBF-filtered companion sample exists for these eras.
@@ -1122,7 +1121,7 @@ if [[ ${#excluded_datasets[@]} -gt 0 ]]; then
     filter_out_dataset "${excluded_dataset}"
   done
 fi
-apply_default_dy_105_160_vbf_cuts "${era}"
+apply_configured_dataset_cuts "${era}"
 if [[ "${campaign_mode}" == "validation" ]]; then
   deduplicate_validation_jobs
 else

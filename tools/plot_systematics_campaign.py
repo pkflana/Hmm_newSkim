@@ -77,7 +77,7 @@ def slug(value: str) -> str:
 
 def plot_command(
     *, input_base: Path, output: Path, era: str, region: str, variable: str,
-    samples: list[str], group: str, execute: bool,
+    samples: list[str], group: str, systematic_inputs: list[str], execute: bool,
 ) -> list[str]:
     command = [
         str(REPO / "hmumu"), "plot",
@@ -93,6 +93,9 @@ def plot_command(
         "--no-mc-stat-uncertainty",
         "--rebin",
     ]
+    for source in systematic_inputs:
+        name, base = source.split("=", 1)
+        command += ["--systematic-input", f"{name}={Path(base) / era}"]
     if execute:
         command.append("--run")
     return command
@@ -105,6 +108,16 @@ def main() -> int:
     parser.add_argument("--era", action="append", dest="eras")
     parser.add_argument("--sample", action="append", dest="samples")
     parser.add_argument("--systematic-group", action="append", dest="groups")
+    parser.add_argument(
+        "--systematic-input",
+        action="append",
+        default=[],
+        metavar="NAME=BASE_DIR",
+        help=(
+            "load each shifted family from BASE_DIR/ERA; repeat for every "
+            "separate hadded systematic directory"
+        ),
+    )
     parser.add_argument("--region", default="Signal_Fit_VBF")
     parser.add_argument("--variable", default="DNN_NNOutput")
     parser.add_argument(
@@ -136,6 +149,7 @@ def main() -> int:
                         variable=args.variable,
                         samples=[sample],
                         group=group,
+                        systematic_inputs=args.systematic_input,
                         execute=args.run,
                     ))
         if args.mode in {"combined", "both"}:
@@ -148,6 +162,7 @@ def main() -> int:
                     variable=args.variable,
                     samples=samples,
                     group=group,
+                    systematic_inputs=args.systematic_input,
                     execute=args.run,
                 ))
 

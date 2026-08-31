@@ -13,8 +13,8 @@ DY_AMCATNLO_NORMALIZATION = 0.9393839712918659
 REPOSITORY_ROOT = Path(__file__).resolve().parents[1]
 
 
-def reweight_json_paths(era):
-    """Return the three histogram reweight payloads for one physical era."""
+def reweight_json_paths(era, configured_paths=None, required=None):
+    """Return configured histogram reweight payloads for one physical era."""
     era_name = str(era)
     paths = {
         "ptll_njets": REPOSITORY_ROOT / "reweights" / "dy_ptll_reweight"
@@ -24,7 +24,14 @@ def reweight_json_paths(era):
         "jet_component": REPOSITORY_ROOT / "reweights" / "dy_012j_reweight"
         / era_name / "dy_012j_reweight.json",
     }
-    missing = [str(path) for path in paths.values() if not path.is_file()]
+    for name, configured_path in (configured_paths or {}).items():
+        if name not in paths:
+            raise KeyError(f"Unknown DY reweight JSON key: {name}")
+        path = Path(configured_path)
+        paths[name] = path if path.is_absolute() else REPOSITORY_ROOT / path
+
+    required = set(paths) if required is None else set(required)
+    missing = [str(paths[name]) for name in required if not paths[name].is_file()]
     if missing:
         raise FileNotFoundError(
             f"Missing histogram reweight JSON for era {era_name}: "
@@ -339,16 +346,22 @@ def build_jet_component_reweight_expression(payload, available_columns):
     )
     data = correction.get("data", {})
     weights = {item["key"]: item["value"] for item in data.get("content", [])}
-    expected = {"0J", "1JHard", "1JPU", "2JHard", "2JPU1", "2JPU2"}
+    expected = {
+        "0J", "1JHard", "1JPU", "2JHard", "2JPU1", "2JPU2",
+        "VBFHard", "VBFPU1", "VBFPU2",
+    }
     if set(weights) != expected:
         raise ValueError(f"DY jet-component payload must contain {sorted(expected)}")
     conditions = {
         "0J": "!VBF && N_SelectedJets == 0",
         "1JHard": "!VBF && N_SelectedJets == 1 && N_PU_FirstTwoJets == 0",
         "1JPU": "!VBF && N_SelectedJets == 1 && N_PU_FirstTwoJets == 1",
-        "2JHard": "(VBF && N_PU_VBFJets == 0) || (!VBF && N_SelectedJets >= 2 && N_PU_FirstTwoJets == 0)",
-        "2JPU1": "(VBF && N_PU_VBFJets == 1) || (!VBF && N_SelectedJets >= 2 && N_PU_FirstTwoJets == 1)",
-        "2JPU2": "(VBF && N_PU_VBFJets == 2) || (!VBF && N_SelectedJets >= 2 && N_PU_FirstTwoJets == 2)",
+        "2JHard": "!VBF && N_SelectedJets >= 2 && N_PU_FirstTwoJets == 0",
+        "2JPU1": "!VBF && N_SelectedJets >= 2 && N_PU_FirstTwoJets == 1",
+        "2JPU2": "!VBF && N_SelectedJets >= 2 && N_PU_FirstTwoJets == 2",
+        "VBFHard": "VBF && N_PU_VBFJets == 0",
+        "VBFPU1": "VBF && N_PU_VBFJets == 1",
+        "VBFPU2": "VBF && N_PU_VBFJets == 2",
     }
     return "\n".join(
         f"if ({condition}) return static_cast<float>({_format_float(weights[name])});"
@@ -473,13 +486,33 @@ def ApplyDYJetComponentReweight(
     )
 
 
-def apply_custom_weights(df, dataset_name, era, weight_columns, apply_jet_component=True):
+def apply_custom_weights(
+    df,
+    dataset_name,
+    era,
+    weight_columns,
+    apply_jet_component=True,
+    apply_dy_ptll=True,
+    apply_dy_njets=True,
+    reweight_jsons=None,
+):
     """Apply every custom histogram-production weight configured for the era."""
     df = ApplyDYAmcatnloNormalization(df, dataset_name, weight_columns)
     if not is_dy_dataset(dataset_name):
         return df
 
-    paths = reweight_json_paths(era)
-    df = ApplyDYPtLLReweight(df, dataset_name, paths["ptll_njets"], weight_columns)
-    df = ApplyDYNJetsReweight(df, dataset_name, paths["njets"], weight_columns)
+    required = []
+    if apply_dy_ptll:
+        required.append("ptll_njets")
+    if apply_dy_njets:
+        required.append("njets")
+    if apply_jet_component:
+        required.append("jet_component")
+    paths = reweight_json_paths(era, reweight_jsons, required)
+    if apply_dy_ptll:
+        df = ApplyDYPtLLReweight(
+            df, dataset_name, paths["ptll_njets"], weight_columns
+        )
+    if apply_dy_njets:
+        df = ApplyDYNJetsReweight(df, dataset_name, paths["njets"], weight_columns)
     return ApplyDYJetComponentReweight(df, dataset_name, paths["jet_component"], weight_columns) if apply_jet_component else df
