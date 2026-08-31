@@ -143,6 +143,19 @@ def run_merge_eras(args: argparse.Namespace) -> int:
                     inputs.append(input_path)
             if inputs:
                 jobs.append((base / output_era / output_relative, inputs))
+    if getattr(args, "missing_only", False):
+        existing = sum(output.is_file() and output.stat().st_size > 0 for output, _ in jobs)
+        jobs = [
+            (output, inputs)
+            for output, inputs in jobs
+            if not output.is_file() or output.stat().st_size == 0
+        ]
+        if not jobs:
+            print(
+                f"All {existing} merged-era ROOT output(s) already exist; "
+                "nothing to do."
+            )
+            return 0
         jobs.sort(key=lambda job: str(job[0]))
         print(
             "DY MLL 105-160 routing: canonical output name for every era"
@@ -178,7 +191,7 @@ def run_hadd_processes(args: argparse.Namespace) -> int:
         ]
         if args.add_derived_systs:
             command.append("--add-derived-systs")
-        if args.missing_only:
+        if getattr(args, "missing_only", False):
             command.append("--missing-only")
         commands.append(command)
 
@@ -852,6 +865,11 @@ def build_parser() -> argparse.ArgumentParser:
         ),
     )
     merge_eras.add_argument("--force", action=argparse.BooleanOptionalAction, default=True)
+    merge_eras.add_argument(
+        "--missing-only",
+        action="store_true",
+        help="create only absent or empty merged-era ROOT outputs",
+    )
     merge_eras.add_argument(
         "--skip-errors",
         action="store_true",

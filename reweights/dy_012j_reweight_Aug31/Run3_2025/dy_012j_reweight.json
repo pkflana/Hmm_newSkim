@@ -1,0 +1,65 @@
+{
+  "schema_version": 2,
+  "description": "Data-driven DY hard-jet component fit for Run3_2025",
+  "corrections": [
+    {
+      "name": "dy_012j_reweight",
+      "description": "Separate DY normalizations for six ggF reco/PU components and three VBF hard/PU components.",
+      "version": 1,
+      "inputs": [
+        {
+          "name": "component",
+          "type": "string",
+          "description": "Exclusive reco/PU jet component."
+        }
+      ],
+      "output": {
+        "name": "weight",
+        "type": "real"
+      },
+      "data": {
+        "nodetype": "category",
+        "input": "component",
+        "content": [
+          {
+            "key": "0J",
+            "value": 1.0
+          },
+          {
+            "key": "1JHard",
+            "value": 1.0
+          },
+          {
+            "key": "1JPU",
+            "value": 1.0
+          },
+          {
+            "key": "2JHard",
+            "value": 1.0
+          },
+          {
+            "key": "2JPU1",
+            "value": 1.0
+          },
+          {
+            "key": "2JPU2",
+            "value": 1.0
+          },
+          {
+            "key": "VBFHard",
+            "value": 0.9018120097333289
+          },
+          {
+            "key": "VBFPU1",
+            "value": 0.3044267091621575
+          },
+          {
+            "key": "VBFPU2",
+            "value": 0.39108802556492395
+          }
+        ],
+        "default": 1.0
+      }
+    }
+  ]
+}

@@ -4,9 +4,7 @@
 from __future__ import annotations
 
 import argparse
-import itertools
 import json
-import math
 import os
 from pathlib import Path
 import sys
@@ -20,6 +18,7 @@ matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 import numpy as np
 import ROOT
+from scipy.optimize import Bounds, LinearConstraint, minimize
 
 try:
     import mplhep as hep
@@ -42,8 +41,8 @@ VBF_COMPONENTS = ("VBFHard", "VBFPU1", "VBFPU2")
 # in the following inclusive observables, which implicitly select >=1J (j1)
 # and >=2J (j2).  The final m_mumu fit is inclusive in reco multiplicity.
 FIT_STAGES = (
-    ("2J", "eta_vs_pt_subleadingjet", ("2JHard", "2JPU1", "2JPU2")),
-    ("1J", "eta_vs_pt_leadingjet", ("1JHard", "1JPU")),
+    ("2J", "eta_signed_vs_pt_subleadingjet", ("2JHard", "2JPU1", "2JPU2")),
+    ("1J", "eta_signed_vs_pt_leadingjet", ("1JHard", "1JPU")),
     ("0J", "m_mumu", ("0J",)),
 )
 DEFAULT_SUBTRACT = (
@@ -93,58 +92,72 @@ def sum_hists(paths, root_path, reference):
     return total, used
 
 
-def solve_nonnegative_wls(target, templates, variance, template_variances):
-    """Small bounded WLS solver; enumerate active component sets."""
-    npar = templates.shape[1]
-    theta = np.ones(npar)
-    best = None
-    for _ in range(8):
-        effective_var = variance + np.sum(
-            template_variances * theta[np.newaxis, :] ** 2, axis=1
-        )
-        valid = np.isfinite(target) & (effective_var > 0) & np.all(
-            np.isfinite(templates), axis=1
-        )
-        y = target[valid]
-        matrix = templates[valid]
-        weight = 1.0 / effective_var[valid]
-        if np.linalg.matrix_rank(matrix * np.sqrt(weight)[:, None]) < npar:
-            raise RuntimeError(
-                "The DY component templates are linearly dependent in the valid "
-                f"fit bins; {npar} independent normalizations cannot be identified."
-            )
-        best = None
-        for size in range(1, npar + 1):
-            for active in itertools.combinations(range(npar), size):
-                design = matrix[:, active]
-                weighted = design * np.sqrt(weight)[:, None]
-                solution, _, _, _ = np.linalg.lstsq(
-                    weighted, y * np.sqrt(weight), rcond=None
-                )
-                if np.any(solution < 0):
-                    continue
-                candidate = np.zeros(npar)
-                candidate[list(active)] = solution
-                residual = y - matrix @ candidate
-                chi2 = float(np.sum(weight * residual * residual))
-                if best is None or chi2 < best[0]:
-                    best = (chi2, candidate, active, valid, weight)
-        if best is None:
-            raise RuntimeError("No valid non-negative fit solution")
-        new_theta = best[1]
-        if np.allclose(new_theta, theta, rtol=1e-6, atol=1e-8):
-            theta = new_theta
-            break
-        theta = new_theta
+def solve_nonnegative_poisson(data, background, templates):
+    """Fit non-negative DY scales with a binned Poisson likelihood.
 
-    chi2, theta, active, valid, weight = best
-    covariance = np.zeros((npar, npar))
-    design = templates[valid][:, active]
-    normal = design.T @ (weight[:, None] * design)
-    active_cov = np.linalg.pinv(normal)
-    covariance[np.ix_(active, active)] = active_cov
-    ndof = max(int(np.count_nonzero(valid) - len(active)), 0)
-    return theta, covariance, chi2, ndof, valid
+    The expectation in every retained bin is
+        mu = fixed non-DY/fitted-DY background + templates @ theta.
+    MC templates are treated as fixed predictions; the likelihood is Poisson
+    in the observed data counts.
+    """
+    npar = templates.shape[1]
+    valid = (
+        np.isfinite(data)
+        & (data >= 0)
+        & np.isfinite(background)
+        & np.all(np.isfinite(templates), axis=1)
+        & ((background + np.sum(templates, axis=1)) > 0)
+    )
+    observed = data[valid]
+    fixed = background[valid]
+    matrix = templates[valid]
+    if matrix.shape[0] <= npar or np.linalg.matrix_rank(matrix) < npar:
+        raise RuntimeError(
+            "The DY component templates are linearly dependent in the valid "
+            f"fit bins; {npar} independent normalizations cannot be identified."
+        )
+
+    epsilon = 1.0e-12
+
+    def expectation(theta):
+        return fixed + matrix @ theta
+
+    def nll(theta):
+        mu = expectation(theta)
+        if np.any(mu <= 0):
+            return np.inf
+        return float(np.sum(mu - observed * np.log(mu)))
+
+    def gradient(theta):
+        mu = expectation(theta)
+        return matrix.T @ (1.0 - observed / mu)
+
+    result = minimize(
+        nll,
+        np.ones(npar),
+        jac=gradient,
+        method="SLSQP",
+        bounds=Bounds(np.zeros(npar), np.full(npar, np.inf)),
+        constraints=LinearConstraint(matrix, epsilon - fixed, np.inf),
+        options={"ftol": 1.0e-10, "maxiter": 2000},
+    )
+    if not result.success or not np.all(np.isfinite(result.x)):
+        raise RuntimeError(f"Poisson likelihood fit failed: {result.message}")
+
+    theta = np.maximum(result.x, 0.0)
+    mu = expectation(theta)
+    hessian = matrix.T @ ((observed / mu**2)[:, np.newaxis] * matrix)
+    covariance = np.linalg.pinv(hessian)
+    positive = observed > 0
+    deviance_terms = np.array(mu, copy=True)
+    deviance_terms[positive] = (
+        mu[positive]
+        - observed[positive]
+        + observed[positive] * np.log(observed[positive] / mu[positive])
+    )
+    deviance = float(2.0 * np.sum(deviance_terms))
+    ndof = max(int(np.count_nonzero(valid) - npar), 0)
+    return theta, covariance, deviance, ndof, valid, float(result.fun)
 
 
 def correction_payload(era, theta, covariance):
@@ -243,8 +256,7 @@ def main():
             component for component in component_names
             if np.isfinite(theta[component_index[component]])
         ]
-        target_parts, variance_parts = [], []
-        template_parts, template_var_parts = [], []
+        data_parts, background_parts, template_parts = [], [], []
         merged_data = merged_background = None
         merged_components = {}
         for period_index, input_dir in enumerate(input_dirs):
@@ -258,35 +270,29 @@ def main():
             ]
             non_dy, used_here = sum_hists(subtract_paths, root_path, data)
             used.update(f"{input_dir.name}:{name}" for name in used_here)
-            data_v, data_var = hist_arrays(data)
-            non_v, non_var = hist_arrays(non_dy)
+            data_v, _ = hist_arrays(data)
+            non_v, _ = hist_arrays(non_dy)
             component_hists = {}
             component_values = {}
-            component_variances = {}
             for component, suffix in COMPONENTS.items():
                 hist = open_hist(
                     input_dir / f"{args.dy_process}_{suffix}.root", root_path,
                     f"dy_{stage}_{component}_{period_index}",
                 )
                 component_hists[component] = hist
-                component_values[component], component_variances[component] = hist_arrays(hist)
+                component_values[component], _ = hist_arrays(hist)
 
             fixed_v = np.zeros_like(data_v)
-            fixed_var = np.zeros_like(data_var)
             effective_background = non_dy.Clone(f"background_{stage}_{period_index}")
             effective_background.SetDirectory(0)
             for component in fixed_components:
                 index = component_index[component]
                 fixed_v += theta[index] * component_values[component]
-                fixed_var += theta[index] ** 2 * component_variances[component]
                 effective_background.Add(component_hists[component], theta[index])
-            target_parts.append(data_v - non_v - fixed_v)
-            variance_parts.append(data_var + non_var + fixed_var)
+            data_parts.append(data_v)
+            background_parts.append(non_v + fixed_v)
             template_parts.append(np.column_stack([
                 component_values[name] for name in active_components
-            ]))
-            template_var_parts.append(np.column_stack([
-                component_variances[name] for name in active_components
             ]))
 
             if merged_data is None:
@@ -303,10 +309,11 @@ def main():
                     merged_components[name].Add(component_hists[name])
 
         templates = np.concatenate(template_parts, axis=0)
-        template_var = np.concatenate(template_var_parts, axis=0)
-        stage_theta, stage_covariance, chi2, ndof, valid = solve_nonnegative_wls(
-            np.concatenate(target_parts), templates,
-            np.concatenate(variance_parts), template_var,
+        stage_theta, stage_covariance, deviance, ndof, valid, poisson_nll = (
+            solve_nonnegative_poisson(
+                np.concatenate(data_parts), np.concatenate(background_parts),
+                templates,
+            )
         )
         active_indices = [component_index[name] for name in active_components]
         theta[active_indices] = stage_theta
@@ -316,7 +323,9 @@ def main():
             "variable": variable,
             "parameters": list(active_components),
             "fixed_components": fixed_components,
-            "chi2": chi2,
+            "poisson_nll": poisson_nll,
+            "poisson_deviance": deviance,
+            "chi2": deviance,
             "ndof": ndof,
             "n_fit_bins": int(np.count_nonzero(valid)),
         })
@@ -330,8 +339,7 @@ def main():
     stage = "VBF"
     variable = "eta_signed_vs_pt_vbfjet1"
     root_path = f"{args.vbf_region}/{variable}"
-    target_parts, variance_parts = [], []
-    template_parts, template_var_parts = [], []
+    data_parts, background_parts, template_parts = [], [], []
     merged_data = merged_non_dy = None
     merged_components = {}
     for period_index, input_dir in enumerate(input_dirs):
@@ -345,10 +353,10 @@ def main():
         ]
         non_dy, used_here = sum_hists(subtract_paths, root_path, data)
         used.update(f"{input_dir.name}:{name}" for name in used_here)
-        data_v, data_var = hist_arrays(data)
-        non_v, non_var = hist_arrays(non_dy)
+        data_v, _ = hist_arrays(data)
+        non_v, _ = hist_arrays(non_dy)
         component_hists = {}
-        values, variances = {}, {}
+        values = {}
         for component in VBF_COMPONENTS:
             suffix = COMPONENTS[component]
             hist = open_hist(
@@ -356,11 +364,10 @@ def main():
                 f"dy_{stage}_{component}_{period_index}",
             )
             component_hists[component] = hist
-            values[component], variances[component] = hist_arrays(hist)
-        target_parts.append(data_v - non_v)
-        variance_parts.append(data_var + non_var)
+            values[component], _ = hist_arrays(hist)
+        data_parts.append(data_v)
+        background_parts.append(non_v)
         template_parts.append(np.column_stack([values[name] for name in VBF_COMPONENTS]))
-        template_var_parts.append(np.column_stack([variances[name] for name in VBF_COMPONENTS]))
         if merged_data is None:
             merged_data = data.Clone("data_VBF"); merged_data.SetDirectory(0)
             merged_non_dy = non_dy.Clone("background_VBF"); merged_non_dy.SetDirectory(0)
@@ -373,10 +380,10 @@ def main():
             merged_data.Add(data); merged_non_dy.Add(non_dy)
             for name in VBF_COMPONENTS: merged_components[name].Add(component_hists[name])
     templates = np.concatenate(template_parts, axis=0)
-    template_var = np.concatenate(template_var_parts, axis=0)
-    stage_theta, stage_covariance, chi2, ndof, valid = solve_nonnegative_wls(
-        np.concatenate(target_parts), templates,
-        np.concatenate(variance_parts), template_var,
+    stage_theta, stage_covariance, deviance, ndof, valid, poisson_nll = (
+        solve_nonnegative_poisson(
+            np.concatenate(data_parts), np.concatenate(background_parts), templates,
+        )
     )
     active_indices = [component_index[name] for name in VBF_COMPONENTS]
     theta[active_indices] = stage_theta
@@ -387,7 +394,9 @@ def main():
         "variable": variable,
         "parameters": list(VBF_COMPONENTS),
         "fixed_components": [],
-        "chi2": chi2,
+        "poisson_nll": poisson_nll,
+        "poisson_deviance": deviance,
+        "chi2": deviance,
         "ndof": ndof,
         "n_fit_bins": int(np.count_nonzero(valid)),
     })
@@ -442,8 +451,8 @@ def main():
         print(f"[FIT] DY {component}: {value:.6g} +/- {error:.6g}")
     for summary in stage_summaries:
         print(
-            f"[FIT] {summary['stage']} chi2/ndof = "
-            f"{summary['chi2']:.3f}/{summary['ndof']}"
+            f"[FIT] {summary['stage']} Poisson deviance/ndof = "
+            f"{summary['poisson_deviance']:.3f}/{summary['ndof']}"
         )
     print(f"[OUTPUT] {args.output_json}")
     print(f"[OUTPUT] {fit_summary_path}")
