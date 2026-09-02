@@ -209,6 +209,12 @@ def build_uncertainties(yaml_path, processes):
     sections.update(cfg["weights"])
 
     for key, block in sections.items():
+      if type(block.get("components",""))==list:
+        components = block.get("components","")
+        for component in components:
+          name = component+year
+          uncertainties.append([name, "shape", "1", None])
+      else:
         name = block.get("name", "")
         if name=="":
           continue
@@ -280,7 +286,7 @@ process_files = {}
 year = sys.argv[1]
 
 outputpath = "combine/"
-histogramfilepath = "/eos/user/v/vdamante/H_mumu/campaigns/DNN_Signal_VBF_Components/merged_hadded/Run3_"+year+"/"
+histogramfilepath = "/eos/user/v/vdamante/H_mumu/Aug25/DNN_SignalFit_VBF/WithDY012JWeights/Hists_AllSystematics_hadded/Run3_"+year+"/"
 
 if absolutepath:
   absolutepathname = '/'.join(histogramfilepath.split("/")[:-2])+"/"
@@ -477,3 +483,4 @@ for band in bands:
   f.close()
 #   DY_norm rateParam * DYto2Mu_MLL105To160 1 [0,10]
 # EWK_norm rateParam * EWK_2Mu2J_MLL_105to160_herwig 1 [0,10]
+# combineCards.py Run3_2022=Signal_Fit_VBF2022.txt Run3_2022EE=Signal_Fit_VBF2022EE.txt Run3_2023=Signal_Fit_VBF2023.txt Run3_2023BPix=Signal_Fit_VBF2023BPix.txt Run3_2024=Signal_Fit_VBF2024.txt Run3_2025=Signal_Fit_VBF2025.txt > Signal_Fit_VBF.txt
