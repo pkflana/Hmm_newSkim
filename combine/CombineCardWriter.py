@@ -307,6 +307,10 @@ lumidict = {"lumi_2022_2023_2024": {"2022": "1.0138", "2023": "1.0017", "2024": 
             "lumi_2025": {"2022": "-", "2023": "-", "2024": "-", "2025": "1.05"}
 }
 
+DYdict = {"2022":{"name":"DYVBFZ_fit_2J{split}_2022_2022EE","split":{"Hard":"1.013021","PU1":"1.022131","PU2":"1.058263"}},
+          "2023":{"name":"DYVBFZ_fit_2J{split}_2023_2023BPix","split":{"Hard":"1.023091","PU1":"1.040727","PU2":"1.039661"}},
+          "2024":{"name":"DYVBFZ_fit_2J{split}_2024","split":{"Hard":"1.003436","PU1":"1.009221","PU2":"1.008642"}},
+          "2025":{"name":"DYVBFZ_fit_2J{split}_2025","split":{"Hard":"1.003906","PU1":"1.009983","PU2":"1.009053"}}}
 xsecdict = build_xsec_dictionary(CONFIG_PATH+"/crossSections13p6TeV.yaml",signalprocesses+backgroundprocesses)
 
 for band in bands:
@@ -327,6 +331,8 @@ for band in bands:
       if not is_good:
           print("  -> Process '{}' will be turned OFF".format(proc))
 
+  for key in DYdict[year.replace("EE","").replace("BPix","")]["split"].keys():
+    uncertainties.append([DYdict[year.replace("EE","").replace("BPix","")]["name"].replace("{split}",key), "lnN", DYdict[year.replace("EE","").replace("BPix","")]["split"][key], "DYto2Mu_MLL105To160_2J_"+key])
   # # Build the filtered lists of processes to actually write in the datacard
   # signalprocesses = [p for p in signalprocesses if good_processes[p]]
   # backgroundprocesses = [p for p in backgroundprocesses if good_processes[p]]
@@ -470,17 +476,17 @@ for band in bands:
   #add MC statistics evaluation
   f.write("\n")
   f.write("* autoMCStats 10 0 1\n")
-  f.write(
-      "DY_norm_Hard_{era} rateParam {ch}_{era} "
-      "DYto2Mu_MLL105To160_2J_Hard 1 [0,5.]\n".format(ch=band, era=year)
-  )
-  for proc in ("DYto2Mu_MLL105To160_2J_PU1", "DYto2Mu_MLL105To160_2J_PU2"):
-    f.write(
-        "DY_norm_PU_{era} rateParam {ch}_{era} "
-        "{proc} 1 [0,5.]\n".format(ch=band, era=year, proc=proc)
-    )
+  # f.write(
+  #     "DY_norm_Hard_{era} rateParam {ch}_{era} "
+  #     "DYto2Mu_MLL105To160_2J_Hard 1 [0,5.]\n".format(ch=band, era=year)
+  # )
+  # for proc in ("DYto2Mu_MLL105To160_2J_PU1", "DYto2Mu_MLL105To160_2J_PU2"):
+  #   f.write(
+  #       "DY_norm_PU_{era} rateParam {ch}_{era} "
+  #       "{proc} 1 [0,5.]\n".format(ch=band, era=year, proc=proc)
+  #   )
 
   f.close()
 #   DY_norm rateParam * DYto2Mu_MLL105To160 1 [0,10]
 # EWK_norm rateParam * EWK_2Mu2J_MLL_105to160_herwig 1 [0,10]
-# combineCards.py Run3_2022=Signal_Fit_VBF2022.txt Run3_2022EE=Signal_Fit_VBF2022EE.txt Run3_2023=Signal_Fit_VBF2023.txt Run3_2023BPix=Signal_Fit_VBF2023BPix.txt Run3_2024=Signal_Fit_VBF2024.txt Run3_2025=Signal_Fit_VBF2025.txt > Signal_Fit_VBF.txt
+# combineCards.py y2022=Signal_Fit_VBF2022.txt y2022EE=Signal_Fit_VBF2022EE.txt y2023=Signal_Fit_VBF2023.txt y2023BPix=Signal_Fit_VBF2023BPix.txt y2024=Signal_Fit_VBF2024.txt y2025=Signal_Fit_VBF2025.txt > Signal_Fit_VBF.txt
