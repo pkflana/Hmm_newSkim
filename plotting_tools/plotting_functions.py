@@ -383,14 +383,27 @@ def set_ratio_axis_range(
         rax.grid(axis="y", which="both", linestyle=":", linewidth=0.6, alpha=0.5)
         return
 
-    ymin = 0
-    ymax = 2
-
-    rax.set_ylim(ymin, ymax)
-
-    ticks = np.round(np.arange(ymin, ymax + 0.001, 0.5), 1)
-    rax.yaxis.set_major_locator(mticker.FixedLocator(ticks))
-    rax.yaxis.set_major_formatter(mticker.FormatStrFormatter("%.1f"))
+    arrays = list(ratio_arrays)
+    if ratio_unc_low is not None:
+        arrays.append(ratio_unc_low)
+    if ratio_unc_high is not None:
+        arrays.append(ratio_unc_high)
+    finite = [
+        values[np.isfinite(values)]
+        for values in (np.asarray(array) for array in arrays)
+    ]
+    finite = [values for values in finite if values.size]
+    max_deviation = max(
+        (float(np.max(np.abs(values - 1.0))) for values in finite),
+        default=0.05,
+    )
+    # Always centre the panel on unity, with 15% headroom and a modest floor
+    # so nearly identical curves are still readable.
+    half_range = max(1.15 * max_deviation, 0.10)
+    rax.set_ylim(1.0 - half_range, 1.0 + half_range)
+    rax.yaxis.set_major_locator(mticker.MaxNLocator(nbins=5))
+    decimals = 3 if half_range < 0.05 else 2 if half_range < 0.5 else 1
+    rax.yaxis.set_major_formatter(mticker.FormatStrFormatter(f"%.{decimals}f"))
     rax.grid(axis="y", which="major", linestyle=":", linewidth=0.6, alpha=0.5)
 
 
@@ -418,7 +431,14 @@ def set_ratio_axis_range(
 # Entries are full nuisance names; era-dependent names use ``{era}``.
 # Each group gets a distinct, colorblind-friendly color.
 SYST_GROUPS = {
-    "Jet Res": (["CMS_res_j_{era}"], "#0072B2"),
+    "Jet Res": (
+        [
+            "JEReta0pt0{era}", "JEReta1pt0{era}",
+            "JEReta2pt0{era}", "JEReta2pt1{era}",
+            "JEReta3pt0{era}", "JEReta3pt1{era}",
+        ],
+        "#0072B2",
+    ),
     "Jet Scale": (["CMS_scale_j_{era}"], "#E69F00"),
     "Muon Eff.": (
         [
@@ -431,7 +451,7 @@ SYST_GROUPS = {
     "Muon Res": (["CMS_res_m_{era}"], "#D55E00"),
     "Muon Scale": (["CMS_scale_m_{era}"], "#CC79A7"),
     "EWKZ PS": (["CMS_hmm_EWKZ_partonShower_{era}"], "#8C564B"),
-    "QCD Scale": (
+    "QCDScale": (
         [
             "QCD_fac_scale_V",
             "QCD_fac_scale_VH",
@@ -462,24 +482,14 @@ SYST_GROUPS = {
     "Muon Iso": (["CMS_eff_m_iso_{era}"], "#009E73"),
     "Muon Trigger": (["CMS_eff_m_trigger_{era}"], "#009E73"),
     "Muon ID": (["CMS_eff_m_id_{era}"], "#009E73"),
-    "QCD fac V": (["QCD_fac_scale_V"], "#E69F00"),
-    "QCD fac VH": (["QCD_fac_scale_VH"], "#E69F00"),
-    "QCD fac VV": (["QCD_fac_scale_VV"], "#E69F00"),
-    "QCD fac VVV": (["QCD_fac_scale_VVV"], "#E69F00"),
-    "QCD fac qqH": (["QCD_fac_scale_qqH"], "#E69F00"),
-    "QCD fac ttbar": (["QCD_fac_scale_ttbar"], "#E69F00"),
-    "QCD ren V": (["QCD_ren_scale_V"], "#D55E00"),
-    "QCD ren VH": (["QCD_ren_scale_VH"], "#D55E00"),
-    "QCD ren VV": (["QCD_ren_scale_VV"], "#D55E00"),
-    "QCD ren VVV": (["QCD_ren_scale_VVV"], "#D55E00"),
-    "QCD ren qqH": (["QCD_ren_scale_qqH"], "#D55E00"),
-    "QCD ren ttbar": (["QCD_ren_scale_ttbar"], "#D55E00"),
-    "PDF Higgs VH": (["pdf_Higgs_VH"], "#56B4E9"),
-    "PDF Higgs qqH": (["pdf_Higgs_qqH"], "#56B4E9"),
-    "PDF gg": (["pdf_gg"], "#56B4E9"),
-    "PDF gq": (["pdf_gq"], "#56B4E9"),
-    "PDF qqbar": (["pdf_qqbar"], "#56B4E9"),
 }
+
+# Compact set used by stacked Data/MC plots.  The more granular entries remain
+# available when explicitly requested for dedicated diagnostics.
+DEFAULT_SYST_GROUPS = (
+    "Jet Res", "Jet Scale", "Pileup", "Muon Eff.", "Muon Res",
+    "Muon Scale", "EWKZ PS", "QCDScale", "PDF",
+)
 
 
 def _hist_content(th1, bin_edges):
@@ -559,7 +569,7 @@ def build_syst_ratio_bands(
 
     result = {}
 
-    requested_groups = set(systematic_groups or SYST_GROUPS)
+    requested_groups = set(systematic_groups or DEFAULT_SYST_GROUPS)
     unknown_groups = requested_groups.difference(SYST_GROUPS)
     if unknown_groups:
         available = ", ".join(SYST_GROUPS)
@@ -577,11 +587,17 @@ def build_syst_ratio_bands(
         group_found = False
 
         for fragment in fragments:
-            if era == "Run3_2022_25" and "{era}" in fragment:
+            combined_suberas = {
+                "Run3_2022_23": ("2022", "2022EE", "2023", "2023BPix"),
+                "Run3_2022_25": (
+                    "2022", "2022EE", "2023", "2023BPix", "2024", "2025"
+                ),
+            }
+            if era in combined_suberas and "{era}" in fragment:
                 delta_up2 = np.zeros(len(bin_edges) - 1, dtype=float)
                 delta_dn2 = np.zeros(len(bin_edges) - 1, dtype=float)
                 combined_found = False
-                for subera in ("2022", "2022EE", "2023", "2023BPix", "2024", "2025"):
+                for subera in combined_suberas[era]:
                     era_delta_up = np.zeros(len(bin_edges) - 1, dtype=float)
                     era_delta_dn = np.zeros(len(bin_edges) - 1, dtype=float)
                     nuisance_name = fragment.format(era=subera)
@@ -589,37 +605,57 @@ def build_syst_ratio_bands(
                     dn_key = f"{variable}_{nuisance_name}Down"
                     era_found = False
                     for key in mc_keys:
-                        for merged_path in samples_dict[key].get("input", "").split(","):
-                            merged_path = merged_path.strip()
-                            if not merged_path:
+                        nominal_paths = {
+                            os.path.basename(path): path
+                            for path in samples_dict[key].get("input", "").split(",")
+                            if path.strip()
+                        }
+                        for shifted_path in samples_dict[key].get("systematic_inputs", []):
+                            nominal_path = nominal_paths.get(os.path.basename(shifted_path))
+                            if nominal_path is None:
                                 continue
-                            source_path = os.path.join(
-                                os.path.dirname(os.path.dirname(merged_path)),
+                            nominal_source_path = os.path.join(
+                                os.path.dirname(os.path.dirname(nominal_path)),
                                 f"Run3_{subera}",
-                                os.path.basename(merged_path),
+                                os.path.basename(nominal_path),
                             )
-                            if not os.path.isfile(source_path):
+                            shifted_source_path = os.path.join(
+                                os.path.dirname(os.path.dirname(shifted_path)),
+                                f"Run3_{subera}",
+                                os.path.basename(shifted_path),
+                            )
+                            if (
+                                not os.path.isfile(nominal_source_path)
+                                or not os.path.isfile(shifted_source_path)
+                            ):
                                 continue
                             try:
-                                source_file = ROOT.TFile.Open(source_path)
+                                nominal_file = ROOT.TFile.Open(nominal_source_path)
+                                shifted_file = ROOT.TFile.Open(shifted_source_path)
                             except OSError:
                                 print(
                                     f"  [WARNING] Cannot open optional "
-                                    f"era source: {source_path}"
+                                    f"era sources: {nominal_source_path}, "
+                                    f"{shifted_source_path}"
                                 )
                                 continue
-                            if not source_file or source_file.IsZombie():
+                            if (
+                                not nominal_file or nominal_file.IsZombie()
+                                or not shifted_file or shifted_file.IsZombie()
+                            ):
                                 continue
-                            source_dir = source_file.Get(category)
-                            h_nom = source_dir.Get(variable) if source_dir else None
-                            h_up = source_dir.Get(up_key) if source_dir else None
-                            h_dn = source_dir.Get(dn_key) if source_dir else None
+                            nominal_dir = nominal_file.Get(category)
+                            shifted_dir = shifted_file.Get(category)
+                            h_nom = nominal_dir.Get(variable) if nominal_dir else None
+                            h_up = shifted_dir.Get(up_key) if shifted_dir else None
+                            h_dn = shifted_dir.Get(dn_key) if shifted_dir else None
                             if h_nom and h_up and h_dn:
                                 nom = _hist_content(h_nom, bin_edges)
                                 era_delta_up += _hist_content(h_up, bin_edges) - nom
                                 era_delta_dn += _hist_content(h_dn, bin_edges) - nom
                                 era_found = True
-                            source_file.Close()
+                            nominal_file.Close()
+                            shifted_file.Close()
                     if era_found:
                         delta_up2 += era_delta_up ** 2
                         delta_dn2 += era_delta_dn ** 2
@@ -668,8 +704,6 @@ def build_syst_ratio_bands(
                 h_nom = hists.get(variable)
                 h_up  = hists.get(up_key)
                 h_dn  = hists.get(dn_key)
-
-                print(f"  [DEBUG] {key}: nom={h_nom is not None}, up={h_up is not None}, dn={h_dn is not None}")
 
                 if h_nom is None:
                     continue
@@ -1811,8 +1845,8 @@ def make_stacked_plot(
                 frameon=True,
                 framealpha=0.8,
                 loc="upper center",
-                bbox_to_anchor=(0.5, 0.99),
-                ncol=4,
+                bbox_to_anchor=(0.5, -0.22),
+                ncol=5,
                 handlelength=1.5,
                 labelspacing=0.25,
             )
@@ -1836,36 +1870,6 @@ def make_stacked_plot(
             ratio_unc_high=ratio_unc_high,
             log_scale=log_uncertainties,
         )
-        if (
-            has_systematics_ratio
-            and not has_default_ratio
-            and not has_sample_ratio
-            and not log_uncertainties
-        ):
-            finite_ratio_values = [
-                values[np.isfinite(values)]
-                for values in (np.asarray(array) for array in ratio_arrays)
-            ]
-            finite_ratio_values = [
-                values for values in finite_ratio_values if values.size
-            ]
-            if finite_ratio_values:
-                max_deviation = max(
-                    float(np.max(np.abs(values - 1.0)))
-                    for values in finite_ratio_values
-                )
-                # Keep the axis centred on the nominal and leave 20% headroom.
-                # A small floor avoids a degenerate range for unity variations.
-                half_range = max(1.2 * max_deviation, 0.01)
-            else:
-                half_range = 0.05
-            rax.set_ylim(1.0 - half_range, 1.0 + half_range)
-            rax.yaxis.set_major_locator(mticker.MaxNLocator(nbins=5))
-            ratio_decimals = 3 if half_range < 0.05 else 2
-            rax.yaxis.set_major_formatter(
-                mticker.FormatStrFormatter(f"%.{ratio_decimals}f")
-            )
-
     # =====================================================
     # Axes
     # =====================================================

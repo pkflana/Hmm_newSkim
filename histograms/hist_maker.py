@@ -529,9 +529,19 @@ def expand_systematic_group_alias(requested_name, available_systematics):
             "PU_down",
         ),
     }
-    return [
+    expanded = [
         name
         for name in aliases.get(normalized_name, ())
+        if name in available_systematics
+    ]
+    if expanded or requested_name in available_systematics:
+        return expanded
+
+    # Campaigns are grouped by nuisance family, while the histogram config
+    # stores the concrete Up/Down variations.
+    return [
+        name
+        for name in (f"{requested_name}Up", f"{requested_name}Down")
         if name in available_systematics
     ]
 def filter_systs_to_run(systs_to_run, requested_systematics):
@@ -760,6 +770,9 @@ def produce_histograms(args_tuple):
                     args.dy_jet_component_reweight
                     and not args.derive_jet_component_weights
                 ),
+                apply_dy_ptll_weight=args.dy_ptll_reweight,
+                apply_dy_njets_weight=args.dy_njets_reweight,
+                reweight_jsons=process_entry.get("reweight_jsons"),
             )
         profile_log(args.dataset_name, "dataframe definitions/finalization", dataframe_finalize_started)
         booking_setup_started = time.perf_counter()
@@ -1132,6 +1145,18 @@ if __name__ == "__main__":
         help="Apply the era-dependent DY 0J/1JHard/1JPU/2JHard/2JPU1/2JPU2 weight (default: enabled).",
     )
     parser.add_argument(
+        "--dy-ptll-reweight",
+        action=argparse.BooleanOptionalAction,
+        default=True,
+        help="Apply the era-dependent DY pT(ll) reweight (default: enabled).",
+    )
+    parser.add_argument(
+        "--dy-njets-reweight",
+        action=argparse.BooleanOptionalAction,
+        default=True,
+        help="Apply the era-dependent DY N(jets) reweight (default: enabled).",
+    )
+    parser.add_argument(
         "--dy-jet-components",
         "--jet-gen-components",
         "--pu-hard-jet-components",
@@ -1250,6 +1275,12 @@ if __name__ == "__main__":
     request_all = any(name.lower() == "all" for name in requested_systematics)
     request_central_only = {name.lower() for name in requested_systematics} <= {"central", "nominal"}
     systematics_mode = "central" if request_central_only else "all"
+    if is_data and systematics_mode != "central":
+        print(
+            f"[SKIP] Dataset {args.dataset_name} is data: non-central "
+            "systematic outputs are not produced."
+        )
+        sys.exit(0)
     empty_validated_input = bool(args.input_manifest and not workflow_manifest.get("valid_root_files", []))
     if empty_validated_input:
         # A failed/empty validation manifest has no events or variation
@@ -1269,13 +1300,6 @@ if __name__ == "__main__":
         request_all = True
         systematics_mode = "all"
     print(systematics_mode)
-    if is_data and systematics_mode != "central":
-        print(
-            f"[INFO] Dataset {args.dataset_name} is data: ignoring non-central "
-            "systematics and producing Central histograms only."
-        )
-        requested_systematics = ["Central"]
-        systematics_mode = "central"
     args.systematics_mode = systematics_mode
     process_cfg = utilities.get_config(os.path.join(cfg_dir, "process_names.yaml"))
     args.process_name = utilities.process_from_dataset(process_cfg, args.dataset_name) or args.dataset_name
@@ -1308,12 +1332,18 @@ if __name__ == "__main__":
                 "histograms without jet/gen component splitting."
             )
             args.dy_jet_components = False
+        elif "split_jet_components" in process_entry:
+            args.dy_jet_components = bool(process_entry["split_jet_components"])
+            print(
+                f"[INFO] Dataset {args.dataset_name} (process {args.process_name}): "
+                f"split_jet_components={args.dy_jet_components} from process_names.yaml."
+            )
         elif not jet_components_enabled_for_dataset(
-            args.jet_gen_component_processes,
-            args.dataset_name,
-            args.process_name,
-            is_signal=bool(process_entry.get("is_signal", False)),
-        ):
+                args.jet_gen_component_processes,
+                args.dataset_name,
+                args.process_name,
+                is_signal=bool(process_entry.get("is_signal", False)),
+            ):
             print(
                 f"[INFO] Dataset {args.dataset_name} (process {args.process_name}) "
                 "is outside --jet-gen-component-processes: producing normal "

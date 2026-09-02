@@ -107,6 +107,14 @@ def ProcessAllJetVariables(df,jet_columns,config,bTagAlgo,bTagDict,want_variatio
     def track(df, name, expr):
         if name not in new_cols:
             new_cols.append(name)
+        # Some legacy skim campaigns persisted these derived ordering columns
+        # only in a subset of their files.  Reading such files in one TChain
+        # makes ROOT bind the branch from the first file and then fail when it
+        # reaches a file produced with the other schema.  Recompute the jet
+        # ordering from the stable p4/goodJet inputs even when a stored copy is
+        # present, so mixed-schema skim campaigns remain readable.
+        if name.startswith("SelectedJet_sortIdx") and name in _column_names(df):
+            return df.Redefine(name, expr)
         if name in _column_names(df): return df
         return df.Define(name, expr)
 

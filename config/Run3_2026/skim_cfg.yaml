@@ -8,7 +8,7 @@ max_files_per_chunk: 5
 max_files: -1        # -1 = all files
 use_ext: true     # if true, use all nanoAOD paths in each list; otherwise only the first
 
-output_dir: /eos/cms/store/group/phys_higgs/cmshmm/vdamante/skim_v3/
+output_dir: /eos/cms/store/group/phys_higgs/cmshmm/vdamante/skim_v3_noJetHornVeto/
 histogram_output_dir: /eos/user/v/vdamante/H_mumu/Hists_DNN_erabased
 histogram_systematics_output_dir: /eos/user/v/vdamante/H_mumu/Hists_DNN_erabased_systematics
 
@@ -37,41 +37,43 @@ process_to_select:
   - Data_Muon
   - DY
   - DYto2Mu_MLL105To160
-  - DYto2Mu_MLL105To160_VBFFiltered
-  - DYto2Mu_MLL105To160_FlashSim
-  - DYto2Mu_minnlo
-  - TT
-  - W
-  - W_NJets
+  # - DYto2Mu_MLL105To160_FlashSim
+  # - DYto2Mu_minnlo
+  # - TT
+  # - W
+  # - W_NJets
   - EWK
+  # - EWK_Flashsim
   - EWK_2Mu2J_MLL_105to160_herwig
-  - EWK_2Mu2J_MLL_105to160_pythia
-  - EWK_2Mu2J_MLL_105to160_pythia_Flashsim
-  - SingleH
-  - VV_Inclusive
-  - VV
-  - VH_inclusive
-  - VVV
-  - ST
-  - TW
-  - TTX
-  - VBFHto2Mu_M125_amcatnlo
-  - VBFHto2Mu_m125_Flashsim
+  # - EWK_2Mu2J_MLL_105to160_herwig_Flashsim
+  # - EWK_2Mu2J_MLL_105to160_pythia
+  # - EWK_2Mu2J_MLL_105to160_pythia_Flashsim
+  # - SingleH
+  # - VV_Inclusive
+  # - VV
+  # - VH_inclusive
+  # - VVV
+  # - ST
+  # - TW
+  # - TTX
+  # - TTto2L2Nu_Flashsim
+  # - VBFHto2Mu_M125_amcatnlo
+  # - VBFHto2Mu_m125_Flashsim
   - VBFHto2Mu_M125_powheg
-  - VBFHto2Mu_m120
-  - VBFHto2Mu_m130
-  - VBFHto2Mu_m125_tuneDown
-  - VBFHto2Mu_m125_tuneUp
+  # - VBFHto2Mu_m120
+  # - VBFHto2Mu_m130
+  # - VBFHto2Mu_m125_tuneDown
+  # - VBFHto2Mu_m125_tuneUp
   - GluGluHto2Mu
-  - GluGluHto2Mu_tuneDown
-  - GluGluHto2Mu_tuneUp
-  - GluGluHto2Mu_amcatnlo
-  - GluGluHto2Mu_MiNNLO
-  - GluGluHto2Mu_M120
-  - GluGluHto2Mu_M130
-  - VHto2Mu
-  - TTHto2Mu
-  - TTH_inclusive
+  # - GluGluHto2Mu_tuneDown
+  # - GluGluHto2Mu_tuneUp
+  # - GluGluHto2Mu_amcatnlo
+  # - GluGluHto2Mu_MiNNLO
+  # - GluGluHto2Mu_M120
+  # - GluGluHto2Mu_M130
+  # - VHto2Mu
+  # - TTHto2Mu
+  # - TTH_inclusive
 
 
 proxy_location: /afs/cern.ch/work/v/vdamante/Hmm_newSkim/data/voms.proxy

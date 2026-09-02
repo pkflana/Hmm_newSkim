@@ -80,6 +80,9 @@ def finalize_histogram_dataframe(
     want_variations=False,
     multiply_corrections=True,
     apply_jet_component_weight=True,
+    apply_dy_ptll_weight=True,
+    apply_dy_njets_weight=True,
+    reweight_jsons=None,
 ):
     """Apply selections and final weight corrections exactly once."""
     rdf = DefineHistogramSelections(
@@ -89,10 +92,19 @@ def finalize_histogram_dataframe(
         want_variations=want_variations,
     )
     columns = {str(column) for column in rdf.GetColumnNames()}
-    for source in ("leadingjet_eta", "subleadingjet_eta"):
+    for source in ("leadingjet_eta", "subleadingjet_eta", "vbfjet1_eta"):
         target = f"abs_{source}"
         if source in columns and target not in columns:
             rdf = rdf.Define(target, f"std::abs({source})")
             columns.add(target)
     target_weights = weight_columns if multiply_corrections else []
-    return apply_custom_weights(rdf, dataset_name, era, target_weights, apply_jet_component_weight)
+    return apply_custom_weights(
+        rdf,
+        dataset_name,
+        era,
+        target_weights,
+        apply_jet_component=apply_jet_component_weight,
+        apply_dy_ptll=apply_dy_ptll_weight,
+        apply_dy_njets=apply_dy_njets_weight,
+        reweight_jsons=reweight_jsons,
+    )

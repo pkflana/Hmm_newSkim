@@ -79,6 +79,8 @@ Options:
                           Condor always skips complete outputs unless --force is used.
   --print-existing       Print each complete output skipped by --missing-only.
                           Existing outputs are silent by default in local mode.
+  --deep-output-check    Open and validate every existing ROOT/JSON output.
+                         Histogram campaigns otherwise use a fast size check.
   --erase-existing       Remove already produced histogram files before submitting.
   --force                Submit selected jobs even if output files already exist.
   --dry-run              Print commands without running them.
@@ -180,6 +182,10 @@ hist_output_exists() {
 }
 
 stage_output_exists() {
+  if [[ "$1" != validation && ${deep_output_check:-0} -eq 0 ]]; then
+    hist_output_exists "$2"
+    return
+  fi
   python3 "${ANALYSIS_PATH}/tools/check_stage_output.py" "$1" "$2"
 }
 
@@ -483,33 +489,35 @@ deduplicate_output_jobs() {
   fi
 }
 
-apply_default_dy_105_160_vbf_cuts() {
+configured_dataset_cut() {
   local era="$1"
-  local cut=""
+  local dataset_name="$2"
+  python3 - "config/${era}/samples.yaml" "${dataset_name}" <<'PY'
+import sys
+import yaml
+
+path, dataset = sys.argv[1:]
+with open(path) as stream:
+    samples = yaml.safe_load(stream) or {}
+cut = (samples.get(dataset) or {}).get("additional_cuts")
+if cut:
+    print(cut)
+PY
+}
+
+apply_configured_dataset_cuts() {
+  local era="$1"
+  local cut
 
   [[ "${campaign_mode}" != "validation" ]] || return 0
-  case "${era}" in
-    Run3_2024|Run3_2025|Run3_2026) ;;
-    *) return 0 ;;
-  esac
-
   for i in "${!job_datasets[@]}"; do
-    case "${job_datasets[$i]}" in
-      DYto2Mu_MLL_105to160_amcatnloFXFX)
-        cut="GenVBFFilter==0"
-        ;;
-      DYto2Mu_MLL_105to160_amcatnloFXFX_Fil_VBF)
-        cut="GenVBFFilter==1"
-        ;;
-      *)
-        continue
-        ;;
-    esac
-
-    # Respect an explicit caller override, but otherwise make the disjoint
-    # inclusive/VBF-filtered phase-space routing part of default production.
-    if [[ " ${job_specific_opts[$i]} " != *" --additional-cuts "* ]]; then
+    if [[ " ${job_specific_opts[$i]} " == *" --additional-cuts "* ]]; then
+      continue
+    fi
+    cut="$(configured_dataset_cut "${era}" "${job_datasets[$i]}")"
+    if [[ -n "${cut}" ]]; then
       job_specific_opts[$i]="${job_specific_opts[$i]:+${job_specific_opts[$i]} }--additional-cuts ${cut}"
+      echo "[INFO] ${job_datasets[$i]}: configured additional cut '${cut}'"
     fi
   done
 }
@@ -552,7 +560,12 @@ add_data_jobs() {
       )
       ;;
     Run3_2026)
-      datasets=()
+      datasets=(
+        Muon0_Run2026B_v1 Muon0_Run2026C_v1 Muon0_Run2026D_v1
+        Muon1_Run2026B_v1 Muon1_Run2026C_v1 Muon1_Run2026D_v1
+        Muon2_Run2026B_v1 Muon2_Run2026C_v1 Muon2_Run2026D_v1
+        Muon3_Run2026B_v1 Muon3_Run2026C_v1 Muon3_Run2026D_v1
+      )
       ;;
   esac
 
@@ -591,11 +604,8 @@ add_dy_105_160_jobs() {
       # For 2024-2026 the nominal DY 105-160 selection is composed of the
       # inclusive sample outside the generator-level VBF phase space and the
       # dedicated VBF-filtered sample inside that phase space.
-      add_job DYto2Mu_MLL_105to160_amcatnloFXFX 20 "" \
-        --additional-cuts "GenVBFFilter==0"
-      add_job DYto2Mu_MLL_105to160_amcatnloFXFX_VBFFiltered 20 "" \
-        --additional-cuts "GenVBFFilter==1"
-      add_job DYto2Mu_MLL105To160_FlashSim 20 "" \
+      add_job DYto2Mu_MLL_105to160_amcatnloFXFX 20
+      add_job DYto2Mu_MLL_105to160_amcatnloFXFX_VBFFiltered 20
       ;;
     Run3_2022|Run3_2022EE|Run3_2023|Run3_2023BPix)
       # No VBF-filtered companion sample exists for these eras.
@@ -834,6 +844,7 @@ excluded_datasets=()
 require_component_outputs=0
 required_component_regions=""
 print_existing=0
+deep_output_check=0
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
@@ -932,6 +943,10 @@ while [[ $# -gt 0 ]]; do
       ;;
     --dry-run)
       dry_run=1
+      shift
+      ;;
+    --deep-output-check)
+      deep_output_check=1
       shift
       ;;
     --condor)
@@ -1122,7 +1137,7 @@ if [[ ${#excluded_datasets[@]} -gt 0 ]]; then
     filter_out_dataset "${excluded_dataset}"
   done
 fi
-apply_default_dy_105_160_vbf_cuts "${era}"
+apply_configured_dataset_cuts "${era}"
 if [[ "${campaign_mode}" == "validation" ]]; then
   deduplicate_validation_jobs
 else

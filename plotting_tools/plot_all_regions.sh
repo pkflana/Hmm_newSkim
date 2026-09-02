@@ -6,6 +6,12 @@ set -euo pipefail
 year="2022_23"
 enable_component_composition=true
 multipage_pdf_name="all_plots.pdf"
+output_dir="prova_plots_26Aug"
+input_root="/eos/user/v/vdamante/H_mumu/Aug25/AllVars_AllRegions/WithDY012JWeights/Hists_Central_hadded"
+extra_plot_args=()
+regions_override=""
+categories_override=""
+variables_override=""
 
 while (($#)); do
     case "$1" in
@@ -27,6 +33,36 @@ while (($#)); do
             multipage_pdf_name="$2"
             shift 2
             ;;
+        --output)
+            (($# >= 2)) || { echo "Missing value after --output" >&2; exit 2; }
+            output_dir="$2"
+            shift 2
+            ;;
+        --input-root)
+            (($# >= 2)) || { echo "Missing value after --input-root" >&2; exit 2; }
+            input_root="$2"
+            shift 2
+            ;;
+        --regions)
+            (($# >= 2)) || { echo "Missing value after --regions" >&2; exit 2; }
+            regions_override="$2"
+            shift 2
+            ;;
+        --categories)
+            (($# >= 2)) || { echo "Missing value after --categories" >&2; exit 2; }
+            categories_override="$2"
+            shift 2
+            ;;
+        --variables)
+            (($# >= 2)) || { echo "Missing value after --variables" >&2; exit 2; }
+            variables_override="$2"
+            shift 2
+            ;;
+        --plot-option)
+            (($# >= 2)) || { echo "Missing value after --plot-option" >&2; exit 2; }
+            extra_plot_args+=("$2")
+            shift 2
+            ;;
         Run3_*|2022|2022EE|2023|2023BPix|2024|2025|2022_23|2022_25)
             year="$1"
             shift
@@ -40,8 +76,7 @@ done
 
 year="${year#Run3_}"
 era="Run3_${year}"
-input_dir="/eos/user/v/vdamante/H_mumu/Aug25/AllVars_AllRegions/WithDY012JWeights/Hists_Central_hadded/${era}"
-output_dir="prova_plots_26Aug"
+input_dir="${input_root}/${era}"
 generated_pdfs=()
 
 regions=(
@@ -56,6 +91,18 @@ categories=(
     ggF
     baseline
 )
+
+if [[ -n "$regions_override" ]]; then
+    IFS=',' read -r -a regions <<< "$regions_override"
+fi
+if [[ -n "$categories_override" ]]; then
+    IFS=',' read -r -a categories <<< "$categories_override"
+fi
+if [[ -n "$variables_override" ]]; then
+    IFS=',' read -r -a requested_variables <<< "$variables_override"
+    # hist_plotter accepts one comma-separated value for --variables.
+    extra_plot_args+=(--variables "$variables_override")
+fi
 
 other_samples=(
     Data_Muon
@@ -95,14 +142,20 @@ append_components() {
 for region in "${regions[@]}"; do
     # Signal_Fit usa le produzioni ristrette a 105 < m_mumu < 160 GeV.
     if [[ "$region" == "Signal_Fit" ]]; then
-        dy_sample="DYto2Mu_MLL105To160"
-        if [[ "$year" == "2024" || "$year" == "2025" \
-              || "$year" == "2022_25" ]]; then
-            dy_sample+="_combined"
+        dy_process="DYto2Mu_MLL105To160"
+        # Some older campaigns used the _combined filename, whereas the
+        # current merge stage writes the canonical name without that suffix.
+        # Select the actual file instead of inferring the convention by era.
+        if [[ -f "$input_dir/${dy_process}_combined.root" ]]; then
+            dy_process+="_combined"
         fi
+        # Plotting folds the physical process into this configured macro-group;
+        # normalization must target the post-grouping name.
+        dy_sample="DYto2Mu_MLL105_160"
         ewk_sample="EWK_2Mu2J_MLL_105to160_herwig"
     else
-        dy_sample="DY"
+        dy_process="DY"
+        dy_sample="DY_amcatnlo"
         ewk_sample="EWK"
     fi
 
@@ -115,7 +168,7 @@ for region in "${regions[@]}"; do
     composition_args=()
 
     if "$enable_component_composition"; then
-        append_components samples "$dy_sample"
+        append_components samples "$dy_process"
         append_components samples "$ewk_sample"
 
         for signal_sample in "${signal_samples[@]}"; do
@@ -140,9 +193,8 @@ for region in "${regions[@]}"; do
             --wantData \
             --rebin \
             --multipage-pdf "$multipage_pdf_name" \
-            --normalize-dy-to-data \
             "${composition_args[@]}" \
-            --dy-normalization-sample "$dy_sample"
+            "${extra_plot_args[@]}"
 
         region_pdf="$output_dir/$era/$region_category/$multipage_pdf_name"
         if [[ -s "$region_pdf" ]]; then

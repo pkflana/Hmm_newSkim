@@ -47,14 +47,6 @@ def dataset_file_candidates(input_dir, process, dataset, component_label=None):
         "DYto2Mu_MLL105To160_FlashSim": ["_nonStitched", ""],
     }
     source_process = process
-    if process == "DYto2Mu_MLL105To160_combined" and component_label:
-        # The combined process is assembled component by component from the
-        # complementary inclusive and generator-VBF-filtered productions.
-        source_process = (
-            "DYto2Mu_MLL105To160_VBFFiltered"
-            if "Fil_VBF" in dataset or "VBFFiltered" in dataset
-            else "DYto2Mu_MLL105To160"
-        )
     suffixes = suffix_by_process.get(source_process, [""])
     # hist_maker prefixes split files with the concrete process name, except
     # for the canonical DY process where the historical DY_* labels are kept.
@@ -187,7 +179,10 @@ def add_derived_systematics(era, output_dir):
         )
 
 
-def hadd_datasets_to_processes(era,input_dir, output_dir,add_derived_systs=True,dryRun=False):
+def hadd_datasets_to_processes(
+    era, input_dir, output_dir, add_derived_systs=True, dryRun=False,
+    missing_only=False,
+):
     if not dryRun:
         import uproot
     selection = resolve_dataset_selection(ANALYSIS_PATH, era)
@@ -207,6 +202,18 @@ def hadd_datasets_to_processes(era,input_dir, output_dir,add_derived_systs=True,
       for component_label in output_variants:
         datasets = list(dict.fromkeys(datasets))  # Rimuove duplicati
 
+        # Do not duplicate the historical DY prefix in process-level files:
+        # DY_DY_0J.root becomes DY_0J.root, while process-specific outputs use
+        # e.g. DYto2Mu_MLL105To160_0J.root.
+        output_component = (
+            component_label.removeprefix("DY_") if component_label else None
+        )
+        output_suffix = f"_{output_component}" if output_component else ""
+        output_name = f"{process}{output_suffix}.root"
+        output_file_path = os.path.join(output_dir, output_name)
+        if missing_only and os.path.exists(output_file_path):
+            continue
+
         # Filtra i dataset tenendo solo quelli CHE ESISTONO SUL DISCO
         valid_dataset_files = []
         for dataset in datasets:
@@ -219,16 +226,6 @@ def hadd_datasets_to_processes(era,input_dir, output_dir,add_derived_systs=True,
         # SE NON CE NE SONO, PASSA (Salta completamente il processo)
         if not valid_dataset_files:
             continue
-
-        # Do not duplicate the historical DY prefix in process-level files:
-        # DY_DY_0J.root becomes DY_0J.root, while process-specific outputs use
-        # e.g. DYto2Mu_MLL105To160_0J.root.
-        output_component = (
-            component_label.removeprefix("DY_") if component_label else None
-        )
-        output_suffix = f"_{output_component}" if output_component else ""
-        output_name = f"{process}{output_suffix}.root"
-        output_file_path = os.path.join(output_dir, output_name)
 
         # --- SE DRY-RUN: Stampa solo quello che farebbe ---
         if dryRun:
@@ -314,6 +311,13 @@ if __name__ == "__main__":
     parser.add_argument( "--output-dir", required=True, type=str, help="ROOT file or dataset directory")
     parser.add_argument( "--dryRun", action="store_true", help="dryRun only")
     parser.add_argument( "--add-derived-systs", action="store_true", help="add EWKZ unc")
+    parser.add_argument(
+        "--missing-only", action="store_true",
+        help="create only process files that do not already exist",
+    )
     args = parser.parse_args()
 
-    hadd_datasets_to_processes(args.era,args.input_dir, args.output_dir,args.add_derived_systs,args.dryRun)
+    hadd_datasets_to_processes(
+        args.era, args.input_dir, args.output_dir, args.add_derived_systs,
+        args.dryRun, args.missing_only,
+    )

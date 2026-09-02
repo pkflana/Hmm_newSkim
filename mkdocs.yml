@@ -22,6 +22,7 @@ nav:
       - Workflow internals: WORKFLOW.md
   - Sync:
       - Corrections and payloads: sync/index.md
+      - DY reweighting: sync/dy_reweighting.md
 
 markdown_extensions:
   - admonition

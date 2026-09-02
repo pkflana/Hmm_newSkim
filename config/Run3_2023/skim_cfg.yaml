@@ -35,7 +35,6 @@ process_to_select:
   - Data_Muon
   - DY
   - DYto2Mu_MLL105To160
-  - DYto2Mu_MLL105To160_combined
   - TT
   - W_NJets
   - EWK

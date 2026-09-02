@@ -26,12 +26,42 @@ eta_vs_pt_leadingjet:
   x_title: "$|\\eta(j_1)|$"
   y_title: "$p_T(j_1)$ (GeV)"
 
+eta_signed_vs_pt_leadingjet:
+  var_list: [leadingjet_eta, leadingjet_pt]
+  leadingjet_eta_bins: [-4.7, -4.0, -3.5, -3.0, -2.7, -2.5, -2.0, -1.5, -1.0, 0.0, 1.0, 1.5, 2.0, 2.5, 2.7, 3.0, 3.5, 4.0, 4.7]
+  leadingjet_pt_bins: [25, 35, 45, 80, 100, 200]
+  x_title: "$\\eta(j_1)$"
+  y_title: "$p_T(j_1)$ (GeV)"
+
 eta_vs_pt_subleadingjet:
   var_list: [abs_subleadingjet_eta, subleadingjet_pt]
   abs_subleadingjet_eta_bins: [0.0, 1.0, 1.5, 2.0, 2.5, 2.7, 3.0, 3.5, 4.0, 4.7]
   subleadingjet_pt_bins: [25, 35, 45, 80, 100, 200]
   x_title: "$|\\eta(j_2)|$"
   y_title: "$p_T(j_2)$ (GeV)"
+
+eta_signed_vs_pt_subleadingjet:
+  var_list: [subleadingjet_eta, subleadingjet_pt]
+  subleadingjet_eta_bins: [-4.7, -4.0, -3.5, -3.0, -2.7, -2.5, -2.0, -1.5, -1.0, 0.0, 1.0, 1.5, 2.0, 2.5, 2.7, 3.0, 3.5, 4.0, 4.7]
+  subleadingjet_pt_bins: [25, 35, 45, 80, 100, 200]
+  x_title: "$\\eta(j_2)$"
+  y_title: "$p_T(j_2)$ (GeV)"
+
+# VBF DY-component fit: use the first jet of the selected VBF pair.  The fit
+# uses |eta|, consistently with the detector-region binning in the slides.
+eta_vs_pt_vbfjet1:
+  var_list: [abs_vbfjet1_eta, vbfjet1_pt]
+  abs_vbfjet1_eta_bins: [0.0, 1.0, 1.5, 2.0, 2.5, 2.7, 3.0, 3.5, 4.0, 4.7]
+  vbfjet1_pt_bins: [25, 35, 45, 80, 100, 200]
+  x_title: "$|\\eta(j^{VBF}_1)|$"
+  y_title: "$p_T(j^{VBF}_1)$ (GeV)"
+
+eta_signed_vs_pt_vbfjet1:
+  var_list: [vbfjet1_eta, vbfjet1_pt]
+  vbfjet1_eta_bins: [-4.7, -4.0, -3.5, -3.0, -2.7, -2.5, -2.0, -1.5, -1.0, 0.0, 1.0, 1.5, 2.0, 2.5, 2.7, 3.0, 3.5, 4.0, 4.7]
+  vbfjet1_pt_bins: [25, 35, 45, 80, 100, 200]
+  x_title: "$\\eta(j^{VBF}_1)$"
+  y_title: "$p_T(j^{VBF}_1)$ (GeV)"
 
 VBFNet_NNOutput:
   x_bins: "100|0:1"

@@ -19,12 +19,14 @@ def _declare_prediction_registry():
     ROOT.gInterpreter.Declare(
         """
         #include <stdexcept>
-        #include <limits>
+        #include <unordered_map>
         #include <vector>
 
         namespace dnn_application {
-            std::vector<std::vector<float>>& payloads() {
-                static std::vector<std::vector<float>> data;
+            using PredictionMap = std::unordered_map<ULong64_t, float>;
+
+            std::vector<PredictionMap>& payloads() {
+                static std::vector<PredictionMap> data;
                 return data;
             }
 
@@ -32,16 +34,10 @@ def _declare_prediction_registry():
                 if (keys.size() != values.size()) {
                     throw std::runtime_error("DNN prediction keys and values have different sizes");
                 }
-                ULong64_t max_key = 0;
-                for (const auto key : keys) {
-                    if (key > max_key) max_key = key;
-                }
-                std::vector<float> payload(
-                    keys.empty() ? 0 : static_cast<std::size_t>(max_key + 1),
-                    std::numeric_limits<float>::quiet_NaN()
-                );
+                PredictionMap payload;
+                payload.reserve(values.size());
                 for (std::size_t idx = 0; idx < values.size(); ++idx) {
-                    payload[keys[idx]] = values[idx];
+                    payload.emplace(keys[idx], values[idx]);
                 }
                 payloads().push_back(std::move(payload));
                 return payloads().size() - 1;
@@ -49,10 +45,11 @@ def _declare_prediction_registry():
 
             float getPrediction(std::size_t payload_id, ULong64_t event_key) {
                 const auto& values = payloads().at(payload_id);
-                if (event_key >= values.size() || values[event_key] != values[event_key]) {
+                const auto prediction = values.find(event_key);
+                if (prediction == values.end()) {
                     throw std::runtime_error("DNN prediction lookup failed for event key");
                 }
-                return values[event_key];
+                return prediction->second;
             }
 
             void clearPayloads() {
@@ -305,7 +302,7 @@ class DNNApplication:
             columns.add("FullEventId")
 
         if "DNNEntryKey" not in columns:
-            df = df.Define("DNNEntryKey", "static_cast<ULong64_t>(rdfentry_)")
+            df = df.Define("DNNEntryKey", "static_cast<ULong64_t>(FullEventId)")
 
 
         return df

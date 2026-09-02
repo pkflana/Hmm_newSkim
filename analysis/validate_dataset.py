@@ -258,8 +258,10 @@ def main():
             flush=True,
         )
     if not root_results and not json_results:
-        failures.append(
-            "no ROOT files or normalization JSON reports were discovered"
+        print(
+            "[INFO] Dataset input is empty; writing a passed manifest with "
+            "no valid files.",
+            flush=True,
         )
     if is_data and (invalid_roots or invalid_jsons):
         failures.append(

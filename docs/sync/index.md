@@ -19,6 +19,13 @@ Correction payloads, paths, tags, and keys used by the analysis.
 
 [Open corrections](corrections.pdf){ .md-button }
 
+## DY reweighting
+
+Method summaries, era coverage, fitted 0/1/2J component weights and their fit
+uncertainties, plus the selected-jet and dilepton-$p_T$ corrections.
+
+[Open DY reweighting](dy_reweighting.md){ .md-button }
+
 ## Analysis selection flow
 
 A concise analyst-facing table of the event selection, cut order, object requirements, mass regions, and categories. Symbols identify whether each requirement is applied during skimming or histogram production.

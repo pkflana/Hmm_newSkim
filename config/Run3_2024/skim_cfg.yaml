@@ -25,7 +25,7 @@ request_disk: 2GB
 # ---------------------------------------------------------
 
 # run only subset of datasets (optional override)
-datasets_whitelist: # []
+datasets_whitelist: []
   # - Muon0_Run2024C
   # - Muon1_Run2024C
 #   - Muon_Run2022D
@@ -37,28 +37,24 @@ process_to_select:
   - Data_Muon
   - DY
   - DYto2Mu_MLL105To160
-  - DYto2Mu_MLL105To160_combined
-  - DYto2Mu_MLL105To160_VBFFiltered
   - DYto2Mu_MLL105To160_FlashSim
   - DYto2Mu_minnlo
-  # - DYto2L_FlashSim
-  # - DYto2Mu_FlashSim
   - TT
-  # - TTto2L2Nu_Flashsim
   - W
-  # - W_NJets
   - EWK
+  - EWK_Flashsim
   - EWK_2Mu2J_MLL_105to160_herwig
+  - EWK_2Mu2J_MLL_105to160_herwig_Flashsim
   - EWK_2Mu2J_MLL_105to160_pythia
   - EWK_2Mu2J_MLL_105to160_pythia_Flashsim
   - SingleH
-  # - VV_Inclusive
   - VV
   - VH_inclusive
   - VVV
   - ST
   - TW
   - TTX
+  - TTto2L2Nu_Flashsim
   - VBFHto2Mu_M125_amcatnlo
   - VBFHto2Mu_m125_Flashsim
   - VBFHto2Mu_M125_powheg
@@ -76,5 +72,18 @@ process_to_select:
   - VHto2Mu
   - TTHto2Mu
   - TTH_inclusive
+  # The individual new FlashSim datasets are grouped by the process entries
+  # above. Uncomment only for dataset-level debugging.
+  # - EWK_2Mu2J_MLL_105to160_herwig_Flashsim_New
+  # - EWK_2Mu2J_MLL_105to160_pythia_Flashsim_New
+  # - EWK_2L2J_MLL50_MJJ120_herwig_Flashsim_New
+  # - DYto2Mu_MLL_105to160_amcatnloFXFX_Flashsim_New
+  # - DYto2Mu_MLL_105to160_amcatnloFXFX_VBFFiltered_Flashsim_New
+  # - TTto2L2Nu_Flashsim_New
+  # - DYto2Mu_MLL105To160_FlashSim
+  # - DYto2L_FlashSim
+  # - DYto2Mu_FlashSim
+  # - TTto2L2Nu_Flashsim
+  # - EWK_2Mu2J_MLL_105to160_pythia_Flashsim
 
 proxy_location: /afs/cern.ch/work/v/vdamante/Hmm_newSkim/data/voms.proxy
