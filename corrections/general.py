@@ -23,7 +23,8 @@ pog_folder_names = {
         "2024_Summer24": "Run3-24CDEReprocessingFGHIPrompt-Summer24-NanoAODv15",
         "2025_Summer24": "Run3-25Prompt-Summer24-NanoAODv15",
         # "2025_Winter25": "",
-        "2026_Summer24":"Run3-26Prompt-Summer24-NanoAODv15",
+        # "2026_Summer24":"Run3-26Prompt-Summer24-NanoAODv15",
+        "2026_Summer24":"Run3-25Prompt-Summer24-NanoAODv15", # no 25 for BTV
     },
     "JERC": {
         "2018_UL": "Run2-2018-UL-NanoAODv9",
@@ -87,7 +88,8 @@ pog_folder_names = {
         "2024_Summer24": "Run3-24CDEReprocessingFGHIPrompt-Summer24-NanoAODv15",
         "2025_Summer24": "Run3-25Prompt-Summer24-NanoAODv15",
         # "2025_Winter25": "",
-        "2026_Summer24": "Run3-26Prompt-Summer24-NanoAODv15"
+        "2026_Summer24": "Run3-25Prompt-Summer24-NanoAODv15" #  PATCH
+        # "2026_Summer24": "Run3-26Prompt-Summer24-NanoAODv15"
     },
     "TAU": {
         "2016postVFP_UL": "Run2-2016postVFP-UL-NanoAODv15",

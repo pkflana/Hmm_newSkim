@@ -529,9 +529,19 @@ def expand_systematic_group_alias(requested_name, available_systematics):
             "PU_down",
         ),
     }
-    return [
+    expanded = [
         name
         for name in aliases.get(normalized_name, ())
+        if name in available_systematics
+    ]
+    if expanded or requested_name in available_systematics:
+        return expanded
+
+    # Campaigns are grouped by nuisance family, while the histogram config
+    # stores the concrete Up/Down variations.
+    return [
+        name
+        for name in (f"{requested_name}Up", f"{requested_name}Down")
         if name in available_systematics
     ]
 def filter_systs_to_run(systs_to_run, requested_systematics):
@@ -1265,6 +1275,12 @@ if __name__ == "__main__":
     request_all = any(name.lower() == "all" for name in requested_systematics)
     request_central_only = {name.lower() for name in requested_systematics} <= {"central", "nominal"}
     systematics_mode = "central" if request_central_only else "all"
+    if is_data and systematics_mode != "central":
+        print(
+            f"[SKIP] Dataset {args.dataset_name} is data: non-central "
+            "systematic outputs are not produced."
+        )
+        sys.exit(0)
     empty_validated_input = bool(args.input_manifest and not workflow_manifest.get("valid_root_files", []))
     if empty_validated_input:
         # A failed/empty validation manifest has no events or variation
@@ -1284,13 +1300,6 @@ if __name__ == "__main__":
         request_all = True
         systematics_mode = "all"
     print(systematics_mode)
-    if is_data and systematics_mode != "central":
-        print(
-            f"[INFO] Dataset {args.dataset_name} is data: ignoring non-central "
-            "systematics and producing Central histograms only."
-        )
-        requested_systematics = ["Central"]
-        systematics_mode = "central"
     args.systematics_mode = systematics_mode
     process_cfg = utilities.get_config(os.path.join(cfg_dir, "process_names.yaml"))
     args.process_name = utilities.process_from_dataset(process_cfg, args.dataset_name) or args.dataset_name

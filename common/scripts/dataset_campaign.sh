@@ -79,6 +79,8 @@ Options:
                           Condor always skips complete outputs unless --force is used.
   --print-existing       Print each complete output skipped by --missing-only.
                           Existing outputs are silent by default in local mode.
+  --deep-output-check    Open and validate every existing ROOT/JSON output.
+                         Histogram campaigns otherwise use a fast size check.
   --erase-existing       Remove already produced histogram files before submitting.
   --force                Submit selected jobs even if output files already exist.
   --dry-run              Print commands without running them.
@@ -180,6 +182,10 @@ hist_output_exists() {
 }
 
 stage_output_exists() {
+  if [[ "$1" != validation && ${deep_output_check:-0} -eq 0 ]]; then
+    hist_output_exists "$2"
+    return
+  fi
   python3 "${ANALYSIS_PATH}/tools/check_stage_output.py" "$1" "$2"
 }
 
@@ -554,7 +560,12 @@ add_data_jobs() {
       )
       ;;
     Run3_2026)
-      datasets=()
+      datasets=(
+        Muon0_Run2026B_v1 Muon0_Run2026C_v1 Muon0_Run2026D_v1
+        Muon1_Run2026B_v1 Muon1_Run2026C_v1 Muon1_Run2026D_v1
+        Muon2_Run2026B_v1 Muon2_Run2026C_v1 Muon2_Run2026D_v1
+        Muon3_Run2026B_v1 Muon3_Run2026C_v1 Muon3_Run2026D_v1
+      )
       ;;
   esac
 
@@ -833,6 +844,7 @@ excluded_datasets=()
 require_component_outputs=0
 required_component_regions=""
 print_existing=0
+deep_output_check=0
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
@@ -931,6 +943,10 @@ while [[ $# -gt 0 ]]; do
       ;;
     --dry-run)
       dry_run=1
+      shift
+      ;;
+    --deep-output-check)
+      deep_output_check=1
       shift
       ;;
     --condor)

@@ -44,11 +44,16 @@ DATASETS="${CAMPAIGN_DATASETS_OVERRIDE:-${DATASETS:-}}"
 
 ERAS=("${ERAS[@]:-2022 2022EE 2023 2023BPix 2024 2025}")
 SYSTEMATICS=("${SYSTEMATICS[@]:-Central}")
+if [[ -n "${CAMPAIGN_SYSTEMATICS_OVERRIDE:-}" ]]; then
+  systematic_override="${CAMPAIGN_SYSTEMATICS_OVERRIDE//,/ }"
+  read -r -a SYSTEMATICS <<< "${systematic_override}"
+fi
 HIST_ARGS=("${HIST_ARGS[@]:-}")
 REQUEST_CPUS="${REQUEST_CPUS:-4}"
 REQUEST_MEMORY="${REQUEST_MEMORY:-20GB}"
 RDF_THREADS="${RDF_THREADS:-${REQUEST_CPUS}}"
 VARIABLE_BATCH_SIZE="${VARIABLE_BATCH_SIZE:-64}"
+HADD_ADD_DERIVED_SYSTEMATICS="${HADD_ADD_DERIVED_SYSTEMATICS:-true}"
 CHUNK_SIZE="${CHUNK_SIZE:-1}"
 MANIFEST_INPUT="${MANIFEST_INPUT:-/eos/user/v/vdamante/H_mumu/manifests_skim_v3}"
 ROOT_INPUT="${ROOT_INPUT:-/eos/cms/store/group/phys_higgs/cmshmm/vdamante/skim_v3}"
@@ -86,16 +91,30 @@ selected_eras() {
 hist_dir() { printf '%s/%s%s' "${CAMPAIGN_ROOT}" "${HIST_DIR_PREFIX}" "$1"; }
 hadded_dir() { printf '%s/%s%s_hadded' "${CAMPAIGN_ROOT}" "${HIST_DIR_PREFIX}" "$1"; }
 
+datasets_without_data() {
+  local item
+  local items=() kept=()
+  IFS=',' read -r -a items <<< "$1"
+  for item in "${items[@]}"; do
+    [[ "${item}" == data ]] || kept+=("${item}")
+  done
+  (IFS=','; printf '%s' "${kept[*]}")
+}
+
 produce() {
-  local mode="$1" systematic era wrapper
+  local mode="$1" systematic era wrapper selected_datasets
   while IFS= read -r era; do
     [[ -n "${era}" ]] || continue
     for systematic in "${SYSTEMATICS[@]}"; do
       wrapper="histograms/scripts/hists.sh"
-      [[ "${systematic}" == Central ]] || wrapper="histograms/scripts/systematics.sh"
+      selected_datasets="${DATASETS}"
+      if [[ "${systematic}" != Central ]]; then
+        wrapper="histograms/scripts/systematics.sh"
+        selected_datasets="$(datasets_without_data "${selected_datasets}")"
+      fi
       cmd=(bash "${wrapper}"
         --era "${era}"
-        --datasets "${DATASETS}"
+        --datasets "${selected_datasets}"
         --manifest-input-folder "${MANIFEST_INPUT}"
         --root-input-folder "${ROOT_INPUT}"
         --json-input-folder "${JSON_INPUT}"
@@ -123,10 +142,14 @@ hadd_outputs() {
     while IFS= read -r era; do
       [[ -n "${era}" ]] || continue
       for systematic in "${SYSTEMATICS[@]}"; do
-        python3 histograms/hadd_hists_to_processes.py \
-          --input-dir "$(hist_dir "${systematic}")/${era}" \
-          --output-dir "$(hadded_dir "${systematic}")/${era}" \
-          --era "${era}" --dryRun
+        cmd=(python3 histograms/hadd_hists_to_processes.py
+          --input-dir "$(hist_dir "${systematic}")/${era}"
+          --output-dir "$(hadded_dir "${systematic}")/${era}"
+          --era "${era}" --dryRun)
+        if [[ "${systematic}" == Central && "${HADD_ADD_DERIVED_SYSTEMATICS}" == true ]]; then
+          cmd+=(--add-derived-systs)
+        fi
+        "${cmd[@]}"
       done
     done < <(selected_eras)
     return
@@ -135,6 +158,9 @@ hadd_outputs() {
   for systematic in "${SYSTEMATICS[@]}"; do
     cmd=(python3 tools/hmumu.py hadd-processes "$(hist_dir "${systematic}")"
       --era "${eras_csv}" --output-dir "$(hadded_dir "${systematic}")")
+    if [[ "${systematic}" == Central && "${HADD_ADD_DERIVED_SYSTEMATICS}" == true ]]; then
+      cmd+=(--add-derived-systs)
+    fi
     [[ "${mode}" == missing ]] && cmd+=(--missing-only)
     cmd+=(--run)
     "${cmd[@]}"
@@ -185,6 +211,7 @@ case "${action}" in
     echo "REQUEST_MEMORY=${REQUEST_MEMORY}"
     echo "RDF_THREADS=${RDF_THREADS}"
     echo "VARIABLE_BATCH_SIZE=${VARIABLE_BATCH_SIZE}"
+    echo "HADD_ADD_DERIVED_SYSTEMATICS=${HADD_ADD_DERIVED_SYSTEMATICS}"
     for systematic in "${SYSTEMATICS[@]}"; do
       echo "${systematic}: $(hist_dir "${systematic}") -> $(hadded_dir "${systematic}")"
     done

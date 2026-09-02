@@ -1,6 +1,10 @@
 
 era: Run3_2026
-luminosity: 25849.47  # pb-1, https://twiki.cern.ch/twiki/bin/view/CMS/PdmVRun3Analysis#DATA_AN2 brilcalc lumi -b "STABLE BEAMS"  -i Cert_Collisions2025_391658_398903_Golden.json (no normtag available)
+luminosity: 25843.261130615  # pb-1,
+# source /cvmfs/cms-bril.cern.ch/cms-lumi-pog/brilws-docker/brilws-env
+# Version: 3.9.4
+# brilcalc lumi -b "STABLE BEAMS"  -i corrections/data/golden_json/Cert_Collisions2026_401624_403937_golden.json (no normtag available)
+#(run,ls) in json but not in results: [(401663, 69), (401663, 119), (403461, 2078)]
 
 lumiFile: corrections/data/golden_json/Cert_Collisions2026_401624_403937_golden.json
 

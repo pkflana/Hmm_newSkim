@@ -654,6 +654,17 @@ if __name__ == "__main__":
             "for multiple samples."
         ),
     )
+    parser.add_argument(
+        "--sample-input",
+        action="append",
+        default=[],
+        metavar="SAMPLE=PATH",
+        help=(
+            "Load one sample from an alternate ROOT file or directory. "
+            "Repeat for multiple samples; directory values resolve to "
+            "PATH/SAMPLE.root."
+        ),
+    )
 
     parser.add_argument(
         "--systematics",
@@ -885,6 +896,14 @@ if __name__ == "__main__":
     sample_label_overrides = parse_sample_overrides(
         args.sample_label, "--sample-label"
     )
+    sample_input_overrides = {}
+    for sample, path in parse_sample_overrides(
+        args.sample_input, "--sample-input"
+    ).items():
+        sample = normalize_sample_name(sample)
+        if not path.endswith(".root"):
+            path = os.path.join(path, f"{sample}.root")
+        sample_input_overrides[sample] = os.path.abspath(path)
     if args.normalize_dy_to_data and args.normalize_mc_to_data:
         parser.error(
             "--normalize-dy-to-data and --normalize-mc-to-data are mutually exclusive"
@@ -1085,15 +1104,33 @@ if __name__ == "__main__":
     input_processes = {}
     all_found_variables = set()
 
-    for indir, subdirs, infiles in os.walk(args.input):
+    primary_input = os.path.abspath(args.input)
+    scan_roots = [(primary_input, False)]
+    for override_path in sample_input_overrides.values():
+        override_dir = os.path.dirname(override_path)
+        if all(root != override_dir for root, _ in scan_roots):
+            scan_roots.append((override_dir, True))
+
+    loaded_overrides = set()
+    for scan_root, override_only in scan_roots:
+      for indir, subdirs, infiles in os.walk(scan_root):
 
         for inFile in sorted(infiles):
             if not inFile.endswith(".root"):
                 continue
 
-            full_path = os.path.join(indir, inFile)
+            full_path = os.path.abspath(os.path.join(indir, inFile))
 
             process_name = normalize_sample_name(inFile)
+
+            override_path = sample_input_overrides.get(process_name)
+            if override_path is not None:
+                if full_path != override_path:
+                    continue
+                loaded_overrides.add(process_name)
+                print(f"[INFO] Alternate input for {process_name}: {full_path}")
+            elif override_only:
+                continue
 
             if requested_samples is not None and process_name not in requested_samples:
                 continue
@@ -1125,7 +1162,11 @@ if __name__ == "__main__":
 
             input_processes[process_name] = {
                 "input": full_path,
-                "systematic_inputs": [],
+                # The primary file may itself be a merged nominal+systematics
+                # file.  Keeping it as a systematic source also lets combined
+                # eras recover each decorrelated variation from the matching
+                # physical-era file below the same base directory.
+                "systematic_inputs": [full_path],
                 "color": sample_info["color"],
                 "name": sample_info["name"],
                 "is_data": sample_info["is_data"],
@@ -1161,7 +1202,12 @@ if __name__ == "__main__":
             for available_hist, hist_name in available_hists:
 
                 base_name = hist_name
-                for systematic_marker in ("_CMS_", "_QCD_", "_pdf_"):
+                # JER component names intentionally do not carry the CMS_
+                # prefix (for example DNN_NNOutput_JEReta0pt02022Up).
+                # Treat them like every other shifted template so they inherit
+                # the nominal variable configuration instead of being skipped
+                # as unknown standalone variables.
+                for systematic_marker in ("_CMS_", "_QCD_", "_pdf_", "_JEReta"):
                     if systematic_marker in hist_name:
                         base_name = hist_name.split(systematic_marker, 1)[0]
                         break
@@ -1221,6 +1267,10 @@ if __name__ == "__main__":
                     all_found_variables.add(base_name)
 
             root_file.Close()
+
+    for sample, path in sample_input_overrides.items():
+        if sample not in loaded_overrides:
+            print(f"[WARNING] Alternate input for {sample} was not loaded: {path}")
 
     # Load shifted templates from independent systematic directories.  This
     # avoids building one very large all-systematics ROOT file per process.

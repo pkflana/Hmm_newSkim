@@ -383,14 +383,27 @@ def set_ratio_axis_range(
         rax.grid(axis="y", which="both", linestyle=":", linewidth=0.6, alpha=0.5)
         return
 
-    ymin = 0
-    ymax = 2
-
-    rax.set_ylim(ymin, ymax)
-
-    ticks = np.round(np.arange(ymin, ymax + 0.001, 0.5), 1)
-    rax.yaxis.set_major_locator(mticker.FixedLocator(ticks))
-    rax.yaxis.set_major_formatter(mticker.FormatStrFormatter("%.1f"))
+    arrays = list(ratio_arrays)
+    if ratio_unc_low is not None:
+        arrays.append(ratio_unc_low)
+    if ratio_unc_high is not None:
+        arrays.append(ratio_unc_high)
+    finite = [
+        values[np.isfinite(values)]
+        for values in (np.asarray(array) for array in arrays)
+    ]
+    finite = [values for values in finite if values.size]
+    max_deviation = max(
+        (float(np.max(np.abs(values - 1.0))) for values in finite),
+        default=0.05,
+    )
+    # Always centre the panel on unity, with 15% headroom and a modest floor
+    # so nearly identical curves are still readable.
+    half_range = max(1.15 * max_deviation, 0.10)
+    rax.set_ylim(1.0 - half_range, 1.0 + half_range)
+    rax.yaxis.set_major_locator(mticker.MaxNLocator(nbins=5))
+    decimals = 3 if half_range < 0.05 else 2 if half_range < 0.5 else 1
+    rax.yaxis.set_major_formatter(mticker.FormatStrFormatter(f"%.{decimals}f"))
     rax.grid(axis="y", which="major", linestyle=":", linewidth=0.6, alpha=0.5)
 
 
@@ -438,7 +451,7 @@ SYST_GROUPS = {
     "Muon Res": (["CMS_res_m_{era}"], "#D55E00"),
     "Muon Scale": (["CMS_scale_m_{era}"], "#CC79A7"),
     "EWKZ PS": (["CMS_hmm_EWKZ_partonShower_{era}"], "#8C564B"),
-    "QCD Scale": (
+    "QCDScale": (
         [
             "QCD_fac_scale_V",
             "QCD_fac_scale_VH",
@@ -469,24 +482,14 @@ SYST_GROUPS = {
     "Muon Iso": (["CMS_eff_m_iso_{era}"], "#009E73"),
     "Muon Trigger": (["CMS_eff_m_trigger_{era}"], "#009E73"),
     "Muon ID": (["CMS_eff_m_id_{era}"], "#009E73"),
-    "QCD fac V": (["QCD_fac_scale_V"], "#E69F00"),
-    "QCD fac VH": (["QCD_fac_scale_VH"], "#E69F00"),
-    "QCD fac VV": (["QCD_fac_scale_VV"], "#E69F00"),
-    "QCD fac VVV": (["QCD_fac_scale_VVV"], "#E69F00"),
-    "QCD fac qqH": (["QCD_fac_scale_qqH"], "#E69F00"),
-    "QCD fac ttbar": (["QCD_fac_scale_ttbar"], "#E69F00"),
-    "QCD ren V": (["QCD_ren_scale_V"], "#D55E00"),
-    "QCD ren VH": (["QCD_ren_scale_VH"], "#D55E00"),
-    "QCD ren VV": (["QCD_ren_scale_VV"], "#D55E00"),
-    "QCD ren VVV": (["QCD_ren_scale_VVV"], "#D55E00"),
-    "QCD ren qqH": (["QCD_ren_scale_qqH"], "#D55E00"),
-    "QCD ren ttbar": (["QCD_ren_scale_ttbar"], "#D55E00"),
-    "PDF Higgs VH": (["pdf_Higgs_VH"], "#56B4E9"),
-    "PDF Higgs qqH": (["pdf_Higgs_qqH"], "#56B4E9"),
-    "PDF gg": (["pdf_gg"], "#56B4E9"),
-    "PDF gq": (["pdf_gq"], "#56B4E9"),
-    "PDF qqbar": (["pdf_qqbar"], "#56B4E9"),
 }
+
+# Compact set used by stacked Data/MC plots.  The more granular entries remain
+# available when explicitly requested for dedicated diagnostics.
+DEFAULT_SYST_GROUPS = (
+    "Jet Res", "Jet Scale", "Pileup", "Muon Eff.", "Muon Res",
+    "Muon Scale", "EWKZ PS", "QCDScale", "PDF",
+)
 
 
 def _hist_content(th1, bin_edges):
@@ -566,7 +569,7 @@ def build_syst_ratio_bands(
 
     result = {}
 
-    requested_groups = set(systematic_groups or SYST_GROUPS)
+    requested_groups = set(systematic_groups or DEFAULT_SYST_GROUPS)
     unknown_groups = requested_groups.difference(SYST_GROUPS)
     if unknown_groups:
         available = ", ".join(SYST_GROUPS)
@@ -602,23 +605,29 @@ def build_syst_ratio_bands(
                     dn_key = f"{variable}_{nuisance_name}Down"
                     era_found = False
                     for key in mc_keys:
-                        nominal_path = samples_dict[key].get("input", "").strip()
-                        if not nominal_path:
-                            continue
-                        nominal_source_path = os.path.join(
+                        nominal_paths = {
+                            os.path.basename(path): path
+                            for path in samples_dict[key].get("input", "").split(",")
+                            if path.strip()
+                        }
+                        for shifted_path in samples_dict[key].get("systematic_inputs", []):
+                            nominal_path = nominal_paths.get(os.path.basename(shifted_path))
+                            if nominal_path is None:
+                                continue
+                            nominal_source_path = os.path.join(
                                 os.path.dirname(os.path.dirname(nominal_path)),
                                 f"Run3_{subera}",
                                 os.path.basename(nominal_path),
                             )
-                        if not os.path.isfile(nominal_source_path):
-                            continue
-                        for shifted_path in samples_dict[key].get("systematic_inputs", []):
                             shifted_source_path = os.path.join(
                                 os.path.dirname(os.path.dirname(shifted_path)),
                                 f"Run3_{subera}",
                                 os.path.basename(shifted_path),
                             )
-                            if not os.path.isfile(shifted_source_path):
+                            if (
+                                not os.path.isfile(nominal_source_path)
+                                or not os.path.isfile(shifted_source_path)
+                            ):
                                 continue
                             try:
                                 nominal_file = ROOT.TFile.Open(nominal_source_path)
@@ -1836,8 +1845,8 @@ def make_stacked_plot(
                 frameon=True,
                 framealpha=0.8,
                 loc="upper center",
-                bbox_to_anchor=(0.5, 0.99),
-                ncol=4,
+                bbox_to_anchor=(0.5, -0.22),
+                ncol=5,
                 handlelength=1.5,
                 labelspacing=0.25,
             )
@@ -1861,36 +1870,6 @@ def make_stacked_plot(
             ratio_unc_high=ratio_unc_high,
             log_scale=log_uncertainties,
         )
-        if (
-            has_systematics_ratio
-            and not has_default_ratio
-            and not has_sample_ratio
-            and not log_uncertainties
-        ):
-            finite_ratio_values = [
-                values[np.isfinite(values)]
-                for values in (np.asarray(array) for array in ratio_arrays)
-            ]
-            finite_ratio_values = [
-                values for values in finite_ratio_values if values.size
-            ]
-            if finite_ratio_values:
-                max_deviation = max(
-                    float(np.max(np.abs(values - 1.0)))
-                    for values in finite_ratio_values
-                )
-                # Keep the axis centred on the nominal and leave 20% headroom.
-                # A small floor avoids a degenerate range for unity variations.
-                half_range = max(1.2 * max_deviation, 0.01)
-            else:
-                half_range = 0.05
-            rax.set_ylim(1.0 - half_range, 1.0 + half_range)
-            rax.yaxis.set_major_locator(mticker.MaxNLocator(nbins=5))
-            ratio_decimals = 3 if half_range < 0.05 else 2
-            rax.yaxis.set_major_formatter(
-                mticker.FormatStrFormatter(f"%.{ratio_decimals}f")
-            )
-
     # =====================================================
     # Axes
     # =====================================================

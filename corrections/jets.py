@@ -37,7 +37,7 @@ jer_tag_map = {
     "2024_Summer24": "Summer24Prompt24_JRV2_MC",
     "2025_Summer24": "Summer24Prompt25_JRV2_MC",
     # "2025_Winter25": "Summer24Prompt25_JRV2_MC",
-    "2026_Summer24": "Summer24Prompt25_JRV2_MC", # tmp patch as there is no JER tag for 2026 right now
+    "2026_Summer24": "Summer24Prompt26_RunBD_JRV1_MC"
 }
 
 jec_tag_map_mc = {
@@ -49,7 +49,7 @@ jec_tag_map_mc = {
     "2024_Summer24": ["Summer24Prompt24_V5_MC"],
     "2025_Summer24": ["Summer24Prompt25_V3_MC"],
     # "2025_Winter25": ["Winter25Prompt25_V3_MC"],
-    "2026_Summer24": ["Summer24Prompt26_V2_MC"], # tmp patch as there is no JEC tag for 2026 right now
+    "2026_Summer24": ["Summer24Prompt26_V1_MC"],
 }
 
 jec_tag_map_data = {
@@ -88,7 +88,7 @@ run_letters = {
     "2024_Summer24": ["CDEReprocessing", "FGHIPrompt"],
     "2025_Winter25": ["C", "D", "E", "F","G"],
     "2025_Summer24": ["C", "D", "E", "F", "G"],
-    "2026_Summer24": ["B","C", "D", "E", "F","G"],  # tmp patch as there is no JEC for 2026 right now, later they will be ["A", "B", "C", "D"],
+    "2026_Summer24": ["B", "C", "D"],
 }
 
 _jet_correction_state = {
@@ -194,11 +194,13 @@ def initialize_jet_corrections(
     jec_tag_array = _debug_map_get(jec_tag_map, period, "jec_tag_map")
     if is_data:
         jec_tag_array = _format_data_jec_tags(period, sample_name, jec_tag_array)
-
+    print(jec_tag_array)
     jec_tag = jec_tag_array[0]
     other_jec_tag = jec_tag_array[1] if len(jec_tag_array) > 1 else jec_tag_array[0]
     jer_tag = _debug_map_get(jer_tag_map, period, "jer_tag_map")
-
+    if "C" in jec_tag_array and period == "2026_Summer24":
+        jer_tag = "Summer24Prompt26_RunC_JRV1_MC"
+    print(jer_tag)
     _jets_debug(
         f"period={period}, is_data={is_data}, sample={sample_name}, "
         f"regrouped={use_regrouped}, period={period}, "

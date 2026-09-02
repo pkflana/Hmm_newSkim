@@ -100,7 +100,8 @@ if [[ -n "$categories_override" ]]; then
 fi
 if [[ -n "$variables_override" ]]; then
     IFS=',' read -r -a requested_variables <<< "$variables_override"
-    extra_plot_args+=(--variables "${requested_variables[@]}")
+    # hist_plotter accepts one comma-separated value for --variables.
+    extra_plot_args+=(--variables "$variables_override")
 fi
 
 other_samples=(
@@ -141,14 +142,20 @@ append_components() {
 for region in "${regions[@]}"; do
     # Signal_Fit usa le produzioni ristrette a 105 < m_mumu < 160 GeV.
     if [[ "$region" == "Signal_Fit" ]]; then
-        dy_sample="DYto2Mu_MLL105To160"
-        if [[ "$year" == "2024" || "$year" == "2025" \
-              || "$year" == "2022_25" ]]; then
-            dy_sample+="_combined"
+        dy_process="DYto2Mu_MLL105To160"
+        # Some older campaigns used the _combined filename, whereas the
+        # current merge stage writes the canonical name without that suffix.
+        # Select the actual file instead of inferring the convention by era.
+        if [[ -f "$input_dir/${dy_process}_combined.root" ]]; then
+            dy_process+="_combined"
         fi
+        # Plotting folds the physical process into this configured macro-group;
+        # normalization must target the post-grouping name.
+        dy_sample="DYto2Mu_MLL105_160"
         ewk_sample="EWK_2Mu2J_MLL_105to160_herwig"
     else
-        dy_sample="DY"
+        dy_process="DY"
+        dy_sample="DY_amcatnlo"
         ewk_sample="EWK"
     fi
 
@@ -161,7 +168,7 @@ for region in "${regions[@]}"; do
     composition_args=()
 
     if "$enable_component_composition"; then
-        append_components samples "$dy_sample"
+        append_components samples "$dy_process"
         append_components samples "$ewk_sample"
 
         for signal_sample in "${signal_samples[@]}"; do
@@ -186,9 +193,7 @@ for region in "${regions[@]}"; do
             --wantData \
             --rebin \
             --multipage-pdf "$multipage_pdf_name" \
-            --normalize-dy-to-data \
             "${composition_args[@]}" \
-            --dy-normalization-sample "$dy_sample" \
             "${extra_plot_args[@]}"
 
         region_pdf="$output_dir/$era/$region_category/$multipage_pdf_name"

@@ -444,12 +444,12 @@ TTX:
 VBFHto2Mu_M125_amcatnlo:
   split_jet_components: true
   jet_component_styles:
-    0J: #ffd0f1
-    1J Hard: #f69bde
-    1J PU: #e95bc8
-    2J Hard: #d52bad
-    2J PU1: #a90c86
-    2J PU2: #73005f
+    0J: "#ffd0f1"
+    1J Hard: "#f69bde"
+    1J PU: "#e95bc8"
+    2J Hard: "#d52bad"
+    2J PU1: "#a90c86"
+    2J PU2: "#73005f"
     VBF Hard: thistle
     VBF PU1: mediumpurple
     VBF PU2: indigo
@@ -462,12 +462,12 @@ VBFHto2Mu_M125_amcatnlo:
 VBFHto2Mu_M125_powheg:
   split_jet_components: true
   jet_component_styles:
-    0J: #ffd0f1
-    1J Hard: #f69bde
-    1J PU: #e95bc8
-    2J Hard: #d52bad
-    2J PU1: #a90c86
-    2J PU2: #73005f
+    0J: "#ffd0f1"
+    1J Hard: "#f69bde"
+    1J PU: "#e95bc8"
+    2J Hard: "#d52bad"
+    2J PU1: "#a90c86"
+    2J PU2: "#73005f"
     VBF Hard: thistle
     VBF PU1: mediumpurple
     VBF PU2: indigo
@@ -480,12 +480,12 @@ VBFHto2Mu_M125_powheg:
 VBFHto2Mu_m120:
   split_jet_components: true
   jet_component_styles:
-    0J: #ffd0f1
-    1J Hard: #f69bde
-    1J PU: #e95bc8
-    2J Hard: #d52bad
-    2J PU1: #a90c86
-    2J PU2: #73005f
+    0J: "#ffd0f1"
+    1J Hard: "#f69bde"
+    1J PU: "#e95bc8"
+    2J Hard: "#d52bad"
+    2J PU1: "#a90c86"
+    2J PU2: "#73005f"
     VBF Hard: thistle
     VBF PU1: mediumpurple
     VBF PU2: indigo
@@ -498,12 +498,12 @@ VBFHto2Mu_m120:
 VBFHto2Mu_m130:
   split_jet_components: true
   jet_component_styles:
-    0J: #ffd0f1
-    1J Hard: #f69bde
-    1J PU: #e95bc8
-    2J Hard: #d52bad
-    2J PU1: #a90c86
-    2J PU2: #73005f
+    0J: "#ffd0f1"
+    1J Hard: "#f69bde"
+    1J PU: "#e95bc8"
+    2J Hard: "#d52bad"
+    2J PU1: "#a90c86"
+    2J PU2: "#73005f"
     VBF Hard: thistle
     VBF PU1: mediumpurple
     VBF PU2: indigo
@@ -516,12 +516,12 @@ VBFHto2Mu_m130:
 VBFHto2Mu_m125_tuneDown:
   split_jet_components: true
   jet_component_styles:
-    0J: #ffd0f1
-    1J Hard: #f69bde
-    1J PU: #e95bc8
-    2J Hard: #d52bad
-    2J PU1: #a90c86
-    2J PU2: #73005f
+    0J: "#ffd0f1"
+    1J Hard: "#f69bde"
+    1J PU: "#e95bc8"
+    2J Hard: "#d52bad"
+    2J PU1: "#a90c86"
+    2J PU2: "#73005f"
     VBF Hard: thistle
     VBF PU1: mediumpurple
     VBF PU2: indigo
@@ -534,12 +534,12 @@ VBFHto2Mu_m125_tuneDown:
 VBFHto2Mu_m125_tuneUp:
   split_jet_components: true
   jet_component_styles:
-    0J: #ffd0f1
-    1J Hard: #f69bde
-    1J PU: #e95bc8
-    2J Hard: #d52bad
-    2J PU1: #a90c86
-    2J PU2: #73005f
+    0J: "#ffd0f1"
+    1J Hard: "#f69bde"
+    1J PU: "#e95bc8"
+    2J Hard: "#d52bad"
+    2J PU1: "#a90c86"
+    2J PU2: "#73005f"
     VBF Hard: thistle
     VBF PU1: mediumpurple
     VBF PU2: indigo
@@ -552,12 +552,12 @@ VBFHto2Mu_m125_tuneUp:
 VBFHto2Mu_Herwig:
   split_jet_components: true
   jet_component_styles:
-    0J: #ffd0f1
-    1J Hard: #f69bde
-    1J PU: #e95bc8
-    2J Hard: #d52bad
-    2J PU1: #a90c86
-    2J PU2: #73005f
+    0J: "#ffd0f1"
+    1J Hard: "#f69bde"
+    1J PU: "#e95bc8"
+    2J Hard: "#d52bad"
+    2J PU1: "#a90c86"
+    2J PU2: "#73005f"
     VBF Hard: thistle
     VBF PU1: mediumpurple
     VBF PU2: indigo
@@ -570,12 +570,12 @@ VBFHto2Mu_Herwig:
 GluGluHto2Mu_tuneDown:
   split_jet_components: true
   jet_component_styles:
-    0J: #ffd0f1
-    1J Hard: #f69bde
-    1J PU: #e95bc8
-    2J Hard: #d52bad
-    2J PU1: #a90c86
-    2J PU2: #73005f
+    0J: "#ffd0f1"
+    1J Hard: "#f69bde"
+    1J PU: "#e95bc8"
+    2J Hard: "#d52bad"
+    2J PU1: "#a90c86"
+    2J PU2: "#73005f"
     VBF Hard: thistle
     VBF PU1: mediumpurple
     VBF PU2: indigo
@@ -587,12 +587,12 @@ GluGluHto2Mu_tuneDown:
 GluGluHto2Mu_tuneUp:
   split_jet_components: true
   jet_component_styles:
-    0J: #ffd0f1
-    1J Hard: #f69bde
-    1J PU: #e95bc8
-    2J Hard: #d52bad
-    2J PU1: #a90c86
-    2J PU2: #73005f
+    0J: "#ffd0f1"
+    1J Hard: "#f69bde"
+    1J PU: "#e95bc8"
+    2J Hard: "#d52bad"
+    2J PU1: "#a90c86"
+    2J PU2: "#73005f"
     VBF Hard: thistle
     VBF PU1: mediumpurple
     VBF PU2: indigo
@@ -604,12 +604,12 @@ GluGluHto2Mu_tuneUp:
 GluGluHto2Mu_amcatnlo:
   split_jet_components: true
   jet_component_styles:
-    0J: #ffd0f1
-    1J Hard: #f69bde
-    1J PU: #e95bc8
-    2J Hard: #d52bad
-    2J PU1: #a90c86
-    2J PU2: #73005f
+    0J: "#ffd0f1"
+    1J Hard: "#f69bde"
+    1J PU: "#e95bc8"
+    2J Hard: "#d52bad"
+    2J PU1: "#a90c86"
+    2J PU2: "#73005f"
     VBF Hard: thistle
     VBF PU1: mediumpurple
     VBF PU2: indigo
@@ -622,12 +622,12 @@ GluGluHto2Mu_amcatnlo:
 GluGluHto2Mu_MiNNLO:
   split_jet_components: true
   jet_component_styles:
-    0J: #ffd0f1
-    1J Hard: #f69bde
-    1J PU: #e95bc8
-    2J Hard: #d52bad
-    2J PU1: #a90c86
-    2J PU2: #73005f
+    0J: "#ffd0f1"
+    1J Hard: "#f69bde"
+    1J PU: "#e95bc8"
+    2J Hard: "#d52bad"
+    2J PU1: "#a90c86"
+    2J PU2: "#73005f"
     VBF Hard: thistle
     VBF PU1: mediumpurple
     VBF PU2: indigo
@@ -640,12 +640,12 @@ GluGluHto2Mu_MiNNLO:
 GluGluHto2Mu:
   split_jet_components: true
   jet_component_styles:
-    0J: #ffd0f1
-    1J Hard: #f69bde
-    1J PU: #e95bc8
-    2J Hard: #d52bad
-    2J PU1: #a90c86
-    2J PU2: #73005f
+    0J: "#ffd0f1"
+    1J Hard: "#f69bde"
+    1J PU: "#e95bc8"
+    2J Hard: "#d52bad"
+    2J PU1: "#a90c86"
+    2J PU2: "#73005f"
     VBF Hard: thistle
     VBF PU1: mediumpurple
     VBF PU2: indigo
@@ -659,12 +659,12 @@ GluGluHto2Mu:
 GluGluHto2Mu_M130:
   split_jet_components: true
   jet_component_styles:
-    0J: #ffd0f1
-    1J Hard: #f69bde
-    1J PU: #e95bc8
-    2J Hard: #d52bad
-    2J PU1: #a90c86
-    2J PU2: #73005f
+    0J: "#ffd0f1"
+    1J Hard: "#f69bde"
+    1J PU: "#e95bc8"
+    2J Hard: "#d52bad"
+    2J PU1: "#a90c86"
+    2J PU2: "#73005f"
     VBF Hard: thistle
     VBF PU1: mediumpurple
     VBF PU2: indigo
@@ -677,12 +677,12 @@ GluGluHto2Mu_M130:
 GluGluHto2Mu_M120:
   split_jet_components: true
   jet_component_styles:
-    0J: #ffd0f1
-    1J Hard: #f69bde
-    1J PU: #e95bc8
-    2J Hard: #d52bad
-    2J PU1: #a90c86
-    2J PU2: #73005f
+    0J: "#ffd0f1"
+    1J Hard: "#f69bde"
+    1J PU: "#e95bc8"
+    2J Hard: "#d52bad"
+    2J PU1: "#a90c86"
+    2J PU2: "#73005f"
     VBF Hard: thistle
     VBF PU1: mediumpurple
     VBF PU2: indigo

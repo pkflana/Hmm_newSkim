@@ -23,6 +23,8 @@ CAMPAIGNS_2025 = (
     ("2025 without horn veto", "2025_NoHornVeto/Central_hadded/Run3_2025", "#1746ff"),
 )
 CAMPAIGN_2024 = ("2024", "2024/Central_hadded/Run3_2024", "#006400")
+CAMPAIGN_2026 = ("2026 without horn veto", "2026_NoHornVeto/Central_hadded/Run3_2026", "#6a3d9a")
+LUMINOSITY_FB = {"2024": 109.94818, "2025": 110.73086, "2026": 25.843261130615}
 
 
 def histogram_keys(path: Path) -> set[str]:
@@ -106,6 +108,7 @@ def plot_one(
     histogram_config: dict | None = None,
     normalize_to_reference_data: bool = False,
     normalize_dy_to_data: bool = False,
+    comparison: str = "2025-horn",
 ) -> None:
     region, variable = key.rsplit("/", 1)
     desired_binning = (
@@ -210,7 +213,20 @@ def plot_one(
         fontsize=18,
     )
     axis.legend(ncol=2, fontsize=11, loc="best")
-    hep.cms.label("Preliminary", data=True, com=13.6, ax=axis)
+    if comparison == "2024-2025":
+        hep.cms.label(
+            "Preliminary", data=True, ax=axis,
+            rlabel=(
+                f"2024: {LUMINOSITY_FB['2024']:.1f} fb$^{{-1}}$, "
+                f"2025: {LUMINOSITY_FB['2025']:.1f} fb$^{{-1}}$ (13.6 TeV)"
+            ),
+        )
+    else:
+        year = "2026" if comparison == "2026-nohorn" else "2025"
+        hep.cms.label(
+            "Preliminary", data=True, year=year,
+            lumi=LUMINOSITY_FB[year], com=13.6, ax=axis,
+        )
 
     ratio_axis.axhspan(0.8, 1.2, color="#9ecae1", alpha=0.25, label="20% variation")
     ratio_axis.axhline(1.0, color="black", linewidth=1)
@@ -238,7 +254,13 @@ def main() -> int:
     parser.add_argument("--variable", action="append", help="Only plot this variable; repeatable")
     parser.add_argument(
         "--include-2024", action="store_true",
-        help="Also add the 2024 campaign in green",
+        help="Deprecated alias for --comparison 2024-2025",
+    )
+    parser.add_argument(
+        "--comparison",
+        choices=("2025-horn", "2024-2025", "2026-nohorn"),
+        default="2025-horn",
+        help="Campaign curves to draw (default: 2025-horn)",
     )
     normalization = parser.add_mutually_exclusive_group()
     normalization.add_argument(
@@ -261,7 +283,13 @@ def main() -> int:
             os.path.join(REPOSITORY, "config", "plot", "histograms.yaml")
         )
 
-    campaigns = CAMPAIGNS_2025 + ((CAMPAIGN_2024,) if args.include_2024 else ())
+    comparison = "2024-2025" if args.include_2024 else args.comparison
+    if comparison == "2025-horn":
+        campaigns = CAMPAIGNS_2025
+    elif comparison == "2024-2025":
+        campaigns = (CAMPAIGN_2024, CAMPAIGNS_2025[1])
+    else:
+        campaigns = (CAMPAIGN_2026,)
     files = [
         args.base / relative / sample
         for _, relative, _ in campaigns
@@ -290,6 +318,7 @@ def main() -> int:
                 histogram_config=histogram_config,
                 normalize_to_reference_data=args.normalize_to_reference_data,
                 normalize_dy_to_data=args.normalize_dy_to_data,
+                comparison=comparison,
             )
         except KeyError as error:
             print(f"[SKIP] {key}: {error}")

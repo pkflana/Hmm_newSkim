@@ -53,6 +53,11 @@ DEFAULT_SUBTRACT = (
     # "GluGluHto2Mu", "VBFHto2Mu_M125_powheg",
 )
 
+SUBTRACT_ALIASES = {
+    # The hadded process was renamed in the 2024/2025 configurations.
+    "W_NJets": ("W_NJets", "W"),
+}
+
 
 def open_hist(path: Path, root_path: str, clone_name: str):
     root_file = ROOT.TFile.Open(str(path), "READ")
@@ -92,7 +97,25 @@ def sum_hists(paths, root_path, reference):
     return total, used
 
 
-def solve_nonnegative_poisson(data, background, templates):
+def subtraction_paths(input_dir, samples):
+    """Resolve one file per background, including era-dependent aliases."""
+    paths = []
+    for sample in samples:
+        candidates = SUBTRACT_ALIASES.get(sample, (sample,))
+        selected = next(
+            (
+                input_dir / f"{candidate}.root"
+                for candidate in candidates
+                if (input_dir / f"{candidate}.root").is_file()
+            ),
+            None,
+        )
+        if selected is not None:
+            paths.append(selected)
+    return paths
+
+
+def solve_nonnegative_poisson(data, background, templates, solver="slsqp"):
     """Fit non-negative DY scales with a binned Poisson likelihood.
 
     The expectation in every retained bin is
@@ -132,15 +155,27 @@ def solve_nonnegative_poisson(data, background, templates):
         mu = expectation(theta)
         return matrix.T @ (1.0 - observed / mu)
 
-    result = minimize(
-        nll,
-        np.ones(npar),
-        jac=gradient,
-        method="SLSQP",
-        bounds=Bounds(np.zeros(npar), np.full(npar, np.inf)),
-        constraints=LinearConstraint(matrix, epsilon - fixed, np.inf),
-        options={"ftol": 1.0e-10, "maxiter": 2000},
-    )
+    objective_scale = max(float(np.sum(observed)), 1.0)
+    if solver == "scaled-slsqp":
+        result = minimize(
+            lambda theta: nll(theta) / objective_scale,
+            np.ones(npar),
+            jac=lambda theta: gradient(theta) / objective_scale,
+            method="SLSQP",
+            bounds=Bounds(np.zeros(npar), np.full(npar, np.inf)),
+            constraints=LinearConstraint(matrix, epsilon - fixed, np.inf),
+            options={"ftol": 1.0e-12, "maxiter": 5000},
+        )
+    else:
+        result = minimize(
+            nll,
+            np.ones(npar),
+            jac=gradient,
+            method="SLSQP",
+            bounds=Bounds(np.zeros(npar), np.full(npar, np.inf)),
+            constraints=LinearConstraint(matrix, epsilon - fixed, np.inf),
+            options={"ftol": 1.0e-10, "maxiter": 2000},
+        )
     if not result.success or not np.all(np.isfinite(result.x)):
         raise RuntimeError(f"Poisson likelihood fit failed: {result.message}")
 
@@ -235,6 +270,13 @@ def main():
     )
     parser.add_argument("--data-sample", default="Data_Muon")
     parser.add_argument("--dy-process", default="DY")
+    parser.add_argument(
+        "--solver", choices=("slsqp", "scaled-slsqp"), default="scaled-slsqp",
+        help=(
+            "Poisson-fit minimizer. scaled-slsqp rescales the objective to "
+            "avoid false convergence for very large event yields."
+        ),
+    )
     parser.add_argument("--subtract-samples", nargs="+", default=list(DEFAULT_SUBTRACT))
     parser.add_argument("--output-dir", required=True, type=Path)
     parser.add_argument("--output-json", required=True, type=Path)
@@ -264,10 +306,9 @@ def main():
                 input_dir / f"{args.data_sample}.root", root_path,
                 f"data_{stage}_{period_index}",
             )
-            subtract_paths = [
-                input_dir / f"{sample}.root" for sample in args.subtract_samples
-                if (input_dir / f"{sample}.root").is_file()
-            ]
+            subtract_paths = subtraction_paths(
+                input_dir, args.subtract_samples,
+            )
             non_dy, used_here = sum_hists(subtract_paths, root_path, data)
             used.update(f"{input_dir.name}:{name}" for name in used_here)
             data_v, _ = hist_arrays(data)
@@ -312,7 +353,7 @@ def main():
         stage_theta, stage_covariance, deviance, ndof, valid, poisson_nll = (
             solve_nonnegative_poisson(
                 np.concatenate(data_parts), np.concatenate(background_parts),
-                templates,
+                templates, solver=args.solver,
             )
         )
         active_indices = [component_index[name] for name in active_components]
@@ -347,10 +388,7 @@ def main():
             input_dir / f"{args.data_sample}.root", root_path,
             f"data_{stage}_{period_index}",
         )
-        subtract_paths = [
-            input_dir / f"{sample}.root" for sample in args.subtract_samples
-            if (input_dir / f"{sample}.root").is_file()
-        ]
+        subtract_paths = subtraction_paths(input_dir, args.subtract_samples)
         non_dy, used_here = sum_hists(subtract_paths, root_path, data)
         used.update(f"{input_dir.name}:{name}" for name in used_here)
         data_v, _ = hist_arrays(data)
@@ -383,6 +421,7 @@ def main():
     stage_theta, stage_covariance, deviance, ndof, valid, poisson_nll = (
         solve_nonnegative_poisson(
             np.concatenate(data_parts), np.concatenate(background_parts), templates,
+            solver=args.solver,
         )
     )
     active_indices = [component_index[name] for name in VBF_COMPONENTS]
@@ -417,6 +456,7 @@ def main():
         "region": args.region,
         "vbf_region": args.vbf_region,
         "input_dirs": [str(path) for path in input_dirs],
+        "solver": args.solver,
         "fit_order": [stage for stage, _, _ in FIT_STAGES] + ["VBF"],
         "stages": stage_summaries,
         "subtracted_samples": sorted(used),
