@@ -23,6 +23,8 @@ parser.add_argument("--output-file", required=True)
 parser.add_argument("--report-file",default=None)
 parser.add_argument("--n-events", default=-1, type=int,
                     help="Process at most this many input events before selections; -1 processes all events.")
+parser.add_argument("--jet-horn-veto", choices=("configured", "without"),
+                    default="configured", help="Override the jet horn veto for this skim only.")
 parser.add_argument("--want-variations", required=False, action="store_true", help="request for variations from command line")
 args = parser.parse_args()
 if args.n_events != -1 and args.n_events <= 0:
@@ -36,6 +38,8 @@ config = utilities.get_config(os.path.join(os.environ["ANALYSIS_PATH"], "config"
 
 dataset_cfg = utilities.get_config(os.path.join(os.environ["ANALYSIS_PATH"], "config", args.era, "samples.yaml"))[args.dataset_name]
 sel_config = utilities.get_config(os.path.join(os.environ["ANALYSIS_PATH"], "config", args.era, "selections.yaml"))
+if args.jet_horn_veto == "without":
+    sel_config["jet_horn_veto_expr"] = "( abs(v_ops::eta(Jet_p4) ) <0 )"
 trigger_config = utilities.get_config(os.path.join(os.environ["ANALYSIS_PATH"], "config", args.era, "triggers.yaml"))
 process_cfg = utilities.get_config(os.path.join(os.environ["ANALYSIS_PATH"], "config", args.era, "process_names.yaml"))
 systematics_cfg = utilities.get_config(os.path.join(os.environ["ANALYSIS_PATH"], "config", args.era, "systematics.yaml"))

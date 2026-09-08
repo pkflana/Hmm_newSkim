@@ -98,7 +98,13 @@ parser.add_argument(
     default=None,
     help="Override the skim output base directory from skim_cfg.yaml.",
 )
+parser.add_argument("--state-dir", default=None,
+                    help="Directory for campaign-specific logs, chunk maps and completion records.")
+parser.add_argument("--jet-horn-veto", choices=("configured", "with", "without"), default="configured")
+parser.add_argument("--n-events", type=int, default=-1, help="Input-event limit per skim job (-1: all).")
 args = parser.parse_args()
+if args.n_events != -1 and args.n_events <= 0:
+    parser.error("--n-events must be positive or -1")
 
 era = args.era
 
@@ -116,7 +122,7 @@ if "ANALYSIS_PATH" not in os.environ:
 else:
     print(f"Using ANALYSIS_PATH={ANALYSIS_PATH}")
 
-HTCONDOR_PATH = os.path.join(ANALYSIS_PATH, "htcondor")
+HTCONDOR_PATH = os.path.abspath(args.state_dir or os.path.join(ANALYSIS_PATH, "htcondor"))
 CONFIG_PATH = os.path.join(ANALYSIS_PATH, "config")
 
 skim_cfg_path = os.path.join(CONFIG_PATH, era, "skim_cfg.yaml")
@@ -199,7 +205,7 @@ if use_ext is None:
     use_ext = skim_config.get("use_ext", False)
 
 
-output_dir = skim_config["output_dir"]
+output_dir = args.output_dir or skim_config["output_dir"]
 output_directory = os.path.abspath(output_dir)
 
 MAX_PARALLEL_JOBS = args.max_parallel_jobs or skim_config.get("max_parallel_jobs", 6000)
@@ -702,7 +708,7 @@ if args.datasets:
 else:
     all_datasets.extend(datasets_whitelist)
 
-if process_to_select:
+if process_to_select and not args.datasets:
     for process in process_to_select:
         datasets = processes_cfg[process].get("datasets", [])
         subprocesses = processes_cfg[process].get("sub_processes", [])
@@ -861,6 +867,8 @@ for dataset in all_datasets:
             f"{outfile_root} "
             f"{outfile_json} "
             f"{cmssw_version} "
+            f"{args.jet_horn_veto} "
+            f"{args.n_events} "
         )
 
         dataset_condorinputs[dataset].append({
@@ -956,7 +964,7 @@ if total_jobs_to_run == 0:
 # =========================================================
 
 job = htcondor.Submit({
-    "executable": os.path.join(HTCONDOR_PATH, "run_skim.sh"),
+    "executable": os.path.join(BASE_PATH, "run_skim.sh"),
     "arguments": "$(arguments)",
 
     # stdout from the executable, one file per job
