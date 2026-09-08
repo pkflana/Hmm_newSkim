@@ -182,17 +182,14 @@ systematics:
 
 weights:
   Central:
+    # Temporary 2026 prescription: the current DY skims do not contain the
+    # muon ID/isolation/trigger scale-factor columns.
     expression: >
-      weight_gen *
+      genWeight *
       weight_lumi *
       weight_xs *
-      weight_pu *
-      weight_mu1_LoosePFIso_MediumID_Central *
-      weight_mu1_MediumID_Trk_Central *
-      weight_mu2_LoosePFIso_MediumID_Central *
-      weight_mu2_MediumID_Trk_Central *
-      weight_TrgSF_singleMu_IsoMu24Central
-
+      weight_pu
+    
   # QCD renormalization/factorization scales: unnormalized 6-point envelope.
   QCDScale_{scale}:
     jet_suffix: ""
@@ -219,15 +216,10 @@ weights:
     name: "CMS_pileup_{era}"
     weight: "weight__PU_up"
     expression: >
-      weight_gen *
+      genWeight *
       weight_lumi *
       weight_xs *
-      weight_pu_up *
-      weight_mu1_LoosePFIso_MediumID_Central *
-      weight_mu1_MediumID_Trk_Central *
-      weight_mu2_LoosePFIso_MediumID_Central *
-      weight_mu2_MediumID_Trk_Central *
-      weight_TrgSF_singleMu_IsoMu24Central
+      weight_pu_up
 
   PU_down:
     jet_suffix: ""
@@ -235,15 +227,10 @@ weights:
     name: "CMS_pileup_{era}"
     weight: "weight__PU_down"
     expression: >
-      weight_gen *
+      genWeight *
       weight_lumi *
       weight_xs *
-      weight_pu_down *
-      weight_mu1_LoosePFIso_MediumID_Central *
-      weight_mu1_MediumID_Trk_Central *
-      weight_mu2_LoosePFIso_MediumID_Central *
-      weight_mu2_MediumID_Trk_Central *
-      weight_TrgSF_singleMu_IsoMu24Central
+      weight_pu_down
 
   # ========================================
   # Muon ID/Iso
@@ -255,15 +242,10 @@ weights:
     name: "CMS_eff_m_id_{era}"
     weight: "weight__MuonID_up"
     expression: >
-      weight_gen *
+      genWeight *
       weight_lumi *
       weight_xs *
-      weight_pu *
-      weight_mu1_LoosePFIso_MediumID_Central *
-      weight_mu1_MediumID_Trk_up *
-      weight_mu2_LoosePFIso_MediumID_Central *
-      weight_mu2_MediumID_Trk_up *
-      weight_TrgSF_singleMu_IsoMu24Central
+      weight_pu
 
   MuonID_down:
     jet_suffix: ""
@@ -271,15 +253,10 @@ weights:
     name: "CMS_eff_m_id_{era}"
     weight: "weight__MuonID_down"
     expression: >
-      weight_gen *
+      genWeight *
       weight_lumi *
       weight_xs *
-      weight_pu *
-      weight_mu1_LoosePFIso_MediumID_Central *
-      weight_mu1_MediumID_Trk_down *
-      weight_mu2_LoosePFIso_MediumID_Central *
-      weight_mu2_MediumID_Trk_down *
-      weight_TrgSF_singleMu_IsoMu24Central
+      weight_pu
 
   MuonIso_up:
     jet_suffix: ""
@@ -287,15 +264,10 @@ weights:
     name: "CMS_eff_m_iso_{era}"
     weight: "weight__MuonIso_up"
     expression: >
-      weight_gen *
+      genWeight *
       weight_lumi *
       weight_xs *
-      weight_pu *
-      weight_mu1_LoosePFIso_MediumID_up *
-      weight_mu1_MediumID_Trk_Central *
-      weight_mu2_LoosePFIso_MediumID_up *
-      weight_mu2_MediumID_Trk_Central *
-      weight_TrgSF_singleMu_IsoMu24Central
+      weight_pu
 
   MuonIso_down:
     jet_suffix: ""
@@ -303,15 +275,10 @@ weights:
     name: "CMS_eff_m_iso_{era}"
     weight: "weight__MuonIso_down"
     expression: >
-      weight_gen *
+      genWeight *
       weight_lumi *
       weight_xs *
-      weight_pu *
-      weight_mu1_LoosePFIso_MediumID_down *
-      weight_mu1_MediumID_Trk_Central *
-      weight_mu2_LoosePFIso_MediumID_down *
-      weight_mu2_MediumID_Trk_Central *
-      weight_TrgSF_singleMu_IsoMu24Central
+      weight_pu
 
   # ========================================
   # Trigger
@@ -323,15 +290,10 @@ weights:
     name: "CMS_eff_m_trigger_{era}"
     weight: "weight__singleMuTrigger_up"
     expression: >
-      weight_gen *
+      genWeight *
       weight_lumi *
       weight_xs *
-      weight_pu *
-      weight_mu1_LoosePFIso_MediumID_Central *
-      weight_mu1_MediumID_Trk_Central *
-      weight_mu2_LoosePFIso_MediumID_Central *
-      weight_mu2_MediumID_Trk_Central *
-      weight_TrgSF_singleMu_IsoMu24up
+      weight_pu
 
   singleMuTrigger_down:
     jet_suffix: ""
@@ -339,12 +301,7 @@ weights:
     name: "CMS_eff_m_trigger_{era}"
     weight: "weight__singleMuTrigger_down"
     expression: >
-      weight_gen *
+      genWeight *
       weight_lumi *
       weight_xs *
-      weight_pu *
-      weight_mu1_LoosePFIso_MediumID_Central *
-      weight_mu1_MediumID_Trk_Central *
-      weight_mu2_LoosePFIso_MediumID_Central *
-      weight_mu2_MediumID_Trk_Central *
-      weight_TrgSF_singleMu_IsoMu24down
+      weight_pu

@@ -82,6 +82,7 @@ def finalize_histogram_dataframe(
     apply_jet_component_weight=True,
     apply_dy_ptll_weight=True,
     apply_dy_njets_weight=True,
+    apply_custom_weight_corrections=True,
     reweight_jsons=None,
 ):
     """Apply selections and final weight corrections exactly once."""
@@ -106,5 +107,6 @@ def finalize_histogram_dataframe(
         apply_jet_component=apply_jet_component_weight,
         apply_dy_ptll=apply_dy_ptll_weight,
         apply_dy_njets=apply_dy_njets_weight,
+        apply_custom_reweights=apply_custom_weight_corrections,
         reweight_jsons=reweight_jsons,
     )

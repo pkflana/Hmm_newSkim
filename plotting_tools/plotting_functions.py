@@ -1807,22 +1807,17 @@ def make_stacked_plot(
                     total_up = 1.0 + np.sqrt(sq_up)
                     total_dn = 1.0 - np.sqrt(sq_dn)
                     ratio_arrays.extend([total_up, total_dn])
-                    rax.step(
-                        bin_edges,
-                        np.r_[total_up, total_up[-1]],
-                        where="post",
-                        color="black",
-                        linewidth=3,
-                        zorder=2,
-                        label="Syst. total",
-                    )
-                    rax.step(
+                    rax.fill_between(
                         bin_edges,
                         np.r_[total_dn, total_dn[-1]],
-                        where="post",
-                        color="black",
-                        linewidth=3,
-                        zorder=2,
+                        np.r_[total_up, total_up[-1]],
+                        step="post",
+                        facecolor="lightgray",
+                        edgecolor="gray",
+                        linewidth=0.8,
+                        alpha=0.45,
+                        zorder=1,
+                        label="Syst. total",
                     )
             # Data points on top of all bands, when requested.
             if ratio is not None:

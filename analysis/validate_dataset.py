@@ -70,6 +70,15 @@ def is_empty_root_result(result):
     return not result[1] and result[2].startswith("empty tree ")
 
 
+def format_invalid_files(invalid_roots, invalid_jsons):
+    """Return actionable diagnostics for the final validation error."""
+    details = []
+    for label, items in (("ROOT", invalid_roots), ("JSON", invalid_jsons)):
+        for item in items:
+            details.append(f"{label} {item['path']}: {item['reason']}")
+    return details
+
+
 def pair_results(root_results, json_results):
     roots_by_key = {}
     jsons_by_key = {}
@@ -269,6 +278,7 @@ def main():
             f"{len(invalid_roots)} ROOT, "
             f"{len(invalid_jsons)} JSON"
         )
+        failures.extend(format_invalid_files(invalid_roots, invalid_jsons))
     elif invalid_roots or invalid_jsons:
         print(
             f"[WARNING] MC validation is skipping {len(invalid_roots)} ROOT "

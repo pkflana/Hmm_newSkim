@@ -494,10 +494,13 @@ def apply_custom_weights(
     apply_jet_component=True,
     apply_dy_ptll=True,
     apply_dy_njets=True,
+    apply_custom_reweights=True,
     reweight_jsons=None,
 ):
     """Apply every custom histogram-production weight configured for the era."""
     df = ApplyDYAmcatnloNormalization(df, dataset_name, weight_columns)
+    if not apply_custom_reweights:
+        return df
     if not is_dy_dataset(dataset_name):
         return df
 
