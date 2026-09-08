@@ -125,7 +125,6 @@ def ApplyMuonTriggerMatching(df, trigger_config, apply_filter, want_variations, 
             cols_to_save.extend([offline_col, matching_col, evt])
     if apply_filter:
         df = df.Filter(" || ".join(filters), "Trigger matching for " + "__".join(trigger_config.keys()))
-    print(filters, cols_to_save)
     return df, cols_to_save
 
 def ProcessMuonVariables(df,muon_columns,default_suffix,trigger_config,want_variations,pt_min,lower_mass_cut,upper_mass_cut,syst_cfg):

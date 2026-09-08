@@ -1,3 +1,4 @@
+from common.jet_variation_suffixes import jet_variation_suffixes
 
 import ROOT
 import sys
@@ -87,11 +88,7 @@ def ProcessAllJetVariables(df,jet_columns,config,bTagAlgo,bTagDict,want_variatio
     ### to be fixed here
 
     cols = _column_names(df)
-    syst_suffixes = [""]
-    if want_variations:
-        scales = syst_cfg.get('scales',['up','down'])
-        syst_suffixes.extend([syst_cfg['systematics']['JER']['jet_suffix'].format(scale=scale) for scale in scales])
-        syst_suffixes.extend([syst_cfg['systematics']['JES_Total']['jet_suffix'].format(scale=scale) for scale in scales])
+    syst_suffixes = jet_variation_suffixes(df, want_variations, syst_cfg)
 
     jet_extra = {}
     for col in jet_columns:
@@ -168,11 +165,7 @@ def SelectJetVars(df,jet_columns,config,bTagAlgo,bTagDict,want_variations,syst_c
 
 
     cols = _column_names(df)
-    syst_suffixes = [""]
-    if want_variations:
-        scales = syst_cfg.get('scales',['up','down'])
-        syst_suffixes.extend([syst_cfg['systematics']['JER']['jet_suffix'].format(scale=scale) for scale in scales])
-        syst_suffixes.extend([syst_cfg['systematics']['JES_Total']['jet_suffix'].format(scale=scale) for scale in scales])
+    syst_suffixes = jet_variation_suffixes(df, want_variations, syst_cfg)
 
     jet_extra = {}
     for col in jet_columns:
@@ -288,11 +281,7 @@ def SelectJetVars(df,jet_columns,config,bTagAlgo,bTagDict,want_variations,syst_c
 
 def SelectVBFJets(df,want_variations,syst_cfg):
 
-    syst_suffixes = [""]
-    if want_variations:
-        scales = syst_cfg.get('scales',['up','down'])
-        syst_suffixes.extend([syst_cfg['systematics']['JER']['jet_suffix'].format(scale=scale) for scale in scales])
-        syst_suffixes.extend([syst_cfg['systematics']['JES_Total']['jet_suffix'].format(scale=scale) for scale in scales])
+    syst_suffixes = jet_variation_suffixes(df, want_variations, syst_cfg)
 
     new_cols = []
 

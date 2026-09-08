@@ -543,6 +543,7 @@ namespace correction {
 
         inline static const std::map<UncSource, std::string> unc_map_regrouped = {
             {UncSource::JER, "JER"},
+            {UncSource::Total, "Total"},
             {UncSource::RelativeBal, "Regrouped_RelativeBal"},
             {UncSource::HF, "Regrouped_HF"},
             {UncSource::BBEC1, "Regrouped_BBEC1"},
@@ -552,7 +553,7 @@ namespace correction {
             {UncSource::BBEC1_year, "Regrouped_BBEC1"},
             {UncSource::Absolute_year, "Regrouped_Absolute"},
             {UncSource::EC2_year, "Regrouped_EC2"},
-            {UncSource::HF_year, "Regrouped_RelativeStatHF"},
+            {UncSource::HF_year, "Regrouped_HF"},
             {UncSource::RelativeSample_year, "Regrouped_RelativeSample"}};
     };
 

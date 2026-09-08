@@ -24,6 +24,7 @@ MET_flags: # https://twiki.cern.ch/twiki/bin/view/CMS/MissingETOptionalFiltersRu
   - Flag_ecalBadCalibFilter
 
 want_variations: True
+use_regrouped: True
 bTagAlgo: UParTAK4
 # Run3_2025 MC JERC payload combination:
 #   2025             -> JER 2025, JEC 2025

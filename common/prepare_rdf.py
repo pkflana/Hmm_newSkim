@@ -1,9 +1,4 @@
-"""Prepare skim RDFs for histograms, snapshots or other analyses.
 
-Call once on each raw skim graph: nominal and custom weights are multiplied
-once. The returned mapping contains ``inclusive`` first, followed by optional
-reco/gen components. No histograms are booked here.
-"""
 from common.rdf_utilities import GetRdfForDataset, build_rdf
 from common.histogram_rdf import (
     normalize_systematic_direction_columns, define_shifted_jet_observables,

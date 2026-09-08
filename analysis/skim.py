@@ -21,9 +21,12 @@ parser.add_argument("--input-file",required=True,action="append")
 parser.add_argument("--dataset-name", required=True)
 parser.add_argument("--output-file", required=True)
 parser.add_argument("--report-file",default=None)
-parser.add_argument("--n-events",default=-1,type=int)
+parser.add_argument("--n-events", default=-1, type=int,
+                    help="Process at most this many input events before selections; -1 processes all events.")
 parser.add_argument("--want-variations", required=False, action="store_true", help="request for variations from command line")
 args = parser.parse_args()
+if args.n_events != -1 and args.n_events <= 0:
+    parser.error("--n-events must be -1 (all events) or positive")
 input_files = [ path for value in args.input_file for path in value.split(",") if path]
 if not input_files:
     parser.error("--input-file did not contain any input paths")
@@ -55,8 +58,18 @@ input_chain = ROOT.TChain("Events")
 for input_file in input_files:
     if input_chain.Add(input_file) == 0:
         raise RuntimeError(f"Could not add input ROOT file: {input_file}")
+if args.n_events > 0:
+    # RDataFrame.Range requires single-thread execution.
+    if ROOT.IsImplicitMTEnabled():
+        ROOT.DisableImplicitMT()
 df = ROOT.RDataFrame(input_chain)
-ROOT.RDF.Experimental.AddProgressBar(df)
+if args.n_events > 0:
+    df = df.Range(args.n_events)
+if args.n_events > 0:
+    # ROOT's progress helper reports source-size totals even for a Range.
+    print(f"[INFO] Test run: processing at most {args.n_events} input events.")
+else:
+    ROOT.RDF.Experimental.AddProgressBar(ROOT.RDF.AsRNode(df))
 
 # useful definitions #
 df = df.Define("period", f"static_cast<int>(Period::{config['era']})")
@@ -76,8 +89,6 @@ if not is_data:
     from common.gen_vbf_filter import ApplyGenVBFFilter
     df,cols_to_save = ApplyGenVBFFilter(df,cols_to_save, args.era, args.dataset_name, process)
 
-if args.n_events > 0:
-    df = df.Range(args.n_events)
 # define weights #
 if not is_data:
     from corrections.general import define_base_weights
