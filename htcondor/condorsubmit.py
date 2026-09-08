@@ -100,7 +100,7 @@ parser.add_argument(
 )
 parser.add_argument("--state-dir", default=None,
                     help="Directory for campaign-specific logs, chunk maps and completion records.")
-parser.add_argument("--jet-horn-veto", choices=("configured", "with", "without"), default="configured")
+parser.add_argument("--jet-horn-veto", choices=("configured", "without"), default="configured")
 parser.add_argument("--n-events", type=int, default=-1, help="Input-event limit per skim job (-1: all).")
 args = parser.parse_args()
 if args.n_events != -1 and args.n_events <= 0:
@@ -207,6 +207,9 @@ if use_ext is None:
 
 output_dir = args.output_dir or skim_config["output_dir"]
 output_directory = os.path.abspath(output_dir)
+if args.jet_horn_veto == "without":
+    print("[INFO] Overriding jet horn veto to 'without' for this skim.")
+    output_directory= skim_config["output_dir_noHorn"]
 
 MAX_PARALLEL_JOBS = args.max_parallel_jobs or skim_config.get("max_parallel_jobs", 6000)
 POLL_INTERVAL = args.poll_interval or skim_config.get("poll_interval", 120)
