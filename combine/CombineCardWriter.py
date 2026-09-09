@@ -2,7 +2,10 @@ import os, sys
 import ROOT
 import math
 import yaml
-import re
+from pathlib import Path
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+from common.systematic_correlations import nuisance_name as correlated_nuisance_name
+
 absolutepath = True
 
 def parse_uncertainty_value(value):
@@ -208,26 +211,26 @@ def build_uncertainties(yaml_path, processes):
     sections.update(cfg["systematics"])
     sections.update(cfg["weights"])
 
+    expanded = {}
     for key, block in sections.items():
-      if type(block.get("components",""))==list:
-        components = block.get("components","")
-        for component in components:
-          name = component+year
-          uncertainties.append([name, "shape", "1", None])
-      else:
+        if block.get('components'):
+            for component in block['components']:
+                expanded[component] = dict(block, name=f'{component}{{era}}')
+        else:
+            expanded[key] = block
+    for key, block in expanded.items():
         name = block.get("name", "")
         if name=="":
           continue
         name = name.replace("_{scale}","").replace("_{}","")
-        # if not block.get("era_correlation"):
-        #   name = name+"_"+year
-        if name.find("{era}")!=-1:
-          name = name.replace("{era}",year)
+        name = correlated_nuisance_name(dict(block, name=name), year,
+                                         process="{process}", pdf_process="{pdf_process}")
         if name.find("{process}")!=-1:
           if name.find("QCDscale")!=-1:
             for variation in cfg["qcd_scale"]["variations"]:
               for proc in processes:
-                procname = variation["name"].replace("{process}", cfg["qcd_scale"]["process_labels"][proc])
+                procname = correlated_nuisance_name(dict(cfg["qcd_scale"], **variation), year,
+                                                  process=cfg["qcd_scale"]["process_labels"][proc])
                 key = [uncertainty[0]==procname for uncertainty in uncertainties]
                 if any(key):
                   uncertainties[key.index(True)][3].append(proc)
@@ -251,7 +254,7 @@ def build_uncertainties(yaml_path, processes):
           uncertainties.append([name, "shape", "1", None])
 
     for block in cfg.get("derived_systematics", {}).values():
-      name = block["name"].format(era=year)
+      name = correlated_nuisance_name(block, year)
       uncertainties.append([
           name,
           "shape",

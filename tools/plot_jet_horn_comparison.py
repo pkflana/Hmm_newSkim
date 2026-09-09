@@ -19,12 +19,23 @@ from common.rdf_utilities import findBinEntry, findNewBins, getNewBins
 DEFAULT_BASE = Path("/eos/user/v/vdamante/H_mumu/campaigns/JetHornVetoComparison")
 REPOSITORY = Path(__file__).resolve().parents[1]
 CAMPAIGNS_2025 = (
-    ("2025 with horn veto", "2025_WithHornVeto/Central_hadded/Run3_2025", "#e41a1c"),
-    ("2025 without horn veto", "2025_NoHornVeto/Central_hadded/Run3_2025", "#1746ff"),
+    ("2025 with horn veto", "WithHornVeto/Central_hadded/Run3_2025", "#e41a1c"),
+    ("2025 without horn veto", "NoHornVeto/Central_hadded/Run3_2025", "#1746ff"),
 )
-CAMPAIGN_2024 = ("2024", "2024/Central_hadded/Run3_2024", "#006400")
-CAMPAIGN_2026 = ("2026 without horn veto", "2026_NoHornVeto/Central_hadded/Run3_2026", "#6a3d9a")
+CAMPAIGN_2024 = ("2024", "WithHornVeto/Central_hadded/Run3_2024", "#006400")
+CAMPAIGNS_2026 = (
+    ("2026 with horn veto", "WithHornVeto/Central_hadded/Run3_2026", "#e41a1c"),
+    ("2026 without horn veto", "NoHornVeto/Central_hadded/Run3_2026", "#6a3d9a"),
+)
 LUMINOSITY_FB = {"2024": 109.94818, "2025": 110.73086, "2026": 25.843261130615}
+REGION_LABELS = {
+    "Signal_Fit_VBF": "VBF Signal Fit",
+    "Z_sideband_VBF": "VBF Z",
+    "Signal_Fit_ggF": "ggF Signal Fit",
+    "Z_sideband_ggF": "ggF Z",
+    "Signal_Fit_baseline": "Baseline Signal Fit",
+    "Z_sideband_baseline": "Baseline Z",
+}
 
 
 def histogram_keys(path: Path) -> set[str]:
@@ -156,13 +167,18 @@ def plot_one(
     occupied = np.zeros_like(payload[0][2][0], dtype=bool)
     for _, _, data, dy in payload:
         occupied |= (data[0] != 0) | (dy[0] != 0)
-    first, last = np.flatnonzero(occupied)[[0, -1]]
+    populated_bins = np.flatnonzero(occupied)
+    if populated_bins.size == 0:
+        print(f"[SKIP] All compared Data/DY histograms have empty visible bins: {key}")
+        return
+    first, last = populated_bins[[0, -1]]
 
     fig, (axis, ratio_axis) = plt.subplots(
         2, 1, figsize=(9, 8), sharex=True,
         gridspec_kw={"height_ratios": (3.1, 1), "hspace": 0.04},
     )
 
+    displayed_ratios = []
     for label, color, data, dy in payload:
         data_values, edges, data_errors = data
         dy_values, _, _ = dy
@@ -198,6 +214,7 @@ def plot_one(
             out=np.zeros_like(data_errors),
             where=shown_dy != 0,
         )
+        displayed_ratios.extend((ratio - ratio_error, ratio + ratio_error))
         ratio_axis.errorbar(
             centers, ratio, yerr=ratio_error, color=color, marker=".",
             linestyle="-", linewidth=1.2, markersize=4, label=label,
@@ -214,23 +231,38 @@ def plot_one(
     )
     axis.legend(ncol=2, fontsize=11, loc="best")
     if comparison == "2024-2025":
-        hep.cms.label(
-            "Preliminary", data=True, ax=axis,
-            rlabel=(
-                f"2024: {LUMINOSITY_FB['2024']:.1f} fb$^{{-1}}$, "
-                f"2025: {LUMINOSITY_FB['2025']:.1f} fb$^{{-1}}$ (13.6 TeV)"
-            ),
+        hep.cms.label("Preliminary", data=True, ax=axis, rlabel="13.6 TeV")
+        campaign_label = (
+            f"2024: {LUMINOSITY_FB['2024']:.1f} fb$^{{-1}}$\n"
+            f"2025: {LUMINOSITY_FB['2025']:.1f} fb$^{{-1}}$\n"
+            f"{REGION_LABELS.get(region, region)}"
         )
     else:
-        year = "2026" if comparison == "2026-nohorn" else "2025"
+        year = "2026" if comparison in {"2026-horn", "2026-nohorn"} else "2025"
         hep.cms.label(
-            "Preliminary", data=True, year=year,
-            lumi=LUMINOSITY_FB[year], com=13.6, ax=axis,
+            "Preliminary", data=True, ax=axis,
+            rlabel=f"{LUMINOSITY_FB[year]:.1f} fb$^{{-1}}$ (13.6 TeV)",
         )
+        campaign_label = f"{year}\n{REGION_LABELS.get(region, region)}"
+    axis.text(
+        0.98, 0.96, campaign_label, transform=axis.transAxes,
+        ha="right", va="top", fontsize=11,
+    )
 
     ratio_axis.axhspan(0.8, 1.2, color="#9ecae1", alpha=0.25, label="20% variation")
     ratio_axis.axhline(1.0, color="black", linewidth=1)
-    ratio_axis.set_ylim(0.5, 1.5)
+    finite_ratios = [
+        values[np.isfinite(values)] for values in displayed_ratios
+        if np.any(np.isfinite(values))
+    ]
+    max_deviation = max(
+        (float(np.max(np.abs(values - 1.0))) for values in finite_ratios),
+        default=0.1,
+    )
+    # Keep unity at the centre and never let the upper edge exceed 1.8.
+    # Outliers remain clipped instead of making the informative bulk illegible.
+    half_range = min(0.8, max(0.1, 1.15 * max_deviation))
+    ratio_axis.set_ylim(1.0 - half_range, 1.0 + half_range)
     ratio_axis.set_ylabel("Data / DY", fontsize=18)
     ratio_axis.set_xlabel(key.rsplit("/", 1)[-1], fontsize=18)
     ratio_axis.legend(ncol=2, fontsize=9, loc="upper center")
@@ -258,7 +290,7 @@ def main() -> int:
     )
     parser.add_argument(
         "--comparison",
-        choices=("2025-horn", "2024-2025", "2026-nohorn"),
+        choices=("2025-horn", "2024-2025", "2026-horn", "2026-nohorn"),
         default="2025-horn",
         help="Campaign curves to draw (default: 2025-horn)",
     )
@@ -289,7 +321,7 @@ def main() -> int:
     elif comparison == "2024-2025":
         campaigns = (CAMPAIGN_2024, CAMPAIGNS_2025[1])
     else:
-        campaigns = (CAMPAIGN_2026,)
+        campaigns = CAMPAIGNS_2026
     files = [
         args.base / relative / sample
         for _, relative, _ in campaigns
@@ -307,6 +339,8 @@ def main() -> int:
         variables = set(args.variable)
         keys = {key for key in keys if key.rsplit("/", 1)[-1] in variables}
 
+    if not keys:
+        raise RuntimeError("No common histograms match the requested comparison")
     print(f"Common one-dimensional histograms: {len(keys)}")
     for key in sorted(keys):
         try:

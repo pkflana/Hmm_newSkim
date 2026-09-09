@@ -1,3 +1,4 @@
+from common.jet_variation_suffixes import jet_variation_suffixes
 
 import ROOT
 import sys
@@ -87,11 +88,7 @@ def ProcessAllJetVariables(df,jet_columns,config,bTagAlgo,bTagDict,want_variatio
     ### to be fixed here
 
     cols = _column_names(df)
-    syst_suffixes = [""]
-    if want_variations:
-        scales = syst_cfg.get('scales',['up','down'])
-        syst_suffixes.extend([syst_cfg['systematics']['JER']['jet_suffix'].format(scale=scale) for scale in scales])
-        syst_suffixes.extend([syst_cfg['systematics']['JES_Total']['jet_suffix'].format(scale=scale) for scale in scales])
+    syst_suffixes = jet_variation_suffixes(df, want_variations, syst_cfg)
 
     jet_extra = {}
     for col in jet_columns:
@@ -168,11 +165,7 @@ def SelectJetVars(df,jet_columns,config,bTagAlgo,bTagDict,want_variations,syst_c
 
 
     cols = _column_names(df)
-    syst_suffixes = [""]
-    if want_variations:
-        scales = syst_cfg.get('scales',['up','down'])
-        syst_suffixes.extend([syst_cfg['systematics']['JER']['jet_suffix'].format(scale=scale) for scale in scales])
-        syst_suffixes.extend([syst_cfg['systematics']['JES_Total']['jet_suffix'].format(scale=scale) for scale in scales])
+    syst_suffixes = jet_variation_suffixes(df, want_variations, syst_cfg)
 
     jet_extra = {}
     for col in jet_columns:
@@ -202,6 +195,7 @@ def SelectJetVars(df,jet_columns,config,bTagAlgo,bTagDict,want_variations,syst_c
         out.reserve({p4_branch}.size());
         for (size_t i = 0; i < {p4_branch}.size(); ++i) {{
             bool ok = Jet_preSel{suff}[i] && !Jet_vetoMap{suff}[i]
+                      && Jet_IsOutsideHorn{suff}[i]
                       && ROOT::Math::VectorUtil::DeltaR({p4_branch}[i], mu1_p4) > 0.4
                       && ROOT::Math::VectorUtil::DeltaR({p4_branch}[i], mu2_p4) > 0.4;
             out.push_back(ok);
@@ -288,11 +282,7 @@ def SelectJetVars(df,jet_columns,config,bTagAlgo,bTagDict,want_variations,syst_c
 
 def SelectVBFJets(df,want_variations,syst_cfg):
 
-    syst_suffixes = [""]
-    if want_variations:
-        scales = syst_cfg.get('scales',['up','down'])
-        syst_suffixes.extend([syst_cfg['systematics']['JER']['jet_suffix'].format(scale=scale) for scale in scales])
-        syst_suffixes.extend([syst_cfg['systematics']['JES_Total']['jet_suffix'].format(scale=scale) for scale in scales])
+    syst_suffixes = jet_variation_suffixes(df, want_variations, syst_cfg)
 
     new_cols = []
 

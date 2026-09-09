@@ -9,12 +9,13 @@ jet_jsonPath = "/cvmfs/cms-griddata.cern.ch/cat/metadata/JME/{}/latest/jet_jerc.
 jetsmear_jsonFile = "/cvmfs/cms-griddata.cern.ch/cat/metadata/JME/JER-Smearing/latest/jer_smear.json.gz"
 jet_algorithm = "AK4PFPuppi"
 uncSources_minimal = ["Total"]
-unc_sources_regrouped = [ "RelativeBal", "HF", "BBEC1", "EC2", "Absolute", "FlavorQCD", "BBEC1_year", "Absolute_year", "EC2_year", "HF_year", "RelativeSample_year"]
+unc_sources_regrouped = ["Total", "Regrouped_RelativeBal", "Regrouped_HF", "Regrouped_BBEC1", "Regrouped_EC2", "Regrouped_Absolute", "Regrouped_FlavorQCD", "Regrouped_BBEC1_{year}", "Regrouped_Absolute_{year}", "Regrouped_EC2_{year}", "Regrouped_HF_{year}", "RelativeSample_{year}"]
 
 unc_source_enum = {
     "Central": "Central",
     "JER": "JER",
     "JESTotal": "Total",
+    "Total": "Total",
     "RelativeBal": "RelativeBal",
     "HF": "HF",
     "BBEC1": "BBEC1",
@@ -27,6 +28,23 @@ unc_source_enum = {
     "HF_year": "HF_year",
     "RelativeSample_year": "RelativeSample_year",
 }
+
+def _jet_uncertainty_year(period):
+    return {
+        "2022_Summer22EE": "2022EE",
+        "2023_Summer23BPix": "2023BPix",
+    }.get(period, period.split("_")[0])
+
+
+def _jet_uncertainty_enum(source, period):
+    source = source.format(year=_jet_uncertainty_year(period))
+    if source.startswith("Regrouped_"):
+        source = source[len("Regrouped_"):]
+    suffix = "_" + _jet_uncertainty_year(period)
+    if source.endswith(suffix):
+        source = source[:-len(suffix)] + "_year"
+    return _debug_map_get(unc_source_enum, source, "unc_source_enum")
+
 
 jer_tag_map = {
     "2022_Summer22": "Summer22_22Sep2023_JRV2_MC",
@@ -95,9 +113,9 @@ _jet_correction_state = {
     "initialized": False,
     "period": None,
     "is_data": False,
-    "use_regrouped": False,
+    "use_regrouped": True,
     "sample_name": None,
-    "uncSources_toUse": uncSources_minimal,
+    "uncSources_toUse": unc_sources_regrouped,
 }
 
 
@@ -182,13 +200,17 @@ def initialize_jet_corrections(
     _jet_correction_state["is_data"] = is_data
     _jet_correction_state["use_regrouped"] = use_regrouped
     _jet_correction_state["sample_name"] = sample_name
-    _jet_correction_state["uncSources_toUse"] = (["JER"] + unc_sources_regrouped if use_regrouped else ["JER"] + uncSources_minimal)
+    year_unc = _jet_uncertainty_year(period)
+    _jet_correction_state["uncSources_toUse"] = ["JER"] + [
+        source.format(year=year_unc)
+        for source in (unc_sources_regrouped if use_regrouped else uncSources_minimal)
+    ]
 
     jec_jsonFile = jet_jsonPath.format(pog_folder_names["JERC"][period])
     jer_jsonFile = jet_jsonPath.format(pog_folder_names["JERC"][period])
     print(f"jec_jsonFile. = {jec_jsonFile}, jer_jsonFile={jer_jsonFile}")
     year = period.split("_")[0]
-    jec_year = period.split("_")[0]
+    jec_year = _jet_uncertainty_year(period)
 
     jec_tag_map = jec_tag_map_data if is_data else jec_tag_map_mc
     jec_tag_array = _debug_map_get(jec_tag_map, period, "jec_tag_map")
@@ -244,6 +266,7 @@ def define_jet_p4_variations(
     want_variations,
     apply_JER,
     apply_JES,
+    apply_horn_mitigation=True,
 ):
     if not _jet_correction_state["initialized"]:
         raise RuntimeError("Jet corrections are not initialized")
@@ -252,6 +275,7 @@ def define_jet_p4_variations(
     period = _jet_correction_state["period"]
 
     apply_jer = "true" if apply_JER and not is_data else "false"
+    horn_mitigation = "true" if apply_horn_mitigation else "false"
     reapply_jec = "true"
     require_run_number = "true" if is_data or period == "2023_Summer23BPix" else "false"
 
@@ -262,6 +286,7 @@ def define_jet_p4_variations(
     )
 
 
+    df = df.Define("seed_jersmearing","(run << 20) + (luminosityBlock << 10) + event + (Jet_eta.size() > 0 ? Jet_eta[0]/0.01 : 0)")
     # ===========================
     # CORE SHIFTED MAP
     # ===========================
@@ -273,12 +298,14 @@ def define_jet_p4_variations(
                 Jet_rawFactor, Jet_area,
                 Rho_fixedGridRhoFastjetAll,
                 event,
+                seed_jersmearing,
                 {apply_jer},
                 {reapply_jec},
                 {require_run_number},
                 run,
                 {wantPhi},
-                GenJet_pt, GenJet_eta, GenJet_phi, Jet_genJetIdx
+                GenJet_pt, GenJet_eta, GenJet_phi, Jet_genJetIdx,
+                {horn_mitigation}
             )"""
         )
     else:
@@ -289,11 +316,13 @@ def define_jet_p4_variations(
                 Jet_rawFactor, Jet_area,
                 Rho_fixedGridRhoFastjetAll,
                 event,
+                seed_jersmearing,
                 {apply_jer},
                 {reapply_jec},
                 {require_run_number},
                 run,
-                {wantPhi}
+                {wantPhi},
+                {{}}, {{}}, {{}}, {{}}, {horn_mitigation}
             )"""
         )
 
@@ -301,7 +330,7 @@ def define_jet_p4_variations(
     # helper: extract p4
     # ===========================
     def p4_from(unc_source, unc_scale):
-        src = _debug_map_get(unc_source_enum, unc_source, "unc_source_enum")
+        src = _jet_uncertainty_enum(unc_source, period)
         expression = (
             "::correction::JetCorrectionProvider::getP4FromMap("
             "Jet_p4_shifted_map, "
@@ -319,14 +348,18 @@ def define_jet_p4_variations(
     # ONLY VARIATIONS (NO DERIVED FEATURES HERE)
     if not is_data and want_variations:
         sources = []
-        if apply_JER:
-            sources.append("JER")
-        if apply_JES:
-            sources += [f"JES{s}" for s in _jet_correction_state["uncSources_toUse"] if s != "JER"]
+        sources.append("JER")
+
+        sources += [
+            s.format(year=_jet_uncertainty_year(period))
+            for s in _jet_correction_state["uncSources_toUse"] if s != "JER"
+        ]
         for unc in sources:
+            # JES belongs to the output suffix, not the provider source name.
+            suffix = unc if unc == "JER" else f"JES{unc}"
             for scale in ["up", "down"]:
                 df = df.Define(
-                    f"Jet_p4_{unc}{scale}",
+                    f"Jet_p4_{suffix}{scale}",
                     p4_from(unc, scale)
                 )
 
@@ -359,7 +392,7 @@ def apply_jet_corrections(df, config, dataset_cfg, dataset_name, want_variations
     apply_JES = config.get("apply_JES", True)
     print("apply_JER? ", apply_JER)
     print("apply_JES? ", apply_JES)
-    use_regrouped = config.get("use_regrouped", False)
+    use_regrouped = config.get("use_regrouped", True)
 
     # Apply jet corrections
     initialize_jet_corrections(
@@ -373,6 +406,7 @@ def apply_jet_corrections(df, config, dataset_cfg, dataset_name, want_variations
         want_variations,
         apply_JER,
         apply_JES,
+        config.get("apply_jet_horn_mitigation", True),
     )
 
     return df

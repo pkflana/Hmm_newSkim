@@ -13,14 +13,8 @@ ROOT.EnableThreadSafety()
 sys.path.append(os.environ["ANALYSIS_PATH"])
 import common.utilities as utilities
 from common.add_vars import GetSelectionSuffixForSystematic
-from common.histogram_rdf import (
-    define_shifted_jet_observables,
-    finalize_histogram_dataframe,
-    normalize_systematic_direction_columns,
-)
-from histograms.jer_split import define_split_jer_collections
+from common.prepare_rdf import prepare_rdf, prepare_region_dataframes
 from common.dnn_histogram_production import (
-    apply_sideband_mass_shifted_dnn,
     needs_sideband_mass_shift,
     shifted_output_column,
 )
@@ -32,17 +26,16 @@ from common.jet_component_splitting import (
     add_jet_component_categories,
     add_vbf_eta_region_categories,
     component_output_directory,
-    define_jet_gen_matching,
     expanded_jet_component_categories,
     jet_components_enabled_for_dataset,
     variable_for_component,
 )
 from common.manifest_utilities import read_manifest
+from common.systematic_correlations import nuisance_name as correlated_nuisance_name
 from common.utilities import initialize_root_runtime
 from common.validation_utilities import validate_file
 from common.rdf_utilities import (
     GetModel,
-    GetRdfForDataset,
     findBinEntry,
     get_root_files,
     get_segmentation_dict,
@@ -200,9 +193,8 @@ def format_systematic_info(syst_info, scale=None):
 def nuisance_histogram_name(variable, syst_name, syst_info, era, process):
     if syst_name == "Central":
         return variable
-    nuisance_name = syst_info.get("name", syst_name)
-    nuisance_name = nuisance_name.format(
-        era=era.removeprefix("Run3_"),
+    nuisance_name = correlated_nuisance_name(
+        dict(syst_info, name=syst_info.get("name", syst_name)), era,
         process=process,
         pdf_process=pdf_process_label(syst_info.get("pdf_config", {}), process),
     )
@@ -486,6 +478,8 @@ def parse_requested_systematics(values):
 def expand_systematic_group_alias(requested_name, available_systematics):
     normalized_name = requested_name.lower().replace("_", "").replace("-", "")
     aliases = {
+        "jesregrouped": tuple(name for name in available_systematics
+                              if name.startswith(("JESRegrouped_", "JESRelativeSample_"))),
         "jerc": (
             *tuple(name for name in available_systematics if name.startswith("JER")),
             "JES_TotalUp", "JES_TotalDown",
@@ -572,7 +566,7 @@ def validate_systematic_isolation(systs_to_run):
         jet_suffix = info.get("jet_suffix", "")
         muon_suffix = info.get("muon_suffix", "")
         weight = info.get("weight", "weight__Central")
-        if name.startswith(("JER", "JES_")) and (
+        if name.startswith(("JER", "JES")) and (
             muon_suffix or weight != "weight__Central"
         ):
             raise ValueError(
@@ -623,8 +617,8 @@ def write_qcd_scale_variations(
                 continue
             for variable in variables:
                 for variation in variations:
-                    nuisance_name = variation["name"].format(
-                        era=era.removeprefix("Run3_"),
+                    nuisance_name = correlated_nuisance_name(
+                        dict(qcd_scale_config, **variation), era,
                         process=process_label,
                     )
                     for direction, shape_direction in (
@@ -703,83 +697,33 @@ def produce_histograms(args_tuple):
                 f"{len(input_files)} ROOT file(s)"
             )
         rdf_started = time.perf_counter()
-        rdf_base = None
-        if input_files:
-            rdf_base = GetRdfForDataset(
-                input_dir=args.root_input,
-                is_data=is_data,
-                weight_dict=syst_cfg["weights"],
-                store_shifted_weights=args.systematics_mode != "central",
-                treeName="Events",
-                explicit_files=input_files,
-                seg_dict=seg_dict,
-                skip_validation=True,
-                dnn_payloads=dnn_payloads,
-                btag_algo=btag_algo,
-                additional_cuts=args.additional_cuts,
-                era=args.era,
-                dnn_model_set=args.dnn_model_set,
-                qcd_scale_config=syst_cfg.get("qcd_scale"),
-                qcd_scale_seg_dicts=qcd_scale_seg_dicts,
-                pdf_config=syst_cfg.get("pdf"),
-            )
-        profile_log(args.dataset_name, "RDataFrame construction", rdf_started)
-        dataframe_finalize_started = time.perf_counter()
-        if rdf_base is None:
-            print(
-                f"[JOB {args.dataset_name}] WARNING: no usable input "
-                "events. Writing empty histograms."
-            )
-        else:
-            rdf_base = normalize_systematic_direction_columns(
-                rdf_base, systs_to_run
-            )
-            rdf_base = define_split_jer_collections(rdf_base, systs_to_run)
-            rdf_base = define_shifted_jet_observables(rdf_base, systs_to_run)
-            matching_columns = {
-                str(column) for column in rdf_base.GetColumnNames()
-            }
-            if (
-                not is_data
-                and (
-                    "Jet_genJetIdx" in matching_columns
-                    or "SelectedJet_genJetIdx" in matching_columns
-                )
-            ):
-                rdf_base = define_jet_gen_matching(
-                    rdf_base,
-                    {""} | {
-                        info.get("jet_suffix", "")
-                        for info in systs_to_run.values()
-                    },
-                )
-            weight_columns = sorted({
-                syst_info["weight"]
-                for syst_info in systs_to_run.values()
-                if "weight" in syst_info
-            })
-            rdf_base = finalize_histogram_dataframe(
-                rdf_base,
-                args.dataset_name,
-                sel_cfg,
-                syst_cfg,
-                weight_columns,
-                args.era,
-                want_variations=args.systematics_mode != "central",
-                apply_jet_component_weight=(
-                    args.dy_jet_component_reweight
-                    and not args.derive_jet_component_weights
-                ),
-                apply_dy_ptll_weight=args.dy_ptll_reweight,
-                apply_dy_njets_weight=args.dy_njets_reweight,
-                reweight_jsons=process_entry.get("reweight_jsons"),
-            )
-        profile_log(args.dataset_name, "dataframe definitions/finalization", dataframe_finalize_started)
+        prepared = prepare_rdf(
+            dataset_name=args.dataset_name, era=args.era,
+            selections_cfg=sel_cfg, systematics_cfg=syst_cfg,
+            is_data=is_data, input_dir=args.root_input, input_files=input_files,
+            seg_dict=seg_dict, qcd_scale_seg_dicts=qcd_scale_seg_dicts,
+            systs_to_run=systs_to_run,
+            want_variations=args.systematics_mode != "central",
+            dnn_payloads=dnn_payloads, btag_algo=btag_algo,
+            additional_cuts=args.additional_cuts, dnn_model_set=args.dnn_model_set,
+            skip_validation=True,
+            enable_dy012j=args.dy_jet_component_reweight and not args.derive_jet_component_weights,
+            enable_dyptll=args.dy_ptll_reweight, enable_dynjets=args.dy_njets_reweight,
+            enable_custom_weights=args.custom_weights,
+            reweight_jsons=args.reweight_jsons,
+            split_jet_multiplicity=args.dy_jet_components,
+            include_vbf_eta_regions=args.vbf_eta_regions,
+            component_categories=getattr(args, "pu_hard_requested_categories", ("ggF", "VBF")),
+        )
+        rdf_base = prepared.get("inclusive")
+        profile_log(args.dataset_name, "RDataFrame preparation", rdf_started)
         booking_setup_started = time.perf_counter()
+        from common.dataset_utilities import dataset_region_allowed
         stored_regions = [
             name
             for name, info in masses_regions.items()
             if name in masses_regions_list and info.get("store", False)
+            and (not args.region_sample_routing or dataset_region_allowed(args.dataset_name, name))
         ]
         stored_categories = [
             name
@@ -802,80 +746,11 @@ def produce_histograms(args_tuple):
             if rdf_base is not None
             else set()
         )
-        selection_suffixes = {
-            GetSelectionSuffixForSystematic(name, info)
-            for name, info in systs_to_run.items()
-        }
-        required_selection_columns = {
-            f"{selection}{suffix}"
-            for suffix in selection_suffixes
-            for selection in (*stored_regions, *stored_categories)
-        }
-        missing_selection_columns = sorted(required_selection_columns - base_columns)
-        if rdf_base is not None and missing_selection_columns:
-            raise RuntimeError(
-                "Missing histogram selection column(s): "
-                + ", ".join(missing_selection_columns)
-            )
-        # Apply each sideband DNN once per distinct selection suffix, before any
-        # histograms are booked. ApplyDNN materializes its inputs; doing this in
-        # the booking loop would otherwise trigger repeated RDF event loops.
-        shifted_rdfs = {}
-        if rdf_base is not None and "DNN_NNOutput" in vars_to_make_hist:
-            for mass_region in stored_regions:
-                if not needs_sideband_mass_shift(
-                    mass_region, "DNN_NNOutput"
-                ):
-                    continue
-                for selection_suffix in selection_suffixes:
-                    mass_column = f"{mass_region}{selection_suffix}"
-                    region_rdf = rdf_base.Filter(
-                        mass_column,
-                        f"{mass_region}_{selection_suffix or 'central'}_dnn_input",
-                    )
-                    shifted_rdf = apply_sideband_mass_shifted_dnn(
-                        region_rdf,
-                        mass_region,
-                        btag_algo=btag_algo,
-                        era=args.era,
-                        model_set=args.dnn_model_set,
-                    )
-                    shifted_rdfs[(mass_region, selection_suffix)] = (
-                        shifted_rdf,
-                        {str(column) for column in shifted_rdf.GetColumnNames()},
-                    )
-        # Weight-only systematics share their selection suffix. Cache each
-        # region/category filter so its predicate is evaluated once per event,
-        # rather than once for every weight variation.
-        filtered_rdfs = {}
-        if rdf_base is not None:
-            for selection_suffix in selection_suffixes:
-                for mass_region in stored_regions:
-                    mass_column = f"{mass_region}{selection_suffix}"
-                    shifted_entry = shifted_rdfs.get(
-                        (mass_region, selection_suffix)
-                    )
-                    region_rdf = (
-                        shifted_entry[0]
-                        if shifted_entry is not None
-                        else rdf_base.Filter(mass_column)
-                    )
-                    for category in stored_categories:
-                        category_column = f"{category}{selection_suffix}"
-                        cache_key = (
-                            mass_region,
-                            category,
-                            selection_suffix,
-                        )
-                        if shifted_entry is not None:
-                            _, available_columns = shifted_entry
-                        else:
-                            available_columns = base_columns
-                        filtered_rdf = region_rdf.Filter(category_column)
-                        filtered_rdfs[cache_key] = (
-                            filtered_rdf,
-                            available_columns,
-                        )
+        filtered_rdfs = prepare_region_dataframes(
+            rdf_base, mass_regions=stored_regions, categories=stored_categories,
+            systs_to_run=systs_to_run, variables=vars_to_make_hist,
+            btag_algo=btag_algo, era=args.era, dnn_model_set=args.dnn_model_set,
+        )
         profile_log(args.dataset_name, "selection and DNN graph construction", booking_setup_started)
         output_open_started = time.perf_counter()
         out_file = ROOT.TFile(output_path, "RECREATE")
@@ -1059,7 +934,7 @@ def produce_histograms(args_tuple):
         # payloads makes RSS grow monotonically until the cgroup kills it.
         from common.dnn_application import clear_prediction_registry
         clear_prediction_registry()
-if __name__ == "__main__":
+def main(argv=None, *, stage_settings=None):
     parser = argparse.ArgumentParser(description="Produce histograms from validated skimmed ROOT ntuples.")
     parser.add_argument("--era", required=True, help="Era, e.g. Run3_2022EE")
     parser.add_argument(
@@ -1128,6 +1003,7 @@ if __name__ == "__main__":
         ),
     )
     parser.add_argument("--variables", nargs="+")
+    parser.add_argument("--no-region-sample-routing", dest="region_sample_routing", action="store_false", help="Explicitly allow DY/EWK outside their default generated mass region")
     parser.add_argument("--mass-regions", nargs="+", default=["mass_inclusive", "Z_sideband", "Signal_Fit"])
     parser.add_argument("--categories", nargs="+", default=["baseline", "ggF", "VBF"])
     parser.add_argument("--additional-cuts", default=None)
@@ -1138,6 +1014,15 @@ if __name__ == "__main__":
     )
     parser.add_argument("--dryrun", action="store_true")
     parser.add_argument("--derive-jet-component-weights", action="store_true", help="Do not apply the existing jet-component weight to fit templates.")
+    parser.add_argument(
+        "--custom-weights",
+        action=argparse.BooleanOptionalAction,
+        default=True,
+        help=(
+            "Apply custom DY shape/composition reweights (default: enabled). "
+            "Cross-section and nominal DY normalization remain applied."
+        ),
+    )
     parser.add_argument(
         "--dy-jet-component-reweight",
         action=argparse.BooleanOptionalAction,
@@ -1184,7 +1069,10 @@ if __name__ == "__main__":
         help="DNN payload generation to use.",
     )
     parser.add_argument("--shift-z-sideband-dnn-mass", action="store_true", help=argparse.SUPPRESS)
-    args = parser.parse_args()
+    args = parser.parse_args(argv)
+    if stage_settings:
+        for name, value in stage_settings.items():
+            setattr(args, name, copy.deepcopy(value))
     workflow_manifest = None
     if args.input_manifest:
         if not os.path.isfile(args.input_manifest):
@@ -1317,6 +1205,7 @@ if __name__ == "__main__":
             )
             args.process_name = stitched_process
     process_entry = process_cfg.get(args.process_name, {})
+    args.reweight_jsons = process_entry.get("reweight_jsons")
     sel_cfg = utilities.get_config(os.path.join(cfg_dir, "selections.yaml"))
     if args.disable_jet_horn_veto:
         sel_cfg["jet_horn_veto_expr"] = "(abs(v_ops::eta(Jet_p4)) < 0)"
@@ -1590,3 +1479,8 @@ if __name__ == "__main__":
     print(f"[INFO] Input files: {len(valid_root_files)}")
     print(f"[INFO] Execution time:    {execution_time:.2f} s")
     print("=" * 80 + "\n")
+
+
+if __name__ == "__main__":
+
+    main()

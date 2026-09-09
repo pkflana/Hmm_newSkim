@@ -28,3 +28,26 @@ htcondor/systematics/
 pyproject.toml
 combine/
 campaigns/
+# Maintained campaign entry points and their shared runner.
+!/campaigns/
+campaigns/*
+!/campaigns/README.md
+!/campaigns/dy_weights.sh
+!/campaigns/dnn_vbf_z.sh
+!/campaigns/dnn_vbf_h.sh
+!/campaigns/dnn_vbf_signal.sh
+!/campaigns/all_variables.sh
+!/campaigns/jet_horn_veto.sh
+!/campaigns/lib/
+/campaigns/lib/*
+!/campaigns/lib/runner.sh
+!/config/campaigns/
+/config/campaigns/*
+!/config/campaigns/dnn_vbf_z_sep03.sh
+!/config/campaigns/dnn_vbf_h_sep03.sh
+!/config/campaigns/dnn_vbf_signal_sep03.sh
+!/config/campaigns/allvars_central_aug31.sh
+!/config/campaigns/dy012j_aug31.sh
+!/config/campaigns/dy_ptll_aug31.sh
+!/config/campaigns/dy_njets_aug31.sh
+tools/tests/*

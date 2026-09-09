@@ -34,6 +34,25 @@ def defineTriggerWeights(df, pt_to_use="pt"):  # needs application region def
             "Warning, weight_TrgSF_singleMu_IsoMu24Central already in col names, passing"
         )
     else:
+        required_columns = {
+            "Event_HasTriggerMatching_singleMu",
+            f"mu1_{pt_to_use}",
+            "mu1_eta",
+            "mu1_HasTriggerMatching_singleMu",
+            "weight_mu1_IsoMu24_CutBasedIdMedium_and_PFIsoMedium_Central",
+            f"mu2_{pt_to_use}",
+            "mu2_eta",
+            "mu2_HasTriggerMatching_singleMu",
+            "weight_mu2_IsoMu24_CutBasedIdMedium_and_PFIsoMedium_Central",
+        }
+        available_columns = {str(name) for name in df.GetColumnNames()}
+        missing_columns = sorted(required_columns - available_columns)
+        if missing_columns:
+            print(
+                "Warning, trigger SF inputs are unavailable; using unity "
+                f"temporarily. Missing columns: {', '.join(missing_columns)}"
+            )
+            return df.Define("weight_TrgSF_singleMu_IsoMu24Central", "1.f")
         df = df.Define(
             f"weight_TrgSF_singleMu_IsoMu24Central",
             f"if (Event_HasTriggerMatching_singleMu) {{return getCorrectSingleLepWeight(mu1_{pt_to_use}, mu1_eta, mu1_HasTriggerMatching_singleMu, weight_mu1_IsoMu24_CutBasedIdMedium_and_PFIsoMedium_Central,mu2_{pt_to_use}, mu2_eta, mu2_HasTriggerMatching_singleMu, weight_mu2_IsoMu24_CutBasedIdMedium_and_PFIsoMedium_Central) ;}}return 1.f;",
@@ -45,10 +64,19 @@ def defineTriggerWeightsErrors(df, pt_to_use="pt"):
     for scale in ["up", "down"]:
         # weight_mu2_TrgSF_singleMu_IsoMu24
         trg_name = "singleMu_IsoMu24"  # "singleMu_IsoMu24"
-        df = df.Define(
-            f"weight_TrgSF_{trg_name}{scale}",
-            f"""if (Event_HasTriggerMatching_singleMu) {{return getCorrectSingleLepWeight(mu1_{pt_to_use}, mu1_eta, mu1_HasTriggerMatching_singleMu, weight_mu1_IsoMu24_CutBasedIdMedium_and_PFIsoMedium_{scale},mu2_{pt_to_use}, mu2_eta, mu2_HasTriggerMatching_singleMu, weight_mu2_IsoMu24_CutBasedIdMedium_and_PFIsoMedium_{scale}) ;}} return 1.f;""",
-        )
+        output_name = f"weight_TrgSF_{trg_name}{scale}"
+        required_columns = {
+            f"weight_mu1_IsoMu24_CutBasedIdMedium_and_PFIsoMedium_{scale}",
+            f"weight_mu2_IsoMu24_CutBasedIdMedium_and_PFIsoMedium_{scale}",
+        }
+        available_columns = {str(name) for name in df.GetColumnNames()}
+        if required_columns - available_columns:
+            df = df.Define(output_name, "1.f")
+        else:
+            df = df.Define(
+                output_name,
+                f"""if (Event_HasTriggerMatching_singleMu) {{return getCorrectSingleLepWeight(mu1_{pt_to_use}, mu1_eta, mu1_HasTriggerMatching_singleMu, weight_mu1_IsoMu24_CutBasedIdMedium_and_PFIsoMedium_{scale},mu2_{pt_to_use}, mu2_eta, mu2_HasTriggerMatching_singleMu, weight_mu2_IsoMu24_CutBasedIdMedium_and_PFIsoMedium_{scale}) ;}} return 1.f;""",
+            )
     return df
 
 

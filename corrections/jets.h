@@ -173,7 +173,7 @@ namespace correction {
                                          bool require_run_number,
                                          bool wantPhi,
                                          bool isdata_,
-                                        bool is2024Eta2To2p5) const {
+                                        bool applyResidualPtFloor) const {
 
             if (pt_raw <= 0.0) return 1.0;
 
@@ -200,7 +200,7 @@ namespace correction {
             float cRes = 1.0;
             float pt_for_corr = pt_after;
             if (isdata_){
-                if(is2024Eta2To2p5 and pt_after < 30. ){
+                if(applyResidualPtFloor and pt_after < 30. ){
                     pt_for_corr = 30.;
                 }
                 if (require_run_number) {
@@ -268,6 +268,7 @@ namespace correction {
         const RVecF& Jet_area,
         const float rho,
         int event,
+        int seed,
         bool apply_jer,
         bool reapply_jec,
         bool require_run_number,
@@ -276,7 +277,8 @@ namespace correction {
         const RVecF& GenJet_pt = {},
         const RVecF& GenJet_eta = {},
         const RVecF& GenJet_phi = {},
-        const RVecI& Jet_genJetIdx = {}
+        const RVecI& Jet_genJetIdx = {},
+        bool apply_horn_mitigation = true
     ) const
     {
         std::map<std::pair<UncSource, UncScale>, RVecLV> all_shifted_p4;
@@ -327,14 +329,15 @@ namespace correction {
                     const float pt_raw = Jet_pt[i] * raw_sf;
                     const float mass_raw = Jet_mass[i] * raw_sf;
 
-                    const bool is2024Eta2To2p5 =
-                        ((year_ == "2024") && //  || year_=="2025"
+                    const bool applyResidualPtFloor =
+                        ((year_ == "2024" ||
+                          ((year_ == "2025" || year_ == "2026") && apply_horn_mitigation)) &&
                         abs_eta > 2.f &&
                         abs_eta < 2.5f);
 
                     float jec_sf = 1.f;
 
-                    if (use_cmpd_jec_ && !is2024Eta2To2p5) {
+                    if (use_cmpd_jec_ && !applyResidualPtFloor) {
 
                         evaluation_stage = "JEC compound evaluate";
                         jec_sf = evaluateJECCompound(
@@ -361,7 +364,7 @@ namespace correction {
                             require_run_number,
                             wantPhi,
                             is_data_,
-                            is2024Eta2To2p5
+                            applyResidualPtFloor
                         );
                     }
 
@@ -428,10 +431,11 @@ namespace correction {
                         }
                     }
 
+
                     evaluation_stage = "JERSmear evaluate";
                     jersmear_factor = safeEvaluate(
                         jersmear_corr_, corrected_pt, eta, genjet_pt, rho,
-                        event, jer_pt_res, jer_sf
+                        seed, jer_pt_res, jer_sf
                     );
 
 
@@ -445,7 +449,7 @@ namespace correction {
                     if (
                         is_jet_in_horn &&
                         !has_gen_match
-                        && year_ != "2025"
+                        && ((year_ != "2025" && year_ != "2026") || apply_horn_mitigation)
                     ) {
                         jersmear_factor = 1.f;
                     }
@@ -543,6 +547,7 @@ namespace correction {
 
         inline static const std::map<UncSource, std::string> unc_map_regrouped = {
             {UncSource::JER, "JER"},
+            {UncSource::Total, "Total"},
             {UncSource::RelativeBal, "Regrouped_RelativeBal"},
             {UncSource::HF, "Regrouped_HF"},
             {UncSource::BBEC1, "Regrouped_BBEC1"},
@@ -552,7 +557,7 @@ namespace correction {
             {UncSource::BBEC1_year, "Regrouped_BBEC1"},
             {UncSource::Absolute_year, "Regrouped_Absolute"},
             {UncSource::EC2_year, "Regrouped_EC2"},
-            {UncSource::HF_year, "Regrouped_RelativeStatHF"},
+            {UncSource::HF_year, "Regrouped_HF"},
             {UncSource::RelativeSample_year, "Regrouped_RelativeSample"}};
     };
 

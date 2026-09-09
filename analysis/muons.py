@@ -125,7 +125,6 @@ def ApplyMuonTriggerMatching(df, trigger_config, apply_filter, want_variations, 
             cols_to_save.extend([offline_col, matching_col, evt])
     if apply_filter:
         df = df.Filter(" || ".join(filters), "Trigger matching for " + "__".join(trigger_config.keys()))
-    print(filters, cols_to_save)
     return df, cols_to_save
 
 def ProcessMuonVariables(df,muon_columns,default_suffix,trigger_config,want_variations,pt_min,lower_mass_cut,upper_mass_cut,syst_cfg):
@@ -150,8 +149,11 @@ def ProcessMuonVariables(df,muon_columns,default_suffix,trigger_config,want_vari
     for suff in syst_suffixes:
         is_nominal = (suff == "")
         pt=f"Muon_pt{suff}"
-        if is_nominal: pt = "Muon_pt_"+default_suffix
-        df = df.Define(f"good_muons{suff}",f"{pt} > {pt_min} && abs(Muon_eta) < 2.4 && Muon_mediumId && Muon_pfIsoId >= 2")
+        p4=f"Muon_p4{suff}"
+        if is_nominal:
+            pt = "Muon_pt_"+default_suffix
+            p4 = "Muon_p4_"+default_suffix
+        df = df.Define(f"good_muons{suff}",f"Muon_pt_raw_noCorr > {pt_min} && abs(Muon_eta) < 2.4 && Muon_mediumId && Muon_pfIsoId >= 2")
         df = df.Define(f"good_idx{suff}",f"ROOT::VecOps::Nonzero(good_muons{suff})")
         df = df.Define(f"sorted_idx{suff}",f"Reverse(Take(good_idx{suff}, Argsort(Take({pt}, good_idx{suff}))))")
         df = track(df, f"mu1_idx{suff}", f"sorted_idx{suff}.size()>0 ? (int)sorted_idx{suff}[0] : -1")
@@ -159,8 +161,10 @@ def ProcessMuonVariables(df,muon_columns,default_suffix,trigger_config,want_vari
         event_filters.append(f"sorted_idx{suff}.size() == 2")
         for i in [1, 2]:
             idx = f"mu{i}_idx{suff}"
+            df = track(df, f"mu{i}_p4{suff}", f"{idx}>=0 ? {p4}.at({idx}) : ROOT::Math::LorentzVector<ROOT::Math::PtEtaPhiM4D<double>>(0,0,0,0)")
             df = track(df, f"mu{i}_pt{suff}", f"{idx}>=0 ? {pt}[{idx}] : -999.f")
-            df = track(df,f"mu{i}_p4{suff}",f"{idx}>=0 ? ROOT::Math::LorentzVector<ROOT::Math::PtEtaPhiM4D<double>>({pt}[{idx}], Muon_eta[{idx}], Muon_phi[{idx}], Muon_mass[{idx}]) : ROOT::Math::LorentzVector<ROOT::Math::PtEtaPhiM4D<double>>(0,0,0,0)")
+            df = track(df, f"mu{i}_phi{suff}", f"{idx}>=0 ? {p4}[{idx}].Phi() : -999.f")
+            df = track(df, f"mu{i}_eta{suff}", f"{idx}>=0 ? {p4}[{idx}].Eta() : -999.f")
             for muon_col in muon_columns:
                 suffix_clean = "_".join(c for c in muon_col.split("_")[1:])
                 df = track(df, f"mu{i}_{suffix_clean}{suff}", f"{idx}>=0 ? {muon_col}[{idx}] : -999.f")

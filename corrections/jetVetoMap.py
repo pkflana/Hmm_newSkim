@@ -1,3 +1,4 @@
+from common.jet_variation_suffixes import jet_variation_suffixes
 #!/usr/bin/env python3
 import os
 import ROOT
@@ -48,11 +49,7 @@ def ApplyJetVetoMap(df, config, muon_default_suffix, apply_filter, defineElectro
         return df.Define(name, expr)
 
     cols = _column_names(df)
-    syst_suffixes = [""]
-    if want_variations:
-        scales = syst_cfg.get('scales',['up','down'])
-        syst_suffixes.extend([syst_cfg['systematics']['JER']['jet_suffix'].format(scale=scale) for scale in scales])
-        syst_suffixes.extend([syst_cfg['systematics']['JES_Total']['jet_suffix'].format(scale=scale) for scale in scales])
+    syst_suffixes = jet_variation_suffixes(df, want_variations, syst_cfg)
 
     for suff in syst_suffixes:
         p4_branch = f"Jet_p4{suff}"

@@ -217,12 +217,23 @@ manifest_path() {
   fi
 }
 
+declare -A active_histogram_outputs=()
+active_histogram_outputs_loaded=0
+
 is_output_already_queued() {
   local wanted_output="$1"
   command -v condor_q >/dev/null 2>&1 || return 1
 
-  local owner
+  if [[ ${active_histogram_outputs_loaded} -eq 1 ]]; then
+    [[ -n "${active_histogram_outputs[${wanted_output}]:-}" ]]
+    return
+  fi
+  local owner queue_snapshot
   owner="$(id -un)"
+  queue_snapshot="$(condor_q "${owner}" \
+    -constraint 'JobStatus == 1 || JobStatus == 2 || JobStatus == 6' \
+    -af ProcId Arguments)" || die "Cannot read Condor queue; refusing possible duplicate submissions"
+  active_histogram_outputs_loaded=1
 
   local line _ad_proc _analysis_arg jobs_file_arg queued_proc_id _queued_mode _queued_era _queued_manifest _queued_root _queued_json queued_output_dir rest
   local job_line queued_dataset _queued_chunk queued_suffix _queued_opts queued_output
@@ -234,6 +245,7 @@ is_output_already_queued() {
     queued_proc_id="$(strip_condor_arg_quotes "${queued_proc_id:-}")"
     queued_output_dir="$(strip_condor_arg_quotes "${queued_output_dir:-}")"
     [[ -n "${jobs_file_arg:-}" && -n "${queued_proc_id:-}" && -n "${queued_output_dir:-}" ]] || continue
+    [[ "${queued_output_dir}" == "${output_dir}" ]] || continue
     [[ -r "${jobs_file_arg}" ]] || continue
     [[ "${queued_proc_id}" =~ ^[0-9]+$ ]] || continue
 
@@ -241,18 +253,13 @@ is_output_already_queued() {
     [[ -n "${job_line}" ]] || continue
 
     IFS=$'\t' read -r queued_dataset _queued_chunk queued_suffix _queued_opts <<< "${job_line}"
+    [[ "${queued_suffix}" == "-" ]] && queued_suffix=""
     queued_output="$(histogram_output_path "${queued_output_dir}" "${_queued_era}" "${queued_dataset}" "${queued_suffix}")"
 
-    if [[ "${queued_output}" == "${wanted_output}" ]]; then
-      return 0
-    fi
-  done < <(
-    condor_q "${owner}" \
-      -constraint 'regexp("^(Hists_|hists/)", JobBatchName) && (JobStatus == 1 || JobStatus == 2 || JobStatus == 6)' \
-      -af ProcId Arguments 2>/dev/null || true
-  )
+    active_histogram_outputs["${queued_output}"]=1
+  done <<< "${queue_snapshot}"
 
-  return 1
+  [[ -n "${active_histogram_outputs[${wanted_output}]:-}" ]]
 }
 
 is_output_in_registry() {
@@ -489,32 +496,30 @@ deduplicate_output_jobs() {
   fi
 }
 
-configured_dataset_cut() {
-  local era="$1"
-  local dataset_name="$2"
-  python3 - "config/${era}/samples.yaml" "${dataset_name}" <<'PY'
+apply_configured_dataset_cuts() {
+  local era="$1" cut dataset_name cut_rows
+  local -A dataset_cuts=()
+  [[ "${campaign_mode}" != "validation" ]] || return 0
+  # Parse the era configuration once, rather than starting Python for every job.
+  cut_rows="$(python3 - "config/${era}/samples.yaml" <<'PY_CUTS'
 import sys
 import yaml
-
-path, dataset = sys.argv[1:]
-with open(path) as stream:
+with open(sys.argv[1]) as stream:
     samples = yaml.safe_load(stream) or {}
-cut = (samples.get(dataset) or {}).get("additional_cuts")
-if cut:
-    print(cut)
-PY
-}
-
-apply_configured_dataset_cuts() {
-  local era="$1"
-  local cut
-
-  [[ "${campaign_mode}" != "validation" ]] || return 0
+for dataset, entry in samples.items():
+    cut = (entry or {}).get("additional_cuts")
+    if cut:
+        print(dataset + "\t" + str(cut).replace("\n", " "))
+PY_CUTS
+)" || die "Cannot read configured dataset cuts for ${era}"
+  while IFS=$'\t' read -r dataset_name cut; do
+    [[ -n "${dataset_name}" ]] && dataset_cuts["${dataset_name}"]="${cut}"
+  done <<< "${cut_rows}"
   for i in "${!job_datasets[@]}"; do
     if [[ " ${job_specific_opts[$i]} " == *" --additional-cuts "* ]]; then
       continue
     fi
-    cut="$(configured_dataset_cut "${era}" "${job_datasets[$i]}")"
+    cut="${dataset_cuts[${job_datasets[$i]}]:-}"
     if [[ -n "${cut}" ]]; then
       job_specific_opts[$i]="${job_specific_opts[$i]:+${job_specific_opts[$i]} }--additional-cuts ${cut}"
       echo "[INFO] ${job_datasets[$i]}: configured additional cut '${cut}'"
@@ -631,11 +636,6 @@ add_ewk_105_160_jobs() {
   add_job EWK_2Mu2J_MLL_105to160_pythia 15
 }
 
-add_flashsim_jobs() {
-  add_job DYto2Mu_MLL105To160_FlashSim 20
-  add_job EWK_2Mu2J_MLL_105to160_pythia_Flashsim 15
-  add_job VBFHto2Mu_m125_Flashsim 15
-}
 
 add_static_group_jobs() {
   local era="$1"
@@ -658,14 +658,6 @@ add_static_group_jobs() {
       ;;
     EWK)
       datasets=(EWK_2L2J_madgraph_herwig)
-      ;;
-    signals)
-      datasets=(
-        GluGluHto2Mu GluGluHto2Mu_M120 GluGluHto2Mu_M130 GluGluHto2Mu_MiNNLO
-        GluGluHto2Mu_amcatnlo GluGluHto2Mu_tuneDown GluGluHto2Mu_tuneUp
-        VBFHto2Mu_M120 VBFHto2Mu_M125_amcatnlo VBFHto2Mu_M125_powheg VBFHto2Mu_M130
-        VBFHto2Mu_m125_tuneCP5Down_amcatnlo VBFHto2Mu_m125_tuneCP5Up_amcatnlo
-      )
       ;;
     other_signals)
       datasets=(
@@ -747,6 +739,7 @@ normalize_group() {
     ewk|EWK) echo "EWK" ;;
     ewk_105_160|EWK_105_160) echo "EWK_105_160" ;;
     flashsim|FlashSim) echo "FlashSim" ;;
+    region_higgs|region_inclusive|flash_backgrounds) echo "$1" ;;
     signals|Signals) echo "signals" ;;
     other_signals) echo "other_signals" ;;
     singleh|SingleH) echo "SingleH" ;;
@@ -1120,10 +1113,15 @@ else
       DY_amcatnlo_105_160) add_dy_105_160_jobs "${era}" ;;
       DY_012J) add_dy_012j_jobs "${era}" ;;
       EWK_105_160) add_ewk_105_160_jobs ;;
-      FlashSim) add_flashsim_jobs ;;
+      signals|region_higgs|region_inclusive|flash_backgrounds|FlashSim)
+        resolved_samples="$(python3 tools/resolve_region_sample_routing.py --era "${era}" --selection "${group}")" || exit 1
+        while IFS= read -r dataset_name; do
+          [[ -n "${dataset_name}" ]] && add_job "${dataset_name}" "${chunk_size_override:-15}"
+        done <<< "${resolved_samples}"
+        ;;
       W) add_w_jobs "${era}" ;;
       mc) add_skim_cfg_mc_jobs "${era}" ;;
-      DiTriBoson|DY_minnlo|EWK|signals|SingleH|SingleTop|TTX|other_signals|TT) add_static_group_jobs "${era}" "${group}" ;;
+      DiTriBoson|DY_minnlo|EWK|SingleH|SingleTop|TTX|other_signals|TT) add_static_group_jobs "${era}" "${group}" ;;
       *) die "Internal error: unhandled group '${group}'" ;;
     esac
   done
@@ -1293,7 +1291,7 @@ if [[ ${condor} -eq 1 ]]; then
       missing_output_files+=("${output_file}")
     fi
 
-    if [[ ${condor} -eq 1 && ${force_submit} -eq 0 && ${erase_existing} -eq 0 ]]; then
+    if [[ ${condor} -eq 1 && ${erase_existing} -eq 0 ]]; then
       if is_output_in_registry "${output_file}" || is_output_already_queued "${output_file}"; then
         echo "[QUEUE] ${output_file}" >> "${monitoring_file}"
         queued_existing=$((queued_existing + 1))

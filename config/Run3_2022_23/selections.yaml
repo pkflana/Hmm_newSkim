@@ -1,6 +1,6 @@
 
 muon_pt_default_suffix: FSR_corr
-muon_pt_min: 15.0
+muon_pt_min: 10.0
 dimuon_mass_min: 50
 dimuon_mass_max: 200
 apply_trg_filter: True
@@ -10,7 +10,7 @@ jet_pt_min: 25.0
 jet_eta_max: 4.7
 # Espressione complessa specifica per l'anno 2024 (Tabella Run 3 Run Conditions)
 # Nota: 'Jet_p4' è il placeholder che il codice Python sostituirà con 'Jet_p4{suff}'
-jet_horn_veto_expr: "( ( abs(v_ops::eta(Jet_p4)) >= 2.5 && abs(v_ops::eta(Jet_p4)) < 3.0) && v_ops::pt(Jet_p4) < 50.0 )"
+jet_horn_veto_expr: "( ( abs(v_ops::eta(Jet_p4)) >= 2.5 && abs(v_ops::eta(Jet_p4)) < 3.0) && v_ops::pt(Jet_p4) <= 50.0 )"
 apply_jetveto_filter: False
 define_electron_cleaning: False
 

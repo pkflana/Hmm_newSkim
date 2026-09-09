@@ -82,7 +82,7 @@ def era_policy(config, era):
 
 def groups_for_region(config, era, mass_region):
     policy = era_policy(config, era)
-    key = "Signal_Fit" if mass_region == "Signal_Fit" else "sidebands"
+    key = mass_region if mass_region in ("Signal_Fit", "H_sideband") else "sidebands"
     return tuple(policy[key])
 
 
@@ -92,3 +92,44 @@ def separate_groups(config, era):
 
 def jet_gen_component_processes(config):
     return tuple(config["jet_gen_components"]["enabled_processes"])
+
+
+def dataset_region_allowed(dataset, region):
+    """Use the matching generated mass window for DY/EWK, including FlashSim."""
+    name = dataset.lower().replace("_", "")
+    if not name.startswith(("dy", "ewk")):
+        return True
+    restricted = "105to160" in name
+    return restricted == (region in ("Signal_Fit", "H_sideband"))
+
+
+def production_samples(analysis_path, era, group):
+    """Canonical nominal samples and configured FlashSim counterparts."""
+    if group == 'FlashSim':
+        return sorted({name for subset in ('signals', 'region_higgs', 'region_inclusive', 'flash_backgrounds')
+                       for name in production_samples(analysis_path, era, subset) if 'flashsim' in name.lower()})
+    folder = Path(analysis_path) / 'config' / era
+    samples = _load_yaml(folder / 'samples.yaml')
+    processes = _load_yaml(folder / 'process_names.yaml')
+    skim = _load_yaml(folder / 'skim_cfg.yaml')
+    excluded = set(skim.get('datasets_exclude', []) or [])
+    selected = []
+    for process, entry in processes.items():
+        names = [*(entry.get('datasets', []) or []), *(entry.get('sub_processes', []) or [])]
+        for name in names:
+            lower = name.lower()
+            signal = lower.startswith(('glugluh', 'vbfh')) and 'to2mu' in lower
+            if group == 'signals':
+                keep = signal and not any(x in lower for x in ('120', '130', 'tune', 'minnlo'))
+            elif group in ('region_higgs', 'region_inclusive'):
+                nominal = process in ('DY', 'DYto2Mu_MLL105To160', 'EWK',
+                    'EWK_2Mu2J_MLL_105to160_herwig', 'EWK_2Mu2J_MLL_105to160_pythia')
+                keep = name.lower().startswith(('dy', 'ewk')) and (nominal or 'flashsim' in lower)
+                keep = keep and dataset_region_allowed(name, 'H_sideband' if group == 'region_higgs' else 'Z_sideband')
+            elif group == 'flash_backgrounds':
+                keep = 'flashsim' in lower and not signal and not lower.startswith(('dy', 'ewk'))
+            else:
+                raise ValueError(group)
+            if keep and name in samples and name not in excluded:
+                selected.append(name)
+    return sorted(set(selected))

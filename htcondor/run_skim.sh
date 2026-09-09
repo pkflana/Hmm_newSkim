@@ -11,6 +11,8 @@ dataset="$5"
 output_file="$6"
 report_file="$7"
 cmssw_version="${8:-CMSSW_15_0_2}"
+jet_horn_veto="${9:-configured}"
+n_events="${10:--1}"
 
 cd "$analysis_path"
 
@@ -22,4 +24,6 @@ python3 analysis/skim.py \
   --input-file "$input_list" \
   --dataset-name "$dataset" \
   --output-file "$output_file" \
-  --report-file "$report_file"
+  --report-file "$report_file" \
+  --jet-horn-veto "$jet_horn_veto" \
+  --n-events "$n_events"
