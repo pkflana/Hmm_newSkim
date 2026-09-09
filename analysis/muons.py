@@ -23,6 +23,17 @@ def _declare_muon_helpers():
         #define NEW_SKIM_MUON_ANALYSIS_HELPERS
         using RVecF = ROOT::VecOps::RVec<float>;
 
+        template <typename P4>
+        ROOT::VecOps::RVec<P4> Muon_p4_sel(const ROOT::VecOps::RVec<P4>& nano,
+                                         const ROOT::VecOps::RVec<P4>& bsc,
+                                         const RVecF& chi2) {
+            ROOT::VecOps::RVec<P4> out(nano.size());
+            for (size_t i = 0; i < out.size(); ++i) {
+                out[i] = chi2[i] < 30 ? bsc[i] : nano[i];
+            }
+            return out;
+        }
+
         RVecF Muon_pt_err_sel(const RVecF& Muon_nano_pt_err, const RVecF& Muon_bsc_pt_err, const RVecF& Muon_bsc_chi2) {
             RVecF out(Muon_nano_pt_err.size());
             for (size_t i = 0; i < out.size(); ++i) {
@@ -47,7 +58,7 @@ def GetPtConfigurations(want_variations):
         "Muon_pt_raw_noCorr": ["Muon_pt", "Muon_bsConstrainedPt"],
         "Muon_pt_raw_corr": ["Muon_pt_nano_corr", "Muon_pt_bsc_corr"],
         "Muon_pt_raw_scale": ["Muon_pt_nano_scale", "Muon_pt_bsc_scale"],
-        "Muon_pt_FSR_noCorr": ["Muon_pt_nano_FSR", "Muon_bsConstrainedPt"],
+        "Muon_pt_FSR_noCorr": ["Muon_pt_nano_FSR", "Muon_pt_bsc_FSR"],
         "Muon_pt_FSR_corr": ["Muon_pt_nano_corr_FSR", "Muon_pt_bsc_corr_FSR"],
         "Muon_pt_FSR_scale": ["Muon_pt_nano_scale_FSR", "Muon_pt_bsc_scale_FSR"]
     }
@@ -73,7 +84,12 @@ def DefineMuonPtAndP4(df, want_variations):
     cols = _column_names(df)
     for name_pt, (nano, bsc) in configs.items():
         df = _define_if_missing(df,name_pt,f"Muon_pt_sel({nano}, {bsc}, Muon_bsConstrainedChi2)")
-        df = _define_if_missing(df,name_pt.replace("pt", "p4"),f"GetP4({name_pt}, Muon_eta, Muon_phi, Muon_mass)")
+        if "_FSR_" in name_pt:
+            # Keep the photon-added direction and mass as well as its pT.
+            p4_expr = f"Muon_p4_sel({nano.replace('Muon_pt_', 'Muon_p4_')}, {bsc.replace('Muon_pt_', 'Muon_p4_')}, Muon_bsConstrainedChi2)"
+        else:
+            p4_expr = f"GetP4({name_pt}, Muon_eta, Muon_phi, Muon_mass)"
+        df = _define_if_missing(df, name_pt.replace("pt", "p4"), p4_expr)
     for name_err, (nano_err, bsc_err) in err_configs.items():
          df = _define_if_missing(df,name_err,f"Muon_pt_err_sel({nano_err}, {bsc_err}, Muon_bsConstrainedChi2)")
     return df
@@ -165,6 +181,7 @@ def ProcessMuonVariables(df,muon_columns,default_suffix,trigger_config,want_vari
             df = track(df, f"mu{i}_pt{suff}", f"{idx}>=0 ? {pt}[{idx}] : -999.f")
             df = track(df, f"mu{i}_phi{suff}", f"{idx}>=0 ? {p4}[{idx}].Phi() : -999.f")
             df = track(df, f"mu{i}_eta{suff}", f"{idx}>=0 ? {p4}[{idx}].Eta() : -999.f")
+            df = track(df, f"mu{i}_mass{suff}", f"{idx}>=0 ? {p4}[{idx}].M() : -999.f")
             for muon_col in muon_columns:
                 suffix_clean = "_".join(c for c in muon_col.split("_")[1:])
                 df = track(df, f"mu{i}_{suffix_clean}{suff}", f"{idx}>=0 ? {muon_col}[{idx}] : -999.f")

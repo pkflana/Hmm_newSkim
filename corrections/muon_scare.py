@@ -96,7 +96,7 @@ def apply_muon_scare(
             f'''
             ROOT::VecOps::RVec<float> Muon_pt_nano_scale_down(Muon_pt.size());
             for(size_t Muon_pt_idx = 0 ; Muon_pt_idx < Muon_pt.size(); Muon_pt_idx ++ ){{
-                Muon_pt_nano_scale_down[Muon_pt_idx] = pt_scale_var(Muon_pt_nano_corr[Muon_pt_idx], Muon_eta[Muon_pt_idx], Muon_phi[Muon_pt_idx], Muon_charge[Muon_pt_idx], "down", false);
+                Muon_pt_nano_scale_down[Muon_pt_idx] = pt_scale_var(Muon_pt_nano_corr[Muon_pt_idx], Muon_eta[Muon_pt_idx], Muon_phi[Muon_pt_idx], Muon_charge[Muon_pt_idx], "dn", false);
             }}
             return Muon_pt_nano_scale_down;
             '''
@@ -173,7 +173,7 @@ def apply_muon_scare(
             f'''
             ROOT::VecOps::RVec<float> Muon_pt_bsc_scale_down(Muon_bsConstrainedPt.size());
             for(size_t Muon_pt_bsc_idx = 0 ; Muon_pt_bsc_idx < Muon_bsConstrainedPt.size(); Muon_pt_bsc_idx ++ ){{
-                Muon_pt_bsc_scale_down[Muon_pt_bsc_idx] = pt_scale_var(Muon_pt_bsc_corr[Muon_pt_bsc_idx], Muon_eta[Muon_pt_bsc_idx], Muon_phi[Muon_pt_bsc_idx], Muon_charge[Muon_pt_bsc_idx], "down", true);
+                Muon_pt_bsc_scale_down[Muon_pt_bsc_idx] = pt_scale_var(Muon_pt_bsc_corr[Muon_pt_bsc_idx], Muon_eta[Muon_pt_bsc_idx], Muon_phi[Muon_pt_bsc_idx], Muon_charge[Muon_pt_bsc_idx], "dn", true);
             }}
             return Muon_pt_bsc_scale_down;
             '''

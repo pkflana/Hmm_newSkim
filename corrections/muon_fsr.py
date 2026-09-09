@@ -91,10 +91,10 @@ def apply_muon_fsr(df, is_data, want_variations):
         'Muon_bsConstrainedPt':['Muon_p4_bsc_FSR','Muon_pt_bsc_FSR'],
         # only scale
         'Muon_pt_nano_scale':['Muon_p4_nano_scale_FSR','Muon_pt_nano_scale_FSR'],
-        'Muon_pt_bsc_scale':['Muon_p4_bsc_nano_scale_FSR','Muon_pt_bsc_scale_FSR'],
+        'Muon_pt_bsc_scale':['Muon_p4_bsc_scale_FSR','Muon_pt_bsc_scale_FSR'],
         # scale & resolution
         'Muon_pt_nano_corr':['Muon_p4_nano_corr_FSR','Muon_pt_nano_corr_FSR'],
-        'Muon_pt_bsc_corr':['Muon_p4_bsc_bsc_corr_FSR','Muon_pt_bsc_corr_FSR'],
+        'Muon_pt_bsc_corr':['Muon_p4_bsc_corr_FSR','Muon_pt_bsc_corr_FSR'],
     }
     branches_map_varied = {
         # scale & respolution varied
@@ -102,10 +102,10 @@ def apply_muon_fsr(df, is_data, want_variations):
         'Muon_pt_nano_scale_down':['Muon_p4_nano_FSR_scale_down','Muon_pt_nano_FSR_scale_down'],
         'Muon_pt_nano_res_up':['Muon_p4_nano_FSR_res_up','Muon_pt_nano_FSR_res_up'],
         'Muon_pt_nano_res_down':['Muon_p4_nano_FSR_res_down','Muon_pt_nano_FSR_res_down'],
-        'Muon_pt_bsc_scale_up':['Muon_p4_bsc_nano_FSR_scale_up','Muon_pt_bsc_FSR_scale_up'],
-        'Muon_pt_bsc_scale_down':['Muon_p4_bsc_nano_FSR_scale_down','Muon_pt_bsc_FSR_scale_down'],
-        'Muon_pt_bsc_res_up':['Muon_p4_bsc_nano_FSR_res_up','Muon_pt_bsc_FSR_res_up'],
-        'Muon_pt_bsc_res_down':['Muon_p4_bsc_nano_FSR_res_down','Muon_pt_bsc_FSR_res_down'],
+        'Muon_pt_bsc_scale_up':['Muon_p4_bsc_FSR_scale_up','Muon_pt_bsc_FSR_scale_up'],
+        'Muon_pt_bsc_scale_down':['Muon_p4_bsc_FSR_scale_down','Muon_pt_bsc_FSR_scale_down'],
+        'Muon_pt_bsc_res_up':['Muon_p4_bsc_FSR_res_up','Muon_pt_bsc_FSR_res_up'],
+        'Muon_pt_bsc_res_down':['Muon_p4_bsc_FSR_res_down','Muon_pt_bsc_FSR_res_down'],
     }
     if not is_data and want_variations:
         branches_map.update(branches_map_varied)
