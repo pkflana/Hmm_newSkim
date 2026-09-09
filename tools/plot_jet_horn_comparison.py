@@ -19,13 +19,13 @@ from common.rdf_utilities import findBinEntry, findNewBins, getNewBins
 DEFAULT_BASE = Path("/eos/user/v/vdamante/H_mumu/campaigns/JetHornVetoComparison")
 REPOSITORY = Path(__file__).resolve().parents[1]
 CAMPAIGNS_2025 = (
-    ("2025 with horn veto", "2025_WithHornVeto/Central_hadded/Run3_2025", "#e41a1c"),
-    ("2025 without horn veto", "2025_NoHornVeto/Central_hadded/Run3_2025", "#1746ff"),
+    ("2025 with horn veto", "WithHornVeto/Central_hadded/Run3_2025", "#e41a1c"),
+    ("2025 without horn veto", "NoHornVeto/Central_hadded/Run3_2025", "#1746ff"),
 )
-CAMPAIGN_2024 = ("2024", "2024/Central_hadded/Run3_2024", "#006400")
+CAMPAIGN_2024 = ("2024", "WithHornVeto/Central_hadded/Run3_2024", "#006400")
 CAMPAIGNS_2026 = (
-    ("2026 with horn veto", "2026_WithHornVeto/Central_hadded/Run3_2026", "#e41a1c"),
-    ("2026 without horn veto", "2026_NoHornVeto/Central_hadded/Run3_2026", "#6a3d9a"),
+    ("2026 with horn veto", "WithHornVeto/Central_hadded/Run3_2026", "#e41a1c"),
+    ("2026 without horn veto", "NoHornVeto/Central_hadded/Run3_2026", "#6a3d9a"),
 )
 LUMINOSITY_FB = {"2024": 109.94818, "2025": 110.73086, "2026": 25.843261130615}
 REGION_LABELS = {
@@ -167,7 +167,11 @@ def plot_one(
     occupied = np.zeros_like(payload[0][2][0], dtype=bool)
     for _, _, data, dy in payload:
         occupied |= (data[0] != 0) | (dy[0] != 0)
-    first, last = np.flatnonzero(occupied)[[0, -1]]
+    populated_bins = np.flatnonzero(occupied)
+    if populated_bins.size == 0:
+        print(f"[SKIP] All compared Data/DY histograms have empty visible bins: {key}")
+        return
+    first, last = populated_bins[[0, -1]]
 
     fig, (axis, ratio_axis) = plt.subplots(
         2, 1, figsize=(9, 8), sharex=True,
@@ -335,6 +339,8 @@ def main() -> int:
         variables = set(args.variable)
         keys = {key for key in keys if key.rsplit("/", 1)[-1] in variables}
 
+    if not keys:
+        raise RuntimeError("No common histograms match the requested comparison")
     print(f"Common one-dimensional histograms: {len(keys)}")
     for key in sorted(keys):
         try:

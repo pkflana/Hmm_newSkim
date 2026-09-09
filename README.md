@@ -19,6 +19,6 @@ For command help:
 
 ```bash
 ./hmumu --help
-campaigns/run3_skim_v3.sh --help
+campaigns/run3_skim_v4.sh --help
 campaigns/run3_region_routed_backgrounds.sh --help
 ```

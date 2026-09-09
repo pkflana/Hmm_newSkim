@@ -150,7 +150,7 @@ def ProcessMuonVariables(df,muon_columns,default_suffix,trigger_config,want_vari
         is_nominal = (suff == "")
         pt=f"Muon_pt{suff}"
         if is_nominal: pt = "Muon_pt_"+default_suffix
-        df = df.Define(f"good_muons{suff}",f"{pt} > {pt_min} && abs(Muon_eta) < 2.4 && Muon_mediumId && Muon_pfIsoId >= 2")
+        df = df.Define(f"good_muons{suff}",f"Muon_pt_raw_noCorr > {pt_min} && abs(Muon_eta) < 2.4 && Muon_mediumId && Muon_pfIsoId >= 2")
         df = df.Define(f"good_idx{suff}",f"ROOT::VecOps::Nonzero(good_muons{suff})")
         df = df.Define(f"sorted_idx{suff}",f"Reverse(Take(good_idx{suff}, Argsort(Take({pt}, good_idx{suff}))))")
         df = track(df, f"mu1_idx{suff}", f"sorted_idx{suff}.size()>0 ? (int)sorted_idx{suff}[0] : -1")

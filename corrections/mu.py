@@ -314,6 +314,15 @@ MediumMuTrg_SF_Sources = {
     "2025_Winter25": [
     "NUM_IsoMu24_DEN_CutBasedIdMedium_and_PFIsoMedium", "NUM_IsoMu24_DEN_CutBasedIdTight_and_PFIsoTight"],
 }
+pt_mins = {
+    "2026": 10,
+    "2025": 10,
+    "2024": 10,
+    "2023BPix": 15,
+    "2023": 15,
+    "2022EE": 15,
+    "2022": 15,
+}
 #!/usr/bin/env python3
 import os
 import ROOT
@@ -326,7 +335,8 @@ correctionlib.register_pyroot_binding()
 def apply_muIDIso_weights(df, config, want_variations):
     era = config.get("era")
     requested_SFs = config.get("requested_SFs", [])
-
+    year = era.split("_")[1]
+    pt_min = pt_mins.get(year, 15)
     # Setup JSON paths using environment and shared functions
     period_unc = period_names[era]
     muIDEff_JsonPath = (
@@ -362,7 +372,7 @@ def apply_muIDIso_weights(df, config, want_variations):
 
     # Define standard input column strings matching standard NanoAOD layout
     for leg_idx in [1,2]:
-        p4_pt = f"mu{leg_idx}_pt" # no corr?
+        p4_pt = f"mu{leg_idx}_pt_raw_noCorr" # no corr?
         p4_eta = f"mu{leg_idx}_eta"
         pfRelIso04_all = f"mu{leg_idx}_pfRelIso04_all"
         tightId = f"mu{leg_idx}_tightId"
@@ -374,7 +384,7 @@ def apply_muIDIso_weights(df, config, want_variations):
         trg_matching = f"mu{leg_idx}_HasTriggerMatching_singleMu"
         trg_path = "HLT_IsoMu24"
 
-        genMatch_bool = f"{gen_kind} == 1 || {gen_kind} == 15" # for MC matching to status==1 muons: 1 = prompt muon (including gamma*->mu mu), 15 = muon from prompt tau, 5 = muon from b, 4 = muon from c, 3 = muon from light or unknown, 0 = unmatched
+        # genMatch_bool = f"{gen_kind} == 1 || {gen_kind} == 15" # for MC matching to status==1 muons: 1 = prompt muon (including gamma*->mu mu), 15 = muon from prompt tau, 5 = muon from b, 4 = muon from c, 3 = muon from light or unknown, 0 = unmatched
 
         for source in available_sources:
             short_name = MediumMu_SF_Sources_dict.get(source)
@@ -390,7 +400,7 @@ def apply_muIDIso_weights(df, config, want_variations):
                 # Direct definition inside RDataFrame using your new C++ signature
                 df = df.Define(
                     branch_name,
-                    f"""({genMatch_bool})
+                    f"""({p4_pt} > {pt_min} && {p4_eta} < 2.4)
                         ? static_cast<float>(::correction::getMuonSF_simple(
                             "{source}", "{cset_syst_string}",
                             {p4_pt}, {p4_eta}, {pfRelIso04_all},
