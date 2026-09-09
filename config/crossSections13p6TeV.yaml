@@ -1289,7 +1289,35 @@ VBFHto2Mu_M125:
     alpha_s:
       value: "+-0.5"
     theory_BR:
-      value: "+1.23% -1.2%"
+      value: "+1.23% -1.23%"
+      isPercentage: True
+    m_q_BR:
+      value: "+0.97% -0.99%"
+      isPercentage: True
+    alpha_s_BR:
+      value: "+0.59% -0.64%"
+      isPercentage: True
+
+VBFHto2Mu_M125_powheg:
+  crossSec: 4.078 * (0.0002176) # XSDB: 4.359 used for VBFHto2Mu_M125_amcatnlo
+  reference: https://twiki.cern.ch/twiki/bin/view/LHCPhysics/LHCHWG136TeVxsec_extrap and https://twiki.cern.ch/twiki/bin/view/LHCPhysics/CERNYellowReportPageBR for BR
+  unc:
+    theory:
+      value: "+1.23% -1.23%"
+      isPercentage: True
+    qcd_scale:
+      value: "+0.5% -0.3%"
+      isPercentage: True
+    pdf_alpha_s:
+      value: "+-2.1%"
+      isPercentage: True
+    pdf:
+      value: "+-2.1%"
+      isPercentage: True
+    alpha_s:
+      value: "+-0.5"
+    theory_BR:
+      value: "+1.23% -1.23%"
       isPercentage: True
     m_q_BR:
       value: "+0.97% -0.99%"
@@ -1940,6 +1968,13 @@ EWK_2L2J_MLL50_MJJ120:
       value: 2.142e-03 # 0.003502
 
 EWK_2Mu2J_MLL105to160_MJJ120:
+  crossSec: 0.0635
+  reference: from gridpack generation log taken from /cvmfs/cms.cern.ch/phys_generator/gridpacks/RunIII/13p6TeV/slc7_amd64_gcc10/MadGraph5_aMCatNLO/LLJJ_105-160_EWK_SM_5f_LO_slc7_amd64_gcc10_CMSSW_12_4_8_tarball.tar.xz and with this setting # : set run_card mmjj 120.0 set run_card mmll 105.0 set run_card mmllmax 160.0
+  unc:
+    total:
+      value: 0.0003071 # 0.003502
+
+EWK_2Mu2J_MLL_105to160_herwig:
   crossSec: 0.0635
   reference: from gridpack generation log taken from /cvmfs/cms.cern.ch/phys_generator/gridpacks/RunIII/13p6TeV/slc7_amd64_gcc10/MadGraph5_aMCatNLO/LLJJ_105-160_EWK_SM_5f_LO_slc7_amd64_gcc10_CMSSW_12_4_8_tarball.tar.xz and with this setting # : set run_card mmjj 120.0 set run_card mmll 105.0 set run_card mmllmax 160.0
   unc:

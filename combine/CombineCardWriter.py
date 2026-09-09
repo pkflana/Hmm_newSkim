@@ -8,13 +8,133 @@ from common.systematic_correlations import nuisance_name as correlated_nuisance_
 
 absolutepath = True
 
-def build_xsec_dictionary(yaml_path,processes):
-  with open(yaml_path, "r") as f:
+def parse_uncertainty_value(value):
+    # Plain numeric value from YAML (int/float)
+
+    if not isinstance(value, str):
+        v = float(value)
+        return v, v
+
+    s = value.strip()
+
+    # Division -> evaluate and treat symmetrically
+    if "/" in s:
+        expr = s.replace("%", "")
+        val = safe_eval_number(expr)
+        val = abs(val)
+        return val, val
+
+    symmetric = False
+    tmp = s
+    if "±" in tmp or "+/-" in tmp or "+-" in tmp:
+        symmetric = True
+        tmp = tmp.replace("±", " ").replace("+/-", " ").replace("+-", " ")
+
+    # Find all numbers (allow scientific notation, optional leading sign)
+    num_pattern = re.compile(r'[+-]?\s*\d*\.?\d+(?:[eE][+-]?\d+)?')
+    matches = num_pattern.findall(tmp)
+    nums = [float(m.replace(" ", "")) for m in matches]
+
+    if not nums:
+        raise ValueError(f"Could not parse uncertainty value: {value!r}")
+
+    if symmetric or (len(nums) == 1):
+        val = abs(nums[0])
+        return val, val
+
+    up = abs(nums[0])
+    down = abs(nums[1])
+
+    return up, down
+
+
+def safe_eval_number(expr):
+    """Safely evaluate a simple arithmetic expression -> float."""
+    import ast
+    import operator
+    ops = {
+        ast.Add: operator.add, ast.Sub: operator.sub,
+        ast.Mult: operator.mul, ast.Div: operator.truediv,
+        ast.USub: operator.neg, ast.UAdd: operator.pos,
+    }
+
+    def _eval(node):
+        if isinstance(node, ast.Constant):
+            return node.value
+        if isinstance(node, ast.BinOp):
+            return ops[type(node.op)](_eval(node.left), _eval(node.right))
+        if isinstance(node, ast.UnaryOp):
+            return ops[type(node.op)](_eval(node.operand))
+        raise ValueError(f"Unsupported expression: {expr!r}")
+
+    return float(_eval(ast.parse(expr, mode="eval").body))
+
+
+def build_xsec_dictionary(yaml_path, processes):
+    with open(yaml_path, "r") as f:
         cfg = yaml.safe_load(f)
-  xsecdict = {}
+    result = {}
+    for process in processes:
+        entry = cfg.get(process)
+        if not entry:
+            print(process, "missing xsec uncertainty")
+            continue
+
+        unc = entry.get("unc", {}) or {}
+
+        chosen = None
+        if "total" in unc:
+            chosen = unc["total"]
+        elif "theory" in unc:
+            chosen = unc["theory"]
+
+        if chosen is None:
+          print(process,"has no theory uncertainty")
+          continue
+        else:
+            raw = chosen.get("value")
+            up_frac, down_frac = parse_uncertainty_value(raw)
+
+            # Determine whether the value is a percentage
+            is_percent = bool(chosen.get("isPercentage", False))
+            if isinstance(raw, str) and "%" in raw:
+                is_percent = True
+
+            if is_percent:
+                # percentage -> fraction relative to 1
+                up_frac /= 100.0
+                down_frac /= 100.0
+            else:
+                # absolute uncertainty -> divide by cross section
+                xsec = _get_crosssec(entry)
+                if xsec is None or xsec == 0:
+                    print(process, "cannot normalize absolute uncertainty (no crossSec)")
+                else:
+                    up_frac /= abs(xsec)
+                    down_frac /= abs(xsec)
+
+        # Store the Combine kappa factors: down = 1 - down_frac, up = 1 + up_frac
+        result[process] = {
+            "up": 1.0 + up_frac,
+            "down": 1.0 - down_frac,
+        }
+
+    return result
 
 
-  return xsecdict
+def _get_crosssec(entry):
+    """Return the numeric cross section, evaluating expressions if needed."""
+    raw = entry.get("crossSec")
+    if raw is None:
+        return None
+    if not isinstance(raw, str):
+        return float(raw)
+    expr = raw.split("#")[0].strip()
+    try:
+        return safe_eval_number(expr)
+    except Exception:
+        return None
+
 
 
 def check_process_histograms(filepath, channel, proc, uncertainties):
@@ -63,8 +183,10 @@ def check_process_histograms(filepath, channel, proc, uncertainties):
                 )
                 hs = tf.Get(hist_name)
                 if not hs:
-                    # histogram not present; skip (not necessarily an error)
-                    continue
+                    print("  {}: systematic '{}{}' missing -> turning off".format(
+                        proc, uncname, direction))
+                    good = False
+                    break
                 integral = hs.Integral()
                 if integral <= 0:
                     print("  {}: systematic '{}{}' integral negative ({:.6g}) -> turning off".format(
@@ -162,12 +284,12 @@ CONFIG_PATH = os.path.join(ANALYSIS_PATH, "config")
 
 #define the input names
 signalprocesses = ["VBFHto2Mu_M125_powheg", "GluGluHto2Mu"]
-backgroundprocesses = ["DYto2Mu_MLL105To160", "EWK_2Mu2J_MLL_105to160_herwig", "ST", "VV", "TT", "TTX", "VVV", "W", "TW", "SingleH"]
+backgroundprocesses = ["DYto2Mu_MLL105To160_2J_Hard","DYto2Mu_MLL105To160_2J_PU1","DYto2Mu_MLL105To160_2J_PU2", "EWK_2Mu2J_MLL_105to160_herwig", "ST", "VV", "TT", "TTX", "VVV", "W", "TW", "SingleH"]#"DYto2Mu_MLL105To160",
 process_files = {}
 year = sys.argv[1]
 
 outputpath = "combine/"
-histogramfilepath = "/eos/user/v/vdamante/H_mumu/Hists_DNN_erabased_allSysts_hadded/Run3_"+year+"/"
+histogramfilepath = "/eos/user/v/vdamante/H_mumu/Aug25/DNN_SignalFit_VBF/WithDY012JWeights/Hists_AllSystematics_hadded/Run3_"+year+"/"
 
 if absolutepath:
   absolutepathname = '/'.join(histogramfilepath.split("/")[:-2])+"/"
@@ -175,7 +297,8 @@ else:
   absolutepathname = ''
 
 if os.path.isdir(outputpath):
-  print("already exists")
+  pass
+  #print("already exists")
 else:
   os.system("mkdir "+outputpath) #make directory, if it doesn't exist
 
@@ -187,7 +310,11 @@ lumidict = {"lumi_2022_2023_2024": {"2022": "1.0138", "2023": "1.0017", "2024": 
             "lumi_2025": {"2022": "-", "2023": "-", "2024": "-", "2025": "1.05"}
 }
 
-xsecdict = {}#build_xsec_dictionary(CONFIG_PATH+"/crossSections13p6TeV.yaml",signalprocesses+backgroundprocesses)
+DYdict = {"2022":{"name":"DYVBFZ_fit_2J{split}_2022_2022EE","split":{"Hard":"1.013021","PU1":"1.022131","PU2":"1.058263"}},
+          "2023":{"name":"DYVBFZ_fit_2J{split}_2023_2023BPix","split":{"Hard":"1.023091","PU1":"1.040727","PU2":"1.039661"}},
+          "2024":{"name":"DYVBFZ_fit_2J{split}_2024","split":{"Hard":"1.003436","PU1":"1.009221","PU2":"1.008642"}},
+          "2025":{"name":"DYVBFZ_fit_2J{split}_2025","split":{"Hard":"1.003906","PU1":"1.009983","PU2":"1.009053"}}}
+xsecdict = build_xsec_dictionary(CONFIG_PATH+"/crossSections13p6TeV.yaml",signalprocesses+backgroundprocesses)
 
 for band in bands:
   filename = band + "_" + year
@@ -198,7 +325,7 @@ for band in bands:
   for key in lumidict.keys():
     uncertainties.append([key, "lnN", lumidict[key][year.replace("EE","").replace("BPix","")], None])
   for key in xsecdict.keys():
-    uncertainties.append([key, "lnN", xsecdict[key], None])
+    uncertainties.append([key, "lnN", str(round(xsecdict[key]['down'],4))+'/'+str(round(xsecdict[key]['up'],4)), None])
 
   good_processes = {}
   for proc in signalprocesses + backgroundprocesses:
@@ -207,6 +334,8 @@ for band in bands:
       if not is_good:
           print("  -> Process '{}' will be turned OFF".format(proc))
 
+  for key in DYdict[year.replace("EE","").replace("BPix","")]["split"].keys():
+    uncertainties.append([DYdict[year.replace("EE","").replace("BPix","")]["name"].replace("{split}",key), "lnN", DYdict[year.replace("EE","").replace("BPix","")]["split"][key], "DYto2Mu_MLL105To160_2J_"+key])
   # # Build the filtered lists of processes to actually write in the datacard
   # signalprocesses = [p for p in signalprocesses if good_processes[p]]
   # backgroundprocesses = [p for p in backgroundprocesses if good_processes[p]]
@@ -227,7 +356,7 @@ for band in bands:
   f.write(
       "shapes data_obs {ch}_{era} {absolutepathname}Run3_{era}/{file} {ch}/DNN_NNOutput\n".format(
           ch=band,
-          file= "data_obs.root",
+          file= "Data_Muon.root",
           era=year,
           absolutepathname=absolutepathname,
       )
@@ -245,9 +374,8 @@ for band in bands:
   f.write("----------\n")
   f.write("bin         " + band + "_" + year + "\n")
 
-  data = ROOT.TFile.Open(histogramfilepath+"data_obs.root")
+  data = ROOT.TFile.Open(histogramfilepath+"Data_Muon.root")
   datahistogram = data.Get("Signal_Fit_VBF/DNN_NNOutput")
-  print(histogramfilepath+"data_obs.root")
   f.write("observation " + "-1" + "\n")#TODO:Fix this, data currently has value str(datahistogram.Integral()) + "\n")
   f.write("----------\n")
 
@@ -255,7 +383,7 @@ for band in bands:
   print("Assembling lines for Combine card ",bandname)
   systLines = []
   maxLength = 0
-  print("uncertainties",uncertainties)
+  # print("uncertainties",uncertainties)
   for i in range(0, len(uncertainties)):
     systLines.append(uncertainties[i][0])
     maxLength = max(maxLength, len(systLines[i]))
@@ -313,6 +441,7 @@ for band in bands:
         else:
           systLines[j] += "-"+" "*(len(uncertainties[j][2])-1)
       elif (uncertainties[j][0] not in xsecdict.keys()) or (uncertainties[j][0]==allNames[i]):
+        # print(uncertainties[j][2],uncertainties[j][0])
         systLines[j] += uncertainties[j][2]
       else:
         systLines[j] += "-"+" "*(len(uncertainties[j][2])-1)
@@ -350,11 +479,17 @@ for band in bands:
   #add MC statistics evaluation
   f.write("\n")
   f.write("* autoMCStats 10 0 1\n")
-  f.write(
-      "DY_norm_{era} rateParam {ch}_{era} "
-      "DYto2Mu_MLL105To160 1 [0,5.]\n".format(ch=band, era=year)
-  )
+  # f.write(
+  #     "DY_norm_Hard_{era} rateParam {ch}_{era} "
+  #     "DYto2Mu_MLL105To160_2J_Hard 1 [0,5.]\n".format(ch=band, era=year)
+  # )
+  # for proc in ("DYto2Mu_MLL105To160_2J_PU1", "DYto2Mu_MLL105To160_2J_PU2"):
+  #   f.write(
+  #       "DY_norm_PU_{era} rateParam {ch}_{era} "
+  #       "{proc} 1 [0,5.]\n".format(ch=band, era=year, proc=proc)
+  #   )
 
   f.close()
 #   DY_norm rateParam * DYto2Mu_MLL105To160 1 [0,10]
 # EWK_norm rateParam * EWK_2Mu2J_MLL_105to160_herwig 1 [0,10]
+# combineCards.py y2022=Signal_Fit_VBF2022.txt y2022EE=Signal_Fit_VBF2022EE.txt y2023=Signal_Fit_VBF2023.txt y2023BPix=Signal_Fit_VBF2023BPix.txt y2024=Signal_Fit_VBF2024.txt y2025=Signal_Fit_VBF2025.txt > Signal_Fit_VBF.txt
