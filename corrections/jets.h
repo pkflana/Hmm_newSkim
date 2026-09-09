@@ -268,6 +268,7 @@ namespace correction {
         const RVecF& Jet_area,
         const float rho,
         int event,
+        int seed,
         bool apply_jer,
         bool reapply_jec,
         bool require_run_number,
@@ -430,10 +431,11 @@ namespace correction {
                         }
                     }
 
+
                     evaluation_stage = "JERSmear evaluate";
                     jersmear_factor = safeEvaluate(
                         jersmear_corr_, corrected_pt, eta, genjet_pt, rho,
-                        event, jer_pt_res, jer_sf
+                        seed, jer_pt_res, jer_sf
                     );
 
 

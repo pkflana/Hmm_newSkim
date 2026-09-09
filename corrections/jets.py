@@ -286,6 +286,7 @@ def define_jet_p4_variations(
     )
 
 
+    df = df.Define("seed_jersmearing","(run << 20) + (luminosityBlock << 10) + event + (Jet_eta.size() > 0 ? Jet_eta[0]/0.01 : 0)")
     # ===========================
     # CORE SHIFTED MAP
     # ===========================
@@ -297,6 +298,7 @@ def define_jet_p4_variations(
                 Jet_rawFactor, Jet_area,
                 Rho_fixedGridRhoFastjetAll,
                 event,
+                seed_jersmearing,
                 {apply_jer},
                 {reapply_jec},
                 {require_run_number},
@@ -314,6 +316,7 @@ def define_jet_p4_variations(
                 Jet_rawFactor, Jet_area,
                 Rho_fixedGridRhoFastjetAll,
                 event,
+                seed_jersmearing,
                 {apply_jer},
                 {reapply_jec},
                 {require_run_number},
