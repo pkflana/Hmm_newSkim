@@ -18,7 +18,7 @@ matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 import numpy as np
 import ROOT
-from scipy.optimize import Bounds, LinearConstraint, minimize
+from scipy.optimize import nnls
 
 try:
     import mplhep as hep
@@ -115,84 +115,106 @@ def subtraction_paths(input_dir, samples):
     return paths
 
 
-def solve_nonnegative_poisson(data, background, templates, solver="slsqp"):
-    """Fit non-negative DY scales with a binned Poisson likelihood.
+# Previous Poisson implementation, retained for reference (disabled).
+# def solve_nonnegative_poisson(data, background, templates, solver="slsqp"):
+#     """Fit non-negative DY scales with a binned Poisson likelihood.
+#
+#     The expectation in every retained bin is
+#         mu = fixed non-DY/fitted-DY background + templates @ theta.
+#     MC templates are treated as fixed predictions; the likelihood is Poisson
+#     in the observed data counts.
+#     """
+#     npar = templates.shape[1]
+#     valid = (
+#         np.isfinite(data)
+#         & (data >= 0)
+#         & np.isfinite(background)
+#         & np.all(np.isfinite(templates), axis=1)
+#         & ((background + np.sum(templates, axis=1)) > 0)
+#     )
+#     observed = data[valid]
+#     fixed = background[valid]
+#     matrix = templates[valid]
+#     if matrix.shape[0] <= npar or np.linalg.matrix_rank(matrix) < npar:
+#         raise RuntimeError(
+#             "The DY component templates are linearly dependent in the valid "
+#             f"fit bins; {npar} independent normalizations cannot be identified."
+#         )
+#
+#     epsilon = 1.0e-12
+#
+#     def expectation(theta):
+#         return fixed + matrix @ theta
+#
+#     def nll(theta):
+#         mu = expectation(theta)
+#         if np.any(mu <= 0):
+#             return np.inf
+#         return float(np.sum(mu - observed * np.log(mu)))
+#
+#     def gradient(theta):
+#         mu = expectation(theta)
+#         return matrix.T @ (1.0 - observed / mu)
+#
+#     objective_scale = max(float(np.sum(observed)), 1.0)
+#     if solver == "scaled-slsqp":
+#         result = minimize(
+#             lambda theta: nll(theta) / objective_scale,
+#             np.ones(npar),
+#             jac=lambda theta: gradient(theta) / objective_scale,
+#             method="SLSQP",
+#             bounds=Bounds(np.zeros(npar), np.full(npar, np.inf)),
+#             constraints=LinearConstraint(matrix, epsilon - fixed, np.inf),
+#             options={"ftol": 1.0e-12, "maxiter": 5000},
+#         )
+#     else:
+#         result = minimize(
+#             nll,
+#             np.ones(npar),
+#             jac=gradient,
+#             method="SLSQP",
+#             bounds=Bounds(np.zeros(npar), np.full(npar, np.inf)),
+#             constraints=LinearConstraint(matrix, epsilon - fixed, np.inf),
+#             options={"ftol": 1.0e-10, "maxiter": 2000},
+#         )
+#     if not result.success or not np.all(np.isfinite(result.x)):
+#         raise RuntimeError(f"Poisson likelihood fit failed: {result.message}")
+#
+#     theta = np.maximum(result.x, 0.0)
+#     mu = expectation(theta)
+#     hessian = matrix.T @ ((observed / mu**2)[:, np.newaxis] * matrix)
+#     covariance = np.linalg.pinv(hessian)
+#     positive = observed > 0
+#     deviance_terms = np.array(mu, copy=True)
+#     deviance_terms[positive] = (
+#         mu[positive]
+#         - observed[positive]
+#         + observed[positive] * np.log(observed[positive] / mu[positive])
+#     )
+#     deviance = float(2.0 * np.sum(deviance_terms))
+#     ndof = max(int(np.count_nonzero(valid) - npar), 0)
+#     return theta, covariance, deviance, ndof, valid, float(result.fun)
+#
+def solve_nonnegative_chi2(data, background, templates, variance):
+    """Weighted least squares with fixed histogram variances and theta >= 0.
 
-    The expectation in every retained bin is
-        mu = fixed non-DY/fitted-DY background + templates @ theta.
-    MC templates are treated as fixed predictions; the likelihood is Poisson
-    in the observed data counts.
+    Variance includes data, subtracted backgrounds and nominal active DY MC.
+    Previously fitted DY components contribute their scaled histogram errors;
+    uncertainty/correlations of their fitted scales are not propagated here.
+    Covariance is the local unconstrained curvature approximation.
     """
+    valid = (np.isfinite(data) & np.isfinite(background)
+             & np.isfinite(variance) & (variance > 0)
+             & np.all(np.isfinite(templates), axis=1))
+    matrix = templates[valid] / np.sqrt(variance[valid, None])
+    target = (data[valid] - background[valid]) / np.sqrt(variance[valid])
     npar = templates.shape[1]
-    valid = (
-        np.isfinite(data)
-        & (data >= 0)
-        & np.isfinite(background)
-        & np.all(np.isfinite(templates), axis=1)
-        & ((background + np.sum(templates, axis=1)) > 0)
-    )
-    observed = data[valid]
-    fixed = background[valid]
-    matrix = templates[valid]
-    if matrix.shape[0] <= npar or np.linalg.matrix_rank(matrix) < npar:
-        raise RuntimeError(
-            "The DY component templates are linearly dependent in the valid "
-            f"fit bins; {npar} independent normalizations cannot be identified."
-        )
+    if len(target) <= npar or np.linalg.matrix_rank(matrix) < npar:
+        raise RuntimeError("Insufficient independent DY templates in valid chi2 bins")
+    theta, residual = nnls(matrix, target)
+    covariance = np.linalg.inv(matrix.T @ matrix)
+    return theta, covariance, float(residual**2), len(target) - npar, valid
 
-    epsilon = 1.0e-12
-
-    def expectation(theta):
-        return fixed + matrix @ theta
-
-    def nll(theta):
-        mu = expectation(theta)
-        if np.any(mu <= 0):
-            return np.inf
-        return float(np.sum(mu - observed * np.log(mu)))
-
-    def gradient(theta):
-        mu = expectation(theta)
-        return matrix.T @ (1.0 - observed / mu)
-
-    objective_scale = max(float(np.sum(observed)), 1.0)
-    if solver == "scaled-slsqp":
-        result = minimize(
-            lambda theta: nll(theta) / objective_scale,
-            np.ones(npar),
-            jac=lambda theta: gradient(theta) / objective_scale,
-            method="SLSQP",
-            bounds=Bounds(np.zeros(npar), np.full(npar, np.inf)),
-            constraints=LinearConstraint(matrix, epsilon - fixed, np.inf),
-            options={"ftol": 1.0e-12, "maxiter": 5000},
-        )
-    else:
-        result = minimize(
-            nll,
-            np.ones(npar),
-            jac=gradient,
-            method="SLSQP",
-            bounds=Bounds(np.zeros(npar), np.full(npar, np.inf)),
-            constraints=LinearConstraint(matrix, epsilon - fixed, np.inf),
-            options={"ftol": 1.0e-10, "maxiter": 2000},
-        )
-    if not result.success or not np.all(np.isfinite(result.x)):
-        raise RuntimeError(f"Poisson likelihood fit failed: {result.message}")
-
-    theta = np.maximum(result.x, 0.0)
-    mu = expectation(theta)
-    hessian = matrix.T @ ((observed / mu**2)[:, np.newaxis] * matrix)
-    covariance = np.linalg.pinv(hessian)
-    positive = observed > 0
-    deviance_terms = np.array(mu, copy=True)
-    deviance_terms[positive] = (
-        mu[positive]
-        - observed[positive]
-        + observed[positive] * np.log(observed[positive] / mu[positive])
-    )
-    deviance = float(2.0 * np.sum(deviance_terms))
-    ndof = max(int(np.count_nonzero(valid) - npar), 0)
-    return theta, covariance, deviance, ndof, valid, float(result.fun)
 
 
 def correction_payload(era, theta, covariance):
@@ -270,13 +292,6 @@ def main():
     )
     parser.add_argument("--data-sample", default="Data_Muon")
     parser.add_argument("--dy-process", default="DY")
-    parser.add_argument(
-        "--solver", choices=("slsqp", "scaled-slsqp"), default="scaled-slsqp",
-        help=(
-            "Poisson-fit minimizer. scaled-slsqp rescales the objective to "
-            "avoid false convergence for very large event yields."
-        ),
-    )
     parser.add_argument("--subtract-samples", nargs="+", default=list(DEFAULT_SUBTRACT))
     parser.add_argument("--output-dir", required=True, type=Path)
     parser.add_argument("--output-json", required=True, type=Path)
@@ -298,7 +313,7 @@ def main():
             component for component in component_names
             if np.isfinite(theta[component_index[component]])
         ]
-        data_parts, background_parts, template_parts = [], [], []
+        data_parts, background_parts, template_parts, variance_parts = [], [], [], []
         merged_data = merged_background = None
         merged_components = {}
         for period_index, input_dir in enumerate(input_dirs):
@@ -330,6 +345,8 @@ def main():
                 index = component_index[component]
                 fixed_v += theta[index] * component_values[component]
                 effective_background.Add(component_hists[component], theta[index])
+            variance_parts.append(hist_arrays(data)[1] + hist_arrays(effective_background)[1]
+                                  + sum(hist_arrays(component_hists[name])[1] for name in active_components))
             data_parts.append(data_v)
             background_parts.append(non_v + fixed_v)
             template_parts.append(np.column_stack([
@@ -350,10 +367,10 @@ def main():
                     merged_components[name].Add(component_hists[name])
 
         templates = np.concatenate(template_parts, axis=0)
-        stage_theta, stage_covariance, deviance, ndof, valid, poisson_nll = (
-            solve_nonnegative_poisson(
+        stage_theta, stage_covariance, chi2, ndof, valid = (
+            solve_nonnegative_chi2(
                 np.concatenate(data_parts), np.concatenate(background_parts),
-                templates, solver=args.solver,
+                templates, np.concatenate(variance_parts),
             )
         )
         active_indices = [component_index[name] for name in active_components]
@@ -364,9 +381,7 @@ def main():
             "variable": variable,
             "parameters": list(active_components),
             "fixed_components": fixed_components,
-            "poisson_nll": poisson_nll,
-            "poisson_deviance": deviance,
-            "chi2": deviance,
+            "chi2": chi2,
             "ndof": ndof,
             "n_fit_bins": int(np.count_nonzero(valid)),
         })
@@ -380,7 +395,7 @@ def main():
     stage = "VBF"
     variable = "eta_signed_vs_pt_vbfjet1"
     root_path = f"{args.vbf_region}/{variable}"
-    data_parts, background_parts, template_parts = [], [], []
+    data_parts, background_parts, template_parts, variance_parts = [], [], [], []
     merged_data = merged_non_dy = None
     merged_components = {}
     for period_index, input_dir in enumerate(input_dirs):
@@ -403,6 +418,8 @@ def main():
             )
             component_hists[component] = hist
             values[component], _ = hist_arrays(hist)
+        variance_parts.append(hist_arrays(data)[1] + hist_arrays(non_dy)[1]
+                              + sum(hist_arrays(component_hists[name])[1] for name in VBF_COMPONENTS))
         data_parts.append(data_v)
         background_parts.append(non_v)
         template_parts.append(np.column_stack([values[name] for name in VBF_COMPONENTS]))
@@ -418,10 +435,10 @@ def main():
             merged_data.Add(data); merged_non_dy.Add(non_dy)
             for name in VBF_COMPONENTS: merged_components[name].Add(component_hists[name])
     templates = np.concatenate(template_parts, axis=0)
-    stage_theta, stage_covariance, deviance, ndof, valid, poisson_nll = (
-        solve_nonnegative_poisson(
+    stage_theta, stage_covariance, chi2, ndof, valid = (
+        solve_nonnegative_chi2(
             np.concatenate(data_parts), np.concatenate(background_parts), templates,
-            solver=args.solver,
+            variance=np.concatenate(variance_parts),
         )
     )
     active_indices = [component_index[name] for name in VBF_COMPONENTS]
@@ -433,9 +450,7 @@ def main():
         "variable": variable,
         "parameters": list(VBF_COMPONENTS),
         "fixed_components": [],
-        "poisson_nll": poisson_nll,
-        "poisson_deviance": deviance,
-        "chi2": deviance,
+        "chi2": chi2,
         "ndof": ndof,
         "n_fit_bins": int(np.count_nonzero(valid)),
     })
@@ -456,7 +471,9 @@ def main():
         "region": args.region,
         "vbf_region": args.vbf_region,
         "input_dirs": [str(path) for path in input_dirs],
-        "solver": args.solver,
+        "solver": "nnls",
+        "fit_statistic": "chi2",
+        "variance": "data + fixed background + nominal active DY histogram variances",
         "fit_order": [stage for stage, _, _ in FIT_STAGES] + ["VBF"],
         "stages": stage_summaries,
         "subtracted_samples": sorted(used),
@@ -491,8 +508,8 @@ def main():
         print(f"[FIT] DY {component}: {value:.6g} +/- {error:.6g}")
     for summary in stage_summaries:
         print(
-            f"[FIT] {summary['stage']} Poisson deviance/ndof = "
-            f"{summary['poisson_deviance']:.3f}/{summary['ndof']}"
+            f"[FIT] {summary['stage']} chi2/ndof = "
+            f"{summary['chi2']:.3f}/{summary['ndof']}"
         )
     print(f"[OUTPUT] {args.output_json}")
     print(f"[OUTPUT] {fit_summary_path}")

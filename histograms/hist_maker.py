@@ -31,6 +31,7 @@ from common.jet_component_splitting import (
     variable_for_component,
 )
 from common.manifest_utilities import read_manifest
+from common.systematic_correlations import nuisance_name as correlated_nuisance_name
 from common.utilities import initialize_root_runtime
 from common.validation_utilities import validate_file
 from common.rdf_utilities import (
@@ -192,9 +193,8 @@ def format_systematic_info(syst_info, scale=None):
 def nuisance_histogram_name(variable, syst_name, syst_info, era, process):
     if syst_name == "Central":
         return variable
-    nuisance_name = syst_info.get("name", syst_name)
-    nuisance_name = nuisance_name.format(
-        era=era.removeprefix("Run3_"),
+    nuisance_name = correlated_nuisance_name(
+        dict(syst_info, name=syst_info.get("name", syst_name)), era,
         process=process,
         pdf_process=pdf_process_label(syst_info.get("pdf_config", {}), process),
     )
@@ -478,6 +478,8 @@ def parse_requested_systematics(values):
 def expand_systematic_group_alias(requested_name, available_systematics):
     normalized_name = requested_name.lower().replace("_", "").replace("-", "")
     aliases = {
+        "jesregrouped": tuple(name for name in available_systematics
+                              if name.startswith(("JESRegrouped_", "JESRelativeSample_"))),
         "jerc": (
             *tuple(name for name in available_systematics if name.startswith("JER")),
             "JES_TotalUp", "JES_TotalDown",
@@ -564,7 +566,7 @@ def validate_systematic_isolation(systs_to_run):
         jet_suffix = info.get("jet_suffix", "")
         muon_suffix = info.get("muon_suffix", "")
         weight = info.get("weight", "weight__Central")
-        if name.startswith(("JER", "JES_")) and (
+        if name.startswith(("JER", "JES")) and (
             muon_suffix or weight != "weight__Central"
         ):
             raise ValueError(
@@ -615,8 +617,8 @@ def write_qcd_scale_variations(
                 continue
             for variable in variables:
                 for variation in variations:
-                    nuisance_name = variation["name"].format(
-                        era=era.removeprefix("Run3_"),
+                    nuisance_name = correlated_nuisance_name(
+                        dict(qcd_scale_config, **variation), era,
                         process=process_label,
                     )
                     for direction, shape_direction in (
@@ -716,10 +718,12 @@ def produce_histograms(args_tuple):
         rdf_base = prepared.get("inclusive")
         profile_log(args.dataset_name, "RDataFrame preparation", rdf_started)
         booking_setup_started = time.perf_counter()
+        from common.dataset_utilities import dataset_region_allowed
         stored_regions = [
             name
             for name, info in masses_regions.items()
             if name in masses_regions_list and info.get("store", False)
+            and (not args.region_sample_routing or dataset_region_allowed(args.dataset_name, name))
         ]
         stored_categories = [
             name
@@ -999,6 +1003,7 @@ def main(argv=None, *, stage_settings=None):
         ),
     )
     parser.add_argument("--variables", nargs="+")
+    parser.add_argument("--no-region-sample-routing", dest="region_sample_routing", action="store_false", help="Explicitly allow DY/EWK outside their default generated mass region")
     parser.add_argument("--mass-regions", nargs="+", default=["mass_inclusive", "Z_sideband", "Signal_Fit"])
     parser.add_argument("--categories", nargs="+", default=["baseline", "ggF", "VBF"])
     parser.add_argument("--additional-cuts", default=None)

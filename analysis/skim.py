@@ -23,7 +23,7 @@ parser.add_argument("--output-file", required=True)
 parser.add_argument("--report-file",default=None)
 parser.add_argument("--n-events", default=-1, type=int,
                     help="Process at most this many input events before selections; -1 processes all events.")
-parser.add_argument("--jet-horn-veto", choices=("configured", "without"),
+parser.add_argument("--jet-horn-veto", choices=("configured", "with", "without"),
                     default="configured", help="Override the jet horn veto for this skim only.")
 parser.add_argument("--want-variations", required=False, action="store_true", help="request for variations from command line")
 args = parser.parse_args()
@@ -38,8 +38,8 @@ config = utilities.get_config(os.path.join(os.environ["ANALYSIS_PATH"], "config"
 
 dataset_cfg = utilities.get_config(os.path.join(os.environ["ANALYSIS_PATH"], "config", args.era, "samples.yaml"))[args.dataset_name]
 sel_config = utilities.get_config(os.path.join(os.environ["ANALYSIS_PATH"], "config", args.era, "selections.yaml"))
-if args.jet_horn_veto == "without":
-    sel_config["jet_horn_veto_expr"] = "( abs(v_ops::eta(Jet_p4) ) <0 )"
+from common.jet_horn_policy import configure_horn_veto
+configure_horn_veto(sel_config, args.era, args.jet_horn_veto)
 trigger_config = utilities.get_config(os.path.join(os.environ["ANALYSIS_PATH"], "config", args.era, "triggers.yaml"))
 process_cfg = utilities.get_config(os.path.join(os.environ["ANALYSIS_PATH"], "config", args.era, "process_names.yaml"))
 systematics_cfg = utilities.get_config(os.path.join(os.environ["ANALYSIS_PATH"], "config", args.era, "systematics.yaml"))
@@ -106,6 +106,8 @@ else:
 
 # apply corrections --> this time also for data (e.g. JEC/ScaRe) #
 from corrections.general import apply_corrections
+from common.jet_horn_policy import horn_mitigation_enabled
+config["apply_jet_horn_mitigation"] = horn_mitigation_enabled(args.era, sel_config)
 df = apply_corrections(df, config, dataset_cfg, args.dataset_name, want_variations)
 
 # MET FLAGS

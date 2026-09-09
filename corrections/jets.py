@@ -266,6 +266,7 @@ def define_jet_p4_variations(
     want_variations,
     apply_JER,
     apply_JES,
+    apply_horn_mitigation=True,
 ):
     if not _jet_correction_state["initialized"]:
         raise RuntimeError("Jet corrections are not initialized")
@@ -274,6 +275,7 @@ def define_jet_p4_variations(
     period = _jet_correction_state["period"]
 
     apply_jer = "true" if apply_JER and not is_data else "false"
+    horn_mitigation = "true" if apply_horn_mitigation else "false"
     reapply_jec = "true"
     require_run_number = "true" if is_data or period == "2023_Summer23BPix" else "false"
 
@@ -300,7 +302,8 @@ def define_jet_p4_variations(
                 {require_run_number},
                 run,
                 {wantPhi},
-                GenJet_pt, GenJet_eta, GenJet_phi, Jet_genJetIdx
+                GenJet_pt, GenJet_eta, GenJet_phi, Jet_genJetIdx,
+                {horn_mitigation}
             )"""
         )
     else:
@@ -315,7 +318,8 @@ def define_jet_p4_variations(
                 {reapply_jec},
                 {require_run_number},
                 run,
-                {wantPhi}
+                {wantPhi},
+                {{}}, {{}}, {{}}, {{}}, {horn_mitigation}
             )"""
         )
 
@@ -399,6 +403,7 @@ def apply_jet_corrections(df, config, dataset_cfg, dataset_name, want_variations
         want_variations,
         apply_JER,
         apply_JES,
+        config.get("apply_jet_horn_mitigation", True),
     )
 
     return df

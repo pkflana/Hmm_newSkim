@@ -877,7 +877,11 @@ if __name__ == "__main__":
     )
 
 
+    parser.add_argument("--combined-eras", help="Comma-separated physical eras contributing to this merged plot")
     args = parser.parse_args()
+    combined_eras = [e if e.startswith("Run3_") else "Run3_" + e for e in (args.combined_eras or "").split(",") if e]
+    if combined_eras and len(set(combined_eras)) != len(combined_eras):
+        parser.error("--combined-eras contains duplicates")
 
     def parse_sample_overrides(values, option_name):
         result = {}
@@ -933,6 +937,8 @@ if __name__ == "__main__":
         "config",
         args.era,
     )
+    if combined_eras:
+        cfg_dir = os.path.join(os.environ["ANALYSIS_PATH"], "config", combined_eras[-1])
     if not os.path.isdir(cfg_dir):
         combined_config_fallbacks = {
             "Run3_2022_25": "Run3_2025",
@@ -992,9 +998,13 @@ if __name__ == "__main__":
             os.environ["ANALYSIS_PATH"],
             "config",
             "plot",
-            f"{args.era}.yaml",
+            f"{combined_eras[-1] if combined_eras else args.era}.yaml",
         )
     )
+
+    if combined_eras:
+        luminosity = sum(float(utilities.get_config(os.path.join(os.environ["ANALYSIS_PATH"], "config", e, "maincfg.yaml"))["luminosity"]) for e in combined_eras)
+        additional_cfg.setdefault("lumi_text", {})["text"] = f"{luminosity / 1000.0:.1f}"
 
     page_cfg = utilities.get_config(
         os.path.join(
@@ -1452,6 +1462,7 @@ if __name__ == "__main__":
                     dy_component_reweighted=(args.dy_012j_weights != "none"),
                     show_systematics=args.systematics,
                     systematic_groups=args.systematicGroup,
+                    combined_eras=combined_eras,
                     overlay_systematic=args.overlaySystematic,
                     log_uncertainties=args.logUncertainties,
                     include_total_systematics=args.totalSystematics,

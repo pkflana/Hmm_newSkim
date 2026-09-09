@@ -518,22 +518,15 @@ def build_syst_ratio_bands(
     bin_edges,
     era,
     systematic_groups=None,
+    combined_eras=None,
 ):
     n_bins=len(bin_edges) - 1
     """
-    Compute per-group systematic ratio bands for the Data/MC ratio panel.
+    Compute systematic bands using the configured correlation groups.
 
-    For each systematic group defined in SYST_GROUPS:
-      1. For every nuisance fragment in the group, look for histogram keys
-             {variable}_CMS_{fragment}_{era}Up
-             {variable}_CMS_{fragment}_{era}Down
-         inside each MC background sample's hists dict.
-      2. Sum the shifted bin contents across ALL MC background samples
-         to get total MC_up and MC_down per nuisance.
-      3. Compute ratio_up = MC_up / MC_nominal and ratio_dn = MC_dn / MC_nominal.
-      4. When a group has multiple fragments (e.g. Muon combines eff_m_iso,
-         eff_m_trigger, eff_m_id) take the envelope: the deviation furthest
-         from 1.0 wins in each bin.
+    Contributions with the same nuisance name add across processes and eras;
+    independent nuisance names add in quadrature. Merged inputs must be made
+    with the era-template merger, which includes unaffected nominal yields.
 
     Parameters
     ----------
@@ -578,185 +571,73 @@ def build_syst_ratio_bands(
             f"Unknown systematic group(s): {unknown}. Available groups: {available}"
         )
 
-    for group_label, (fragments, color) in SYST_GROUPS.items():
+    # Use the same names as production. Complete merged shapes contain nominal
+    # contributions from unaffected eras, so no physical-era file recovery is needed.
+    from pathlib import Path
+    import yaml
+    from common.systematic_correlations import configured_nuisances
+    physical_eras = combined_eras or {
+        'Run3_2022_23': ['2022', '2022EE', '2023', '2023BPix'],
+        'Run3_2022_25': ['2022', '2022EE', '2023', '2023BPix', '2024', '2025'],
+    }.get(era, [era])
+    names_by_group = {group: set() for group in SYST_GROUPS}
+    def groups_for(key):
+        if key.startswith('JES'): return ['Jet Scale']
+        if key.startswith('JER'): return ['Jet Res']
+        if key.startswith('PU_'): return ['Pileup']
+        if key.startswith('MuonID'): return ['Muon Eff.', 'Muon ID']
+        if key.startswith('MuonIso'): return ['Muon Eff.', 'Muon Iso']
+        if key.startswith('singleMuTrigger'): return ['Muon Eff.', 'Muon Trigger']
+        if key == 'MuonRes': return ['Muon Res']
+        if key == 'MuonScale': return ['Muon Scale']
+        if key == 'EWKHerwigPythia': return ['EWKZ PS']
+        if key.startswith('QCD'): return ['QCDScale']
+        if key.startswith('PDF'): return ['PDF']
+        return []
+    for physical in physical_eras:
+        path = Path(__file__).resolve().parents[1] / 'config' / ('Run3_' + str(physical).removeprefix('Run3_')) / 'systematics.yaml'
+        if not path.is_file():
+            raise ValueError(f'Unknown physical era {physical}; supply --combined-eras')
+        cfg = yaml.safe_load(path.read_text())
+        for key, name in configured_nuisances(cfg, physical):
+            for group in groups_for(key):
+                names_by_group[group].add(name)
+    for group_label, (_, color) in SYST_GROUPS.items():
         if group_label not in requested_groups:
             continue
-        # Envelope accumulators — start at nominal (ratio = 1.0)
-        group_ratio_up = np.ones(len(bin_edges) - 1, dtype=float)
-        group_ratio_dn = np.ones(len(bin_edges) - 1, dtype=float)
-        group_found = False
-
-        for fragment in fragments:
-            combined_suberas = {
-                "Run3_2022_23": ("2022", "2022EE", "2023", "2023BPix"),
-                "Run3_2022_25": (
-                    "2022", "2022EE", "2023", "2023BPix", "2024", "2025"
-                ),
-            }
-            if era in combined_suberas and "{era}" in fragment:
-                delta_up2 = np.zeros(len(bin_edges) - 1, dtype=float)
-                delta_dn2 = np.zeros(len(bin_edges) - 1, dtype=float)
-                combined_found = False
-                for subera in combined_suberas[era]:
-                    era_delta_up = np.zeros(len(bin_edges) - 1, dtype=float)
-                    era_delta_dn = np.zeros(len(bin_edges) - 1, dtype=float)
-                    nuisance_name = fragment.format(era=subera)
-                    up_key = f"{variable}_{nuisance_name}Up"
-                    dn_key = f"{variable}_{nuisance_name}Down"
-                    era_found = False
-                    for key in mc_keys:
-                        nominal_paths = {
-                            os.path.basename(path): path
-                            for path in samples_dict[key].get("input", "").split(",")
-                            if path.strip()
-                        }
-                        for shifted_path in samples_dict[key].get("systematic_inputs", []):
-                            nominal_path = nominal_paths.get(os.path.basename(shifted_path))
-                            if nominal_path is None:
-                                continue
-                            nominal_source_path = os.path.join(
-                                os.path.dirname(os.path.dirname(nominal_path)),
-                                f"Run3_{subera}",
-                                os.path.basename(nominal_path),
-                            )
-                            shifted_source_path = os.path.join(
-                                os.path.dirname(os.path.dirname(shifted_path)),
-                                f"Run3_{subera}",
-                                os.path.basename(shifted_path),
-                            )
-                            if (
-                                not os.path.isfile(nominal_source_path)
-                                or not os.path.isfile(shifted_source_path)
-                            ):
-                                continue
-                            try:
-                                nominal_file = ROOT.TFile.Open(nominal_source_path)
-                                shifted_file = ROOT.TFile.Open(shifted_source_path)
-                            except OSError:
-                                print(
-                                    f"  [WARNING] Cannot open optional "
-                                    f"era sources: {nominal_source_path}, "
-                                    f"{shifted_source_path}"
-                                )
-                                continue
-                            if (
-                                not nominal_file or nominal_file.IsZombie()
-                                or not shifted_file or shifted_file.IsZombie()
-                            ):
-                                continue
-                            nominal_dir = nominal_file.Get(category)
-                            shifted_dir = shifted_file.Get(category)
-                            h_nom = nominal_dir.Get(variable) if nominal_dir else None
-                            h_up = shifted_dir.Get(up_key) if shifted_dir else None
-                            h_dn = shifted_dir.Get(dn_key) if shifted_dir else None
-                            if h_nom and h_up and h_dn:
-                                nom = _hist_content(h_nom, bin_edges)
-                                era_delta_up += _hist_content(h_up, bin_edges) - nom
-                                era_delta_dn += _hist_content(h_dn, bin_edges) - nom
-                                era_found = True
-                            nominal_file.Close()
-                            shifted_file.Close()
-                    if era_found:
-                        delta_up2 += era_delta_up ** 2
-                        delta_dn2 += era_delta_dn ** 2
-                        combined_found = True
-
-                if combined_found:
-                    ratio_up = np.divide(
-                        nominal_total + np.sqrt(delta_up2),
-                        nominal_total,
-                        out=np.ones_like(nominal_total),
-                        where=nominal_total > 0,
-                    )
-                    ratio_dn = np.divide(
-                        nominal_total - np.sqrt(delta_dn2),
-                        nominal_total,
-                        out=np.ones_like(nominal_total),
-                        where=nominal_total > 0,
-                    )
-                    group_found = True
-                    group_ratio_up = np.where(
-                        np.abs(ratio_up - 1.0) > np.abs(group_ratio_up - 1.0),
-                        ratio_up,
-                        group_ratio_up,
-                    )
-                    group_ratio_dn = np.where(
-                        np.abs(ratio_dn - 1.0) > np.abs(group_ratio_dn - 1.0),
-                        ratio_dn,
-                        group_ratio_dn,
-                    )
-                    print(
-                        f"  [SYST] {group_label}: combined decorrelated "
-                        "2022--2025 variations in quadrature"
-                    )
-                continue
-
-            nuisance_name = fragment.format(era=era_short)
-            up_key = f"{variable}_{nuisance_name}Up"
-            dn_key = f"{variable}_{nuisance_name}Down"
-
-            mc_up = np.zeros(len(bin_edges) - 1, dtype=float)
-            mc_dn = np.zeros(len(bin_edges) - 1, dtype=float)
-            frag_found = False
-
+        up2, down2 = np.zeros(n_bins), np.zeros(n_bins)
+        found_names = []
+        for name in sorted(names_by_group[group_label]):
+            delta_up, delta_down = np.zeros(n_bins), np.zeros(n_bins)
+            found = False
             for key in mc_keys:
-                hists = samples_dict[key]["hists"].get(category, {})
-                h_nom = hists.get(variable)
-                h_up  = hists.get(up_key)
-                h_dn  = hists.get(dn_key)
-
-                if h_nom is None:
+                hists = samples_dict[key]['hists'].get(category, {})
+                nominal = hists.get(variable)
+                up = hists.get(f'{variable}_{name}Up')
+                down = hists.get(f'{variable}_{name}Down')
+                if nominal is None or (up is None and down is None):
                     continue
-
-                nom = _hist_content(h_nom, bin_edges)
-
-                if h_up is not None and h_dn is not None:
-                    mc_up += _hist_content(h_up, bin_edges)
-                    mc_dn += _hist_content(h_dn, bin_edges)
-                    frag_found = True
-                else:
-                    # Sample unaffected by this fragment — contributes
-                    # nominally so its bins cancel in the ratio
-                    mc_up += nom
-                    mc_dn += nom
-
-            if not frag_found:
-                continue
-
-            group_found = True
-
-            ratio_up = np.where(nominal_total > 0, mc_up / nominal_total, 1.0)
-            ratio_dn = np.where(nominal_total > 0, mc_dn / nominal_total, 1.0)
-
-            print(f"    [{fragment}] ratio_up min/max: {np.nanmin(ratio_up):.3f}/{np.nanmax(ratio_up):.3f}  "
-                f"at bins {np.nanargmin(ratio_up)}/{np.nanargmax(ratio_up)}")
-            print(f"    nominal_total at those bins: {nominal_total[np.nanargmin(ratio_up)]:.4g} / "
-                f"{nominal_total[np.nanargmax(ratio_up)]:.4g}")
-
-            # Envelope: keep whichever fragment deviates most from 1.0
-            group_ratio_up = np.where(
-                np.abs(ratio_up - 1.0) > np.abs(group_ratio_up - 1.0),
-                ratio_up,
-                group_ratio_up,
-            )
-            group_ratio_dn = np.where(
-                np.abs(ratio_dn - 1.0) > np.abs(group_ratio_dn - 1.0),
-                ratio_dn,
-                group_ratio_dn,
-            )
-
-        if group_found:
-            empty_nominal = nominal_total <= 0
-            group_ratio_up = np.where(empty_nominal, np.nan, group_ratio_up)
-            group_ratio_dn = np.where(empty_nominal, np.nan, group_ratio_dn)
-            result[group_label] = (group_ratio_up, group_ratio_dn, color)
-            print(
-                f"  [SYST] {group_label}: "
-                f"mean |up-1|={np.nanmean(np.abs(group_ratio_up - 1.0)):.4f}  "
-                f"mean |dn-1|={np.nanmean(np.abs(group_ratio_dn - 1.0)):.4f}"
-            )
-        else:
-            print(f"  [SYST] {group_label}: no histograms found, skipping")
+                if up is None or down is None:
+                    raise ValueError(f'Incomplete Up/Down pair: {name}, {key}')
+                delta_up += _hist_content(up, bin_edges) - _hist_content(nominal, bin_edges)
+                delta_down += _hist_content(down, bin_edges) - _hist_content(nominal, bin_edges)
+                found = True
+            if found:
+                found_names.append(name)
+                # Correlated contributions add before squaring; independent
+                # nuisances (including distinct era groups) add in quadrature.
+                up2 += np.maximum.reduce([delta_up, delta_down, np.zeros(n_bins)]) ** 2
+                down2 += np.minimum.reduce([delta_up, delta_down, np.zeros(n_bins)]) ** 2
+        if group_label == 'Jet Scale' and any('total' in name for name in found_names) and any('regrouped' in name for name in found_names):
+            raise ValueError('JES Total and regrouped sources cannot be counted together')
+        if found_names:
+            valid = nominal_total > 0
+            up = np.full(n_bins, np.nan)
+            down = np.full(n_bins, np.nan)
+            up[valid] = 1 + np.sqrt(up2[valid]) / nominal_total[valid]
+            down[valid] = 1 - np.sqrt(down2[valid]) / nominal_total[valid]
+            result[group_label] = (up, down, color)
+            print(f'  [SYST] {group_label}: {len(found_names)} independent nuisance(s)')
 
     return result
 
@@ -783,6 +664,7 @@ def make_stacked_plot(
     dy_component_reweighted=False,
     show_systematics=False,
     systematic_groups=None,
+    combined_eras=None,
     overlay_systematic=False,
     log_uncertainties=False,
     include_total_systematics=False,
@@ -1420,6 +1302,7 @@ def make_stacked_plot(
                 bin_edges=bin_edges,
                 era=era,
                 systematic_groups=systematic_groups,
+                combined_eras=combined_eras,
             )
         if overlay_systematic and not syst_bands:
             print(

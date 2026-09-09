@@ -3,6 +3,8 @@ scales:
   - down
 
 qcd_scale:
+  isCorrelated: true
+  Eras_correlated: all
   enabled: true
   name: "QCDscale_{process}"
   branch: "LHEScaleWeight"
@@ -16,7 +18,7 @@ qcd_scale:
     DYto2Mu_MLL105To160_VBFFiltered: "V"
     DYto2Mu_MLL105To160_VBFFiltered_nonStitched: "V"
     DYto2Mu_MLL105To160_FlashSim: "V"
-    DYto2Mu_FlashSim: "V" 
+    DYto2Mu_FlashSim: "V"
     DYto2L_FlashSim: "V"
     DYto2Mu_minnlo: "V"
     W: "V"
@@ -67,6 +69,7 @@ qcd_scale:
 derived_systematics:
   EWKHerwigPythia:
     name: "CMS_hmm_EWKZ_partonShower_{era}"
+    isCorrelated: false
     nominal_process: "EWK_2Mu2J_MLL_105to160_herwig"
     alternative_process: "EWK_2Mu2J_MLL_105to160_pythia"
     coefficient: 0.5
@@ -138,24 +141,120 @@ systematics:
     jet_suffix: "_JER{scale}"
     weight: "weight__Central"
     name: "CMS_res_j_{era}"
+    isCorrelated: false
+
 
   JES_Total:
     muon_suffix: ""
     jet_suffix: "_JESTotal{scale}"
     weight: "weight__Central"
-    name: "CMS_scale_j_{era}"
+    name: "CMS_scale_j_total_{era}"
+    isCorrelated: false
+
+  JESRegrouped_Absolute:
+    muon_suffix: ""
+    jet_suffix: "_JESRegrouped_Absolute{scale}"
+    weight: "weight__Central"
+    name: "CMS_scale_j_regrouped_absolute"
+    isCorrelated: true
+    Eras_correlated: all
+
+  JESRegrouped_Absolute_2024:
+    muon_suffix: ""
+    jet_suffix: "_JESRegrouped_Absolute_2024{scale}"
+    weight: "weight__Central"
+    name: "CMS_scale_j_regrouped_absolute_{era}"
+    isCorrelated: true
+    Eras_correlated: [2024]
+
+
+  JESRegrouped_BBEC1:
+    muon_suffix: ""
+    jet_suffix: "_JESRegrouped_BBEC1{scale}"
+    weight: "weight__Central"
+    name: "CMS_scale_j_regrouped_BBEC1"
+    isCorrelated: true
+    Eras_correlated: all
+
+  JESRegrouped_BBEC1_2024:
+    muon_suffix: ""
+    jet_suffix: "_JESRegrouped_BBEC1_2024{scale}"
+    weight: "weight__Central"
+    name: "CMS_scale_j_regrouped_BBEC1_{era}"
+    isCorrelated: true
+    Eras_correlated: [2024]
+
+  JESRegrouped_EC2:
+    muon_suffix: ""
+    jet_suffix: "_JESRegrouped_EC2{scale}"
+    weight: "weight__Central"
+    name: "CMS_scale_j_regrouped_EC2"
+    isCorrelated: true
+    Eras_correlated: all
+
+  JESRegrouped_EC2_2024:
+    muon_suffix: ""
+    jet_suffix: "_JESRegrouped_EC2_2024{scale}"
+    weight: "weight__Central"
+    name: "CMS_scale_j_regrouped_EC2_{era}"
+    isCorrelated: true
+    Eras_correlated: [2024]
+
+  JESRegrouped_HF:
+    muon_suffix: ""
+    jet_suffix: "_JESRegrouped_HF{scale}"
+    weight: "weight__Central"
+    name: "CMS_scale_j_regrouped_HF"
+    isCorrelated: true
+    Eras_correlated: all
+
+  JESRegrouped_HF_2024:
+    muon_suffix: ""
+    jet_suffix: "_JESRegrouped_HF_2024{scale}"
+    weight: "weight__Central"
+    name: "CMS_scale_j_regrouped_HF_{era}"
+    isCorrelated: true
+    Eras_correlated: [2024]
+
+  JESRegrouped_FlavorQCD:
+    muon_suffix: ""
+    jet_suffix: "_JESRegrouped_FlavorQCD{scale}"
+    weight: "weight__Central"
+    name: "CMS_scale_j_regrouped_FlavorQCD"
+    isCorrelated: true
+    Eras_correlated: all
+
+
+  JESRegrouped_RelativeBal:
+    muon_suffix: ""
+    jet_suffix: "_JESRegrouped_RelativeBal{scale}"
+    weight: "weight__Central"
+    name: "CMS_scale_j_regrouped_RelativeBal"
+    isCorrelated: true
+    Eras_correlated: all
+
+  JESRelativeSample_2024:
+    muon_suffix: ""
+    jet_suffix: "_JESRelativeSample_2024{scale}"
+    weight: "weight__Central"
+    name: "CMS_scale_j_regrouped_JesRelativeSample_{era}"
+    isCorrelated: true
+    Eras_correlated: [2024]
+
 
   MuonScale:
     jet_suffix: ""
     muon_suffix: "_FSR_scale_{scale}"
     weight: "weight__Central"
     name: "CMS_scale_m_{era}"
+    isCorrelated: false
 
   MuonRes:
     jet_suffix: ""
     muon_suffix: "_FSR_res_{scale}"
     weight: "weight__Central"
     name: "CMS_res_m_{era}"
+    isCorrelated: false
 
 weights:
   Central:
@@ -179,6 +278,8 @@ weights:
     jet_suffix: ""
     muon_suffix: ""
     name: "QCDscale_{process}"
+    isCorrelated: true
+    Eras_correlated: all
     weight: "weight__QCDScale_{scale}"
     derived_envelope: true
 
@@ -187,6 +288,8 @@ weights:
     jet_suffix: ""
     muon_suffix: ""
     name: "pdf_{pdf_process}"
+    isCorrelated: true
+    Eras_correlated: all
     weight: "weight__PDF_{scale}"
     relative_expression: "weight_pdf_{scale}"
 
@@ -198,6 +301,7 @@ weights:
     jet_suffix: ""
     muon_suffix: ""
     name: "CMS_pileup_{era}"
+    isCorrelated: false
     weight: "weight__PU_{scale}"
     expression: >
       genWeight *
@@ -218,6 +322,7 @@ weights:
     jet_suffix: ""
     muon_suffix: ""
     name: "CMS_eff_m_id_{era}"
+    isCorrelated: false
     weight: "weight__MuonID_{scale}"
     expression: >
       genWeight *
@@ -234,6 +339,7 @@ weights:
     jet_suffix: ""
     muon_suffix: ""
     name: "CMS_eff_m_iso_{era}"
+    isCorrelated: false
     weight: "weight__MuonIso_{scale}"
     expression: >
       genWeight *
@@ -254,6 +360,7 @@ weights:
     jet_suffix: ""
     muon_suffix: ""
     name: "CMS_eff_m_trigger_{era}"
+    isCorrelated: false
     weight: "weight__singleMuTrigger_{scale}"
     expression: >
       genWeight *

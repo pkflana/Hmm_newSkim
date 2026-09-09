@@ -16,6 +16,7 @@ mass_region_routing:
   early:
     eras: [Run3_2022, Run3_2022EE, Run3_2023, Run3_2023BPix]
     Signal_Fit: [DY_amcatnlo_105_160, EWK_105_160]
+    H_sideband: [DY_amcatnlo_105_160, EWK_105_160]
     sidebands: [DY_amcatnlo, EWK]
     separate: [DY_012J]
   late:
@@ -23,5 +24,6 @@ mass_region_routing:
     # DY_amcatnlo_105_160 resolves to the complementary inclusive and
     # VBF-filtered samples using GenVBFFilter==0/1.
     Signal_Fit: [DY_amcatnlo_105_160, EWK_105_160]
+    H_sideband: [DY_amcatnlo_105_160, EWK_105_160]
     sidebands: [DY_amcatnlo, EWK]
     separate: [DY_012J]

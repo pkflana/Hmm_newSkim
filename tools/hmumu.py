@@ -161,12 +161,31 @@ def run_merge_eras(args: argparse.Namespace) -> int:
             "DY MLL 105-160 routing: canonical output name for every era"
         )
     print(f"Merging eras {', '.join(eras)} -> {base / output_era}")
-    return run_hadd_plan(
-        jobs,
-        execute=args.execute,
-        overwrite=args.force,
-        skip_errors=getattr(args, "skip_errors", False),
-    )
+    if not args.execute:
+        return run_hadd_plan(jobs, execute=False, overwrite=args.force)
+    from common.merge_era_templates import complete_era_shapes
+    nominal_base = Path(args.nominal_dir) if getattr(args, 'nominal_dir', None) else base
+    import tempfile
+    for output, inputs in jobs:
+        if output.exists() and not args.force:
+            raise FileExistsError(output)
+        if output.resolve() in {p.resolve() for p in inputs}:
+            raise ValueError('Merged output cannot overwrite a physical era')
+        output.parent.mkdir(parents=True, exist_ok=True)
+        fd, temporary = tempfile.mkstemp(prefix='.era_merge_', suffix='.root', dir=output.parent)
+        os.close(fd)
+        temporary = Path(temporary)
+        try:
+            status = run_hadd_plan([(temporary, inputs)], execute=True, overwrite=True,
+                                   skip_errors=getattr(args, 'skip_errors', False))
+            if status:
+                return status
+            nominals = [nominal_base / p.relative_to(base) for p in inputs]
+            complete_era_shapes(temporary, inputs, nominals)
+            os.replace(temporary, output)
+        finally:
+            temporary.unlink(missing_ok=True)
+    return 0 if jobs else 1
 
 
 def run_hadd_processes(args: argparse.Namespace) -> int:
@@ -855,6 +874,7 @@ def build_parser() -> argparse.ArgumentParser:
         action="append",
         help="eras to merge (default: 2022, 2022EE, 2023, 2023BPix)",
     )
+    merge_eras.add_argument("--nominal-dir", help="Central hadded base for padding unaffected eras in shifted templates")
     merge_eras.add_argument("--output-era", default="Run3_2022_23")
     merge_eras.add_argument(
         "--combine-dy-mll-generations",

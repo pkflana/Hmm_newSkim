@@ -173,7 +173,7 @@ namespace correction {
                                          bool require_run_number,
                                          bool wantPhi,
                                          bool isdata_,
-                                        bool is2024Eta2To2p5) const {
+                                        bool applyResidualPtFloor) const {
 
             if (pt_raw <= 0.0) return 1.0;
 
@@ -200,7 +200,7 @@ namespace correction {
             float cRes = 1.0;
             float pt_for_corr = pt_after;
             if (isdata_){
-                if(is2024Eta2To2p5 and pt_after < 30. ){
+                if(applyResidualPtFloor and pt_after < 30. ){
                     pt_for_corr = 30.;
                 }
                 if (require_run_number) {
@@ -276,7 +276,8 @@ namespace correction {
         const RVecF& GenJet_pt = {},
         const RVecF& GenJet_eta = {},
         const RVecF& GenJet_phi = {},
-        const RVecI& Jet_genJetIdx = {}
+        const RVecI& Jet_genJetIdx = {},
+        bool apply_horn_mitigation = true
     ) const
     {
         std::map<std::pair<UncSource, UncScale>, RVecLV> all_shifted_p4;
@@ -327,14 +328,15 @@ namespace correction {
                     const float pt_raw = Jet_pt[i] * raw_sf;
                     const float mass_raw = Jet_mass[i] * raw_sf;
 
-                    const bool is2024Eta2To2p5 =
-                        ((year_ == "2024") && //  || year_=="2025"
+                    const bool applyResidualPtFloor =
+                        ((year_ == "2024" ||
+                          ((year_ == "2025" || year_ == "2026") && apply_horn_mitigation)) &&
                         abs_eta > 2.f &&
                         abs_eta < 2.5f);
 
                     float jec_sf = 1.f;
 
-                    if (use_cmpd_jec_ && !is2024Eta2To2p5) {
+                    if (use_cmpd_jec_ && !applyResidualPtFloor) {
 
                         evaluation_stage = "JEC compound evaluate";
                         jec_sf = evaluateJECCompound(
@@ -361,7 +363,7 @@ namespace correction {
                             require_run_number,
                             wantPhi,
                             is_data_,
-                            is2024Eta2To2p5
+                            applyResidualPtFloor
                         );
                     }
 
@@ -445,7 +447,7 @@ namespace correction {
                     if (
                         is_jet_in_horn &&
                         !has_gen_match
-                        && year_ != "2025"
+                        && ((year_ != "2025" && year_ != "2026") || apply_horn_mitigation)
                     ) {
                         jersmear_factor = 1.f;
                     }

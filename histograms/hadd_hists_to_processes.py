@@ -94,9 +94,8 @@ def add_derived_systematics(era, output_dir):
     for _, config in derived_cfg.items():
         nominal_process = config["nominal_process"]
         alternative_process = config["alternative_process"]
-        nuisance_name = config["name"].format(
-            era=era.removeprefix("Run3_")
-        )
+        from common.systematic_correlations import nuisance_name as correlated_nuisance_name
+        nuisance_name = correlated_nuisance_name(config, era)
         coefficient = float(config.get("coefficient", 0.5))
         floor = float(config.get("floor", 0.0))
         nominal_path = os.path.join(output_dir, f"{nominal_process}.root")
@@ -181,7 +180,7 @@ def add_derived_systematics(era, output_dir):
 
 def hadd_datasets_to_processes(
     era, input_dir, output_dir, add_derived_systs=True, dryRun=False,
-    missing_only=False,
+    missing_only=False, selected_datasets=None,
 ):
     if not dryRun:
         import uproot
@@ -200,7 +199,7 @@ def hadd_datasets_to_processes(
     output_variants = (None, *dict.fromkeys(DY_COMPONENT_FILE_LABELS.values()))
     for process, datasets in process_mapping.items():
       for component_label in output_variants:
-        datasets = list(dict.fromkeys(datasets))  # Rimuove duplicati
+        datasets = [d for d in dict.fromkeys(datasets) if selected_datasets is None or d in selected_datasets]  # Rimuove duplicati
 
         # Do not duplicate the historical DY prefix in process-level files:
         # DY_DY_0J.root becomes DY_0J.root, while process-specific outputs use
@@ -315,9 +314,11 @@ if __name__ == "__main__":
         "--missing-only", action="store_true",
         help="create only process files that do not already exist",
     )
+    parser.add_argument("--datasets", help="Comma-separated exact dataset whitelist for this campaign")
     args = parser.parse_args()
 
     hadd_datasets_to_processes(
         args.era, args.input_dir, args.output_dir, args.add_derived_systs,
         args.dryRun, args.missing_only,
+        set(args.datasets.split(",")) if args.datasets else None,
     )

@@ -142,6 +142,12 @@ def datasets_for_histogram_groups(
     repository: Path, era: str, groups: list[str]
 ) -> list[str]:
     """Resolve the MC macrogroups accepted by dataset_campaign.sh."""
+    from common.dataset_utilities import production_samples
+    special = {'signals', 'region_higgs', 'region_inclusive', 'flash_backgrounds', 'FlashSim'}
+    if any(group in special for group in groups):
+        return list(dict.fromkeys(dataset for group in groups for dataset in
+            (production_samples(repository, era, group) if group in special else
+             datasets_for_histogram_groups(repository, era, [group]))))
     modern = era in {"Run3_2024", "Run3_2025", "Run3_2026"}
     static = {
         "DiTriBoson": [

@@ -195,6 +195,7 @@ def SelectJetVars(df,jet_columns,config,bTagAlgo,bTagDict,want_variations,syst_c
         out.reserve({p4_branch}.size());
         for (size_t i = 0; i < {p4_branch}.size(); ++i) {{
             bool ok = Jet_preSel{suff}[i] && !Jet_vetoMap{suff}[i]
+                      && Jet_IsOutsideHorn{suff}[i]
                       && ROOT::Math::VectorUtil::DeltaR({p4_branch}[i], mu1_p4) > 0.4
                       && ROOT::Math::VectorUtil::DeltaR({p4_branch}[i], mu2_p4) > 0.4;
             out.push_back(ok);

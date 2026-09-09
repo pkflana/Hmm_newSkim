@@ -14,6 +14,10 @@ DY:
     VBF Hard: lightsteelblue
     VBF PU1: steelblue
     VBF PU2: midnightblue
+  reweight_jsons: &dy_reweight_jsons
+    ptll_njets: reweights/dy_ptll_reweight_Aug31/Run3_2026/dy_ptll_reweight_smart.json
+    njets: reweights/dy_njets_reweight_Aug31/Run3_2026/dy_njets_reweight.json
+    jet_component: reweights/dy_012j_reweight_Aug31/Run3_2026/dy_012j_reweight.json
   datasets:
     - DYto2E_M_50_amcatnloFXFX
     - DYto2Mu_M_50_amcatnloFXFX
@@ -36,6 +40,7 @@ DYto2Mu_MLL105To160:
   color_mplhep: dodgerblue
   split_jet_components: true
   jet_component_styles: *dy_jet_component_styles
+  reweight_jsons: *dy_reweight_jsons
   datasets:
     - DYto2Mu_MLL_105to160_amcatnloFXFX
     - DYto2Mu_MLL_105to160_amcatnloFXFX_Fil_VBF

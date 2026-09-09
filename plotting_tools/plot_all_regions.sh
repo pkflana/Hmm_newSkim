@@ -140,8 +140,8 @@ append_components() {
 }
 
 for region in "${regions[@]}"; do
-    # Signal_Fit usa le produzioni ristrette a 105 < m_mumu < 160 GeV.
-    if [[ "$region" == "Signal_Fit" ]]; then
+    # Signal_Fit e H_sideband usano le produzioni ristrette a 105 < m_mumu < 160 GeV.
+    if [[ "$region" == "Signal_Fit" || "$region" == "H_sideband" ]]; then
         dy_process="DYto2Mu_MLL105To160"
         # Some older campaigns used the _combined filename, whereas the
         # current merge stage writes the canonical name without that suffix.
