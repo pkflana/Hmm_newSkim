@@ -210,7 +210,10 @@ output_directory = os.path.abspath(output_dir)
 if args.jet_horn_veto == "without":
     print("[INFO] Overriding jet horn veto to 'without' for this skim.")
     if not args.output_dir:
-        output_directory = os.path.abspath(skim_config.get("output_dir_noHorn", output_dir.rstrip("/") + "_noHornVeto"))
+        output_directory = os.path.abspath(skim_config.get(
+            "output_dir_noJetHornVeto",
+            skim_config.get("output_dir_noHorn", output_dir.rstrip("/") + "_noHornVeto"),
+        ))
 
 MAX_PARALLEL_JOBS = args.max_parallel_jobs or skim_config.get("max_parallel_jobs", 6000)
 POLL_INTERVAL = args.poll_interval or skim_config.get("poll_interval", 120)
