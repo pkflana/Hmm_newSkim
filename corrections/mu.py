@@ -337,6 +337,7 @@ def apply_muIDIso_weights(df, config, want_variations):
     requested_SFs = config.get("requested_SFs", [])
     year = era.split("_")[1]
     pt_min = pt_mins.get(year, 15)
+    pt_min_trg = 26.
     # Setup JSON paths using environment and shared functions
     period_unc = period_names[era]
     muIDEff_JsonPath = (
@@ -362,8 +363,8 @@ def apply_muIDIso_weights(df, config, want_variations):
     available_sources = (
         MediumMuIDIso_SF_Sources.get(period_unc, [])
         + MediumMuReco_SF_sources.get(period_unc, [])
-        + MediumMuTrg_SF_Sources.get(period_unc, [])
     )
+    available_trg_sf_sources = MediumMuTrg_SF_Sources.get(period_unc, [])
     # Dict mapping python scale terminology to correctionlib JSON parameters
     scale_map = {"Central": "nominal", "up": "systup", "down": "systdown"}
 
@@ -386,13 +387,13 @@ def apply_muIDIso_weights(df, config, want_variations):
 
         # genMatch_bool = f"{gen_kind} == 1 || {gen_kind} == 15" # for MC matching to status==1 muons: 1 = prompt muon (including gamma*->mu mu), 15 = muon from prompt tau, 5 = muon from b, 4 = muon from c, 3 = muon from light or unknown, 0 = unmatched
 
-        for source in available_sources:
+        for source in available_sources + available_trg_sf_sources:
             short_name = MediumMu_SF_Sources_dict.get(source)
 
             # Skip execution entirely if a target list was given and this key isn't in it
             if requested_SFs and (short_name not in requested_SFs):
                 continue
-
+            pt_min_sf = pt_min_trg if source in available_trg_sf_sources else pt_min
             # Loop through all scales to ALWAYS define them inside the RDataFrame
             for scale, cset_syst_string in scale_map.items():
                 branch_name = f"weight_mu{leg_idx}_{short_name}_{scale}"
@@ -400,7 +401,7 @@ def apply_muIDIso_weights(df, config, want_variations):
                 # Direct definition inside RDataFrame using your new C++ signature
                 df = df.Define(
                     branch_name,
-                    f"""({p4_pt} > {pt_min} && {p4_eta} < 2.4)
+                    f"""({p4_pt} > {pt_min_sf} && {p4_eta} < 2.4)
                         ? static_cast<float>(::correction::getMuonSF_simple(
                             "{source}", "{cset_syst_string}",
                             {p4_pt}, {p4_eta}, {pfRelIso04_all},

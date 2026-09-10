@@ -236,7 +236,7 @@ namespace correction {
             };
 
             // First check if matched genJet from NanoAOD is acceptable
-            if (genJetIdx >= 0) {
+            if (genJetIdx < gen_pt.size() && genJetIdx < gen_eta.size() && genJetIdx < gen_phi.size()) {
                 const float dr2 = get_dr2(phi, eta, gen_phi[genJetIdx], gen_eta[genJetIdx]);
                 if ((dr2 < m_genMatch_dR2max) && check_resolution(pt, gen_pt[genJetIdx])) {
                     return genJetIdx;
@@ -245,7 +245,7 @@ namespace correction {
 
             std::size_t igBest{gen_pt.size()};
             auto dr2Min = std::numeric_limits<float>::max();
-            for ( std::size_t ig{0}; ig != gen_pt.size(); ++ig ) {
+            for ( std::size_t ig{0}; ig < gen_pt.size() && ig < gen_eta.size() && ig < gen_phi.size(); ++ig ) {
                 const auto dr2 = get_dr2(phi, eta, gen_phi[ig], gen_eta[ig]);
                 if ( ( dr2 < dr2Min ) && ( dr2 < m_genMatch_dR2max ) ) {
                     if (check_resolution(pt, gen_pt[ig])) {

@@ -572,6 +572,9 @@ def make_campaign(kind, args):
 
 def input_overrides(c, args, no_horn=False):
     """Keep ROOT, bookkeeping JSON and manifest inputs consistent across producers."""
+    if getattr(args, 'threads', None) is not None:
+        if args.threads < 1: raise ValueError('--threads must be positive')
+        c.cpus = str(args.threads)
     suffix = '_noJetHornVeto' if no_horn else ''
     if args.input_root: c.input_root = args.input_root.rstrip('/') + suffix
     if args.manifest_root: c.manifests = args.manifest_root.rstrip('/') + suffix
@@ -751,6 +754,7 @@ def parser(kind):
     p.add_argument('action',nargs='?',default='check',choices=['check','submit','local','validate','hadd','merge-syst','merge-era','merge-eras','plot','finish','paths'] + (['run','fit','check-weights'] if kind == 'dy_weights' else ['start'] if kind == 'jet_horn_veto' else []))
     p.add_argument('--config', help='Shell campaign configuration')
     p.add_argument('--variables', help='Comma-separated histogram variables')
+    p.add_argument('--threads', type=int, help='ROOT threads per job and matching Condor CPU request')
     p.add_argument('--dy-weights', help='Custom weights: jet-component,ptll,njets (empty disables all three)')
     p.add_argument('--datasets', help='Comma-separated sample groups')
     p.add_argument('--systematics-layout', choices=['split', 'together'], default='split')
