@@ -871,21 +871,21 @@ Data_Muon:
   is_data: true
   name: "Data Muon"
   datasets:
-  # - Muon0_Run2026A_v1
+  - Muon0_Run2026A_v1
   - Muon0_Run2026B_v1
-  - Muon0_Run2026C_v1
+  # - Muon0_Run2026C_v1
   - Muon0_Run2026D_v1
-  # - Muon1_Run2026A_v1
+  - Muon1_Run2026A_v1
   - Muon1_Run2026B_v1
-  - Muon1_Run2026C_v1
+  # - Muon1_Run2026C_v1
   - Muon1_Run2026D_v1
-  # - Muon2_Run2026A_v1
+  - Muon2_Run2026A_v1
   - Muon2_Run2026B_v1
-  - Muon2_Run2026C_v1
+  # - Muon2_Run2026C_v1
   - Muon2_Run2026D_v1
-  # - Muon3_Run2026A_v1
+  - Muon3_Run2026A_v1
   - Muon3_Run2026B_v1
-  - Muon3_Run2026C_v1
+  # - Muon3_Run2026C_v1
   - Muon3_Run2026D_v1
 
 Data_MuonEG:
