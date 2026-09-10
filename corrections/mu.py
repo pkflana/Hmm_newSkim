@@ -401,7 +401,7 @@ def apply_muIDIso_weights(df, config, want_variations):
                 # Direct definition inside RDataFrame using your new C++ signature
                 df = df.Define(
                     branch_name,
-                    f"""({p4_pt} > {pt_min_sf} && {p4_eta} < 2.4)
+                    f"""({p4_pt} > {pt_min_sf} && std::abs({p4_eta}) < 2.4)
                         ? static_cast<float>(::correction::getMuonSF_simple(
                             "{source}", "{cset_syst_string}",
                             {p4_pt}, {p4_eta}, {pfRelIso04_all},

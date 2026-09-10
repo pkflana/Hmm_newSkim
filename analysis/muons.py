@@ -201,6 +201,16 @@ def ProcessMuonVariables(df,muon_columns,default_suffix,trigger_config,want_vari
 
     idx1 = "mu1_idx"
     idx2 = "mu2_idx"
+    # Store every correction stage for the same nominal muon indices.
+    # Shifted selections already have their own eta/phi branches above.
+    for pt_branch in pt_branches:
+        stage = pt_branch.removeprefix("Muon_pt_")
+        p4_branch = pt_branch.replace("Muon_pt_", "Muon_p4_", 1)
+        for i in (1, 2):
+            idx = f"mu{i}_idx"
+            for coordinate, accessor in (("eta", "Eta"), ("phi", "Phi")):
+                df = track(df, f"mu{i}_{coordinate}_{stage}",
+                           f"{idx}>=0 ? {p4_branch}[{idx}].{accessor}() : -999.f")
     for centr_br in list(pt_branches.keys()) + list(err_pt_branches.keys()):
         suffix_br = "_".join(c for c in centr_br.split("_")[1:])
         df = track(df, f"mu1_{suffix_br}", f"{idx1}>=0 ? {centr_br}[{idx1}] : -999.f")
