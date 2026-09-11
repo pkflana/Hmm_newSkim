@@ -178,6 +178,16 @@ def ProcessMuonVariables(df,muon_columns,default_suffix,trigger_config,want_vari
             for muon_col in muon_columns:
                 suffix_clean = "_".join(c for c in muon_col.split("_")[1:])
                 df = track(df, f"mu{i}_{suffix_clean}{suff}", f"{idx}>=0 ? {muon_col}[{idx}] : -999.f")
+            # Use NanoAOD's existing reco-to-gen association, including nonprompt muons.
+            gen_match = "false"
+            if "Muon_genPartIdx" in cols:
+                gen_idx = f"Muon_genPartIdx[{idx}]"
+                gen_match = f"{idx} >= 0 && {gen_idx} >= 0"
+                if "GenPart_pdgId" in cols:
+                    gen_match += f" && {gen_idx} < int(GenPart_pdgId.size()) && abs(GenPart_pdgId[{gen_idx}]) == 13"
+            elif "Muon_genPartFlav" in cols:
+                gen_match = f"{idx} >= 0 && Muon_genPartFlav[{idx}] > 0"
+            df = track(df, f"mu{i}_GenMatched{suff}", gen_match)
             for path in trigger_config.keys():
                 df = track(df, f"mu{i}_HasTriggerMatching_{path}{suff}", f"{idx} >= 0 ? (Muon_TriggerMatchingIdx_{path}{suff}[{idx}] >= 0) : false")
 
@@ -192,7 +202,6 @@ def ProcessMuonVariables(df,muon_columns,default_suffix,trigger_config,want_vari
         mass_filters.append(f"m_mumu{suff} > {lower_mass_cut} && m_mumu{suff} < {upper_mass_cut}")
 
     df = df.Filter(" && ".join(event_filters), "Exactly 2 muons")
-    df = df.Filter("Muon_charge[mu1_idx] * Muon_charge[mu2_idx] < 0", "Opposite-sign muons")
     if apply_trigger_filter and pair_trigger_filters:
         df = df.Filter(" || ".join(pair_trigger_filters), "Selected dimuon trigger matching")
     df = df.Filter(" && ".join(mass_filters), "dimuon mass cut")
