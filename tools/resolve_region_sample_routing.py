@@ -6,7 +6,7 @@ import sys
 from pathlib import Path
 
 sys.path.append(str(Path(__file__).resolve().parents[1]))
-from common.dataset_utilities import (
+from common.utilities import (
     groups_for_region,
     production_samples,
     jet_gen_component_processes,

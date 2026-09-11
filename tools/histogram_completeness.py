@@ -8,7 +8,7 @@ import re
 
 import yaml
 
-from common.dataset_utilities import resolve_dataset_selection
+from common.utilities import resolve_dataset_selection
 
 HISTOGRAM_MC_GROUPS = (
     "DiTriBoson",
@@ -142,7 +142,7 @@ def datasets_for_histogram_groups(
     repository: Path, era: str, groups: list[str]
 ) -> list[str]:
     """Resolve the MC macrogroups accepted by dataset_campaign.sh."""
-    from common.dataset_utilities import production_samples
+    from common.utilities import production_samples
     special = {'signals', 'region_higgs', 'region_inclusive', 'flash_backgrounds', 'FlashSim'}
     if any(group in special for group in groups):
         return list(dict.fromkeys(dataset for group in groups for dataset in

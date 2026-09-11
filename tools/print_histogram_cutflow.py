@@ -14,12 +14,16 @@ sys.path.insert(0, str(REPO))
 os.environ.setdefault("ANALYSIS_PATH", str(REPO))
 
 import common.utilities as utilities
-from common.histogram_rdf import finalize_histogram_dataframe
+from common.prepare_rdf import finalize_histogram_dataframe
 from common.jet_component_splitting import define_jet_gen_matching
-from common.manifest_utilities import read_manifest
-from common.rdf_utilities import GetRdfForDataset, get_root_files, get_segmentation_dict
-from common.utilities import initialize_root_runtime
-from common.validation_utilities import validate_file
+from common.utilities import (
+    read_manifest,
+    list_root_files,
+    get_segmentation_dict,
+    initialize_root_runtime,
+    validate_file,
+)
+from common.prepare_rdf import GetRdfForDataset
 
 ROOT.gROOT.SetBatch(True)
 initialize_root_runtime()
@@ -48,7 +52,7 @@ def resolve_inputs(args):
         return manifest["valid_root_files"], manifest["valid_json_files"]
     if not args.root_input or not args.json_input:
         raise ValueError("Pass --input-manifest or both --root-input and --json-input")
-    root_files = get_root_files(args.root_input)
+    root_files = list_root_files(args.root_input)
     results = [validate_file((path, "Events")) for path in root_files]
     invalid = [(path, reason) for path, valid, reason in results if not valid]
     if invalid:

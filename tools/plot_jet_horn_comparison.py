@@ -13,7 +13,7 @@ import numpy as np
 import uproot
 
 import common.utilities as utilities
-from common.rdf_utilities import findBinEntry, findNewBins, getNewBins
+from common.utilities import findBinEntry, findNewBins, getNewBins
 
 
 DEFAULT_BASE = Path("/eos/user/v/vdamante/H_mumu/campaigns/JetHornVetoComparison")

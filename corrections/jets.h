@@ -329,9 +329,10 @@ namespace correction {
                     const float pt_raw = Jet_pt[i] * raw_sf;
                     const float mass_raw = Jet_mass[i] * raw_sf;
 
+                    // Work around the low-pT residual JEC issue in 2024 data only.
                     const bool applyResidualPtFloor =
-                        ((year_ == "2024" ||
-                          ((year_ == "2025" || year_ == "2026") && apply_horn_mitigation)) &&
+                        (is_data_ && year_ == "2024" &&
+                        apply_horn_mitigation &&
                         abs_eta > 2.f &&
                         abs_eta < 2.5f);
 

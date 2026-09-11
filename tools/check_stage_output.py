@@ -9,7 +9,7 @@ REPO = Path(__file__).resolve().parents[1]
 if str(REPO) not in sys.path:
     sys.path.insert(0, str(REPO))
 
-from common.validation_utilities import stage_output_complete
+from common.utilities import stage_output_complete
 
 
 def main():

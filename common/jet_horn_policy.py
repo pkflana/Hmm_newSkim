@@ -1,8 +1,8 @@
-"""Resolve JER horn mitigation from the effective skim selection."""
+"""Resolve jet horn mitigation from the effective skim selection."""
 
 
 def horn_mitigation_enabled(era, selections):
-    if era not in ("Run3_2025", "Run3_2026", "2025", "2026"):
+    if era not in ("Run3_2024", "Run3_2025", "Run3_2026", "2024", "2025", "2026"):
         return True
     expression = "".join(str(selections.get("jet_horn_veto_expr", "false")).split())
     # Both forms are used to disable the veto in configurations/CLI overrides.

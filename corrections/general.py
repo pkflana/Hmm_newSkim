@@ -196,7 +196,7 @@ def apply_corrections(df, config, dataset_cfg, dataset_name, want_variations_fro
     is_data = dataset_cfg.get("is_data", False)
     want_variations = config.get("want_variations", False) or want_variations_from_skim
     # Compatibility patch for missing branches in Flashsim samples.
-    from .flashsim_patch import apply_flashsim_patch
+    from common.flashsim_patch import apply_flashsim_patch
     df = apply_flashsim_patch(df, dataset_name, is_data)
     # muons ScaRe
     from .muon_scare import apply_muon_scare

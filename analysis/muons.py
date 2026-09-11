@@ -135,7 +135,7 @@ def ApplyMuonTriggerMatching(df, trigger_config, apply_filter, want_variations, 
         df = df.Filter(" || ".join(filters), "Trigger matching for " + "__".join(trigger_config.keys()))
     return df, cols_to_save
 
-def ProcessMuonVariables(df,muon_columns,default_suffix,trigger_config,want_variations,pt_min,lower_mass_cut,upper_mass_cut,syst_cfg):
+def ProcessMuonVariables(df,muon_columns,default_suffix,trigger_config,want_variations,pt_min,lower_mass_cut,upper_mass_cut,syst_cfg,apply_trigger_filter=True):
     cols = _column_names(df)
     selection_pt = [f"Muon_pt_{default_suffix}"]
     syst_suffixes = [""]
@@ -153,6 +153,7 @@ def ProcessMuonVariables(df,muon_columns,default_suffix,trigger_config,want_vari
 
     event_filters = []
     mass_filters = []
+    pair_trigger_filters = []
     pt_branches,err_pt_branches = GetPtConfigurations(want_variations)
     for suff in syst_suffixes:
         is_nominal = (suff == "")
@@ -180,11 +181,20 @@ def ProcessMuonVariables(df,muon_columns,default_suffix,trigger_config,want_vari
             for path in trigger_config.keys():
                 df = track(df, f"mu{i}_HasTriggerMatching_{path}{suff}", f"{idx} >= 0 ? (Muon_TriggerMatchingIdx_{path}{suff}[{idx}] >= 0) : false")
 
+        for path in trigger_config:
+            pair_trigger_filters.append(
+                f"(Event_HasTriggerMatching_{path}{suff} && "
+                f"(mu1_HasTriggerMatching_{path}{suff} || mu2_HasTriggerMatching_{path}{suff}))"
+            )
+
         p4 = f"(mu1_p4{suff} + mu2_p4{suff})"
         df = track(df, f"m_mumu{suff}", f"{p4}.M()")
         mass_filters.append(f"m_mumu{suff} > {lower_mass_cut} && m_mumu{suff} < {upper_mass_cut}")
 
     df = df.Filter(" && ".join(event_filters), "Exactly 2 muons")
+    df = df.Filter("Muon_charge[mu1_idx] * Muon_charge[mu2_idx] < 0", "Opposite-sign muons")
+    if apply_trigger_filter and pair_trigger_filters:
+        df = df.Filter(" || ".join(pair_trigger_filters), "Selected dimuon trigger matching")
     df = df.Filter(" && ".join(mass_filters), "dimuon mass cut")
 
     # These observables are evaluated for the nominally selected muons. The

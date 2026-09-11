@@ -27,7 +27,7 @@ plt.style.use(hep.style.CMS)
 
 import common.utilities as utilities
 from common.apply_custom_weights import DY_AMCATNLO_NORMALIZATION
-from common.rdf_utilities import RebinHisto, findBinEntry, findNewBins, getNewBins
+from common.utilities import RebinHisto, findBinEntry, findNewBins, getNewBins
 
 
 DEFAULT_CATEGORIES = ["ggF_0J", "ggF_1J", "ggF_ge2J", "VBF_ge2J"]

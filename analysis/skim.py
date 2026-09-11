@@ -133,11 +133,12 @@ df, trigger_cols = ApplyMuonTriggerMatching(df, trigger_config, sel_config.get("
 cols_to_save.extend(trigger_cols)
 # dimuon system definitions
 muon_cols_initial = utilities.GetObservablesCols("Muon", is_data, nano_version)
-from corrections.flashsim_patch import patch_flashsim_muon_columns
+from common.flashsim_patch import patch_flashsim_muon_columns,patch_flashsim_redefine_cols
 muon_cols_initial = patch_flashsim_muon_columns(df, muon_cols_initial, args.dataset_name, is_data)
-df, new_muon_cols =  ProcessMuonVariables(df,muon_cols_initial,muon_pt_default_suffix,trigger_config,want_variations,sel_config.get("muon_pt_min", 15.0),sel_config.get("dimuon_mass_min", 50.0),sel_config.get("dimuon_mass_max", 200.0),systematics_cfg)
+df, new_muon_cols =  ProcessMuonVariables(df,muon_cols_initial,muon_pt_default_suffix,trigger_config,want_variations,sel_config.get("muon_pt_min", 10.0),sel_config.get("dimuon_mass_min", 50.0),sel_config.get("dimuon_mass_max", 200.0),systematics_cfg,apply_trigger_filter=sel_config.get("apply_trg_filter", True))
 cols_to_save.extend(new_muon_cols)
 # electron veto
+df = patch_flashsim_redefine_cols(df, args.dataset_name, is_data)
 df = ApplyElectronVeto(df)
 # # muon id/iso weights definitions
 if not is_data:
@@ -145,11 +146,11 @@ if not is_data:
     df, mu_weights = apply_muIDIso_weights(df, config, want_variations)
     cols_to_save.extend(mu_weights)
 # # extra lepton inclusion
-# df, extra_lep_cols = ProcessExtraMuonVariables(df,muon_cols_initial,muon_pt_default_suffix,trigger_config,want_variations,sel_config.get("muon_pt_min", 15.0))
+# df, extra_lep_cols = ProcessExtraMuonVariables(df,muon_cols_initial,muon_pt_default_suffix,trigger_config,want_variations,sel_config.get("muon_pt_min", 10.0))
 # cols_to_save.extend(extra_lep_cols)
 # # muon selection
-# df,vars_sel = DefineMuonSelection(df,sel_config,want_variations,systematics_cfg)
-# cols_to_save.extend(vars_sel)
+df,vars_sel = DefineMuonSelection(df,sel_config,want_variations,systematics_cfg)
+cols_to_save.extend(vars_sel)
 
 # ## jet definitions ##
 from analysis.jets import ProcessAllJetVariables, SelectJetVars,SelectVBFJets

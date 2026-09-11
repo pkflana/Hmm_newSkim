@@ -11,7 +11,7 @@ REPO = Path(__file__).resolve().parents[1]
 if str(REPO) not in sys.path:
     sys.path.insert(0, str(REPO))
 
-from common.dataset_utilities import resolve_dataset_selection
+from common.utilities import resolve_dataset_selection
 
 
 def main():

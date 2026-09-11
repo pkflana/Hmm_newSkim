@@ -1,6 +1,6 @@
 
 muon_pt_default_suffix: FSR_corr
-muon_pt_min: 15.0
+muon_pt_min: 10.0
 dimuon_mass_min: 50
 dimuon_mass_max: 200
 apply_trg_filter: True
@@ -29,7 +29,7 @@ masses_regions:
       expression: "m_mumu{mu_suff} > 60 && m_mumu{mu_suff} < 150"
       store: True
 
-muon_presel_pt_cut: 15.0
+muon_presel_pt_cut: 10.0
 dimuon_m_cut: 50.0
 
 # =============================================================================
@@ -37,7 +37,7 @@ dimuon_m_cut: 50.0
 # =============================================================================
 muons_selection:
   muon_pre_sel_check:
-    expression: "mu1_pt{mu_suff} > 15 && abs(mu1_eta) < 2.4 && mu2_pt{mu_suff} > 15 && abs(mu2_eta) < 2.4"
+    expression: "mu1_pt_raw_noCorr > 10 && abs(mu1_eta_raw_noCorr) < 2.4 && mu2_pt_raw_noCorr > 10 && abs(mu2_eta_raw_noCorr) < 2.4"
     store: True
   muons_OS:
     expression: "mu1_charge{mu_suff} * mu2_charge{mu_suff} < 0"
@@ -62,10 +62,16 @@ muons_selection:
     store: False
   mu2_pt_g20:
     expression: "mu2_pt{mu_suff} > 20"
-    store: False
+    store: True
+  mu1_pt_g26:
+    expression: "mu1_pt{mu_suff} > 26"
+    store: True
   mu_pt_sel:
-    expression: "mu1_pt_g20{mu_suff} && mu2_pt_g20{mu_suff}"
-    store: False
+    expression: "mu1_pt_g26{mu_suff} && mu2_pt_g20{mu_suff}"
+    store: True
+  mu_pt_trg_sel:
+    expression: "mu_pt_sel{mu_suff} && muons_trigger{mu_suff}"
+    store: True
   mu1_ML:
     expression: "mu1_pfIsoId{mu_suff} >= 2 && mu1_mediumId{mu_suff}"
     store: False

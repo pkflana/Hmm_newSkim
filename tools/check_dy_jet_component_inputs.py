@@ -9,7 +9,7 @@ from pathlib import Path
 import ROOT
 
 sys.path.append(str(Path(__file__).resolve().parents[1]))
-from common.dataset_utilities import (
+from common.utilities import (
     jet_gen_component_processes,
     load_routing,
     resolve_dataset_selection,
