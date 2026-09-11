@@ -26,7 +26,7 @@ if len(sys.argv) > 1 and sys.argv[1] == "skim":
     del sys.argv[1]
 
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
-from common.skim_utilities import chunk_files_by_size
+from common.utilities import chunk_files_by_size
 
 
 parser = argparse.ArgumentParser(

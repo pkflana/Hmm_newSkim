@@ -1,9 +1,5 @@
-import math
+"""Shared event trigger scale factors and their variations."""
 import ROOT
-
-if __name__ == "__main__":
-    sys.path.append(os.environ["ANALYSIS_PATH"])
-
 
 ROOT.gInterpreter.Declare("""
     float getCorrectSingleLepWeight(const float& lep1_pt, const float& lep1_eta, const bool& lep1_matching, const float& lep1_weight,const float& lep2_pt, const float& lep2_eta, const bool& lep2_matching, const float& lep2_weight){

@@ -14,7 +14,7 @@ import numpy as np
 import ROOT
 
 from common.jet_component_splitting import pu_hard_component_style
-from common.rdf_utilities import findBinEntry
+from common.utilities import findBinEntry
 
 plt.style.use(hep.style.CMS)
 

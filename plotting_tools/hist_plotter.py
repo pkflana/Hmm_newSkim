@@ -38,8 +38,14 @@ if __name__ == "__main__":
 import common.utilities as utilities
 from common.jet_component_splitting import pu_hard_component_style
 from test.rew_patch import root_file_has_patch
-from common.utilities import initialize_root_runtime
-from common.rdf_utilities import RebinHisto, findBinEntry, findNewBins, getNewBins,is_valid_histogram
+from common.utilities import (
+    initialize_root_runtime,
+    RebinHisto,
+    findBinEntry,
+    findNewBins,
+    getNewBins,
+    is_valid_histogram,
+)
 from plotting_tools.plotting_functions import make_stacked_plot
 
 initialize_root_runtime()

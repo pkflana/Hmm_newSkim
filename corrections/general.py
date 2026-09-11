@@ -195,6 +195,9 @@ def apply_golden_json(df, lumiFile_path):
 def apply_corrections(df, config, dataset_cfg, dataset_name, want_variations_from_skim=False):
     is_data = dataset_cfg.get("is_data", False)
     want_variations = config.get("want_variations", False) or want_variations_from_skim
+    # Compatibility patch for missing branches in Flashsim samples.
+    from .flashsim_patch import apply_flashsim_patch
+    df = apply_flashsim_patch(df, dataset_name, is_data)
     # muons ScaRe
     from .muon_scare import apply_muon_scare
     df = apply_muon_scare(df, config, dataset_cfg,want_variations)

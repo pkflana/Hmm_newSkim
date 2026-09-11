@@ -111,7 +111,7 @@ config["apply_jet_horn_mitigation"] = horn_mitigation_enabled(args.era, sel_conf
 df = apply_corrections(df, config, dataset_cfg, args.dataset_name, want_variations)
 
 # MET FLAGS
-if "MET_flags" in config:
+if "MET_flags" in config and 'Flag_goodVertices' in df.GetColumnNames():
     from analysis.other import applyMETFlags
     df = applyMETFlags(df, config, is_data)
 
@@ -133,6 +133,8 @@ df, trigger_cols = ApplyMuonTriggerMatching(df, trigger_config, sel_config.get("
 cols_to_save.extend(trigger_cols)
 # dimuon system definitions
 muon_cols_initial = utilities.GetObservablesCols("Muon", is_data, nano_version)
+from corrections.flashsim_patch import patch_flashsim_muon_columns
+muon_cols_initial = patch_flashsim_muon_columns(df, muon_cols_initial, args.dataset_name, is_data)
 df, new_muon_cols =  ProcessMuonVariables(df,muon_cols_initial,muon_pt_default_suffix,trigger_config,want_variations,sel_config.get("muon_pt_min", 15.0),sel_config.get("dimuon_mass_min", 50.0),sel_config.get("dimuon_mass_max", 200.0),systematics_cfg)
 cols_to_save.extend(new_muon_cols)
 # electron veto

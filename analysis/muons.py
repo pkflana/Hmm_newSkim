@@ -5,15 +5,7 @@ import os
 if __name__ == "__main__":
     sys.path.append(os.environ["ANALYSIS_PATH"])
 
-from common.utilities import *
-
-
-def _column_names(df): return {str(col) for col in df.GetColumnNames()}
-
-
-def _define_if_missing(df, name, expression):
-    if name in _column_names(df): return df
-    return df.Define(name, expression)
+from common.utilities import _column_names, _define_if_missing
 
 
 def _declare_muon_helpers():

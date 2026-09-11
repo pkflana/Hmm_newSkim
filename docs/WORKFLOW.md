@@ -61,7 +61,9 @@ Run with `--submit` when the generated submit files look right.
 
 - `common/scripts/dataset_campaign.sh`: dataset groups and local/Condor campaign handling.
 - `htcondor/run_stage_condor.sh`: common Condor worker for validation, central histograms, and shifted histograms.
-- `common/manifest_utilities.py`: manifest schema, resolution, and atomic writes.
-- `common/rdf_utilities.py`: shared RDF construction and histogram helpers.
-- `common/histogram_rdf.py`: shared RDF transformations and weight composition.
+- `common/utilities.py`: configuration, files, manifests, validation, ROOT runtime,
+  and histogram binning helpers shared by all stages.
+- `common/prepare_rdf.py`: RDF construction, transformations, region views,
+  and weight composition.
+- `campaigns/workflow.py`: campaign orchestration behind the shell launchers.
 - `common/dnn_application.py`: shared DNN inference.

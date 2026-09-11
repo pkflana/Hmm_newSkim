@@ -30,16 +30,16 @@ from common.jet_component_splitting import (
     jet_components_enabled_for_dataset,
     variable_for_component,
 )
-from common.manifest_utilities import read_manifest
-from common.systematic_correlations import nuisance_name as correlated_nuisance_name
-from common.utilities import initialize_root_runtime
-from common.validation_utilities import validate_file
-from common.rdf_utilities import (
+from common.utilities import (
+    read_manifest,
+    initialize_root_runtime,
+    validate_file,
     GetModel,
     findBinEntry,
-    get_root_files,
+    list_root_files,
     get_segmentation_dict,
 )
+from common.systematic_correlations import nuisance_name as correlated_nuisance_name
 from corrections.qcd_scale import get_qcd_scale_points
 initialize_root_runtime()
 _METADATA_CACHE = {}
@@ -718,7 +718,7 @@ def produce_histograms(args_tuple):
         rdf_base = prepared.get("inclusive")
         profile_log(args.dataset_name, "RDataFrame preparation", rdf_started)
         booking_setup_started = time.perf_counter()
-        from common.dataset_utilities import dataset_region_allowed
+        from common.utilities import dataset_region_allowed
         stored_regions = [
             name
             for name, info in masses_regions.items()
@@ -1361,7 +1361,7 @@ def main(argv=None, *, stage_settings=None):
                 if line.strip() and not line.lstrip().startswith("#")
             ]
     else:
-        all_root_files = get_root_files(args.root_input)
+        all_root_files = list_root_files(args.root_input)
     if not args.input_manifest:
         validation_results = [validate_file((path, "Events")) for path in all_root_files]
         invalid_inputs = [(path, reason) for path, is_valid, reason in validation_results if not is_valid]

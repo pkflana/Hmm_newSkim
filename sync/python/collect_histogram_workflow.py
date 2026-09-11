@@ -32,13 +32,13 @@ def require(path: Path, patterns: list[str]) -> None:
 
 
 def validate(repo: Path) -> None:
-    require(repo / "common/histogram_rdf.py", [
+    require(repo / "common/prepare_rdf.py", [
         r"DefineHistogramSelections\(", r"apply_custom_weights\(",
+        r"GetRdfForDataset\(", r"define_shifted_jet_observables\(",
+        r"finalize_histogram_dataframe\(",
     ])
     require(repo / "histograms/hist_maker.py", [
-        r"GetRdfForDataset\(", r"define_shifted_jet_observables\(",
-        r"finalize_histogram_dataframe\(", r"rdf_base\.Filter\(\s*mass_column",
-        r"region_rdf\.Filter\(category_column\)", r"Histo1D\(", r"Histo2D\(",
+        r"prepare_rdf\(", r"prepare_region_dataframes\(", r"Histo1D\(", r"Histo2D\(",
     ])
     require(repo / "common/add_vars.py", [
         r'section_suffix_key\s*=.*?"masses_regions".*?"muons_selection".*?"jets_selection".*?"categories"',

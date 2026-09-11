@@ -91,7 +91,7 @@ in `histograms/dnn_histogram_production.py`. `hist_maker.py` only orchestrates
 dataframes and histogram booking.
 
 Validation manifests are written, read, and resolved atomically through
-`common/manifest_utilities.py`.
+`common/utilities.py`.
 
 ### `plotting_tools/hist_plotter.py`
 
